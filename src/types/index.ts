@@ -49,7 +49,9 @@ export interface ChannelDefinition {
 export interface FixtureInstance {
   id: string;
   name: string;
+  description?: string;
   definition: FixtureDefinition;
+  mode?: FixtureMode;
   project: Project;
   universe: number;
   startChannel: number;
@@ -166,10 +168,22 @@ export interface CreateProjectInput {
 
 export interface CreateFixtureInstanceInput {
   name: string;
+  description?: string;
   definitionId: string;
+  modeId?: string;
   projectId: string;
   universe: number;
   startChannel: number;
+  tags?: string[];
+}
+
+export interface UpdateFixtureInstanceInput {
+  name?: string;
+  description?: string;
+  definitionId?: string;
+  modeId?: string;
+  universe?: number;
+  startChannel?: number;
   tags?: string[];
 }
 
@@ -178,6 +192,12 @@ export interface CreateSceneInput {
   description?: string;
   projectId: string;
   fixtureValues: FixtureValueInput[];
+}
+
+export interface UpdateSceneInput {
+  name?: string;
+  description?: string;
+  fixtureValues?: FixtureValueInput[];
 }
 
 export interface FixtureValueInput {
