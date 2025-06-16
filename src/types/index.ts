@@ -50,13 +50,35 @@ export interface FixtureInstance {
   id: string;
   name: string;
   description?: string;
-  definition: FixtureDefinition;
-  mode?: FixtureMode;
+  
+  // Flattened fixture definition info
+  definitionId: string;
+  manufacturer: string;
+  model: string;
+  type: FixtureType;
+  
+  // Flattened mode info
+  modeName: string;
+  channelCount: number;
+  channels: InstanceChannel[];
+  
+  // DMX configuration
   project: Project;
   universe: number;
   startChannel: number;
   tags: string[];
   createdAt: string;
+  
+}
+
+export interface InstanceChannel {
+  id: string;
+  offset: number;
+  name: string;
+  type: ChannelType;
+  minValue: number;
+  maxValue: number;
+  defaultValue: number;
 }
 
 export interface Scene {
@@ -72,12 +94,7 @@ export interface Scene {
 export interface FixtureValue {
   id: string;
   fixture: FixtureInstance;
-  channelValues: ChannelValue[];
-}
-
-export interface ChannelValue {
-  channel: ChannelDefinition;
-  value: number;
+  channelValues: number[]; // Array of 0-255 values, index = channel offset
 }
 
 export interface CueList {
@@ -202,12 +219,7 @@ export interface UpdateSceneInput {
 
 export interface FixtureValueInput {
   fixtureId: string;
-  channelValues: ChannelValueInput[];
-}
-
-export interface ChannelValueInput {
-  channelId: string;
-  value: number;
+  channelValues: number[]; // Array of 0-255 values, index = channel offset
 }
 
 export interface FixtureDefinitionFilter {

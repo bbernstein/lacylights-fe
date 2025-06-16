@@ -110,7 +110,7 @@ export default function FixturesPage() {
   };
 
   const handleDuplicateFixture = (fixture: FixtureInstance) => {
-    const channelCount = fixture.mode?.channelCount || 1;
+    const channelCount = fixture.channelCount || 1;
     const nextChannel = findNextAvailableChannel(fixture.universe, channelCount);
     
     if (nextChannel === -1) {
@@ -119,14 +119,14 @@ export default function FixturesPage() {
     }
 
     // Generate default name format: "Manufacturer Model - U#:startChannel"
-    const newName = `${fixture.definition.manufacturer} ${fixture.definition.model} - U${fixture.universe}:${nextChannel}`;
+    const newName = `${fixture.manufacturer} ${fixture.model} - U${fixture.universe}:${nextChannel}`;
 
     duplicateFixture({
       variables: {
         input: {
           name: newName,
-          definitionId: fixture.definition.id,
-          modeId: fixture.mode?.id || null,
+          definitionId: fixture.definitionId,
+          // Note: modeId not needed with flattened structure
           projectId: currentProject?.id,
           universe: fixture.universe,
           startChannel: nextChannel,
@@ -219,17 +219,10 @@ export default function FixturesPage() {
                     {fixture.name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {fixture.definition.manufacturer} {fixture.definition.model}
+                    {fixture.manufacturer} {fixture.model}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {fixture.mode
-                      ? `${fixture.mode.name} (${fixture.mode.channelCount} ch)`
-                      : fixture.definition.modes.length === 1
-                        ? `${fixture.definition.modes[0].name} (${fixture.definition.modes[0].channelCount} ch)`
-                        : fixture.definition.modes.length > 1
-                          ? `No mode selected (${fixture.definition.modes.length} available)`
-                          : 'No modes'
-                    }
+                    {fixture.modeName} ({fixture.channelCount} ch)
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {fixture.universe}

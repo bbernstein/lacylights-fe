@@ -20,29 +20,60 @@ interface CueRowProps {
 }
 
 function CueRow({ cue, index, isActive, isNext, isPrevious, fadeProgress }: CueRowProps) {
+  // Set row background colors with better contrast
+  let rowBgClass = '';
+  if (isActive) {
+    rowBgClass = 'bg-green-50 dark:bg-green-900/40';
+  } else if (isNext) {
+    rowBgClass = 'bg-blue-50 dark:bg-blue-900/30';
+  } else if (isPrevious) {
+    rowBgClass = 'bg-gray-50 dark:bg-gray-800/50';
+  } else {
+    rowBgClass = 'bg-white dark:bg-gray-800';
+  }
+
   return (
-    <tr className={`
-      ${isActive ? 'bg-green-100 dark:bg-green-900/30' : ''}
-      ${isNext ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
-      ${isPrevious ? 'bg-gray-100 dark:bg-gray-700/30' : ''}
-      transition-colors duration-300
-    `}>
-      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+    <tr className={`${rowBgClass} transition-colors duration-300 border-b border-gray-200 dark:border-gray-700`}>
+      <td className={`px-4 py-3 text-sm font-medium ${
+        isActive ? 'text-gray-900 dark:text-white' : 
+        isNext ? 'text-gray-900 dark:text-white' : 
+        'text-gray-800 dark:text-gray-100'
+      }`}>
         {cue.cueNumber}
       </td>
-      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+      <td className={`px-4 py-3 text-sm font-medium ${
+        isActive ? 'text-gray-900 dark:text-white' : 
+        isNext ? 'text-gray-900 dark:text-white' : 
+        'text-gray-800 dark:text-gray-100'
+      }`}>
         {cue.name}
       </td>
-      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+      <td className={`px-4 py-3 text-sm ${
+        isActive ? 'text-gray-800 dark:text-gray-100' : 
+        isNext ? 'text-gray-800 dark:text-gray-100' : 
+        'text-gray-700 dark:text-gray-200'
+      }`}>
         {cue.scene.name}
       </td>
-      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+      <td className={`px-4 py-3 text-sm ${
+        isActive ? 'text-gray-800 dark:text-gray-100' : 
+        isNext ? 'text-gray-800 dark:text-gray-100' : 
+        'text-gray-700 dark:text-gray-200'
+      }`}>
         {cue.fadeInTime}s
       </td>
-      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+      <td className={`px-4 py-3 text-sm ${
+        isActive ? 'text-gray-800 dark:text-gray-100' : 
+        isNext ? 'text-gray-800 dark:text-gray-100' : 
+        'text-gray-700 dark:text-gray-200'
+      }`}>
         {cue.fadeOutTime}s
       </td>
-      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+      <td className={`px-4 py-3 text-sm ${
+        isActive ? 'text-gray-800 dark:text-gray-100' : 
+        isNext ? 'text-gray-800 dark:text-gray-100' : 
+        'text-gray-700 dark:text-gray-200'
+      }`}>
         {cue.followTime || '-'}
       </td>
       <td className="px-4 py-3">
@@ -262,21 +293,21 @@ export default function CueListPlaybackView({ cueListId, onClose }: CueListPlayb
       </div>
 
       {/* Cue List Table */}
-      <div className="flex-1 overflow-y-auto bg-gray-900 p-6">
-        <div className="bg-gray-800 rounded-lg overflow-hidden">
+      <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-6">
+        <div className="bg-white dark:bg-gray-800/90 rounded-lg overflow-hidden shadow-lg">
           <table className="min-w-full">
-            <thead className="bg-gray-700">
+            <thead className="bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">Cue #</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">Name</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">Scene</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">In</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">Out</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">Follow</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Cue #</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Scene</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">In</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Out</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Follow</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-700">
+            <tbody className="bg-white dark:bg-gray-800">
               {cues.map((cue, index) => (
                 <CueRow
                   key={cue.id}

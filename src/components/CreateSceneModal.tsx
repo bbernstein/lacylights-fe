@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { CREATE_SCENE } from '@/graphql/scenes';
 import { GET_PROJECT_FIXTURES } from '@/graphql/fixtures';
+import { InstanceChannel } from '@/types';
 
 interface CreateSceneModalProps {
   isOpen: boolean;
@@ -40,30 +41,16 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
 
     // Create scene with all fixtures at their default values
     // For fixtures with modes, we need to get the channels from the mode, not the definition
+    // Create scene with all fixtures at their default values
+    // Now we can directly use the fixture's channels!
     const fixtureValues = fixtures.map((fixture) => {
-      // Get channels based on the fixture's mode
-      let channels = [];
-      
-      if (fixture.mode) {
-        // If fixture has a mode selected, use the mode's channels
-        const modeChannels = fixture.mode.channels || [];
-        channels = modeChannels.map((modeChannel: any) => modeChannel.channel);
-      } else if (fixture.definition.modes.length === 1) {
-        // If only one mode exists, use its channels
-        const singleMode = fixture.definition.modes[0];
-        const modeChannels = singleMode.channels || [];
-        channels = modeChannels.map((modeChannel: any) => modeChannel.channel);
-      } else {
-        // Fallback to definition channels (this shouldn't happen with proper mode selection)
-        channels = fixture.definition.channels || [];
-      }
+      // Direct access to channels - no more complex logic!
+      const channels = fixture.channels || [];
+      const channelValues = channels.map((channel: InstanceChannel) => channel.defaultValue || 0);
       
       return {
         fixtureId: fixture.id,
-        channelValues: channels.map((channel: any) => ({
-          channelId: channel.id,
-          value: channel.defaultValue || 0,
-        })),
+        channelValues,
       };
     });
 
@@ -160,7 +147,7 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
                   <div className="max-h-32 overflow-y-auto">
                     {fixtures.map((fixture) => (
                       <div key={fixture.id} className="text-xs text-gray-600 dark:text-gray-400 py-1">
-                        {fixture.name} - {fixture.definition.manufacturer} {fixture.definition.model}
+                        {fixture.name} - {fixture.manufacturer} {fixture.model}
                       </div>
                     ))}
                   </div>

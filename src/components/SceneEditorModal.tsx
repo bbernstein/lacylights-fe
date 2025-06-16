@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_SCENE, UPDATE_SCENE } from '@/graphql/scenes';
-import { Scene, ChannelValue, ChannelType } from '@/types';
+import { ChannelType, InstanceChannel } from '@/types';
 
 interface SceneEditorModalProps {
   isOpen: boolean;
@@ -13,15 +13,16 @@ interface SceneEditorModalProps {
 }
 
 interface ChannelSliderProps {
-  channelValue: ChannelValue;
+  channel: InstanceChannel;
+  value: number;
   fixtureId: string;
-  fixtureName: string;
-  onValueChange: (fixtureId: string, channelId: string, value: number) => void;
+  channelIndex: number;
+  onValueChange: (fixtureId: string, channelIndex: number, value: number) => void;
 }
 
 interface ColorSwatchProps {
-  channelValues: ChannelValue[];
-  getChannelValue: (channelId: string) => number;
+  channels: InstanceChannel[];
+  getChannelValue: (channelIndex: number) => number;
 }
 
 // Color channels that contribute to the fixture's output color
@@ -34,12 +35,12 @@ const COLOR_CHANNEL_TYPES = [
   ChannelType.UV,
 ];
 
-function ColorSwatch({ channelValues, getChannelValue }: ColorSwatchProps) {
+function ColorSwatch({ channels, getChannelValue }: ColorSwatchProps) {
   const colorChannels = useMemo(() => 
-    channelValues.filter(cv => 
-      COLOR_CHANNEL_TYPES.includes(cv.channel.type as ChannelType)
+    channels.filter(channel => 
+      COLOR_CHANNEL_TYPES.includes(channel.type as ChannelType)
     ),
-    [channelValues]
+    [channels]
   );
 
   const color = useMemo(() => {
@@ -49,17 +50,19 @@ function ColorSwatch({ channelValues, getChannelValue }: ColorSwatchProps) {
     let intensity = 1;
 
     // Check for intensity channel
-    const intensityChannel = channelValues.find(cv => cv.channel.type === ChannelType.INTENSITY);
+    const intensityChannel = channels.find(channel => channel.type === ChannelType.INTENSITY);
     if (intensityChannel) {
       hasIntensity = true;
-      intensity = getChannelValue(intensityChannel.channel.id) / 255;
+      const intensityIndex = channels.indexOf(intensityChannel);
+      intensity = getChannelValue(intensityIndex) / 255;
     }
 
-    colorChannels.forEach(cv => {
-      const value = getChannelValue(cv.channel.id);
+    colorChannels.forEach(channel => {
+      const channelIndex = channels.indexOf(channel);
+      const value = getChannelValue(channelIndex);
       const normalizedValue = value / 255;
 
-      switch (cv.channel.type) {
+      switch (channel.type) {
         case ChannelType.RED:
           r = Math.max(r, normalizedValue);
           break;
@@ -103,11 +106,14 @@ function ColorSwatch({ channelValues, getChannelValue }: ColorSwatchProps) {
     };
 
     return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
-  }, [colorChannels, channelValues, getChannelValue]);
+  }, [colorChannels, channels, getChannelValue]);
 
   if (!color) return null;
 
-  const brightness = colorChannels.some(cv => getChannelValue(cv.channel.id) > 0);
+  const brightness = colorChannels.some(channel => {
+    const channelIndex = channels.indexOf(channel);
+    return getChannelValue(channelIndex) > 0;
+  });
 
   return (
     <div className="flex items-center space-x-2 px-2 py-1">
@@ -125,8 +131,7 @@ function ColorSwatch({ channelValues, getChannelValue }: ColorSwatchProps) {
   );
 }
 
-function ChannelSlider({ channelValue, fixtureId, fixtureName, onValueChange }: ChannelSliderProps) {
-  const { channel, value } = channelValue;
+function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange }: ChannelSliderProps) {
   const [localValue, setLocalValue] = useState(value);
   
   useEffect(() => {
@@ -136,14 +141,14 @@ function ChannelSlider({ channelValue, fixtureId, fixtureName, onValueChange }: 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = parseInt(e.target.value);
     setLocalValue(newValue);
-    onValueChange(fixtureId, channel.id, newValue);
+    onValueChange(fixtureId, channelIndex, newValue);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = parseInt(e.target.value) || 0;
     const clampedValue = Math.max(channel.minValue || 0, Math.min(channel.maxValue || 255, newValue));
     setLocalValue(clampedValue);
-    onValueChange(fixtureId, channel.id, clampedValue);
+    onValueChange(fixtureId, channelIndex, clampedValue);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -159,7 +164,7 @@ function ChannelSlider({ channelValue, fixtureId, fixtureName, onValueChange }: 
     
     if (newValue !== localValue) {
       setLocalValue(newValue);
-      onValueChange(fixtureId, channel.id, newValue);
+      onValueChange(fixtureId, channelIndex, newValue);
     }
   };
   
@@ -218,8 +223,8 @@ function ChannelSlider({ channelValue, fixtureId, fixtureName, onValueChange }: 
 }
 
 export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpdated }: SceneEditorModalProps) {
-  // Use a composite key: fixtureId-channelId to ensure uniqueness
-  const [channelValues, setChannelValues] = useState<Map<string, number>>(new Map());
+  // Use a composite key: fixtureId-channelIndex to ensure uniqueness
+  const [channelValues, setChannelValues] = useState<Map<string, number[]>>(new Map());
   const [sceneName, setSceneName] = useState('');
   const [sceneDescription, setSceneDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -233,13 +238,10 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
         setSceneName(data.scene.name);
         setSceneDescription(data.scene.description || '');
         
-        // Initialize channel values map with composite keys
-        const values = new Map<string, number>();
+        // Initialize channel values map with fixture arrays
+        const values = new Map<string, number[]>();
         data.scene.fixtureValues.forEach((fixtureValue: any) => {
-          fixtureValue.channelValues.forEach((channelValue: any) => {
-            const key = `${fixtureValue.fixture.id}-${channelValue.channel.id}`;
-            values.set(key, channelValue.value);
-          });
+          values.set(fixtureValue.fixture.id, fixtureValue.channelValues || []);
         });
         setChannelValues(values);
       }
@@ -265,9 +267,14 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
 
   const scene = sceneData?.scene;
 
-  const handleChannelValueChange = (fixtureId: string, channelId: string, value: number) => {
-    const key = `${fixtureId}-${channelId}`;
-    setChannelValues(prev => new Map(prev.set(key, value)));
+  const handleChannelValueChange = (fixtureId: string, channelIndex: number, value: number) => {
+    setChannelValues(prev => {
+      const newValues = new Map(prev);
+      const fixtureValues = [...(newValues.get(fixtureId) || [])];
+      fixtureValues[channelIndex] = value;
+      newValues.set(fixtureId, fixtureValues);
+      return newValues;
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -279,13 +286,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     // Convert channel values map back to the expected format
     const fixtureValues = scene.fixtureValues.map((fixtureValue: any) => ({
       fixtureId: fixtureValue.fixture.id,
-      channelValues: fixtureValue.channelValues.map((channelValue: any) => {
-        const key = `${fixtureValue.fixture.id}-${channelValue.channel.id}`;
-        return {
-          channelId: channelValue.channel.id,
-          value: channelValues.get(key) ?? channelValue.value,
-        };
-      }),
+      channelValues: channelValues.get(fixtureValue.fixture.id) || fixtureValue.channelValues || [],
     }));
 
     console.log('Updating scene with data:', {
@@ -397,11 +398,14 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
               <div className="max-h-[60vh] overflow-y-auto mb-6 border border-gray-200 dark:border-gray-700 rounded-lg">
                 <div className="divide-y divide-gray-200 dark:divide-gray-700">
                   {scene.fixtureValues.map((fixtureValue: any, index: number) => {
-                    // Helper function to get current channel value
-                    const getChannelValue = (channelId: string) => {
-                      const key = `${fixtureValue.fixture.id}-${channelId}`;
-                      const channelVal = fixtureValue.channelValues.find((cv: any) => cv.channel.id === channelId);
-                      return channelValues.get(key) ?? channelVal?.value ?? 0;
+                    // Direct access to channels from the fixture!
+                    const channels = fixtureValue.fixture.channels || [];
+
+                    const currentChannelValues = channelValues.get(fixtureValue.fixture.id) || fixtureValue.channelValues || [];
+                    
+                    // Helper function to get current channel value by index
+                    const getChannelValue = (channelIndex: number) => {
+                      return currentChannelValues[channelIndex] ?? 0;
                     };
 
                     return (
@@ -411,22 +415,23 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
                             <h4 className="text-sm font-medium text-gray-900 dark:text-white">
                               {fixtureValue.fixture.name}
                               <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                                {fixtureValue.fixture.definition.manufacturer} {fixtureValue.fixture.definition.model} • U{fixtureValue.fixture.universe}:{fixtureValue.fixture.startChannel}
+                                {fixtureValue.fixture.manufacturer} {fixtureValue.fixture.model} • U{fixtureValue.fixture.universe}:{fixtureValue.fixture.startChannel} • {fixtureValue.fixture.modeName}
                               </span>
                             </h4>
                           </div>
                           <ColorSwatch 
-                            channelValues={fixtureValue.channelValues}
+                            channels={channels}
                             getChannelValue={getChannelValue}
                           />
                         </div>
                         <div className="space-y-0.5">
-                          {fixtureValue.channelValues.map((channelValue: any, channelIndex: number) => (
+                          {channels.map((channel: InstanceChannel, channelIndex: number) => (
                             <ChannelSlider
-                              key={`${fixtureValue.id}-${channelValue.channel.id}-${channelIndex}`}
-                              channelValue={channelValue}
+                              key={`${fixtureValue.id}-${channel.id}-${channelIndex}`}
+                              channel={channel}
+                              value={getChannelValue(channelIndex)}
                               fixtureId={fixtureValue.fixture.id}
-                              fixtureName={fixtureValue.fixture.name}
+                              channelIndex={channelIndex}
                               onValueChange={handleChannelValueChange}
                             />
                           ))}
