@@ -52,8 +52,8 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
       setModels(data.fixtureDefinitions);
       
       // If we're editing a fixture and this is for the current manufacturer, set the model data
-      if (fixture && manufacturer === fixture.definition.manufacturer) {
-        const currentModel = data.fixtureDefinitions.find((def: any) => def.id === fixture.definition.id);
+      if (fixture && manufacturer === fixture.manufacturer) {
+        const currentModel = data.fixtureDefinitions.find((def: any) => def.id === fixture.definitionId);
         if (currentModel) {
           setSelectedModelData(currentModel);
         }
@@ -86,23 +86,23 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
     if (fixture) {
       setName(fixture.name);
       setDescription(fixture.description || '');
-      setManufacturer(fixture.definition.manufacturer);
-      setModel(fixture.definition.model);
+      setManufacturer(fixture.manufacturer);
+      setModel(fixture.model);
       setUniverse(fixture.universe);
       setStartChannel(fixture.startChannel);
-      setSelectedDefinitionId(fixture.definition.id);
-      setSelectedModeId(fixture.mode?.id || '');
+      setSelectedDefinitionId(fixture.definitionId);
+      // Note: modeId not needed with flattened structure
       
       // Load models for the manufacturer
-      getModels({ variables: { manufacturer: fixture.definition.manufacturer } });
+      getModels({ variables: { manufacturer: fixture.manufacturer } });
       
       // Load manufacturers for autocomplete
-      getManufacturers({ variables: { search: fixture.definition.manufacturer } });
+      getManufacturers({ variables: { search: fixture.manufacturer } });
     }
   }, [fixture, getModels, getManufacturers]);
 
   useEffect(() => {
-    if (manufacturer && manufacturer !== fixture?.definition.manufacturer) {
+    if (manufacturer && manufacturer !== fixture?.manufacturer) {
       getModels({ variables: { manufacturer } });
       // Reset model selection when changing to a different manufacturer
       setModel('');
@@ -115,7 +115,7 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
   // Set selectedModelData when models are loaded and we have a fixture
   useEffect(() => {
     if (fixture && models.length > 0) {
-      const currentModel = models.find(m => m.id === fixture.definition.id);
+      const currentModel = models.find(m => m.id === fixture.definitionId);
       if (currentModel) {
         setSelectedModelData(currentModel);
       }

@@ -17,19 +17,25 @@ export const GET_PROJECT_SCENES = gql`
             name
             universe
             startChannel
-            definition {
-              manufacturer
-              model
-            }
-          }
-          channelValues {
-            channel {
+            
+            # Flattened fields
+            manufacturer
+            model
+            type
+            modeName
+            channelCount
+            channels {
               id
+              offset
               name
               type
+              minValue
+              maxValue
+              defaultValue
             }
-            value
+            
           }
+          channelValues
         }
       }
     }
@@ -55,36 +61,25 @@ export const GET_SCENE = gql`
           name
           universe
           startChannel
-          definition {
+          
+          # Flattened fields
+          manufacturer
+          model
+          type
+          modeName
+          channelCount
+          channels {
             id
-            manufacturer
-            model
-            channels {
-              id
-              name
-              type
-              defaultValue
-              minValue
-              maxValue
-            }
-          }
-          mode {
-            id
-            name
-            channelCount
-          }
-        }
-        channelValues {
-          channel {
-            id
+            offset
             name
             type
             minValue
             maxValue
             defaultValue
           }
-          value
+          
         }
+        channelValues
       }
     }
   }
@@ -102,13 +97,7 @@ export const CREATE_SCENE = gql`
           id
           name
         }
-        channelValues {
-          channel {
-            name
-            type
-          }
-          value
-        }
+        channelValues
       }
     }
   }
@@ -126,13 +115,7 @@ export const UPDATE_SCENE = gql`
           id
           name
         }
-        channelValues {
-          channel {
-            name
-            type
-          }
-          value
-        }
+        channelValues
       }
     }
   }
@@ -156,13 +139,7 @@ export const DUPLICATE_SCENE = gql`
           id
           name
         }
-        channelValues {
-          channel {
-            name
-            type
-          }
-          value
-        }
+        channelValues
       }
     }
   }

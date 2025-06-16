@@ -158,7 +158,7 @@ export default function AddFixtureModal({
 
     for (const fixture of existingFixtures) {
       if (fixture.universe === univ) {
-        const fixtureChannelCount = fixture.mode?.channelCount || 1;
+        const fixtureChannelCount = fixture.channelCount || 1;
         const fixtureEnd = fixture.startChannel + fixtureChannelCount - 1;
         
         // Check if ranges overlap

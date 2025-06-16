@@ -46,15 +46,11 @@ export const CREATE_FIXTURE_INSTANCE = gql`
       description
       universe
       startChannel
-      definition {
-        manufacturer
-        model
-      }
-      mode {
-        id
-        name
-        channelCount
-      }
+      # Flattened fields
+      manufacturer
+      model
+      modeName
+      channelCount
     }
   }
 `;
@@ -67,16 +63,11 @@ export const UPDATE_FIXTURE_INSTANCE = gql`
       description
       universe
       startChannel
-      definition {
-        id
-        manufacturer
-        model
-      }
-      mode {
-        id
-        name
-        channelCount
-      }
+      # Flattened fields
+      manufacturer
+      model
+      modeName
+      channelCount
     }
   }
 `;
@@ -97,52 +88,25 @@ export const GET_PROJECT_FIXTURES = gql`
         description
         universe
         startChannel
-        mode {
+        tags
+        
+        # Flattened fields
+        definitionId
+        manufacturer
+        model
+        type
+        modeName
+        channelCount
+        channels {
           id
+          offset
           name
-          channelCount
-          channels {
-            id
-            channel {
-              id
-              name
-              type
-              defaultValue
-              minValue
-              maxValue
-            }
-          }
-        }
-        definition {
-          id
-          manufacturer
-          model
           type
-          channels {
-            id
-            name
-            type
-            defaultValue
-            minValue
-            maxValue
-          }
-          modes {
-            id
-            name
-            channelCount
-            channels {
-              id
-              channel {
-                id
-                name
-                type
-                defaultValue
-                minValue
-                maxValue
-              }
-            }
-          }
+          minValue
+          maxValue
+          defaultValue
         }
+        
       }
     }
   }
