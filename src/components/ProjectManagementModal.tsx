@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
-import { XMarkIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/outline';
-import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT } from '@/graphql/projects';
+import { XMarkIcon, TrashIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '@/graphql/projects';
 import { useProject } from '@/contexts/ProjectContext';
 
 interface ProjectManagementModalProps {
@@ -17,6 +17,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   const [isCreating, setIsCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
+  const [editingProject, setEditingProject] = useState<{id: string, name: string, description: string} | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { data, loading, refetch } = useQuery(GET_PROJECTS);
@@ -32,6 +33,13 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     onError: (error) => {
       console.error('Delete project error:', error);
       setError(`Failed to delete project: ${error.message}`);
+    },
+  });
+  const [updateProject] = useMutation(UPDATE_PROJECT, {
+    refetchQueries: [{ query: GET_PROJECTS }],
+    onError: (error) => {
+      console.error('Update project error:', error);
+      setError(`Failed to update project: ${error.message}`);
     },
   });
 
@@ -122,6 +130,37 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     if (result.data?.createProject?.id) {
       selectProjectById(result.data.createProject.id);
     }
+  };
+
+  const handleStartEdit = (project: any) => {
+    setEditingProject({
+      id: project.id,
+      name: project.name,
+      description: project.description || ''
+    });
+  };
+
+  const handleUpdateProject = async () => {
+    if (!editingProject || !editingProject.name.trim()) return;
+
+    setError(null);
+    
+    const result = await updateProject({
+      variables: {
+        id: editingProject.id,
+        input: {
+          name: editingProject.name.trim(),
+          description: editingProject.description.trim()
+        }
+      }
+    });
+    
+    await refetch();
+    setEditingProject(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingProject(null);
   };
 
   return (
@@ -233,24 +272,69 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
                     className="h-4 w-4 text-blue-500 bg-gray-600 border-gray-500 rounded focus:ring-blue-500"
                   />
                   <div className="flex-1">
-                    <div className="text-white font-medium">{project.name}</div>
-                    {project.description && (
-                      <div className="text-gray-400 text-sm">{project.description}</div>
+                    {editingProject && editingProject.id === project.id ? (
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          value={editingProject.name}
+                          onChange={(e) => setEditingProject({...editingProject, name: e.target.value})}
+                          className="w-full px-2 py-1 bg-gray-600 text-white rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          autoFocus
+                        />
+                        <textarea
+                          value={editingProject.description}
+                          onChange={(e) => setEditingProject({...editingProject, description: e.target.value})}
+                          className="w-full px-2 py-1 bg-gray-600 text-white rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                          rows={2}
+                          placeholder="Description (optional)"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleUpdateProject}
+                            disabled={!editingProject.name.trim()}
+                            className="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="px-2 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="text-white font-medium">{project.name}</div>
+                        {project.description && (
+                          <div className="text-gray-400 text-sm">{project.description}</div>
+                        )}
+                        <div className="text-gray-500 text-xs mt-1">
+                          Created: {new Date(project.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
                     )}
-                    <div className="text-gray-500 text-xs mt-1">
-                      Created: {new Date(project.createdAt).toLocaleDateString()}
-                    </div>
                   </div>
                   {selectedProjectId === project.id && (
                     <span className="text-green-500 text-sm">Current</span>
                   )}
-                  <button
-                    onClick={() => handleDeleteSingle(project.id)}
-                    className="text-gray-400 hover:text-red-500 transition-colors"
-                    title="Delete project"
-                  >
-                    <TrashIcon className="h-5 w-5" />
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleStartEdit(project)}
+                      className="text-gray-400 hover:text-blue-500 transition-colors"
+                      title="Rename project"
+                    >
+                      <PencilIcon className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSingle(project.id)}
+                      className="text-gray-400 hover:text-red-500 transition-colors"
+                      title="Delete project"
+                    >
+                      <TrashIcon className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_SCENE, UPDATE_SCENE } from '@/graphql/scenes';
+import { GET_SCENE, UPDATE_SCENE, START_PREVIEW_SESSION, CANCEL_PREVIEW_SESSION, UPDATE_PREVIEW_CHANNEL, INITIALIZE_PREVIEW_WITH_SCENE } from '@/graphql/scenes';
 import { ChannelType, InstanceChannel } from '@/types';
 
 interface SceneEditorModalProps {
@@ -228,6 +228,11 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   const [sceneName, setSceneName] = useState('');
   const [sceneDescription, setSceneDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
+  
+  // Preview mode state
+  const [previewMode, setPreviewMode] = useState(false);
+  const [previewSessionId, setPreviewSessionId] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const { data: sceneData, loading } = useQuery(GET_SCENE, {
     variables: { id: sceneId },
@@ -240,7 +245,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
         
         // Initialize channel values map with fixture arrays
         const values = new Map<string, number[]>();
-        data.scene.fixtureValues.forEach((fixtureValue: any) => {
+        data.scene.fixtureValues.forEach((fixtureValue: { fixture: { id: string }, channelValues: number[] }) => {
           values.set(fixtureValue.fixture.id, fixtureValue.channelValues || []);
         });
         setChannelValues(values);
@@ -265,7 +270,69 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     },
   });
 
+  const [startPreviewSession] = useMutation(START_PREVIEW_SESSION, {
+    onCompleted: (data) => {
+      setPreviewSessionId(data.startPreviewSession.id);
+      setPreviewMode(true);
+      setPreviewError(null);
+    },
+    onError: (error) => {
+      console.error('Start preview session error:', error);
+      setPreviewError(error.message);
+      setPreviewMode(false);
+    },
+  });
+
+  const [cancelPreviewSession] = useMutation(CANCEL_PREVIEW_SESSION, {
+    onCompleted: () => {
+      setPreviewSessionId(null);
+      setPreviewMode(false);
+      setPreviewError(null);
+    },
+    onError: (error) => {
+      console.error('Cancel preview session error:', error);
+      setPreviewError(error.message);
+    },
+  });
+
+  const [updatePreviewChannel] = useMutation(UPDATE_PREVIEW_CHANNEL, {
+    onError: (error) => {
+      console.error('Update preview channel error:', error);
+      // Don't show error for individual channel updates as they happen frequently
+    },
+  });
+
+  const [initializePreviewWithScene] = useMutation(INITIALIZE_PREVIEW_WITH_SCENE, {
+    onError: (error) => {
+      console.error('Initialize preview with scene error:', error);
+      setPreviewError(error.message);
+    },
+  });
+
   const scene = sceneData?.scene;
+
+  // Debounced preview update function
+  const debouncedPreviewUpdate = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return (fixtureId: string, channelIndex: number, value: number) => {
+        if (!previewMode || !previewSessionId) return;
+        
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          updatePreviewChannel({
+            variables: {
+              sessionId: previewSessionId,
+              fixtureId,
+              channelIndex,
+              value,
+            },
+          });
+        }, 50); // 50ms debounce for smooth real-time updates
+      };
+    })(),
+    [previewMode, previewSessionId, updatePreviewChannel]
+  );
 
   const handleChannelValueChange = (fixtureId: string, channelIndex: number, value: number) => {
     setChannelValues(prev => {
@@ -275,6 +342,11 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
       newValues.set(fixtureId, fixtureValues);
       return newValues;
     });
+
+    // Send real-time update if preview mode is active
+    if (previewMode && previewSessionId) {
+      debouncedPreviewUpdate(fixtureId, channelIndex, value);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -284,7 +356,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     if (!scene) return;
 
     // Convert channel values map back to the expected format
-    const fixtureValues = scene.fixtureValues.map((fixtureValue: any) => ({
+    const fixtureValues = scene.fixtureValues.map((fixtureValue: { fixture: { id: string }, channelValues: number[] }) => ({
       fixtureId: fixtureValue.fixture.id,
       channelValues: channelValues.get(fixtureValue.fixture.id) || fixtureValue.channelValues || [],
     }));
@@ -308,11 +380,55 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     });
   };
 
-  const handleClose = () => {
+  // Helper function to apply all current scene values to preview
+  const applyAllChannelValuesToPreview = async (sessionId: string) => {
+    if (!scene) return;
+
+    try {
+      await initializePreviewWithScene({
+        variables: {
+          sessionId,
+          sceneId: scene.id,
+        },
+      });
+    } catch (error) {
+      console.error('Error initializing preview with scene:', error);
+      setPreviewError('Failed to initialize preview with scene values');
+    }
+  };
+
+  const handleTogglePreview = async () => {
+    if (previewMode && previewSessionId) {
+      // Cancel preview session
+      await cancelPreviewSession({
+        variables: { sessionId: previewSessionId },
+      });
+    } else if (scene?.project?.id) {
+      // Start preview session
+      const result = await startPreviewSession({
+        variables: { projectId: scene.project.id },
+      });
+      
+      // Apply all current scene values to the preview session
+      if (result.data?.startPreviewSession?.id) {
+        await applyAllChannelValuesToPreview(result.data.startPreviewSession.id);
+      }
+    }
+  };
+
+  const handleClose = async () => {
+    // Cancel preview session if active
+    if (previewMode && previewSessionId) {
+      await cancelPreviewSession({
+        variables: { sessionId: previewSessionId },
+      });
+    }
+    
     setChannelValues(new Map());
     setSceneName('');
     setSceneDescription('');
     setError(null);
+    setPreviewError(null);
     onClose();
   };
 
@@ -368,6 +484,37 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                   </div>
+
+                  {/* Preview Mode Toggle */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-3 h-3 rounded-full ${previewMode ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`} />
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                          Live Preview Mode
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {previewMode 
+                            ? 'Changes are sent to DMX output in real-time' 
+                            : 'Enable to see changes live while editing'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleTogglePreview}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        previewMode ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          previewMode ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -391,13 +538,46 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
                 </div>
               )}
 
+              {previewError && (
+                <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-orange-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
+                        Preview mode error
+                      </h3>
+                      <div className="mt-2 text-sm text-orange-700 dark:text-orange-300">
+                        <p>{previewError}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="mb-2 text-sm text-gray-600 dark:text-gray-400">
                 Total fixtures in scene: {scene.fixtureValues.length}
               </div>
               
               <div className="max-h-[60vh] overflow-y-auto mb-6 border border-gray-200 dark:border-gray-700 rounded-lg">
                 <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {scene.fixtureValues.map((fixtureValue: any, index: number) => {
+                  {scene.fixtureValues.map((fixtureValue: { 
+                    id: string, 
+                    fixture: { 
+                      id: string, 
+                      name: string, 
+                      manufacturer: string, 
+                      model: string, 
+                      universe: number, 
+                      startChannel: number, 
+                      modeName: string, 
+                      channels: InstanceChannel[] 
+                    }, 
+                    channelValues: number[] 
+                  }, index: number) => {
                     // Direct access to channels from the fixture!
                     const channels = fixtureValue.fixture.channels || [];
 

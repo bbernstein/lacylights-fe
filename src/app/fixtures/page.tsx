@@ -196,7 +196,7 @@ export default function FixturesPage() {
                   Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Type
+                  Description
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Mode
@@ -218,8 +218,10 @@ export default function FixturesPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     {fixture.name}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {fixture.manufacturer} {fixture.model}
+                  <td className="px-6 py-4 text-xs text-gray-500 dark:text-gray-400 max-w-xs">
+                    <div className="break-words whitespace-normal">
+                      {fixture.description || 'No description'}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {fixture.modeName} ({fixture.channelCount} ch)

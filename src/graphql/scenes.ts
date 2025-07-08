@@ -150,3 +150,92 @@ export const ACTIVATE_SCENE = gql`
     setSceneLive(sceneId: $sceneId)
   }
 `;
+
+// Preview System Queries and Mutations
+export const START_PREVIEW_SESSION = gql`
+  mutation StartPreviewSession($projectId: ID!) {
+    startPreviewSession(projectId: $projectId) {
+      id
+      project {
+        id
+        name
+      }
+      isActive
+      createdAt
+      dmxOutput {
+        universe
+        channels
+      }
+    }
+  }
+`;
+
+export const CANCEL_PREVIEW_SESSION = gql`
+  mutation CancelPreviewSession($sessionId: ID!) {
+    cancelPreviewSession(sessionId: $sessionId)
+  }
+`;
+
+export const COMMIT_PREVIEW_SESSION = gql`
+  mutation CommitPreviewSession($sessionId: ID!) {
+    commitPreviewSession(sessionId: $sessionId)
+  }
+`;
+
+export const UPDATE_PREVIEW_CHANNEL = gql`
+  mutation UpdatePreviewChannel($sessionId: ID!, $fixtureId: ID!, $channelIndex: Int!, $value: Int!) {
+    updatePreviewChannel(sessionId: $sessionId, fixtureId: $fixtureId, channelIndex: $channelIndex, value: $value)
+  }
+`;
+
+export const INITIALIZE_PREVIEW_WITH_SCENE = gql`
+  mutation InitializePreviewWithScene($sessionId: ID!, $sceneId: ID!) {
+    initializePreviewWithScene(sessionId: $sessionId, sceneId: $sceneId)
+  }
+`;
+
+export const GET_PREVIEW_SESSION = gql`
+  query GetPreviewSession($sessionId: ID!) {
+    previewSession(sessionId: $sessionId) {
+      id
+      project {
+        id
+        name
+      }
+      isActive
+      createdAt
+      dmxOutput {
+        universe
+        channels
+      }
+    }
+  }
+`;
+
+// Subscriptions
+export const PREVIEW_SESSION_UPDATED = gql`
+  subscription PreviewSessionUpdated($projectId: ID!) {
+    previewSessionUpdated(projectId: $projectId) {
+      id
+      project {
+        id
+        name
+      }
+      isActive
+      createdAt
+      dmxOutput {
+        universe
+        channels
+      }
+    }
+  }
+`;
+
+export const DMX_OUTPUT_CHANGED = gql`
+  subscription DmxOutputChanged($universe: Int) {
+    dmxOutputChanged(universe: $universe) {
+      universe
+      channels
+    }
+  }
+`;

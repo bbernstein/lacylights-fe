@@ -178,9 +178,11 @@ export default function CueListPlaybackView({ cueListId, onClose }: CueListPlayb
     // If there's a follow time, automatically go to next cue
     if (cue.followTime && cue.followTime > 0 && index + 1 < cues.length) {
       const totalWaitTime = (cue.fadeInTime + cue.followTime) * 1000;
+      const nextCueIndex = index + 1;
+      const nextCueToPlay = cues[nextCueIndex];
       
       followTimeoutRef.current = setTimeout(() => {
-        handleNext();
+        handlePlayCue(nextCueToPlay, nextCueIndex);
       }, totalWaitTime);
     } else {
       setIsPlaying(false);

@@ -25,11 +25,11 @@ function CueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     name: cue.name,
-    cueNumber: cue.cueNumber,
+    cueNumber: cue.cueNumber.toString(),
     sceneId: cue.scene.id,
-    fadeInTime: cue.fadeInTime,
-    fadeOutTime: cue.fadeOutTime,
-    followTime: cue.followTime || 0,
+    fadeInTime: cue.fadeInTime.toString(),
+    fadeOutTime: cue.fadeOutTime.toString(),
+    followTime: (cue.followTime || 0).toString(),
     notes: cue.notes || '',
   });
 
@@ -37,11 +37,11 @@ function CueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
     onUpdate({
       ...cue,
       name: editData.name,
-      cueNumber: editData.cueNumber,
+      cueNumber: parseFloat(editData.cueNumber) || 0,
       scene: scenes.find(s => s.id === editData.sceneId) || cue.scene,
-      fadeInTime: editData.fadeInTime,
-      fadeOutTime: editData.fadeOutTime,
-      followTime: editData.followTime || undefined,
+      fadeInTime: parseFloat(editData.fadeInTime) || 0,
+      fadeOutTime: parseFloat(editData.fadeOutTime) || 0,
+      followTime: parseFloat(editData.followTime) || undefined,
       notes: editData.notes || undefined,
     });
     setIsEditing(false);
@@ -50,11 +50,11 @@ function CueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
   const handleCancel = () => {
     setEditData({
       name: cue.name,
-      cueNumber: cue.cueNumber,
+      cueNumber: cue.cueNumber.toString(),
       sceneId: cue.scene.id,
-      fadeInTime: cue.fadeInTime,
-      fadeOutTime: cue.fadeOutTime,
-      followTime: cue.followTime || 0,
+      fadeInTime: cue.fadeInTime.toString(),
+      fadeOutTime: cue.fadeOutTime.toString(),
+      followTime: (cue.followTime || 0).toString(),
       notes: cue.notes || '',
     });
     setIsEditing(false);
@@ -67,8 +67,9 @@ function CueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
           <input
             type="number"
             step="0.1"
+            min="0"
             value={editData.cueNumber}
-            onChange={(e) => setEditData({ ...editData, cueNumber: parseFloat(e.target.value) })}
+            onChange={(e) => setEditData({ ...editData, cueNumber: e.target.value })}
             className="w-20 rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
           />
         </td>
@@ -95,8 +96,9 @@ function CueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
           <input
             type="number"
             step="0.1"
+            min="0"
             value={editData.fadeInTime}
-            onChange={(e) => setEditData({ ...editData, fadeInTime: parseFloat(e.target.value) })}
+            onChange={(e) => setEditData({ ...editData, fadeInTime: e.target.value })}
             className="w-20 rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
           />
         </td>
@@ -104,8 +106,9 @@ function CueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
           <input
             type="number"
             step="0.1"
+            min="0"
             value={editData.fadeOutTime}
-            onChange={(e) => setEditData({ ...editData, fadeOutTime: parseFloat(e.target.value) })}
+            onChange={(e) => setEditData({ ...editData, fadeOutTime: e.target.value })}
             className="w-20 rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
           />
         </td>
@@ -113,8 +116,9 @@ function CueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
           <input
             type="number"
             step="0.1"
+            min="0"
             value={editData.followTime}
-            onChange={(e) => setEditData({ ...editData, followTime: parseFloat(e.target.value) })}
+            onChange={(e) => setEditData({ ...editData, followTime: e.target.value })}
             className="w-20 rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
           />
         </td>
@@ -185,11 +189,11 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
   const [showAddCue, setShowAddCue] = useState(false);
   const [newCue, setNewCue] = useState({
     name: '',
-    cueNumber: 1,
+    cueNumber: '1',
     sceneId: '',
-    fadeInTime: 3,
-    fadeOutTime: 3,
-    followTime: 0,
+    fadeInTime: '3',
+    fadeOutTime: '3',
+    followTime: '0',
     notes: '',
   });
 
@@ -224,11 +228,11 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
       setShowAddCue(false);
       setNewCue({
         name: '',
-        cueNumber: 1,
+        cueNumber: '1',
         sceneId: '',
-        fadeInTime: 3,
-        fadeOutTime: 3,
-        followTime: 0,
+        fadeInTime: '3',
+        fadeOutTime: '3',
+        followTime: '0',
         notes: '',
       });
     },
@@ -280,12 +284,12 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
       variables: {
         input: {
           name: newCue.name,
-          cueNumber: newCue.cueNumber,
+          cueNumber: parseFloat(newCue.cueNumber) || 1,
           cueListId: cueList.id,
           sceneId: newCue.sceneId,
-          fadeInTime: newCue.fadeInTime,
-          fadeOutTime: newCue.fadeOutTime,
-          followTime: newCue.followTime || undefined,
+          fadeInTime: parseFloat(newCue.fadeInTime) || 3,
+          fadeOutTime: parseFloat(newCue.fadeOutTime) || 3,
+          followTime: parseFloat(newCue.followTime) || undefined,
           notes: newCue.notes || undefined,
         },
       },
@@ -336,7 +340,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
 
   useEffect(() => {
     if (showAddCue) {
-      setNewCue(prev => ({ ...prev, cueNumber: getNextCueNumber() }));
+      setNewCue(prev => ({ ...prev, cueNumber: getNextCueNumber().toString() }));
     }
   }, [showAddCue, cueList?.cues]);
 
@@ -415,18 +419,19 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
               {showAddCue && (
                 <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                   <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Add New Cue</h5>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Cue #</label>
                       <input
                         type="number"
                         step="0.1"
+                        min="0"
                         value={newCue.cueNumber}
-                        onChange={(e) => setNewCue({ ...newCue, cueNumber: parseFloat(e.target.value) })}
+                        onChange={(e) => setNewCue({ ...newCue, cueNumber: e.target.value })}
                         className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
                       />
                     </div>
-                    <div>
+                    <div className="md:col-span-2">
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
                       <input
                         type="text"
@@ -435,6 +440,8 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                         className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
                       />
                     </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Scene</label>
                       <select
@@ -449,12 +456,47 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fade In</label>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional)</label>
+                      <input
+                        type="text"
+                        value={newCue.notes}
+                        onChange={(e) => setNewCue({ ...newCue, notes: e.target.value })}
+                        placeholder="Optional notes..."
+                        className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fade In (sec)</label>
                       <input
                         type="number"
                         step="0.1"
+                        min="0"
                         value={newCue.fadeInTime}
-                        onChange={(e) => setNewCue({ ...newCue, fadeInTime: parseFloat(e.target.value) })}
+                        onChange={(e) => setNewCue({ ...newCue, fadeInTime: e.target.value })}
+                        className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fade Out (sec)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={newCue.fadeOutTime}
+                        onChange={(e) => setNewCue({ ...newCue, fadeOutTime: e.target.value })}
+                        className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Follow (sec)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={newCue.followTime}
+                        onChange={(e) => setNewCue({ ...newCue, followTime: e.target.value })}
                         className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
                       />
                     </div>
