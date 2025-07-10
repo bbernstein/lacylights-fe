@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import TabNavigation from "@/components/TabNavigation";
 import ProjectSelector from "@/components/ProjectSelector";
+import ChatInterface from "@/components/ChatInterface";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,6 +47,7 @@ export default function RootLayout({
             <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
               {children}
             </main>
+            <ChatInterface />
           </div>
         </Providers>
       </body>
