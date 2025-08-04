@@ -34,6 +34,23 @@ export const WHITE_CHANNEL_INTENSITY_FACTOR = 0.95;
 export const AMBER_BLUE_REDUCTION_FACTOR = 0.3;
 
 /**
+ * Amber color mixing ratios for realistic amber LED color reproduction
+ * Based on typical amber LED wavelength (~590-595nm) and color temperature
+ */
+export const AMBER_COLOR_RATIOS = {
+  GREEN_FACTOR: 0.75, // Amber adds 75% green contribution (creates orange-yellow)
+} as const;
+
+/**
+ * UV color mixing factors for theatrical UV LED effects
+ * Based on typical UV LED spectrum and visual appearance under stage lighting
+ */
+export const UV_COLOR_FACTORS = {
+  RED_COMPONENT: 0.29,   // UV adds slight red for purple tint (75/255 ≈ 0.29)
+  BLUE_COMPONENT: 0.51,  // UV adds strong blue component (130/255 ≈ 0.51)
+} as const;
+
+/**
  * UV channel thresholds for activation
  * These values determine when UV should be engaged based on color content
  */
@@ -210,12 +227,12 @@ export function channelValuesToRgb(channels: InstanceChannelWithValue[]): RGBCol
       case ChannelType.AMBER:
         // Amber is roughly orange (255, 191, 0)
         r = Math.min(1, r + normalizedValue);
-        g = Math.min(1, g + normalizedValue * 0.75);
+        g = Math.min(1, g + normalizedValue * AMBER_COLOR_RATIOS.GREEN_FACTOR);
         break;
       case ChannelType.UV:
         // UV is deep blue/purple (75, 0, 130)
-        r = Math.min(1, r + normalizedValue * 0.29);
-        b = Math.min(1, b + normalizedValue * 0.51);
+        r = Math.min(1, r + normalizedValue * UV_COLOR_FACTORS.RED_COMPONENT);
+        b = Math.min(1, b + normalizedValue * UV_COLOR_FACTORS.BLUE_COMPONENT);
         break;
     }
   });

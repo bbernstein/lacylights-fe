@@ -58,6 +58,7 @@ export default function ColorPickerModal({
   if (!isOpen) return null;
 
   return (
+    // Color picker modal - z-50 (foreground layer, above scene editor modal z-40)
     <div 
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
       onClick={(e) => {

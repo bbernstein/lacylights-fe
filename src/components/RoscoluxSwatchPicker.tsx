@@ -22,8 +22,11 @@ function Tooltip({ filter, targetElement, isVisible }: TooltipProps) {
     if (!isVisible || !targetElement || !tooltipRef.current) return;
 
     const calculatePosition = () => {
+      const tooltip = tooltipRef.current;
+      if (!tooltip) return;
+      
       const targetRect = targetElement.getBoundingClientRect();
-      const tooltipRect = tooltipRef.current!.getBoundingClientRect();
+      const tooltipRect = tooltip.getBoundingClientRect();
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
       const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
 
