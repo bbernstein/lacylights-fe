@@ -84,7 +84,10 @@ export function rgbToChannelValues(
         const yellowComponent = Math.min(normalizedR, normalizedG);
         // Only use amber if there's yellow content and blue is relatively low
         if (yellowComponent > 0 && normalizedB < yellowComponent) {
-          value = yellowComponent - normalizedB * 0.3; // Reduce amber when blue is present
+          // Reduce amber when blue is present to avoid muddy colors
+          // The 0.3 factor preserves warmth while preventing brown/gray output
+          // This mimics how lighting designers avoid mixing CTB (blue) and CTO (amber) gels
+          value = yellowComponent - normalizedB * 0.3;
           value = Math.max(0, Math.min(1, value));
         }
         break;
@@ -93,6 +96,10 @@ export function rgbToChannelValues(
         // UV is primarily for special effects, map to blue/purple content
         // Use UV when blue is high and red/green are relatively low
         if (normalizedB > 0.5 && normalizedB > normalizedR && normalizedB > normalizedG) {
+          // UV intensity is reduced by 0.5 to account for:
+          // - UV LEDs are typically more intense than visible spectrum LEDs
+          // - Full UV can overwhelm other colors and create unwanted fluorescence
+          // - Safety considerations for prolonged UV exposure in theatrical settings
           value = (normalizedB - Math.max(normalizedR, normalizedG)) * 0.5;
           value = Math.max(0, Math.min(1, value));
         }
@@ -149,7 +156,11 @@ export function channelValuesToRgb(channels: InstanceChannelWithValue[]): RGBCol
         b = Math.max(b, normalizedValue);
         break;
       case ChannelType.WHITE:
-        // White adds to all channels
+        // White adds to all channels at 95% intensity (0.95 factor)
+        // This slight reduction accounts for:
+        // - White LEDs typically having a cooler color temperature than mixed RGB white
+        // - Preventing oversaturation when combining with colored channels
+        // - Preserving color fidelity when white is used for brightness boost
         r = Math.min(1, r + normalizedValue * 0.95);
         g = Math.min(1, g + normalizedValue * 0.95);
         b = Math.min(1, b + normalizedValue * 0.95);
