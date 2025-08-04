@@ -5,7 +5,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import { GET_SCENE, UPDATE_SCENE, START_PREVIEW_SESSION, CANCEL_PREVIEW_SESSION, UPDATE_PREVIEW_CHANNEL, INITIALIZE_PREVIEW_WITH_SCENE } from '@/graphql/scenes';
 import { ChannelType, InstanceChannel } from '@/types';
 import ColorPickerModal from './ColorPickerModal';
-import { rgbToChannelValues, channelValuesToRgb, COLOR_CHANNEL_TYPES, InstanceChannelWithValue } from '@/utils/colorConversion';
+import { rgbToChannelValues, channelValuesToRgb, COLOR_CHANNEL_TYPES, InstanceChannelWithValue, UV_COLOR_HEX } from '@/utils/colorConversion';
 
 interface SceneEditorModalProps {
   isOpen: boolean;
@@ -180,7 +180,7 @@ function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange 
       case ChannelType.BLUE: return '#0080ff';
       case ChannelType.AMBER: return '#ffbf00';
       case ChannelType.WHITE: return '#ffffff';
-      case ChannelType.UV: return '#4b0082';
+      case ChannelType.UV: return UV_COLOR_HEX;
       default: return null;
     }
   };
@@ -527,7 +527,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   if (!isOpen || !sceneId) return null;
 
   return (
-    // Scene editor modal - z-40 (background layer, behind color picker modal z-50)
+    // Scene editor modal - z-40 (background layer, behind color picker modal which uses z-50)
     <div className="fixed inset-0 overflow-y-auto z-40">
       <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={handleClose} />

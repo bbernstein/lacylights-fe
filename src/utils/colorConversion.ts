@@ -51,6 +51,12 @@ export const UV_COLOR_FACTORS = {
 } as const;
 
 /**
+ * Standard UV color representation for theatrical lighting
+ * RGB(75, 0, 130) represents typical UV LED visual appearance
+ */
+export const UV_COLOR_HEX = '#4b0082';
+
+/**
  * UV channel thresholds for activation
  * These values determine when UV should be engaged based on color content
  */
@@ -71,10 +77,6 @@ export interface InstanceChannelWithValue extends InstanceChannel {
   value: number; // DMX value (0-255)
 }
 
-/**
- * Calculate amber channel value based on RGB components
- * Implements theatrical amber LED mixing algorithm
- */
 /**
  * Calculates the amber channel value for theatrical LED fixtures based on normalized RGB values.
  * @param normalizedR - Normalized red component (0 to 1)

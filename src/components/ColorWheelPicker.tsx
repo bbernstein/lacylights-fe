@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { HexColorPicker, RgbColorPicker } from 'react-colorful';
+import { UV_COLOR_HEX } from '@/utils/colorConversion';
 
 interface ColorWheelPickerProps {
   currentColor: { r: number; g: number; b: number };
@@ -61,7 +62,7 @@ export default function ColorWheelPicker({
     { name: 'Green', color: '#00ff00' },
     { name: 'Blue', color: '#0080ff' },
     { name: 'Amber', color: '#ffbf00' },
-    { name: 'UV', color: '#4b0082' },
+    { name: 'UV', color: UV_COLOR_HEX },
     { name: 'Magenta', color: '#ff00ff' },
     { name: 'Cyan', color: '#00ffff' },
     { name: 'Yellow', color: '#ffff00' },

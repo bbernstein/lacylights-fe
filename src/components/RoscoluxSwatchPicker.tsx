@@ -112,6 +112,9 @@ function Tooltip({ filter, targetElement, isVisible }: TooltipProps) {
   );
 }
 
+// Modal overhead space for header, footer, padding, etc.
+const MODAL_RESERVED_HEIGHT = 200; // px - accounts for ColorPickerModal header, tabs, footer, and padding
+
 export default function RoscoluxSwatchPicker({
   currentColor,
   onColorSelect
@@ -151,7 +154,7 @@ export default function RoscoluxSwatchPicker({
   };
 
   return (
-    <div className="p-6 h-full flex flex-col max-h-[calc(90vh-200px)]">
+    <div className="p-6 h-full flex flex-col" style={{ maxHeight: `calc(90vh - ${MODAL_RESERVED_HEIGHT}px)` }}>
       {/* Search */}
       <div className="mb-4">
         <div className="relative">
