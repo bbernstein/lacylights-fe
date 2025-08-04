@@ -16,14 +16,32 @@ export default function ColorWheelPicker({
 }: ColorWheelPickerProps) {
   const [pickerMode, setPickerMode] = useState<'hex' | 'rgb'>('hex');
   const [localColor, setLocalColor] = useState(currentColor);
+  const [hexInputValue, setHexInputValue] = useState(rgbToHex(currentColor.r, currentColor.g, currentColor.b));
 
 
   const hexColor = rgbToHex(localColor.r, localColor.g, localColor.b);
 
+  // Validate hex color format
+  const isValidHex = (hex: string): boolean => {
+    return /^#?[0-9A-Fa-f]{6}$/.test(hex);
+  };
+
   const handleHexChange = (hex: string) => {
-    const rgb = hexToRgb(hex);
-    setLocalColor(rgb);
-    onColorChange(rgb);
+    setHexInputValue(hex);
+    
+    // Only update color if valid hex
+    if (isValidHex(hex)) {
+      const rgb = hexToRgb(hex);
+      setLocalColor(rgb);
+      onColorChange(rgb);
+    }
+  };
+
+  const handleHexBlur = () => {
+    // Reset to valid hex color on blur if invalid
+    if (!isValidHex(hexInputValue)) {
+      setHexInputValue(hexColor);
+    }
   };
 
   const handleRgbChange = (rgb: { r: number; g: number; b: number }) => {
@@ -34,6 +52,7 @@ export default function ColorWheelPicker({
   // Update local color when currentColor prop changes
   useEffect(() => {
     setLocalColor(currentColor);
+    setHexInputValue(rgbToHex(currentColor.r, currentColor.g, currentColor.b));
   }, [currentColor]);
 
   // Predefined common lighting colors
@@ -114,9 +133,15 @@ export default function ColorWheelPicker({
             <span className="text-gray-600 dark:text-gray-400">Hex:</span>
             <input
               type="text"
-              value={hexColor.toUpperCase()}
+              value={hexInputValue.toUpperCase()}
               onChange={(e) => handleHexChange(e.target.value)}
-              className="ml-2 bg-transparent border-none text-gray-900 dark:text-white font-mono text-xs focus:outline-none"
+              onBlur={handleHexBlur}
+              className={`ml-2 bg-transparent border-none font-mono text-xs focus:outline-none ${
+                isValidHex(hexInputValue) 
+                  ? 'text-gray-900 dark:text-white' 
+                  : 'text-red-500 dark:text-red-400'
+              }`}
+              placeholder="#FFFFFF"
             />
           </div>
           <div className="space-y-1">

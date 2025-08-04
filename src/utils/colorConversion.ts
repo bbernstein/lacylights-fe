@@ -261,7 +261,9 @@ export function channelValuesToRgb(channels: InstanceChannelWithValue[]): RGBCol
         b = Math.min(1, b + normalizedValue * WHITE_CHANNEL_INTENSITY_FACTOR);
         break;
       case ChannelType.AMBER:
-        // Amber is roughly orange (255, 191, 0)
+        // Amber channel adds warm orange light
+        // Full amber (normalizedValue=1) adds: R=+1.0, G=+0.75
+        // This creates a warm orange tone when mixed with existing colors
         r = Math.min(1, r + normalizedValue);
         g = Math.min(1, g + normalizedValue * AMBER_COLOR_RATIOS.GREEN_FACTOR);
         break;
@@ -399,12 +401,16 @@ function rgbToChannelValuesAdvanced(
         break;
       case ChannelType.UV:
         // Use UV for deep blue/purple effects
-        // IMPORTANT: We intentionally check the original blue value (b) for activation,
-        // not finalB, because UV should activate based on the color's blue content
-        // before white extraction. This prevents UV from being disabled when blue
-        // contributes to white channel. We use finalR and finalG to ensure UV only
-        // activates when red/green are truly low after extraction.
-        if (shouldActivateUV(finalR, finalG, b, UV_ACTIVATION_THRESHOLDS.BLUE_BASELINE)) {
+        // UV activation requires:
+        // 1. Original blue content (b) must exceed threshold - ensures color has blue component
+        // 2. Final red/green (after extraction) must be low - ensures color is truly blue/purple
+        // This two-stage check prevents UV from being incorrectly disabled when blue
+        // contributes to white channel extraction.
+        const blueContentSufficient = b > UV_ACTIVATION_THRESHOLDS.BLUE_BASELINE;
+        const colorIsBlueDominant = finalR < UV_ACTIVATION_THRESHOLDS.MAX_RED && 
+                                   finalG < UV_ACTIVATION_THRESHOLDS.MAX_GREEN;
+        
+        if (blueContentSufficient && colorIsBlueDominant) {
           // Use finalB for intensity calculation to avoid double-counting extracted components
           value = Math.max(0, finalB * UV_ACTIVATION_THRESHOLDS.ADVANCED_INTENSITY);
         }
