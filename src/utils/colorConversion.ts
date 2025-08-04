@@ -75,6 +75,13 @@ export interface InstanceChannelWithValue extends InstanceChannel {
  * Calculate amber channel value based on RGB components
  * Implements theatrical amber LED mixing algorithm
  */
+/**
+ * Calculates the amber channel value for theatrical LED fixtures based on normalized RGB values.
+ * @param normalizedR - Normalized red component (0 to 1)
+ * @param normalizedG - Normalized green component (0 to 1)
+ * @param normalizedB - Normalized blue component (0 to 1)
+ * @returns The calculated amber channel value (0 to 1)
+ */
 function calculateAmberValue(normalizedR: number, normalizedG: number, normalizedB: number): number {
   // Amber channel calculation for theatrical LED fixtures
   // 
@@ -103,7 +110,18 @@ function calculateAmberValue(normalizedR: number, normalizedG: number, normalize
 }
 
 /**
- * Check if UV channel should be activated based on color components
+ * Determines whether the UV channel should be activated based on the RGB color components.
+ *
+ * UV activation is triggered when the blue component exceeds a specified threshold,
+ * and both the red and green components are below their respective maximums.
+ * This logic helps ensure UV is only engaged for colors with strong blue content and minimal red/green,
+ * mimicking real-world lighting behavior.
+ *
+ * @param {number} r - The normalized red component (0 to 1).
+ * @param {number} g - The normalized green component (0 to 1).
+ * @param {number} b - The normalized blue component (0 to 1).
+ * @param {number} [blueThreshold=UV_ACTIVATION_THRESHOLDS.BLUE_BASELINE] - The minimum blue value required to activate UV.
+ * @returns {boolean} True if UV should be activated, false otherwise.
  */
 function shouldActivateUV(r: number, g: number, b: number, blueThreshold: number = UV_ACTIVATION_THRESHOLDS.BLUE_BASELINE): boolean {
   return b > blueThreshold && r < UV_ACTIVATION_THRESHOLDS.MAX_RED && g < UV_ACTIVATION_THRESHOLDS.MAX_GREEN;
@@ -312,7 +330,23 @@ export function createOptimizedColorMapping(
 }
 
 /**
- * Advanced color mapping for fixtures with White, Amber, and UV channels
+ * Maps an RGB color to fixture channel values for advanced fixtures supporting White, Amber, and UV channels.
+ *
+ * This function implements an advanced color mapping strategy:
+ * - Normalizes the input RGB color to [0,1] range.
+ * - Extracts the white component as the minimum of R, G, and B, preserving color saturation.
+ * - Subtracts the white component from RGB to obtain pure color values.
+ * - Extracts the amber component from the minimum of the pure red and green channels (yellow content).
+ * - Calculates the final RGB values after removing white and amber.
+ * - Maps each channel type (RED, GREEN, BLUE, WHITE, AMBER, UV) to its corresponding value.
+ * - For UV, activates the channel based on the blue content and specific thresholds.
+ *
+ * This mapping is intended for fixtures with advanced color mixing capabilities (e.g., RGBWA or RGBWAU),
+ * where additional channels allow for more accurate color reproduction and special effects.
+ *
+ * @param targetColor The target color as an RGBColor object (r, g, b in [0,255]).
+ * @param channels Array of fixture channels (with type and id) to map the color to.
+ * @returns An object mapping channel IDs to their computed DMX values (0–255).
  */
 function rgbToChannelValuesAdvanced(
   targetColor: RGBColor,
