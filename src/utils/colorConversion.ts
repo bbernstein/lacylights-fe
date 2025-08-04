@@ -18,6 +18,32 @@ export const COLOR_CHANNEL_TYPES = [
   ChannelType.UV,
 ] as const;
 
+// Lighting constants based on theatrical lighting practices
+/**
+ * White channel contribution factor - slightly reduced to account for:
+ * - Cooler color temperature of white LEDs vs mixed RGB
+ * - Prevention of oversaturation when combining with colored channels
+ * - Preservation of color fidelity when white is used for brightness boost
+ */
+export const WHITE_CHANNEL_INTENSITY_FACTOR = 0.95;
+
+/**
+ * Amber reduction factor when blue is present
+ * Prevents muddy colors when mixing complementary colors
+ */
+export const AMBER_BLUE_REDUCTION_FACTOR = 0.3;
+
+/**
+ * UV channel thresholds for activation
+ * These values determine when UV should be engaged based on color content
+ */
+export const UV_ACTIVATION_THRESHOLDS = {
+  MIN_BLUE: 0.8,        // Minimum blue level required for UV activation
+  MAX_RED: 0.3,         // Maximum red allowed when UV is active
+  MAX_GREEN: 0.3,       // Maximum green allowed when UV is active
+  INTENSITY_FACTOR: 0.5 // UV intensity reduction for safety and balance
+} as const;
+
 /**
  * Extended InstanceChannel with current value
  */
@@ -79,15 +105,26 @@ export function rgbToChannelValues(
         break;
         
       case ChannelType.AMBER:
-        // Amber contributes to red and green channels
-        // Calculate amber based on yellow content (min of red and green)
+        // Amber channel calculation for theatrical LED fixtures
+        // 
+        // Theory: Amber LEDs produce a warm orange light (~590-595nm wavelength)
+        // In RGB terms, amber is created by mixing red and green (yellow) with minimal blue
+        // 
+        // Step 1: Calculate yellow component as the minimum of red and green
+        // This ensures we only produce amber when both red and green are present
         const yellowComponent = Math.min(normalizedR, normalizedG);
-        // Only use amber if there's yellow content and blue is relatively low
+        
+        // Step 2: Check if blue is less than the yellow component
+        // This threshold (normalizedB < yellowComponent) ensures:
+        // - Pure yellow (R=G, B=0) produces maximum amber
+        // - As blue increases, amber decreases to prevent muddy browns
+        // - White light (R=G=B) produces no amber, letting the white channel handle it
+        // - This mimics how theatrical designers avoid mixing warm and cool colors
         if (yellowComponent > 0 && normalizedB < yellowComponent) {
           // Reduce amber when blue is present to avoid muddy colors
           // The 0.3 factor preserves warmth while preventing brown/gray output
           // This mimics how lighting designers avoid mixing CTB (blue) and CTO (amber) gels
-          value = yellowComponent - normalizedB * 0.3;
+          value = yellowComponent - normalizedB * AMBER_BLUE_REDUCTION_FACTOR;
           value = Math.max(0, Math.min(1, value));
         }
         break;
@@ -100,7 +137,7 @@ export function rgbToChannelValues(
           // - UV LEDs are typically more intense than visible spectrum LEDs
           // - Full UV can overwhelm other colors and create unwanted fluorescence
           // - Safety considerations for prolonged UV exposure in theatrical settings
-          value = (normalizedB - Math.max(normalizedR, normalizedG)) * 0.5;
+          value = (normalizedB - Math.max(normalizedR, normalizedG)) * UV_ACTIVATION_THRESHOLDS.INTENSITY_FACTOR;
           value = Math.max(0, Math.min(1, value));
         }
         break;
@@ -161,9 +198,9 @@ export function channelValuesToRgb(channels: InstanceChannelWithValue[]): RGBCol
         // - White LEDs typically having a cooler color temperature than mixed RGB white
         // - Preventing oversaturation when combining with colored channels
         // - Preserving color fidelity when white is used for brightness boost
-        r = Math.min(1, r + normalizedValue * 0.95);
-        g = Math.min(1, g + normalizedValue * 0.95);
-        b = Math.min(1, b + normalizedValue * 0.95);
+        r = Math.min(1, r + normalizedValue * WHITE_CHANNEL_INTENSITY_FACTOR);
+        g = Math.min(1, g + normalizedValue * WHITE_CHANNEL_INTENSITY_FACTOR);
+        b = Math.min(1, b + normalizedValue * WHITE_CHANNEL_INTENSITY_FACTOR);
         break;
       case ChannelType.AMBER:
         // Amber is roughly orange (255, 191, 0)
@@ -288,7 +325,7 @@ function rgbToChannelValuesAdvanced(
         break;
       case ChannelType.UV:
         // Use UV for deep blue/purple effects
-        if (finalB > 0.8 && finalR < 0.3 && finalG < 0.3) {
+        if (finalB > UV_ACTIVATION_THRESHOLDS.MIN_BLUE && finalR < UV_ACTIVATION_THRESHOLDS.MAX_RED && finalG < UV_ACTIVATION_THRESHOLDS.MAX_GREEN) {
           value = (finalB - 0.5) * 0.6;
         }
         break;

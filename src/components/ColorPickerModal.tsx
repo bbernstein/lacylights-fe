@@ -42,7 +42,8 @@ export default function ColorPickerModal({
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+      style={{ zIndex: 'var(--z-color-picker-modal)' }}
       onClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
