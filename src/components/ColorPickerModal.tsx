@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import ColorWheelPicker from './ColorWheelPicker';
 import RoscoluxSwatchPicker from './RoscoluxSwatchPicker';
@@ -21,6 +21,22 @@ export default function ColorPickerModal({
   onColorSelect
 }: ColorPickerModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('wheel');
+  const [selectedColor, setSelectedColor] = useState(currentColor);
+
+  useEffect(() => {
+    setSelectedColor(currentColor);
+  }, [currentColor]);
+
+  const handleColorUpdate = (color: { r: number; g: number; b: number }) => {
+    setSelectedColor(color);
+    onColorChange(color);
+  };
+
+  const handleRoscoluxSelect = (color: { r: number; g: number; b: number }) => {
+    setSelectedColor(color);
+    // Also trigger real-time preview
+    onColorChange(color);
+  };
 
   if (!isOpen) return null;
 
@@ -84,17 +100,35 @@ export default function ColorPickerModal({
         <div className="flex-1 overflow-hidden">
           {activeTab === 'wheel' && (
             <ColorWheelPicker
-              currentColor={currentColor}
-              onColorChange={onColorChange}
+              currentColor={selectedColor}
+              onColorChange={handleColorUpdate}
               onColorSelect={onColorSelect}
             />
           )}
           {activeTab === 'roscolux' && (
             <RoscoluxSwatchPicker
-              currentColor={currentColor}
-              onColorSelect={onColorSelect}
+              currentColor={selectedColor}
+              onColorSelect={handleRoscoluxSelect}
             />
           )}
+        </div>
+
+        {/* Color Preview Bar */}
+        <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Selected Color:</span>
+              <div className="flex items-center space-x-2">
+                <div 
+                  className="w-10 h-10 rounded-md border-2 border-gray-300 dark:border-gray-600 shadow-inner"
+                  style={{ backgroundColor: `rgb(${selectedColor.r}, ${selectedColor.g}, ${selectedColor.b})` }}
+                />
+                <span className="text-sm font-mono text-gray-600 dark:text-gray-400">
+                  RGB({selectedColor.r}, {selectedColor.g}, {selectedColor.b})
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
@@ -107,7 +141,7 @@ export default function ColorPickerModal({
           </button>
           <button
             onClick={() => {
-              onColorSelect(currentColor);
+              onColorSelect(selectedColor);
               onClose();
             }}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"

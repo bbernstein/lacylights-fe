@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 interface RoscoluxFilter {
@@ -14,11 +15,114 @@ interface RoscoluxSwatchPickerProps {
   onColorSelect: (color: { r: number; g: number; b: number }) => void;
 }
 
+interface TooltipProps {
+  filter: RoscoluxFilter;
+  targetElement: HTMLElement | null;
+  isVisible: boolean;
+}
+
+function Tooltip({ filter, targetElement, isVisible }: TooltipProps) {
+  const [position, setPosition] = useState({ x: 0, y: 0, placement: 'top' as 'top' | 'bottom' | 'left' | 'right' });
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isVisible || !targetElement || !tooltipRef.current) return;
+
+    const calculatePosition = () => {
+      const targetRect = targetElement.getBoundingClientRect();
+      const tooltipRect = tooltipRef.current!.getBoundingClientRect();
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      const spacing = 8;
+      let x = 0;
+      let y = 0;
+      let placement: 'top' | 'bottom' | 'left' | 'right' = 'top';
+
+      // Try top first
+      if (targetRect.top - tooltipRect.height - spacing > 0) {
+        placement = 'top';
+        x = targetRect.left + (targetRect.width / 2) - (tooltipRect.width / 2) + scrollLeft;
+        y = targetRect.top - tooltipRect.height - spacing + scrollTop;
+      }
+      // Try bottom
+      else if (targetRect.bottom + tooltipRect.height + spacing < viewportHeight) {
+        placement = 'bottom';
+        x = targetRect.left + (targetRect.width / 2) - (tooltipRect.width / 2) + scrollLeft;
+        y = targetRect.bottom + spacing + scrollTop;
+      }
+      // Try right
+      else if (targetRect.right + tooltipRect.width + spacing < viewportWidth) {
+        placement = 'right';
+        x = targetRect.right + spacing + scrollLeft;
+        y = targetRect.top + (targetRect.height / 2) - (tooltipRect.height / 2) + scrollTop;
+      }
+      // Try left
+      else if (targetRect.left - tooltipRect.width - spacing > 0) {
+        placement = 'left';
+        x = targetRect.left - tooltipRect.width - spacing + scrollLeft;
+        y = targetRect.top + (targetRect.height / 2) - (tooltipRect.height / 2) + scrollTop;
+      }
+      // Default to bottom if no space anywhere
+      else {
+        placement = 'bottom';
+        x = targetRect.left + (targetRect.width / 2) - (tooltipRect.width / 2) + scrollLeft;
+        y = targetRect.bottom + spacing + scrollTop;
+      }
+
+      // Keep tooltip within viewport horizontally
+      if (x < spacing) x = spacing;
+      if (x + tooltipRect.width > viewportWidth - spacing) {
+        x = viewportWidth - tooltipRect.width - spacing;
+      }
+
+      setPosition({ x, y, placement });
+    };
+
+    calculatePosition();
+    window.addEventListener('scroll', calculatePosition, true);
+    window.addEventListener('resize', calculatePosition);
+
+    return () => {
+      window.removeEventListener('scroll', calculatePosition, true);
+      window.removeEventListener('resize', calculatePosition);
+    };
+  }, [isVisible, targetElement]);
+
+  if (!isVisible) return null;
+
+  return ReactDOM.createPortal(
+    <div
+      ref={tooltipRef}
+      className={`fixed z-[100] bg-gray-900 text-white text-sm rounded-lg p-3 w-64 shadow-lg pointer-events-none transition-opacity duration-200 ${
+        isVisible ? 'opacity-100' : 'opacity-0'
+      }`}
+      style={{
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+      }}
+    >
+      <div className="font-semibold mb-1">{filter.filter}</div>
+      <div className="text-xs mb-1 text-gray-300">{filter.applications}</div>
+      <div className="text-xs font-mono text-gray-400">RGB: {filter.rgbHex.toUpperCase()}</div>
+      {filter.keywords && (
+        <div className="text-xs mt-1 text-gray-400">Keywords: {filter.keywords}</div>
+      )}
+    </div>,
+    document.body
+  );
+}
+
 export default function RoscoluxSwatchPicker({
   currentColor,
   onColorSelect
 }: RoscoluxSwatchPickerProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [hoveredFilter, setHoveredFilter] = useState<RoscoluxFilter | null>(null);
+  const [hoveredElement, setHoveredElement] = useState<HTMLElement | null>(null);
 
   // Parse the Roscolux CSV data
   const roscoluxFilters: RoscoluxFilter[] = useMemo(() => {
@@ -190,7 +294,7 @@ R382 Congo Blue,Deep tropical blue.,"congo blue, exotic tone",#004466,"0,68,102"
   };
 
   return (
-    <div className="p-6 h-full flex flex-col">
+    <div className="p-6 h-full flex flex-col max-h-[calc(90vh-200px)]">
       {/* Search */}
       <div className="mb-4">
         <div className="relative">
@@ -209,34 +313,30 @@ R382 Congo Blue,Deep tropical blue.,"congo blue, exotic tone",#004466,"0,68,102"
       </div>
 
       {/* Filter Grid */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="flex-1 overflow-y-auto overflow-x-visible scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-200 dark:scrollbar-track-gray-700 relative">
+        <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2 p-4">
           {filteredFilters.map((filter, index) => (
-            <button
-              key={index}
-              onClick={() => handleSwatchClick(filter)}
-              className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 text-left group"
-              title={`${filter.filter}\n${filter.applications}`}
-            >
-              {/* Color Swatch */}
-              <div 
-                className="w-8 h-8 rounded-md border border-gray-300 dark:border-gray-600 flex-shrink-0 shadow-sm"
+            <div key={index} className="relative group">
+              <button
+                onClick={() => handleSwatchClick(filter)}
+                onMouseEnter={(e) => {
+                  setHoveredFilter(filter);
+                  setHoveredElement(e.currentTarget);
+                }}
+                onMouseLeave={() => {
+                  setHoveredFilter(null);
+                  setHoveredElement(null);
+                }}
+                className="w-full aspect-square rounded-md border-2 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 shadow-sm hover:shadow-md hover:scale-110 relative overflow-hidden"
                 style={{ backgroundColor: filter.rgbHex }}
-              />
-              
-              {/* Filter Info */}
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm text-gray-900 dark:text-white truncate">
-                  {filter.filter}
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
-                  {filter.applications}
-                </div>
-                <div className="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1">
-                  {filter.rgbHex.toUpperCase()}
-                </div>
-              </div>
-            </button>
+                aria-label={filter.filter}
+              >
+                {/* Filter number overlay */}
+                <span className="absolute bottom-0 right-0 text-[10px] font-bold bg-black/50 text-white px-1 rounded-tl-md">
+                  {filter.filter.split(' ')[0]}
+                </span>
+              </button>
+            </div>
           ))}
         </div>
 
@@ -248,6 +348,13 @@ R382 Congo Blue,Deep tropical blue.,"congo blue, exotic tone",#004466,"0,68,102"
           </div>
         )}
       </div>
+      
+      {/* Dynamic Tooltip */}
+      <Tooltip 
+        filter={hoveredFilter!}
+        targetElement={hoveredElement}
+        isVisible={hoveredFilter !== null}
+      />
     </div>
   );
 }
