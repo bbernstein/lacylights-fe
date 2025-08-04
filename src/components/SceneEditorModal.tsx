@@ -28,15 +28,6 @@ interface ColorSwatchProps {
   onColorClick: () => void;
 }
 
-// Color channels that contribute to the fixture's output color
-const COLOR_CHANNEL_TYPES = [
-  ChannelType.RED,
-  ChannelType.GREEN,
-  ChannelType.BLUE,
-  ChannelType.WHITE,
-  ChannelType.AMBER,
-  ChannelType.UV,
-];
 
 function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchProps) {
   const colorChannels = useMemo(() => 
