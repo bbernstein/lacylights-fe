@@ -12,6 +12,19 @@
   --z-tooltip: 100;
 }
 
+/* Z-index utility classes for consistent modal layering */
+.z-scene-editor-modal {
+  z-index: var(--z-scene-editor-modal);
+}
+
+.z-color-picker-modal {
+  z-index: var(--z-color-picker-modal);
+}
+
+.z-tooltip {
+  z-index: var(--z-tooltip);
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: 0 0% 3.9%;

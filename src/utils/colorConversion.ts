@@ -41,7 +41,9 @@ export const UV_ACTIVATION_THRESHOLDS = {
   MIN_BLUE: 0.8,        // Minimum blue level required for UV activation
   MAX_RED: 0.3,         // Maximum red allowed when UV is active
   MAX_GREEN: 0.3,       // Maximum green allowed when UV is active
-  INTENSITY_FACTOR: 0.5 // UV intensity reduction for safety and balance
+  INTENSITY_FACTOR: 0.5,// UV intensity reduction for safety and balance
+  BLUE_BASELINE: 0.5,   // Baseline blue level for UV calculations
+  ADVANCED_INTENSITY: 0.6 // UV intensity factor for advanced color mixing
 } as const;
 
 /**
@@ -132,8 +134,8 @@ export function rgbToChannelValues(
       case ChannelType.UV:
         // UV is primarily for special effects, map to blue/purple content
         // Use UV when blue is high and red/green are relatively low
-        if (normalizedB > 0.5 && normalizedB > normalizedR && normalizedB > normalizedG) {
-          // UV intensity is reduced by 0.5 to account for:
+        if (normalizedB > UV_ACTIVATION_THRESHOLDS.BLUE_BASELINE && normalizedB > normalizedR && normalizedB > normalizedG) {
+          // UV intensity is reduced by INTENSITY_FACTOR to account for:
           // - UV LEDs are typically more intense than visible spectrum LEDs
           // - Full UV can overwhelm other colors and create unwanted fluorescence
           // - Safety considerations for prolonged UV exposure in theatrical settings
@@ -326,7 +328,7 @@ function rgbToChannelValuesAdvanced(
       case ChannelType.UV:
         // Use UV for deep blue/purple effects
         if (finalB > UV_ACTIVATION_THRESHOLDS.MIN_BLUE && finalR < UV_ACTIVATION_THRESHOLDS.MAX_RED && finalG < UV_ACTIVATION_THRESHOLDS.MAX_GREEN) {
-          value = (finalB - 0.5) * 0.6;
+          value = (finalB - UV_ACTIVATION_THRESHOLDS.BLUE_BASELINE) * UV_ACTIVATION_THRESHOLDS.ADVANCED_INTENSITY;
         }
         break;
     }

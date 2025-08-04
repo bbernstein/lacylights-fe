@@ -90,13 +90,12 @@ function Tooltip({ filter, targetElement, isVisible }: TooltipProps) {
   return ReactDOM.createPortal(
     <div
       ref={tooltipRef}
-      className={`fixed bg-gray-900 text-white text-sm rounded-lg p-3 w-64 shadow-lg pointer-events-none transition-opacity duration-200 ${
+      className={`fixed bg-gray-900 text-white text-sm rounded-lg p-3 w-64 shadow-lg pointer-events-none transition-opacity duration-200 z-tooltip ${
         isVisible ? 'opacity-100' : 'opacity-0'
       }`}
       style={{
         left: `${position.x}px`,
-        top: `${position.y}px`,
-        zIndex: 'var(--z-tooltip)'
+        top: `${position.y}px`
       }}
     >
       <div className="font-semibold mb-1">{filter.filter}</div>
