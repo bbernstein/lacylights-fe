@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_SCENE, UPDATE_SCENE, START_PREVIEW_SESSION, CANCEL_PREVIEW_SESSION, UPDATE_PREVIEW_CHANNEL, INITIALIZE_PREVIEW_WITH_SCENE } from '@/graphql/scenes';
 import { ChannelType, InstanceChannel } from '@/types';
+import ColorPickerModal from './ColorPickerModal';
+import { rgbToChannelValues, channelValuesToRgb, COLOR_CHANNEL_TYPES, InstanceChannelWithValue } from '@/utils/colorConversion';
 
 interface SceneEditorModalProps {
   isOpen: boolean;
@@ -23,6 +25,7 @@ interface ChannelSliderProps {
 interface ColorSwatchProps {
   channels: InstanceChannel[];
   getChannelValue: (channelIndex: number) => number;
+  onColorClick: () => void;
 }
 
 // Color channels that contribute to the fixture's output color
@@ -35,7 +38,7 @@ const COLOR_CHANNEL_TYPES = [
   ChannelType.UV,
 ];
 
-function ColorSwatch({ channels, getChannelValue }: ColorSwatchProps) {
+function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchProps) {
   const colorChannels = useMemo(() => 
     channels.filter(channel => 
       COLOR_CHANNEL_TYPES.includes(channel.type as ChannelType)
@@ -118,14 +121,24 @@ function ColorSwatch({ channels, getChannelValue }: ColorSwatchProps) {
   return (
     <div className="flex items-center space-x-2 px-2 py-1">
       <span className="text-xs text-gray-500 dark:text-gray-400">Color:</span>
-      <div 
-        className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-gray-600 shadow-sm"
-        style={{ 
-          backgroundColor: color,
-          boxShadow: brightness ? `0 0 8px ${color}` : undefined
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          onColorClick();
         }}
-        title={`Combined color: ${color}`}
-      />
+        className="group relative focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded-full"
+        title="Click to open color picker"
+      >
+        <div 
+          className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-gray-600 shadow-sm group-hover:border-gray-400 dark:group-hover:border-gray-500 transition-colors cursor-pointer"
+          style={{ 
+            backgroundColor: color,
+            boxShadow: brightness ? `0 0 8px ${color}` : undefined
+          }}
+        />
+      </button>
       <span className="text-xs font-mono text-gray-500 dark:text-gray-400">{color}</span>
     </div>
   );
@@ -234,6 +247,11 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   const [previewSessionId, setPreviewSessionId] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
+  // Color picker state
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
+  const [tempColor, setTempColor] = useState({ r: 255, g: 255, b: 255 });
+
   const { data: sceneData, loading } = useQuery(GET_SCENE, {
     variables: { id: sceneId },
     skip: !sceneId,
@@ -256,7 +274,8 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   const [updateScene, { loading: updating }] = useMutation(UPDATE_SCENE, {
     onCompleted: () => {
       onSceneUpdated();
-      handleClose();
+      // Don't automatically close the modal after update
+      // handleClose();
     },
     onError: (error) => {
       console.error('Update scene error:', error);
@@ -346,6 +365,88 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     // Send real-time update if preview mode is active
     if (previewMode && previewSessionId) {
       debouncedPreviewUpdate(fixtureId, channelIndex, value);
+    }
+  };
+
+  // Color picker handlers
+  const handleColorSwatchClick = (fixtureId: string) => {
+    const fixtureValue = scene?.fixtureValues.find(fv => fv.fixture.id === fixtureId);
+    if (!fixtureValue) return;
+
+    const channels = fixtureValue.fixture.channels.map((channelDef, index) => ({
+      ...channelDef,
+      value: channelValues.get(fixtureId)?.[index] ?? fixtureValue.channels[index]?.value ?? 0,
+    }));
+
+    // Get current color from channels
+    const currentColor = channelValuesToRgb(channels);
+    
+    setSelectedFixtureId(fixtureId);
+    setTempColor(currentColor);
+    setColorPickerOpen(true);
+  };
+
+  const handleColorChange = (color: { r: number; g: number; b: number }) => {
+    setTempColor(color);
+    
+    // Apply color in real-time for preview
+    if (selectedFixtureId) {
+      applyColorToFixture(selectedFixtureId, color, false);
+    }
+  };
+
+  const handleColorSelect = (color: { r: number; g: number; b: number }) => {
+    if (selectedFixtureId) {
+      applyColorToFixture(selectedFixtureId, color, true);
+    }
+  };
+
+  const applyColorToFixture = (fixtureId: string, color: { r: number; g: number; b: number }, final: boolean) => {
+    const fixtureValue = scene?.fixtureValues.find(fv => fv.fixture.id === fixtureId);
+    if (!fixtureValue) return;
+
+    const channels = fixtureValue.fixture.channels.map((channelDef, index) => ({
+      ...channelDef,
+      value: channelValues.get(fixtureId)?.[index] ?? fixtureValue.channels[index]?.value ?? 0,
+    }));
+
+    // Convert RGB to channel values
+    const newChannelValues = rgbToChannelValues(color, channels, true);
+
+    // Collect all channel updates
+    const channelUpdates: { channelIndex: number; value: number }[] = [];
+    
+    Object.entries(newChannelValues).forEach(([channelId, value]) => {
+      const channelIndex = channels.findIndex(ch => ch.id === channelId);
+      if (channelIndex !== -1) {
+        channelUpdates.push({ channelIndex, value });
+      }
+    });
+
+    // Apply all channel changes to state
+    setChannelValues(prev => {
+      const newValues = new Map(prev);
+      const fixtureValues = [...(newValues.get(fixtureId) || [])];
+      channelUpdates.forEach(({ channelIndex, value }) => {
+        fixtureValues[channelIndex] = value;
+      });
+      newValues.set(fixtureId, fixtureValues);
+      return newValues;
+    });
+
+    // Send preview updates for all changed channels if in preview mode
+    if (previewMode && previewSessionId) {
+      // Send each channel update immediately without debouncing for color changes
+      channelUpdates.forEach(({ channelIndex, value }) => {
+        updatePreviewChannel({
+          variables: {
+            sessionId: previewSessionId,
+            fixtureId,
+            channelIndex,
+            value,
+          },
+        });
+      });
     }
   };
 
@@ -602,6 +703,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
                           <ColorSwatch 
                             channels={channels}
                             getChannelValue={getChannelValue}
+                            onColorClick={() => handleColorSwatchClick(fixtureValue.fixture.id)}
                           />
                         </div>
                         <div className="space-y-0.5">
@@ -642,6 +744,15 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
           )}
         </div>
       </div>
+      
+      {/* Color Picker Modal */}
+      <ColorPickerModal
+        isOpen={colorPickerOpen}
+        onClose={() => setColorPickerOpen(false)}
+        currentColor={tempColor}
+        onColorChange={handleColorChange}
+        onColorSelect={handleColorSelect}
+      />
     </div>
   );
 }

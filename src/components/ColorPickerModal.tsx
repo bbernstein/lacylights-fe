@@ -1,0 +1,121 @@
+import React, { useState } from 'react';
+import { XMarkIcon } from '@heroicons/react/24/outline';
+import ColorWheelPicker from './ColorWheelPicker';
+import RoscoluxSwatchPicker from './RoscoluxSwatchPicker';
+
+interface ColorPickerModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentColor: { r: number; g: number; b: number };
+  onColorChange: (color: { r: number; g: number; b: number }) => void;
+  onColorSelect: (color: { r: number; g: number; b: number }) => void;
+}
+
+type TabType = 'wheel' | 'roscolux';
+
+export default function ColorPickerModal({
+  isOpen,
+  onClose,
+  currentColor,
+  onColorChange,
+  onColorSelect
+}: ColorPickerModalProps) {
+  const [activeTab, setActiveTab] = useState<TabType>('wheel');
+
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        // Only close if clicking the backdrop, not the content
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div 
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Color Picker
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+          >
+            <XMarkIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+          </button>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex border-b border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => setActiveTab('wheel')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'wheel'
+                ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            Color Wheel
+          </button>
+          <button
+            onClick={() => setActiveTab('roscolux')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'roscolux'
+                ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            Roscolux Filters
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        <div className="flex-1 overflow-hidden">
+          {activeTab === 'wheel' && (
+            <ColorWheelPicker
+              currentColor={currentColor}
+              onColorChange={onColorChange}
+              onColorSelect={onColorSelect}
+            />
+          )}
+          {activeTab === 'roscolux' && (
+            <RoscoluxSwatchPicker
+              currentColor={currentColor}
+              onColorSelect={onColorSelect}
+            />
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              onColorSelect(currentColor);
+              onClose();
+            }}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+          >
+            Apply Color
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
