@@ -27,6 +27,23 @@ export default function ColorPickerModal({
     setSelectedColor(currentColor);
   }, [currentColor]);
 
+  // Handle keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   const handleColorUpdate = (color: { r: number; g: number; b: number }) => {
     setSelectedColor(color);
     onColorChange(color);

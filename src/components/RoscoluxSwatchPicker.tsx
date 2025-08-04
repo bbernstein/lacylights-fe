@@ -170,7 +170,7 @@ export default function RoscoluxSwatchPicker({
 
       {/* Filter Grid */}
       <div className="flex-1 overflow-y-auto overflow-x-visible scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-200 dark:scrollbar-track-gray-700 relative">
-        <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2 p-4">
+        <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2 p-4">
           {filteredFilters.map((filter, index) => (
             <div key={index} className="relative group">
               <button
@@ -183,7 +183,7 @@ export default function RoscoluxSwatchPicker({
                   setHoveredFilter(null);
                   setHoveredElement(null);
                 }}
-                className="w-full aspect-square rounded-md border-2 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 shadow-sm hover:shadow-md hover:scale-110 relative overflow-hidden"
+                className="w-full aspect-square min-h-[44px] min-w-[44px] rounded-md border-2 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 shadow-sm hover:shadow-md hover:scale-110 relative overflow-hidden"
                 style={{ backgroundColor: filter.rgbHex }}
                 aria-label={filter.filter}
               >

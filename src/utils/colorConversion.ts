@@ -48,9 +48,10 @@ export const UV_ACTIVATION_THRESHOLDS = {
 
 /**
  * Extended InstanceChannel with current value
+ * Note: value is expected to be in DMX range (0-255) unless otherwise specified
  */
 export interface InstanceChannelWithValue extends InstanceChannel {
-  value: number;
+  value: number; // DMX value (0-255)
 }
 
 /**
@@ -329,8 +330,10 @@ function rgbToChannelValuesAdvanced(
         break;
       case ChannelType.UV:
         // Use UV for deep blue/purple effects
-        if (finalB > UV_ACTIVATION_THRESHOLDS.MIN_BLUE && finalR < UV_ACTIVATION_THRESHOLDS.MAX_RED && finalG < UV_ACTIVATION_THRESHOLDS.MAX_GREEN) {
-          value = (finalB - UV_ACTIVATION_THRESHOLDS.BLUE_BASELINE) * UV_ACTIVATION_THRESHOLDS.ADVANCED_INTENSITY;
+        // Check against original blue before white/amber extraction for proper UV activation
+        if (b > UV_ACTIVATION_THRESHOLDS.BLUE_BASELINE && finalR < UV_ACTIVATION_THRESHOLDS.MAX_RED && finalG < UV_ACTIVATION_THRESHOLDS.MAX_GREEN) {
+          // Use finalB for intensity calculation to avoid double-counting extracted components
+          value = Math.max(0, finalB * UV_ACTIVATION_THRESHOLDS.ADVANCED_INTENSITY);
         }
         break;
     }
