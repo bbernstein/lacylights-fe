@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { HexColorPicker, RgbColorPicker } from 'react-colorful';
 import { UV_COLOR_HEX } from '@/utils/colorConversion';
+import { rgbToHex, hexToRgb } from '@/utils/colorHelpers';
 
 interface ColorWheelPickerProps {
   currentColor: { r: number; g: number; b: number };
@@ -16,24 +17,6 @@ export default function ColorWheelPicker({
   const [pickerMode, setPickerMode] = useState<'hex' | 'rgb'>('hex');
   const [localColor, setLocalColor] = useState(currentColor);
 
-  // Convert RGB to hex
-  const rgbToHex = (r: number, g: number, b: number): string => {
-    const toHex = (n: number) => {
-      const hex = Math.round(Math.max(0, Math.min(255, n))).toString(16);
-      return hex.length === 1 ? '0' + hex : hex;
-    };
-    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-  };
-
-  // Convert hex to RGB
-  const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : { r: 0, g: 0, b: 0 };
-  };
 
   const hexColor = rgbToHex(localColor.r, localColor.g, localColor.b);
 

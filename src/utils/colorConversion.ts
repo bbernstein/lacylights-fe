@@ -399,7 +399,11 @@ function rgbToChannelValuesAdvanced(
         break;
       case ChannelType.UV:
         // Use UV for deep blue/purple effects
-        // Check against original blue before white/amber extraction for proper UV activation
+        // IMPORTANT: We intentionally check the original blue value (b) for activation,
+        // not finalB, because UV should activate based on the color's blue content
+        // before white extraction. This prevents UV from being disabled when blue
+        // contributes to white channel. We use finalR and finalG to ensure UV only
+        // activates when red/green are truly low after extraction.
         if (shouldActivateUV(finalR, finalG, b, UV_ACTIVATION_THRESHOLDS.BLUE_BASELINE)) {
           // Use finalB for intensity calculation to avoid double-counting extracted components
           value = Math.max(0, finalB * UV_ACTIVATION_THRESHOLDS.ADVANCED_INTENSITY);

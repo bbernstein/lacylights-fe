@@ -2,10 +2,12 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { ROSCOLUX_FILTERS, type RoscoluxFilter } from '@/data/roscoluxFilters';
+import { hexToRgb } from '@/utils/colorHelpers';
 
 interface RoscoluxSwatchPickerProps {
   currentColor: { r: number; g: number; b: number };
   onColorSelect: (color: { r: number; g: number; b: number }) => void;
+  maxHeight?: string; // Optional max height style (e.g. "calc(90vh - 200px)")
 }
 
 interface TooltipProps {
@@ -112,12 +114,10 @@ function Tooltip({ filter, targetElement, isVisible }: TooltipProps) {
   );
 }
 
-// Modal overhead space for header, footer, padding, etc.
-const MODAL_RESERVED_HEIGHT = 200; // px - accounts for ColorPickerModal header, tabs, footer, and padding
-
 export default function RoscoluxSwatchPicker({
   currentColor,
-  onColorSelect
+  onColorSelect,
+  maxHeight = "calc(90vh - 200px)" // Default fallback for backwards compatibility
 }: RoscoluxSwatchPickerProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [hoveredFilter, setHoveredFilter] = useState<RoscoluxFilter | null>(null);
@@ -138,15 +138,6 @@ export default function RoscoluxSwatchPicker({
     );
   }, [roscoluxFilters, searchTerm]);
 
-  // Convert hex to RGB
-  const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : { r: 0, g: 0, b: 0 };
-  };
 
   const handleSwatchClick = (filter: RoscoluxFilter) => {
     const rgb = hexToRgb(filter.rgbHex);
@@ -154,7 +145,7 @@ export default function RoscoluxSwatchPicker({
   };
 
   return (
-    <div className="p-6 h-full flex flex-col" style={{ maxHeight: `calc(90vh - ${MODAL_RESERVED_HEIGHT}px)` }}>
+    <div className="p-6 h-full flex flex-col" style={{ maxHeight }}>
       {/* Search */}
       <div className="mb-4">
         <div className="relative">
