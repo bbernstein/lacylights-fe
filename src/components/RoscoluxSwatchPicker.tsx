@@ -121,9 +121,7 @@ export default function RoscoluxSwatchPicker({
   const [hoveredElement, setHoveredElement] = useState<HTMLElement | null>(null);
 
   // Use the imported Roscolux filter data
-  const roscoluxFilters: RoscoluxFilter[] = useMemo(() => {
-    return ROSCOLUX_FILTERS;
-  }, []);
+  const roscoluxFilters = ROSCOLUX_FILTERS;
 
   // Filter roscolux data based on search term
   const filteredFilters = useMemo(() => {
