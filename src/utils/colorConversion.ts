@@ -72,6 +72,44 @@ export interface InstanceChannelWithValue extends InstanceChannel {
 }
 
 /**
+ * Calculate amber channel value based on RGB components
+ * Implements theatrical amber LED mixing algorithm
+ */
+function calculateAmberValue(normalizedR: number, normalizedG: number, normalizedB: number): number {
+  // Amber channel calculation for theatrical LED fixtures
+  // 
+  // Theory: Amber LEDs produce a warm orange light (~590-595nm wavelength)
+  // In RGB terms, amber is created by mixing red and green (yellow) with minimal blue
+  // 
+  // Step 1: Calculate yellow component as the minimum of red and green
+  // This ensures we only produce amber when both red and green are present
+  const yellowComponent = Math.min(normalizedR, normalizedG);
+  
+  // Step 2: Check if blue is less than the yellow component
+  // This threshold (normalizedB < yellowComponent) ensures:
+  // - Pure yellow (R=G, B=0) produces maximum amber
+  // - As blue increases, amber decreases to prevent muddy browns
+  // - White light (R=G=B) produces no amber, letting the white channel handle it
+  // - This mimics how theatrical designers avoid mixing warm and cool colors
+  if (yellowComponent > 0 && normalizedB < yellowComponent) {
+    // Reduce amber when blue is present to avoid muddy colors
+    // The AMBER_BLUE_REDUCTION_FACTOR preserves warmth while preventing brown/gray output
+    // This mimics how lighting designers avoid mixing CTB (blue) and CTO (amber) gels
+    const value = yellowComponent - normalizedB * AMBER_BLUE_REDUCTION_FACTOR;
+    return Math.max(0, Math.min(1, value));
+  }
+  
+  return 0;
+}
+
+/**
+ * Check if UV channel should be activated based on color components
+ */
+function shouldActivateUV(r: number, g: number, b: number, blueThreshold: number = UV_ACTIVATION_THRESHOLDS.BLUE_BASELINE): boolean {
+  return b > blueThreshold && r < UV_ACTIVATION_THRESHOLDS.MAX_RED && g < UV_ACTIVATION_THRESHOLDS.MAX_GREEN;
+}
+
+/**
  * Convert an RGB color to channel values for a fixture
  * This function intelligently maps RGB values to available color channels
  */
@@ -126,34 +164,12 @@ export function rgbToChannelValues(
         break;
         
       case ChannelType.AMBER:
-        // Amber channel calculation for theatrical LED fixtures
-        // 
-        // Theory: Amber LEDs produce a warm orange light (~590-595nm wavelength)
-        // In RGB terms, amber is created by mixing red and green (yellow) with minimal blue
-        // 
-        // Step 1: Calculate yellow component as the minimum of red and green
-        // This ensures we only produce amber when both red and green are present
-        const yellowComponent = Math.min(normalizedR, normalizedG);
-        
-        // Step 2: Check if blue is less than the yellow component
-        // This threshold (normalizedB < yellowComponent) ensures:
-        // - Pure yellow (R=G, B=0) produces maximum amber
-        // - As blue increases, amber decreases to prevent muddy browns
-        // - White light (R=G=B) produces no amber, letting the white channel handle it
-        // - This mimics how theatrical designers avoid mixing warm and cool colors
-        if (yellowComponent > 0 && normalizedB < yellowComponent) {
-          // Reduce amber when blue is present to avoid muddy colors
-          // The 0.3 factor preserves warmth while preventing brown/gray output
-          // This mimics how lighting designers avoid mixing CTB (blue) and CTO (amber) gels
-          value = yellowComponent - normalizedB * AMBER_BLUE_REDUCTION_FACTOR;
-          value = Math.max(0, Math.min(1, value));
-        }
+        value = calculateAmberValue(normalizedR, normalizedG, normalizedB);
         break;
         
       case ChannelType.UV:
         // UV is primarily for special effects, map to blue/purple content
-        // Use UV when blue is high and red/green are relatively low
-        if (normalizedB > UV_ACTIVATION_THRESHOLDS.BLUE_BASELINE && normalizedB > normalizedR && normalizedB > normalizedG) {
+        if (shouldActivateUV(normalizedR, normalizedG, normalizedB) && normalizedB > normalizedR && normalizedB > normalizedG) {
           // UV intensity is reduced by INTENSITY_FACTOR to account for:
           // - UV LEDs are typically more intense than visible spectrum LEDs
           // - Full UV can overwhelm other colors and create unwanted fluorescence
@@ -348,7 +364,7 @@ function rgbToChannelValuesAdvanced(
       case ChannelType.UV:
         // Use UV for deep blue/purple effects
         // Check against original blue before white/amber extraction for proper UV activation
-        if (b > UV_ACTIVATION_THRESHOLDS.BLUE_BASELINE && finalR < UV_ACTIVATION_THRESHOLDS.MAX_RED && finalG < UV_ACTIVATION_THRESHOLDS.MAX_GREEN) {
+        if (shouldActivateUV(finalR, finalG, b, UV_ACTIVATION_THRESHOLDS.BLUE_BASELINE)) {
           // Use finalB for intensity calculation to avoid double-counting extracted components
           value = Math.max(0, finalB * UV_ACTIVATION_THRESHOLDS.ADVANCED_INTENSITY);
         }
