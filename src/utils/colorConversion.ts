@@ -75,11 +75,12 @@ export function rgbToChannelValues(
   );
 
   // Get current intensity if we want to preserve it
+  // Note: intensityChannel.value is in DMX range (0-255), normalize to 0-1
   let currentIntensity = 1;
   if (preserveIntensity) {
     const intensityChannel = channels.find(channel => channel.type === ChannelType.INTENSITY);
     if (intensityChannel) {
-      currentIntensity = intensityChannel.value / 255;
+      currentIntensity = intensityChannel.value / 255; // Convert DMX (0-255) to normalized (0-1)
     }
   }
 
@@ -175,10 +176,11 @@ export function channelValuesToRgb(channels: InstanceChannelWithValue[]): RGBCol
   let intensity = 1;
 
   // Check for intensity channel
+  // Note: intensityChannel.value is in DMX range (0-255), normalize to 0-1
   const intensityChannel = channels.find(channel => channel.type === ChannelType.INTENSITY);
   if (intensityChannel) {
     hasIntensity = true;
-    intensity = intensityChannel.value / 255;
+    intensity = intensityChannel.value / 255; // Convert DMX (0-255) to normalized (0-1)
   }
 
   colorChannels.forEach(channel => {

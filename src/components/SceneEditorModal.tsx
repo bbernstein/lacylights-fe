@@ -527,7 +527,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   if (!isOpen || !sceneId) return null;
 
   return (
-    <div className="fixed inset-0 overflow-y-auto z-scene-editor-modal">
+    <div className="fixed inset-0 overflow-y-auto z-40">
       <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={handleClose} />
 

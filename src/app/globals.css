@@ -5,24 +5,6 @@
 :root {
   --background: 0 0% 100%;
   --foreground: 0 0% 3.9%;
-  
-  /* Z-index layers for consistent modal stacking */
-  --z-scene-editor-modal: 50;
-  --z-color-picker-modal: 60;
-  --z-tooltip: 100;
-}
-
-/* Z-index utility classes for consistent modal layering */
-.z-scene-editor-modal {
-  z-index: var(--z-scene-editor-modal);
-}
-
-.z-color-picker-modal {
-  z-index: var(--z-color-picker-modal);
-}
-
-.z-tooltip {
-  z-index: var(--z-tooltip);
 }
 
 @media (prefers-color-scheme: dark) {
