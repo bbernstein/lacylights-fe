@@ -3,9 +3,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_SCENE, UPDATE_SCENE, START_PREVIEW_SESSION, CANCEL_PREVIEW_SESSION, UPDATE_PREVIEW_CHANNEL, INITIALIZE_PREVIEW_WITH_SCENE } from '@/graphql/scenes';
+import { GET_PROJECT_FIXTURES } from '@/graphql/fixtures';
 import { ChannelType, InstanceChannel } from '@/types';
 import ColorPickerModal from './ColorPickerModal';
-import { rgbToChannelValues, channelValuesToRgb, COLOR_CHANNEL_TYPES, InstanceChannelWithValue, UV_COLOR_HEX } from '@/utils/colorConversion';
+import { rgbToChannelValues, channelValuesToRgb, COLOR_CHANNEL_TYPES, UV_COLOR_HEX } from '@/utils/colorConversion';
 
 interface SceneEditorModalProps {
   isOpen: boolean;
@@ -242,6 +243,11 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
   const [tempColor, setTempColor] = useState({ r: 255, g: 255, b: 255 });
+  
+  // Fixture management state
+  const [showAddFixtures, setShowAddFixtures] = useState(false);
+  const [selectedFixturesToAdd, setSelectedFixturesToAdd] = useState<Set<string>>(new Set());
+  const [removedFixtures, setRemovedFixtures] = useState<Set<string>>(new Set());
 
   const { data: sceneData, loading } = useQuery(GET_SCENE, {
     variables: { id: sceneId },
@@ -258,8 +264,20 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
           values.set(fixtureValue.fixture.id, fixtureValue.channelValues || []);
         });
         setChannelValues(values);
+        
+        // Reset fixture management state
+        setRemovedFixtures(new Set());
+        setSelectedFixturesToAdd(new Set());
       }
     },
+  });
+
+  const scene = sceneData?.scene;
+
+  // Get all project fixtures to show available fixtures for adding
+  const { data: projectFixturesData } = useQuery(GET_PROJECT_FIXTURES, {
+    variables: { projectId: scene?.project?.id },
+    skip: !scene?.project?.id,
   });
 
   const [updateScene, { loading: updating }] = useMutation(UPDATE_SCENE, {
@@ -318,8 +336,6 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
       setPreviewError(error.message);
     },
   });
-
-  const scene = sceneData?.scene;
 
   // Debounced preview update function
   const debouncedPreviewUpdate = useCallback(
@@ -392,7 +408,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     }
   };
 
-  const applyColorToFixture = (fixtureId: string, color: { r: number; g: number; b: number }, final: boolean) => {
+  const applyColorToFixture = (fixtureId: string, color: { r: number; g: number; b: number }, _final: boolean) => {
     const fixtureValue = scene?.fixtureValues.find(fv => fv.fixture.id === fixtureId);
     if (!fixtureValue) return;
 
@@ -441,14 +457,82 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     }
   };
 
+  // Helper to get available fixtures that aren't already in the scene
+  const availableFixtures = useMemo(() => {
+    if (!projectFixturesData?.project?.fixtures || !scene) return [];
+    
+    const sceneFixtureIds = new Set(
+      scene.fixtureValues
+        .filter(fv => !removedFixtures.has(fv.fixture.id))
+        .map(fv => fv.fixture.id)
+    );
+    
+    return projectFixturesData.project.fixtures.filter(
+      fixture => !sceneFixtureIds.has(fixture.id)
+    );
+  }, [projectFixturesData, scene, removedFixtures]);
+
+  // Helper to get the active fixtures in the scene (including newly added ones)
+  const activeFixtureValues = useMemo(() => {
+    if (!scene) return [];
+    
+    // Start with existing fixtures that haven't been removed
+    const fixtures = scene.fixtureValues.filter(
+      fv => !removedFixtures.has(fv.fixture.id)
+    );
+    
+    // Add newly selected fixtures
+    if (selectedFixturesToAdd.size > 0 && projectFixturesData?.project?.fixtures) {
+      selectedFixturesToAdd.forEach(fixtureId => {
+        const fixture = projectFixturesData.project.fixtures.find(f => f.id === fixtureId);
+        if (fixture) {
+          // Create a new fixture value with default channel values
+          const defaultValues = fixture.channels.map(ch => ch.defaultValue || 0);
+          fixtures.push({
+            id: `new-${fixtureId}`, // Temporary ID for new fixtures
+            fixture: fixture,
+            channelValues: defaultValues,
+          });
+          
+          // Initialize channel values if not already set
+          if (!channelValues.has(fixtureId)) {
+            setChannelValues(prev => {
+              const newMap = new Map(prev);
+              newMap.set(fixtureId, defaultValues);
+              return newMap;
+            });
+          }
+        }
+      });
+    }
+    
+    return fixtures;
+  }, [scene, removedFixtures, selectedFixturesToAdd, projectFixturesData, channelValues]);
+
+  const handleRemoveFixture = (fixtureId: string) => {
+    setRemovedFixtures(prev => new Set([...prev, fixtureId]));
+    // Also remove from newly added if it was there
+    setSelectedFixturesToAdd(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(fixtureId);
+      return newSet;
+    });
+  };
+
+  const handleAddFixtures = () => {
+    // The fixtures are already being shown via activeFixtureValues
+    // Just close the add fixtures panel
+    setShowAddFixtures(false);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (!scene) return;
 
-    // Convert channel values map back to the expected format
-    const fixtureValues = scene.fixtureValues.map((fixtureValue: { fixture: { id: string }, channelValues: number[] }) => ({
+    // Build fixture values from active fixtures
+    const fixtureValues = activeFixtureValues.map((fixtureValue) => ({
       fixtureId: fixtureValue.fixture.id,
       channelValues: channelValues.get(fixtureValue.fixture.id) || fixtureValue.channelValues || [],
     }));
@@ -521,6 +605,9 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     setSceneDescription('');
     setError(null);
     setPreviewError(null);
+    setShowAddFixtures(false);
+    setSelectedFixturesToAdd(new Set());
+    setRemovedFixtures(new Set());
     onClose();
   };
 
@@ -651,13 +738,91 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
                 </div>
               )}
 
-              <div className="mb-2 text-sm text-gray-600 dark:text-gray-400">
-                Total fixtures in scene: {scene.fixtureValues.length}
+              <div className="mb-4 flex items-center justify-between">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Total fixtures in scene: {activeFixtureValues.length}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddFixtures(!showAddFixtures)}
+                  className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Fixtures
+                </button>
               </div>
+
+              {/* Add Fixtures Panel */}
+              {showAddFixtures && (
+                <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Available Fixtures</h4>
+                  {availableFixtures.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">All project fixtures are already in this scene</p>
+                  ) : (
+                    <>
+                      <div className="max-h-48 overflow-y-auto mb-3 space-y-2">
+                        {availableFixtures.map(fixture => (
+                          <label
+                            key={fixture.id}
+                            className="flex items-center p-2 hover:bg-gray-100 dark:hover:bg-gray-600/50 rounded cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedFixturesToAdd.has(fixture.id)}
+                              onChange={(e) => {
+                                setSelectedFixturesToAdd(prev => {
+                                  const newSet = new Set(prev);
+                                  if (e.target.checked) {
+                                    newSet.add(fixture.id);
+                                  } else {
+                                    newSet.delete(fixture.id);
+                                  }
+                                  return newSet;
+                                });
+                              }}
+                              className="mr-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                {fixture.name}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {fixture.manufacturer} {fixture.model} • U{fixture.universe}:{fixture.startChannel}
+                              </div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                      <div className="flex justify-end space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAddFixtures(false);
+                            setSelectedFixturesToAdd(new Set());
+                          }}
+                          className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAddFixtures}
+                          disabled={selectedFixturesToAdd.size === 0}
+                          className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Add {selectedFixturesToAdd.size > 0 && `(${selectedFixturesToAdd.size})`}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
               
               <div className="max-h-[60vh] overflow-y-auto mb-6 border border-gray-200 dark:border-gray-700 rounded-lg">
                 <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {scene.fixtureValues.map((fixtureValue: { 
+                  {activeFixtureValues.map((fixtureValue: { 
                     id: string, 
                     fixture: { 
                       id: string, 
@@ -688,15 +853,27 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
                             <h4 className="text-sm font-medium text-gray-900 dark:text-white">
                               {fixtureValue.fixture.name}
                               <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                                {fixtureValue.fixture.manufacturer} {fixtureValue.fixture.model} • U{fixtureValue.fixture.universe}:{fixtureValue.fixture.startChannel} • {fixtureValue.fixture.modeName}
+                                {fixtureValue.fixture.manufacturer} {fixtureValue.fixture.model} • U{fixtureValue.fixture.universe}:{fixtureValue.fixture.startChannel} • {fixtureValue.fixture.modeName || ''}
                               </span>
                             </h4>
                           </div>
-                          <ColorSwatch 
-                            channels={channels}
-                            getChannelValue={getChannelValue}
-                            onColorClick={() => handleColorSwatchClick(fixtureValue.fixture.id)}
-                          />
+                          <div className="flex items-center space-x-2">
+                            <ColorSwatch 
+                              channels={channels}
+                              getChannelValue={getChannelValue}
+                              onColorClick={() => handleColorSwatchClick(fixtureValue.fixture.id)}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFixture(fixtureValue.fixture.id)}
+                              className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                              title="Remove from scene"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                         <div className="space-y-0.5">
                           {channels.map((channel: InstanceChannel, channelIndex: number) => (
