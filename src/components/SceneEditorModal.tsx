@@ -248,6 +248,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   const [showAddFixtures, setShowAddFixtures] = useState(false);
   const [selectedFixturesToAdd, setSelectedFixturesToAdd] = useState<Set<string>>(new Set());
   const [removedFixtures, setRemovedFixtures] = useState<Set<string>>(new Set());
+  const [tempIdCounter, setTempIdCounter] = useState(0);
 
   // Helper function to format fixture information display
   const formatFixtureInfo = (fixture: any): string => {
@@ -497,31 +498,23 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     
     // Add newly selected fixtures
     if (selectedFixturesToAdd.size > 0 && projectFixturesData?.project?.fixtures) {
+      let counter = tempIdCounter;
       selectedFixturesToAdd.forEach(fixtureId => {
         const fixture = projectFixturesData.project.fixtures.find(f => f.id === fixtureId);
         if (fixture) {
           // Create a new fixture value with default channel values
           const defaultValues = fixture.channels.map(ch => ch.defaultValue || 0);
           fixtures.push({
-            id: `temp-${Date.now()}-${fixtureId}`, // Temporary ID for new fixtures (unique)
+            id: `temp-${counter++}-${fixtureId}`, // Temporary ID for new fixtures using counter
             fixture: fixture,
             channelValues: defaultValues,
           });
-          
-          // Initialize channel values if not already set
-          if (!channelValues.has(fixtureId)) {
-            setChannelValues(prev => {
-              const newMap = new Map(prev);
-              newMap.set(fixtureId, defaultValues);
-              return newMap;
-            });
-          }
         }
       });
     }
     
     return fixtures;
-  }, [scene, removedFixtures, selectedFixturesToAdd, projectFixturesData, channelValues]);
+  }, [scene, removedFixtures, selectedFixturesToAdd, projectFixturesData, tempIdCounter]);
 
   const handleRemoveFixture = (fixtureId: string) => {
     setRemovedFixtures(prev => new Set([...prev, fixtureId]));
@@ -534,6 +527,24 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   };
 
   const handleAddFixtures = () => {
+    // Initialize channel values for newly added fixtures
+    if (selectedFixturesToAdd.size > 0 && projectFixturesData?.project?.fixtures) {
+      setChannelValues(prev => {
+        const newMap = new Map(prev);
+        selectedFixturesToAdd.forEach(fixtureId => {
+          if (!newMap.has(fixtureId)) {
+            const fixture = projectFixturesData.project.fixtures.find(f => f.id === fixtureId);
+            if (fixture) {
+              const defaultValues = fixture.channels.map(ch => ch.defaultValue || 0);
+              newMap.set(fixtureId, defaultValues);
+            }
+          }
+        });
+        return newMap;
+      });
+      // Increment counter to ensure unique IDs for next batch
+      setTempIdCounter(prev => prev + selectedFixturesToAdd.size);
+    }
     // The fixtures are already being shown via activeFixtureValues
     // Just close the add fixtures panel
     setShowAddFixtures(false);
@@ -622,6 +633,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     setShowAddFixtures(false);
     setSelectedFixturesToAdd(new Set());
     setRemovedFixtures(new Set());
+    setTempIdCounter(0);
     onClose();
   };
 
