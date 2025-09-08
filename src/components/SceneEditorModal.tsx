@@ -249,6 +249,20 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   const [selectedFixturesToAdd, setSelectedFixturesToAdd] = useState<Set<string>>(new Set());
   const [removedFixtures, setRemovedFixtures] = useState<Set<string>>(new Set());
 
+  // Helper function to format fixture information display
+  const formatFixtureInfo = (fixture: any): string => {
+    const parts = [
+      `${fixture.manufacturer} ${fixture.model}`,
+      `U${fixture.universe}:${fixture.startChannel}`
+    ];
+    
+    if (fixture.modeName) {
+      parts.push(fixture.modeName);
+    }
+    
+    return parts.join(' • ');
+  };
+
   const { data: sceneData, loading } = useQuery(GET_SCENE, {
     variables: { id: sceneId },
     skip: !sceneId,
@@ -489,7 +503,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
           // Create a new fixture value with default channel values
           const defaultValues = fixture.channels.map(ch => ch.defaultValue || 0);
           fixtures.push({
-            id: `new-${fixtureId}`, // Temporary ID for new fixtures
+            id: `temp-${Date.now()}-${fixtureId}`, // Temporary ID for new fixtures (unique)
             fixture: fixture,
             channelValues: defaultValues,
           });
@@ -789,7 +803,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
                                 {fixture.name}
                               </div>
                               <div className="text-xs text-gray-500 dark:text-gray-400">
-                                {fixture.manufacturer} {fixture.model} • U{fixture.universe}:{fixture.startChannel}
+                                {formatFixtureInfo(fixture)}
                               </div>
                             </div>
                           </label>
@@ -853,7 +867,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
                             <h4 className="text-sm font-medium text-gray-900 dark:text-white">
                               {fixtureValue.fixture.name}
                               <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                                {fixtureValue.fixture.manufacturer} {fixtureValue.fixture.model} • U{fixtureValue.fixture.universe}:{fixtureValue.fixture.startChannel}{fixtureValue.fixture.modeName && ` • ${fixtureValue.fixture.modeName}`}
+                                  {formatFixtureInfo(fixtureValue.fixture)}
                               </span>
                             </h4>
                           </div>
