@@ -853,7 +853,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
                             <h4 className="text-sm font-medium text-gray-900 dark:text-white">
                               {fixtureValue.fixture.name}
                               <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                                {fixtureValue.fixture.manufacturer} {fixtureValue.fixture.model} • U{fixtureValue.fixture.universe}:{fixtureValue.fixture.startChannel} • {fixtureValue.fixture.modeName || ''}
+                                {fixtureValue.fixture.manufacturer} {fixtureValue.fixture.model} • U{fixtureValue.fixture.universe}:{fixtureValue.fixture.startChannel}{fixtureValue.fixture.modeName && ` • ${fixtureValue.fixture.modeName}`}
                               </span>
                             </h4>
                           </div>
