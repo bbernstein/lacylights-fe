@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECT_FIXTURES, DELETE_FIXTURE_INSTANCE, CREATE_FIXTURE_INSTANCE } from '@/graphql/fixtures';
 import AddFixtureModal from '@/components/AddFixtureModal';
@@ -19,8 +19,8 @@ export default function FixturesPage() {
     skip: !currentProject?.id,
   });
 
-  const [deleteFixture, { loading: deleting }] = useMutation(DELETE_FIXTURE_INSTANCE, {
-    onCompleted: (data) => {
+  const [deleteFixture] = useMutation(DELETE_FIXTURE_INSTANCE, {
+    onCompleted: () => {
       // Even if the mutation returns null/undefined, refresh the list
       refetch();
     },
