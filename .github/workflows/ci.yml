@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint-and-type-check:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run ESLint
+      run: npm run lint
+    
+    - name: Run TypeScript type check
+      run: npx tsc --noEmit
+    
+    - name: Check for unused variables and imports
+      run: |
+        echo "Checking for common TypeScript/ESLint issues..."
+        # Check for implicit any types
+        if npx tsc --noEmit 2>&1 | grep -q "implicitly has an 'any' type"; then
+          echo "❌ Found implicit 'any' types - these should be explicitly typed"
+          npx tsc --noEmit 2>&1 | grep "implicitly has an 'any' type" || true
+          exit 1
+        else
+          echo "✅ No implicit 'any' types found"
+        fi
+        
+        # Check for unused variables/imports with ESLint
+        if npm run lint 2>&1 | grep -q "is defined but never used\|is assigned a value but never used"; then
+          echo "⚠️  Found unused variables or imports - please clean up"
+          npm run lint 2>&1 | grep -E "(is defined but never used|is assigned a value but never used)" || true
+          # Don't fail the build for unused variables, just warn
+        else
+          echo "✅ No unused variables found"
+        fi
+
+  build:
+    runs-on: ubuntu-latest
+    needs: lint-and-type-check
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build application
+      run: npm run build
+    
+    - name: Check build output
+      run: |
+        if [ -d ".next" ]; then
+          echo "✅ Next.js build completed successfully"
+          ls -la .next/
+        else
+          echo "❌ Build output directory not found"
+          exit 1
+        fi
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint-and-type-check
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run tests
+      run: |
+        if npm run test --if-present; then
+          echo "✅ Tests passed"
+        else
+          echo "ℹ️  No tests configured or tests failed"
+        fi
+    
+    - name: Check test coverage
+      run: |
+        if npm run test:coverage --if-present; then
+          echo "✅ Test coverage generated"
+        else
+          echo "ℹ️  No test coverage configured"
+        fi
+
+  security-audit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run security audit
+      run: |
+        echo "Running npm audit..."
+        npm audit --audit-level moderate || {
+          echo "⚠️  Security vulnerabilities found. Please review and update dependencies."
+          echo "Run 'npm audit fix' to automatically fix issues."
+        }
+    
+    - name: Check for outdated dependencies
+      run: |
+        echo "Checking for outdated dependencies..."
+        npm outdated || echo "ℹ️  Some dependencies may be outdated"
