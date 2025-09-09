@@ -31,27 +31,17 @@ jobs:
       run: npm run lint
     
     - name: Run TypeScript type check
-      run: npx tsc --noEmit
+      run: npm run type-check
     
-    - name: Check for unused variables and imports
+    - name: Check for implicit any types
       run: |
-        echo "Checking for common TypeScript/ESLint issues..."
-        # Check for implicit any types
+        echo "Checking for implicit 'any' types..."
         if npx tsc --noEmit 2>&1 | grep -q "implicitly has an 'any' type"; then
           echo "❌ Found implicit 'any' types - these should be explicitly typed"
           npx tsc --noEmit 2>&1 | grep "implicitly has an 'any' type" || true
           exit 1
         else
           echo "✅ No implicit 'any' types found"
-        fi
-        
-        # Check for unused variables/imports with ESLint
-        if npm run lint 2>&1 | grep -q "is defined but never used\|is assigned a value but never used"; then
-          echo "⚠️  Found unused variables or imports - please clean up"
-          npm run lint 2>&1 | grep -E "(is defined but never used|is assigned a value but never used)" || true
-          # Don't fail the build for unused variables, just warn
-        else
-          echo "✅ No unused variables found"
         fi
 
   build:
@@ -111,7 +101,7 @@ jobs:
     
     - name: Run tests
       run: |
-        if npm run test --if-present; then
+        if npm run test 2>/dev/null; then
           echo "✅ Tests passed"
         else
           echo "ℹ️  No tests configured or tests failed"
@@ -119,7 +109,7 @@ jobs:
     
     - name: Check test coverage
       run: |
-        if npm run test:coverage --if-present; then
+        if npm run test:coverage 2>/dev/null; then
           echo "✅ Test coverage generated"
         else
           echo "ℹ️  No test coverage configured"
