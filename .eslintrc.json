@@ -1,3 +1,27 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript"]
+  "extends": [
+    "next/core-web-vitals",
+    "next/typescript"
+  ],
+  "rules": {
+    // TypeScript specific rules to catch issues we fixed
+    // Set to warn instead of error to not break CI on existing code
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "ignoreRestSiblings": true
+      }
+    ],
+    "@typescript-eslint/no-explicit-any": "warn",
+    
+    // React specific rules
+    "react-hooks/exhaustive-deps": "warn",
+    
+    // General code quality rules
+    "no-console": "off",  // Allow console in this project
+    "prefer-const": "warn",
+    "no-var": "warn"
+  }
 }

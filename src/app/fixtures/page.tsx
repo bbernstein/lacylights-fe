@@ -74,9 +74,9 @@ export default function FixturesPage() {
 
   // Find next available channel in the same universe
   const findNextAvailableChannel = (universe: number, channelCount: number) => {
-    const fixturesInUniverse = fixtures
-      .filter(f => f.universe === universe)
-      .sort((a, b) => a.startChannel - b.startChannel);
+    const fixturesInUniverse: FixtureInstance[] = fixtures
+      .filter((f: FixtureInstance) => f.universe === universe)
+      .sort((a: FixtureInstance, b: FixtureInstance) => a.startChannel - b.startChannel);
 
     // Check if we can start at channel 1
     if (fixturesInUniverse.length === 0 || fixturesInUniverse[0].startChannel > channelCount) {
@@ -86,7 +86,7 @@ export default function FixturesPage() {
     // Check gaps between fixtures
     for (let i = 0; i < fixturesInUniverse.length; i++) {
       const currentFixture = fixturesInUniverse[i];
-      const currentEnd = currentFixture.startChannel + (currentFixture.mode?.channelCount || 1) - 1;
+      const currentEnd = currentFixture.startChannel + (currentFixture.channelCount || 1) - 1;
       
       // Check if there's space after this fixture
       const nextStart = currentEnd + 1;
@@ -213,7 +213,7 @@ export default function FixturesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {fixtures.map((fixture) => (
+              {fixtures.map((fixture: FixtureInstance) => (
                 <tr key={fixture.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     {fixture.name}

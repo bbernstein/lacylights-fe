@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "type-check": "tsc --noEmit",
+    "check": "npm run type-check && npm run lint",
+    "test": "echo \"No tests configured yet\" && exit 0",
+    "test:coverage": "echo \"No test coverage configured yet\" && exit 0"
   },
   "dependencies": {
     "@apollo/client": "^3.11.4",
