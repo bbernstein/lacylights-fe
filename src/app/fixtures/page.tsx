@@ -86,7 +86,7 @@ export default function FixturesPage() {
     // Check gaps between fixtures
     for (let i = 0; i < fixturesInUniverse.length; i++) {
       const currentFixture = fixturesInUniverse[i];
-      const currentEnd = currentFixture.startChannel + (currentFixture.mode?.channelCount || 1) - 1;
+      const currentEnd = currentFixture.startChannel + (currentFixture.channelCount || 1) - 1;
       
       // Check if there's space after this fixture
       const nextStart = currentEnd + 1;
