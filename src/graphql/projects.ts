@@ -64,3 +64,67 @@ export const DELETE_PROJECT = gql`
     deleteProject(id: $id)
   }
 `;
+
+export const IMPORT_PROJECT_FROM_QLC = gql`
+  mutation ImportProjectFromQLC($xmlContent: String!, $originalFileName: String!) {
+    importProjectFromQLC(xmlContent: $xmlContent, originalFileName: $originalFileName) {
+      project {
+        id
+        name
+        description
+        createdAt
+        updatedAt
+      }
+      originalFileName
+      fixtureCount
+      sceneCount
+      cueListCount
+      warnings
+    }
+  }
+`;
+
+export const GET_QLC_FIXTURE_MAPPING_SUGGESTIONS = gql`
+  query GetQLCFixtureMappingSuggestions($projectId: ID!) {
+    getQLCFixtureMappingSuggestions(projectId: $projectId) {
+      projectId
+      lacyLightsFixtures {
+        manufacturer
+        model
+      }
+      suggestions {
+        fixture {
+          manufacturer
+          model
+        }
+        suggestions {
+          manufacturer
+          model
+          type
+          modes {
+            name
+            channelCount
+          }
+        }
+      }
+      defaultMappings {
+        lacyLightsKey
+        qlcManufacturer
+        qlcModel
+        qlcMode
+      }
+    }
+  }
+`;
+
+export const EXPORT_PROJECT_TO_QLC = gql`
+  mutation ExportProjectToQLC($projectId: ID!, $fixtureMappings: [FixtureMappingInput!]!) {
+    exportProjectToQLC(projectId: $projectId, fixtureMappings: $fixtureMappings) {
+      projectName
+      xmlContent
+      fixtureCount
+      sceneCount
+      cueListCount
+    }
+  }
+`;
