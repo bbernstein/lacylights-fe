@@ -64,3 +64,22 @@ export const DELETE_PROJECT = gql`
     deleteProject(id: $id)
   }
 `;
+
+export const IMPORT_PROJECT_FROM_QLC = gql`
+  query ImportProjectFromQLC($xmlContent: String!, $originalFileName: String!) {
+    importProjectFromQLC(xmlContent: $xmlContent, originalFileName: $originalFileName) {
+      project {
+        id
+        name
+        description
+        createdAt
+        updatedAt
+      }
+      originalFileName
+      fixtureCount
+      sceneCount
+      cueListCount
+      warnings
+    }
+  }
+`;

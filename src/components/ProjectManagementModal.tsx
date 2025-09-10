@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery, useLazyQuery } from '@apollo/client';
 import { XMarkIcon, TrashIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
-import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '@/graphql/projects';
+import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT, IMPORT_PROJECT_FROM_QLC } from '@/graphql/projects';
 import { useProject } from '@/contexts/ProjectContext';
 
 interface ProjectManagementModalProps {
@@ -19,6 +19,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [editingProject, setEditingProject] = useState<{id: string, name: string, description: string} | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const { data, loading, refetch } = useQuery(GET_PROJECTS);
   const [createProject] = useMutation(CREATE_PROJECT, {
@@ -40,6 +41,13 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     onError: (error) => {
       console.error('Update project error:', error);
       setError(`Failed to update project: ${error.message}`);
+    },
+  });
+  const [importProjectFromQLC] = useLazyQuery(IMPORT_PROJECT_FROM_QLC, {
+    refetchQueries: [{ query: GET_PROJECTS }],
+    onError: (error) => {
+      console.error('Import project error:', error);
+      setError(`Failed to import project: ${error.message}`);
     },
   });
 
@@ -163,6 +171,55 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     setEditingProject(null);
   };
 
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.qxw')) {
+      setError('Please select a QLC+ workspace file (.qxw)');
+      return;
+    }
+
+    setError(null);
+    setIsImporting(true);
+
+    try {
+      const xmlContent = await file.text();
+      const result = await importProjectFromQLC({
+        variables: {
+          xmlContent,
+          originalFileName: file.name
+        }
+      });
+
+      await refetch();
+      
+      // Select the newly imported project
+      if (result.data?.importProjectFromQLC?.project?.id) {
+        selectProjectById(result.data.importProjectFromQLC.project.id);
+        
+        // Show success message with import details
+        const importResult = result.data.importProjectFromQLC;
+        let successMessage = `Successfully imported "${importResult.project.name}"`;
+        successMessage += `\n• ${importResult.fixtureCount} fixtures`;
+        successMessage += `\n• ${importResult.sceneCount} scenes`;
+        successMessage += `\n• ${importResult.cueListCount} cue lists`;
+        
+        if (importResult.warnings.length > 0) {
+          successMessage += `\n\nWarnings:\n${importResult.warnings.join('\n')}`;
+        }
+        
+        alert(successMessage);
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+    } finally {
+      setIsImporting(false);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
@@ -190,6 +247,20 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
             <PlusIcon className="h-4 w-4" />
             New Project
           </button>
+          
+          <label className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors flex items-center gap-2 cursor-pointer">
+            <input
+              type="file"
+              accept=".qxw"
+              onChange={handleFileImport}
+              className="hidden"
+              disabled={isImporting}
+            />
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            {isImporting ? 'Importing...' : 'Import QLC+'}
+          </label>
           
           {selectedProjects.size > 0 && (
             <button
