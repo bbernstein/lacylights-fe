@@ -66,7 +66,7 @@ export const DELETE_PROJECT = gql`
 `;
 
 export const IMPORT_PROJECT_FROM_QLC = gql`
-  query ImportProjectFromQLC($xmlContent: String!, $originalFileName: String!) {
+  mutation ImportProjectFromQLC($xmlContent: String!, $originalFileName: String!) {
     importProjectFromQLC(xmlContent: $xmlContent, originalFileName: $originalFileName) {
       project {
         id
@@ -118,7 +118,7 @@ export const GET_QLC_FIXTURE_MAPPING_SUGGESTIONS = gql`
 `;
 
 export const EXPORT_PROJECT_TO_QLC = gql`
-  query ExportProjectToQLC($projectId: ID!, $fixtureMappings: [FixtureMappingInput!]!) {
+  mutation ExportProjectToQLC($projectId: ID!, $fixtureMappings: [FixtureMappingInput!]!) {
     exportProjectToQLC(projectId: $projectId, fixtureMappings: $fixtureMappings) {
       projectName
       xmlContent

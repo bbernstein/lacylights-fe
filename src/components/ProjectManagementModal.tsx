@@ -45,7 +45,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
       setError(`Failed to update project: ${error.message}`);
     },
   });
-  const [importProjectFromQLC] = useLazyQuery(IMPORT_PROJECT_FROM_QLC, {
+  const [importProjectFromQLC] = useMutation(IMPORT_PROJECT_FROM_QLC, {
     onError: (error) => {
       console.error('Import project error:', error);
       setError(`Failed to import project: ${error.message}`);
@@ -89,7 +89,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
       setError(`Failed to get fixture mappings: ${error.message}`);
     },
   });
-  const [exportProjectToQLC] = useLazyQuery(EXPORT_PROJECT_TO_QLC, {
+  const [exportProjectToQLC] = useMutation(EXPORT_PROJECT_TO_QLC, {
     onError: (error) => {
       console.error('Export project error:', error);
       setError(`Failed to export project: ${error.message}`);
