@@ -69,6 +69,8 @@ export interface FixtureInstance {
   tags: string[];
   createdAt: string;
   
+  // Ordering
+  projectOrder?: number;
 }
 
 export interface InstanceChannel {

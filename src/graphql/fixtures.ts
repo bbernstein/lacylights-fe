@@ -89,6 +89,8 @@ export const GET_PROJECT_FIXTURES = gql`
         universe
         startChannel
         tags
+        projectOrder
+        createdAt
         
         # Flattened fields
         definitionId
@@ -109,5 +111,17 @@ export const GET_PROJECT_FIXTURES = gql`
         
       }
     }
+  }
+`;
+
+export const REORDER_PROJECT_FIXTURES = gql`
+  mutation ReorderProjectFixtures($projectId: ID!, $fixtureOrders: [FixtureOrderInput!]!) {
+    reorderProjectFixtures(projectId: $projectId, fixtureOrders: $fixtureOrders)
+  }
+`;
+
+export const REORDER_SCENE_FIXTURES = gql`
+  mutation ReorderSceneFixtures($sceneId: ID!, $fixtureOrders: [FixtureOrderInput!]!) {
+    reorderSceneFixtures(sceneId: $sceneId, fixtureOrders: $fixtureOrders)
   }
 `;
