@@ -61,8 +61,20 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
         successMessage += `\n• ${importResult.sceneCount} scenes`;
         successMessage += `\n• ${importResult.cueListCount} cue lists`;
         
+        // Log detailed information to console for easy copying
+        console.log('=== QLC+ Import Results ===');
+        console.log(`Project: ${importResult.project.name}`);
+        console.log(`Fixtures: ${importResult.fixtureCount}`);
+        console.log(`Scenes: ${importResult.sceneCount}`);
+        console.log(`Cue Lists: ${importResult.cueListCount}`);
+        
         if (importResult.warnings.length > 0) {
-          successMessage += `\n\nWarnings:\n${importResult.warnings.join('\n')}`;
+          successMessage += `\n\nWarnings: ${importResult.warnings.length} (see console for details)`;
+          console.log('\n=== Import Warnings ===');
+          importResult.warnings.forEach((warning, index) => {
+            console.log(`${index + 1}. ${warning}`);
+          });
+          console.log('========================\n');
         }
         
         alert(successMessage);
