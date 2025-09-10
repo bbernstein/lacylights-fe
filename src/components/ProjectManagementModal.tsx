@@ -56,14 +56,8 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
       if (data?.importProjectFromQLC?.project?.id) {
         selectProjectById(data.importProjectFromQLC.project.id);
         
-        // Show success message with import details
-        const importResult = data.importProjectFromQLC;
-        let successMessage = `Successfully imported "${importResult.project.name}"`;
-        successMessage += `\n• ${importResult.fixtureCount} fixtures`;
-        successMessage += `\n• ${importResult.sceneCount} scenes`;
-        successMessage += `\n• ${importResult.cueListCount} cue lists`;
-        
         // Log detailed information to console for easy copying
+        const importResult = data.importProjectFromQLC;
         console.log('=== QLC+ Import Results ===');
         console.log(`Project: ${importResult.project.name}`);
         console.log(`Fixtures: ${importResult.fixtureCount}`);
@@ -71,15 +65,12 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
         console.log(`Cue Lists: ${importResult.cueListCount}`);
         
         if (importResult.warnings.length > 0) {
-          successMessage += `\n\nWarnings: ${importResult.warnings.length} (see console for details)`;
           console.log('\n=== Import Warnings ===');
           importResult.warnings.forEach((warning, index) => {
             console.log(`${index + 1}. ${warning}`);
           });
           console.log('========================\n');
         }
-        
-        alert(successMessage);
       }
     },
   });
