@@ -44,10 +44,29 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     },
   });
   const [importProjectFromQLC] = useLazyQuery(IMPORT_PROJECT_FROM_QLC, {
-    refetchQueries: [{ query: GET_PROJECTS }],
     onError: (error) => {
       console.error('Import project error:', error);
       setError(`Failed to import project: ${error.message}`);
+    },
+    onCompleted: async (data) => {
+      await refetch();
+      
+      if (data?.importProjectFromQLC?.project?.id) {
+        selectProjectById(data.importProjectFromQLC.project.id);
+        
+        // Show success message with import details
+        const importResult = data.importProjectFromQLC;
+        let successMessage = `Successfully imported "${importResult.project.name}"`;
+        successMessage += `\n• ${importResult.fixtureCount} fixtures`;
+        successMessage += `\n• ${importResult.sceneCount} scenes`;
+        successMessage += `\n• ${importResult.cueListCount} cue lists`;
+        
+        if (importResult.warnings.length > 0) {
+          successMessage += `\n\nWarnings:\n${importResult.warnings.join('\n')}`;
+        }
+        
+        alert(successMessage);
+      }
     },
   });
 
@@ -185,34 +204,15 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
 
     try {
       const xmlContent = await file.text();
-      const result = await importProjectFromQLC({
+      await importProjectFromQLC({
         variables: {
           xmlContent,
           originalFileName: file.name
         }
       });
-
-      await refetch();
-      
-      // Select the newly imported project
-      if (result.data?.importProjectFromQLC?.project?.id) {
-        selectProjectById(result.data.importProjectFromQLC.project.id);
-        
-        // Show success message with import details
-        const importResult = result.data.importProjectFromQLC;
-        let successMessage = `Successfully imported "${importResult.project.name}"`;
-        successMessage += `\n• ${importResult.fixtureCount} fixtures`;
-        successMessage += `\n• ${importResult.sceneCount} scenes`;
-        successMessage += `\n• ${importResult.cueListCount} cue lists`;
-        
-        if (importResult.warnings.length > 0) {
-          successMessage += `\n\nWarnings:\n${importResult.warnings.join('\n')}`;
-        }
-        
-        alert(successMessage);
-      }
     } catch (error) {
       console.error('Import error:', error);
+      setError('Failed to import project. Please check the file and try again.');
     } finally {
       setIsImporting(false);
       // Reset file input
