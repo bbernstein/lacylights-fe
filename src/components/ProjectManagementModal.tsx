@@ -116,8 +116,6 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
         console.log(`Scenes: ${exportResult.sceneCount}`);
         console.log(`Cue Lists: ${exportResult.cueListCount}`);
         console.log('===========================');
-        
-        alert(`Successfully exported "${exportResult.projectName}.qxw"\n• ${exportResult.fixtureCount} fixtures\n• ${exportResult.sceneCount} scenes\n• ${exportResult.cueListCount} cue lists`);
       }
       
       setIsExporting(false);
@@ -290,7 +288,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
         const mappingData = mappingResult.data.getQLCFixtureMappingSuggestions;
         
         // Use default mappings if available, otherwise create basic mappings
-        const fixtureMappings = mappingData.defaultMappings.length > 0 
+        const rawFixtureMappings = mappingData.defaultMappings.length > 0 
           ? mappingData.defaultMappings 
           : mappingData.lacyLightsFixtures.map((fixture: any) => ({
               lacyLightsKey: `${fixture.manufacturer}/${fixture.model}`,
@@ -298,6 +296,14 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
               qlcModel: fixture.model,
               qlcMode: 'Default'
             }));
+
+        // Clean fixture mappings by removing Apollo's __typename field
+        const fixtureMappings = rawFixtureMappings.map((mapping: any) => ({
+          lacyLightsKey: mapping.lacyLightsKey,
+          qlcManufacturer: mapping.qlcManufacturer,
+          qlcModel: mapping.qlcModel,
+          qlcMode: mapping.qlcMode
+        }));
 
         // Export the project with the mappings
         await exportProjectToQLC({
