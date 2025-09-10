@@ -83,3 +83,48 @@ export const IMPORT_PROJECT_FROM_QLC = gql`
     }
   }
 `;
+
+export const GET_QLC_FIXTURE_MAPPING_SUGGESTIONS = gql`
+  query GetQLCFixtureMappingSuggestions($projectId: ID!) {
+    getQLCFixtureMappingSuggestions(projectId: $projectId) {
+      projectId
+      lacyLightsFixtures {
+        manufacturer
+        model
+      }
+      suggestions {
+        fixture {
+          manufacturer
+          model
+        }
+        suggestions {
+          manufacturer
+          model
+          type
+          modes {
+            name
+            channelCount
+          }
+        }
+      }
+      defaultMappings {
+        lacyLightsKey
+        qlcManufacturer
+        qlcModel
+        qlcMode
+      }
+    }
+  }
+`;
+
+export const EXPORT_PROJECT_TO_QLC = gql`
+  query ExportProjectToQLC($projectId: ID!, $fixtureMappings: [FixtureMappingInput!]!) {
+    exportProjectToQLC(projectId: $projectId, fixtureMappings: $fixtureMappings) {
+      projectName
+      xmlContent
+      fixtureCount
+      sceneCount
+      cueListCount
+    }
+  }
+`;

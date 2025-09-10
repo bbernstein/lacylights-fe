@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useLazyQuery } from '@apollo/client';
 import { XMarkIcon, TrashIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
-import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT, IMPORT_PROJECT_FROM_QLC } from '@/graphql/projects';
+import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT, IMPORT_PROJECT_FROM_QLC, GET_QLC_FIXTURE_MAPPING_SUGGESTIONS, EXPORT_PROJECT_TO_QLC } from '@/graphql/projects';
 import { useProject } from '@/contexts/ProjectContext';
 
 interface ProjectManagementModalProps {
@@ -20,6 +20,8 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   const [editingProject, setEditingProject] = useState<{id: string, name: string, description: string} | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportingProjectId, setExportingProjectId] = useState<string | null>(null);
 
   const { data, loading, refetch } = useQuery(GET_PROJECTS);
   const [createProject] = useMutation(CREATE_PROJECT, {
@@ -79,6 +81,47 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
         
         alert(successMessage);
       }
+    },
+  });
+  const [getFixtureMappingSuggestions] = useLazyQuery(GET_QLC_FIXTURE_MAPPING_SUGGESTIONS, {
+    onError: (error) => {
+      console.error('Get fixture mapping suggestions error:', error);
+      setError(`Failed to get fixture mappings: ${error.message}`);
+    },
+  });
+  const [exportProjectToQLC] = useLazyQuery(EXPORT_PROJECT_TO_QLC, {
+    onError: (error) => {
+      console.error('Export project error:', error);
+      setError(`Failed to export project: ${error.message}`);
+    },
+    onCompleted: (data) => {
+      if (data?.exportProjectToQLC) {
+        const exportResult = data.exportProjectToQLC;
+        
+        // Create and download the file
+        const blob = new Blob([exportResult.xmlContent], { type: 'application/xml' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${exportResult.projectName}.qxw`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        // Log export details to console
+        console.log('=== QLC+ Export Results ===');
+        console.log(`Project: ${exportResult.projectName}`);
+        console.log(`Fixtures: ${exportResult.fixtureCount}`);
+        console.log(`Scenes: ${exportResult.sceneCount}`);
+        console.log(`Cue Lists: ${exportResult.cueListCount}`);
+        console.log('===========================');
+        
+        alert(`Successfully exported "${exportResult.projectName}.qxw"\n• ${exportResult.fixtureCount} fixtures\n• ${exportResult.sceneCount} scenes\n• ${exportResult.cueListCount} cue lists`);
+      }
+      
+      setIsExporting(false);
+      setExportingProjectId(null);
     },
   });
 
@@ -229,6 +272,46 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
       setIsImporting(false);
       // Reset file input
       event.target.value = '';
+    }
+  };
+
+  const handleExportProject = async (projectId: string) => {
+    setError(null);
+    setIsExporting(true);
+    setExportingProjectId(projectId);
+
+    try {
+      // First get fixture mapping suggestions
+      const mappingResult = await getFixtureMappingSuggestions({
+        variables: { projectId }
+      });
+
+      if (mappingResult.data?.getQLCFixtureMappingSuggestions) {
+        const mappingData = mappingResult.data.getQLCFixtureMappingSuggestions;
+        
+        // Use default mappings if available, otherwise create basic mappings
+        const fixtureMappings = mappingData.defaultMappings.length > 0 
+          ? mappingData.defaultMappings 
+          : mappingData.lacyLightsFixtures.map((fixture: any) => ({
+              lacyLightsKey: `${fixture.manufacturer}/${fixture.model}`,
+              qlcManufacturer: fixture.manufacturer,
+              qlcModel: fixture.model,
+              qlcMode: 'Default'
+            }));
+
+        // Export the project with the mappings
+        await exportProjectToQLC({
+          variables: {
+            projectId,
+            fixtureMappings
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      setError('Failed to export project. Please try again.');
+      setIsExporting(false);
+      setExportingProjectId(null);
     }
   };
 
@@ -403,6 +486,23 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
                     <span className="text-green-500 text-sm">Current</span>
                   )}
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => handleExportProject(project.id)}
+                      disabled={isExporting}
+                      className="text-gray-400 hover:text-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Export to QLC+"
+                    >
+                      {exportingProjectId === project.id ? (
+                        <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      )}
+                    </button>
                     <button
                       onClick={() => handleStartEdit(project)}
                       className="text-gray-400 hover:text-blue-500 transition-colors"
