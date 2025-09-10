@@ -291,7 +291,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
         const rawFixtureMappings = mappingData.defaultMappings.length > 0 
           ? mappingData.defaultMappings 
           : mappingData.lacyLightsFixtures.map((fixture: any) => ({
-              lacyLightsKey: `${fixture.manufacturer}/${fixture.model}`,
+              lacyLightsKey: `${fixture.manufacturer ?? 'unknown'}/${fixture.model ?? 'unknown'}`,
               qlcManufacturer: fixture.manufacturer,
               qlcModel: fixture.model,
               qlcMode: 'Default'
