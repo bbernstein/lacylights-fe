@@ -149,3 +149,9 @@ export const FADE_TO_BLACK = gql`
     fadeToBlack(fadeOutTime: $fadeOutTime)
   }
 `;
+
+export const REORDER_CUES = gql`
+  mutation ReorderCues($cueListId: ID!, $cueOrders: [CueOrderInput!]!) {
+    reorderCues(cueListId: $cueListId, cueOrders: $cueOrders)
+  }
+`;
