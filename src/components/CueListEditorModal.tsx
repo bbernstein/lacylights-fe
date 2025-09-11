@@ -13,6 +13,8 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  DraggableAttributes,
+  DraggableSyntheticListeners,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -74,8 +76,8 @@ function SortableCueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
 
 interface CueRowInternalProps extends CueRowProps {
   style?: React.CSSProperties;
-  dragAttributes?: any;
-  dragListeners?: any;
+  dragAttributes?: DraggableAttributes;
+  dragListeners?: DraggableSyntheticListeners;
 }
 
 const CueRow = React.forwardRef<HTMLTableRowElement, CueRowInternalProps>(
