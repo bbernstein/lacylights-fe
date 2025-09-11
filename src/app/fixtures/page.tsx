@@ -243,7 +243,7 @@ export default function FixturesPage() {
       
       return sortDirection === 'desc' ? -comparison : comparison;
     });
-  }, [rawFixtures, sortField, sortDirection]);
+  }, [data?.project?.fixtures, sortField, sortDirection]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
