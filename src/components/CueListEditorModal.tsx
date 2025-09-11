@@ -1,10 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_CUE_LIST, UPDATE_CUE_LIST, CREATE_CUE, UPDATE_CUE, DELETE_CUE } from '@/graphql/cueLists';
+import { GET_CUE_LIST, UPDATE_CUE_LIST, CREATE_CUE, UPDATE_CUE, DELETE_CUE, REORDER_CUES } from '@/graphql/cueLists';
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { CueList, Cue, Scene } from '@/types';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DraggableAttributes,
+  DraggableSyntheticListeners,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface CueListEditorModalProps {
   isOpen: boolean;
@@ -19,9 +40,48 @@ interface CueRowProps {
   scenes: Scene[];
   onUpdate: (cue: Cue) => void;
   onDelete: (cue: Cue) => void;
+  isDragging?: boolean;
 }
 
-function CueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
+function SortableCueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: cue.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <CueRow
+      ref={setNodeRef}
+      style={style}
+      cue={cue}
+      scenes={scenes}
+      onUpdate={onUpdate}
+      onDelete={onDelete}
+      isDragging={isDragging}
+      dragAttributes={attributes}
+      dragListeners={listeners}
+    />
+  );
+}
+
+interface CueRowInternalProps extends CueRowProps {
+  style?: React.CSSProperties;
+  dragAttributes?: DraggableAttributes;
+  dragListeners?: DraggableSyntheticListeners;
+}
+
+const CueRow = React.forwardRef<HTMLTableRowElement, CueRowInternalProps>(
+  ({ cue, scenes, onUpdate, onDelete, isDragging, style, dragAttributes, dragListeners }, ref) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     name: cue.name,
@@ -62,16 +122,28 @@ function CueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
 
   if (isEditing) {
     return (
-      <tr className="bg-blue-50 dark:bg-blue-900/20">
+      <tr ref={ref} style={style} className="bg-blue-50 dark:bg-blue-900/20">
         <td className="px-4 py-3">
-          <input
-            type="number"
-            step="0.1"
-            min="0"
-            value={editData.cueNumber}
-            onChange={(e) => setEditData({ ...editData, cueNumber: e.target.value })}
-            className="w-20 rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
-          />
+          <div className="flex items-center space-x-2">
+            <button
+              className="cursor-grab hover:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+              {...dragAttributes}
+              {...dragListeners}
+              title="Drag to reorder"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9h8M8 15h8" />
+              </svg>
+            </button>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              value={editData.cueNumber}
+              onChange={(e) => setEditData({ ...editData, cueNumber: e.target.value })}
+              className="w-16 rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
+            />
+          </div>
         </td>
         <td className="px-4 py-3">
           <input
@@ -87,7 +159,7 @@ function CueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
             onChange={(e) => setEditData({ ...editData, sceneId: e.target.value })}
             className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
           >
-            {scenes.map(scene => (
+            {scenes.map((scene) => (
               <option key={scene.id} value={scene.id}>{scene.name}</option>
             ))}
           </select>
@@ -149,8 +221,26 @@ function CueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
   }
 
   return (
-    <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-      <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{cue.cueNumber}</td>
+    <tr 
+      ref={ref} 
+      style={style} 
+      className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${isDragging ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+    >
+      <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+        <div className="flex items-center space-x-2">
+          <button
+            className="cursor-grab hover:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+            {...dragAttributes}
+            {...dragListeners}
+            title="Drag to reorder"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9h8M8 15h8" />
+            </svg>
+          </button>
+          <span>{cue.cueNumber}</span>
+        </div>
+      </td>
       <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{cue.name}</td>
       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{cue.scene.name}</td>
       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{cue.fadeInTime}s</td>
@@ -180,7 +270,10 @@ function CueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
       </td>
     </tr>
   );
-}
+  }
+);
+
+CueRow.displayName = 'CueRow';
 
 export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueListUpdated, onRunCueList }: CueListEditorModalProps) {
   const [cueListName, setCueListName] = useState('');
@@ -259,8 +352,54 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
     },
   });
 
+  const [reorderCues] = useMutation(REORDER_CUES, {
+    onCompleted: () => {
+      refetch();
+    },
+    onError: (error) => {
+      setError(error.message);
+    },
+  });
+
   const cueList = cueListData?.cueList;
   const scenes = scenesData?.project?.scenes || [];
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end event
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id && cueList) {
+      const oldIndex = cueList.cues.findIndex((cue) => cue.id === active.id);
+      const newIndex = cueList.cues.findIndex((cue) => cue.id === over?.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        // Create the reordered array to calculate new cue numbers
+        const reorderedCues = arrayMove(cueList.cues, oldIndex, newIndex);
+        
+        // Generate new cue numbers based on position, maintaining gaps for insertions
+        const cueOrders = reorderedCues.map((cue: Cue, index: number) => ({
+          cueId: cue.id,
+          cueNumber: index + 1, // Simple sequential numbering
+        }));
+
+        // Execute the mutation
+        reorderCues({
+          variables: {
+            cueListId: cueList.id,
+            cueOrders,
+          },
+        });
+      }
+    }
+  };
 
   const handleUpdateCueList = () => {
     if (!cueList) return;
@@ -450,7 +589,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                         className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
                       >
                         <option value="">Select scene...</option>
-                        {scenes.map(scene => (
+                        {scenes.map((scene) => (
                           <option key={scene.id} value={scene.id}>{scene.name}</option>
                         ))}
                       </select>
@@ -514,38 +653,49 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
               )}
 
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-700">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Cue #</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Scene</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Fade In</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Fade Out</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Follow</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {cueList.cues.length === 0 ? (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                          No cues yet. Add your first cue to get started.
-                        </td>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Cue #</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Scene</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Fade In</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Fade Out</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Follow</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
                       </tr>
-                    ) : (
-                      cueList.cues.map((cue) => (
-                        <CueRow
-                          key={cue.id}
-                          cue={cue}
-                          scenes={scenes}
-                          onUpdate={handleUpdateCue}
-                          onDelete={handleDeleteCue}
-                        />
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <SortableContext
+                      items={cueList.cues.map(cue => cue.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {cueList.cues.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                              No cues yet. Add your first cue to get started.
+                            </td>
+                          </tr>
+                        ) : (
+                          cueList.cues.map(cue => (
+                            <SortableCueRow
+                              key={cue.id}
+                              cue={cue}
+                              scenes={scenes}
+                              onUpdate={handleUpdateCue}
+                              onDelete={handleDeleteCue}
+                            />
+                          ))
+                        )}
+                      </tbody>
+                    </SortableContext>
+                  </table>
+                </DndContext>
               </div>
 
               <div className="mt-6 flex justify-between">
