@@ -159,7 +159,7 @@ const CueRow = React.forwardRef<HTMLTableRowElement, CueRowInternalProps>(
             onChange={(e) => setEditData({ ...editData, sceneId: e.target.value })}
             className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
           >
-            {scenes.map((scene: Scene) => (
+            {scenes.map((scene) => (
               <option key={scene.id} value={scene.id}>{scene.name}</option>
             ))}
           </select>
@@ -473,7 +473,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
 
   const getNextCueNumber = () => {
     if (!cueList?.cues || cueList.cues.length === 0) return 1;
-    const maxCueNumber = Math.max(...cueList.cues.map((c: Cue) => c.cueNumber));
+    const maxCueNumber = Math.max(...cueList.cues.map(c => c.cueNumber));
     return maxCueNumber + 1;
   };
 
@@ -589,7 +589,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                         className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
                       >
                         <option value="">Select scene...</option>
-                        {scenes.map((scene: Scene) => (
+                        {scenes.map((scene) => (
                           <option key={scene.id} value={scene.id}>{scene.name}</option>
                         ))}
                       </select>
@@ -671,7 +671,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                       </tr>
                     </thead>
                     <SortableContext
-                      items={cueList.cues.map((cue: Cue) => cue.id)}
+                      items={cueList.cues.map(cue => cue.id)}
                       strategy={verticalListSortingStrategy}
                     >
                       <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -682,7 +682,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                             </td>
                           </tr>
                         ) : (
-                          cueList.cues.map((cue: Cue) => (
+                          cueList.cues.map(cue => (
                             <SortableCueRow
                               key={cue.id}
                               cue={cue}
