@@ -18,8 +18,6 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -642,6 +640,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     // Add newly selected fixtures
     if (selectedFixturesToAdd.size > 0 && projectFixturesData?.project?.fixtures) {
       let counter = tempIdCounter;
+      let nextSceneOrder = fixtures.length + 1; // Start from the next available position
       selectedFixturesToAdd.forEach(fixtureId => {
         const fixture = projectFixturesData.project.fixtures.find((f: FixtureInstance) => f.id === fixtureId);
         if (fixture) {
@@ -651,7 +650,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
             id: `temp-${counter++}-${fixtureId}`, // Temporary ID for new fixtures using counter
             fixture: fixture,
             channelValues: defaultValues,
-            sceneOrder: fixtures.length + 1, // Add at the end with appropriate scene order
+            sceneOrder: nextSceneOrder++, // Use unique incrementing order values
           });
         }
       });
@@ -752,9 +751,6 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    
-    // Prevent any form submission during drag
-    event.event?.preventDefault?.();
 
     if (over && active.id !== over.id && scene) {
       const oldIndex = activeFixtureValues.findIndex((fv: SceneFixtureValue) => fv.fixture.id === active.id);
