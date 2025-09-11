@@ -23,7 +23,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChannelType, InstanceChannel } from '@/types';
+import { ChannelType, InstanceChannel, FixtureInstance, FixtureValue } from '@/types';
 import ColorPickerModal from './ColorPickerModal';
 import { rgbToChannelValues, channelValuesToRgb, COLOR_CHANNEL_TYPES, UV_COLOR_HEX } from '@/utils/colorConversion';
 
@@ -32,6 +32,11 @@ interface SceneEditorModalProps {
   onClose: () => void;
   sceneId: string | null;
   onSceneUpdated: () => void;
+}
+
+// Extended FixtureValue interface with sceneOrder for sorting
+interface SceneFixtureValue extends FixtureValue {
+  sceneOrder?: number;
 }
 
 interface ChannelSliderProps {
@@ -71,12 +76,12 @@ function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchPro
       intensity = getChannelValue(intensityIndex) / 255;
     }
 
-    colorChannels.forEach((channel: any) => {
+    colorChannels.forEach((channel: InstanceChannel) => {
       const channelIndex = channels.indexOf(channel);
       const value = getChannelValue(channelIndex);
       const normalizedValue = value / 255;
 
-      switch (channel.type as ChannelType) {
+      switch (channel.type) {
         case ChannelType.RED:
           r = Math.max(r, normalizedValue);
           break;
@@ -247,23 +252,10 @@ function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange 
 }
 
 interface SortableFixtureRowProps {
-  fixtureValue: { 
-    id: string, 
-    fixture: { 
-      id: string, 
-      name: string, 
-      manufacturer: string, 
-      model: string, 
-      universe: number, 
-      startChannel: number, 
-      modeName: string, 
-      channels: InstanceChannel[] 
-    }, 
-    channelValues: number[] 
-  };
+  fixtureValue: SceneFixtureValue;
   index: number;
   channelValues: Map<string, number[]>;
-  formatFixtureInfo: (fixture: any) => string;
+  formatFixtureInfo: (fixture: FixtureInstance) => string;
   handleChannelValueChange: (fixtureId: string, channelIndex: number, value: number) => void;
   handleColorSwatchClick: (fixtureId: string) => void;
   handleRemoveFixture: (fixtureId: string) => void;
@@ -387,7 +379,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   // Helper function to format fixture information display
-  const formatFixtureInfo = (fixture: any): string => {
+  const formatFixtureInfo = (fixture: FixtureInstance): string => {
     const parts = [
       `${fixture.manufacturer} ${fixture.model}`,
       `U${fixture.universe}:${fixture.startChannel}`
@@ -411,7 +403,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
         
         // Initialize channel values map with fixture arrays
         const values = new Map<string, number[]>();
-        data.scene.fixtureValues.forEach((fixtureValue: any) => {
+        data.scene.fixtureValues.forEach((fixtureValue: SceneFixtureValue) => {
           values.set(fixtureValue.fixture.id, fixtureValue.channelValues || []);
         });
         setChannelValues(values);
@@ -543,12 +535,12 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
 
   // Color picker handlers
   const handleColorSwatchClick = (fixtureId: string) => {
-    const fixtureValue = scene?.fixtureValues.find((fv: any) => fv.fixture.id === fixtureId);
+    const fixtureValue = scene?.fixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
     if (!fixtureValue) return;
 
-    const channels = fixtureValue.fixture.channels.map((channelDef: any, index: number) => ({
+    const channels = fixtureValue.fixture.channels.map((channelDef: InstanceChannel, index: number) => ({
       ...channelDef,
-      value: channelValues.get(fixtureId)?.[index] ?? fixtureValue.channels?.[index]?.value ?? 0,
+      value: channelValues.get(fixtureId)?.[index] ?? 0,
     }));
 
     // Get current color from channels
@@ -575,12 +567,12 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   };
 
   const applyColorToFixture = (fixtureId: string, color: { r: number; g: number; b: number }, _final: boolean) => {
-    const fixtureValue = scene?.fixtureValues.find((fv: any) => fv.fixture.id === fixtureId);
+    const fixtureValue = scene?.fixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
     if (!fixtureValue) return;
 
-    const channels = fixtureValue.fixture.channels.map((channelDef: any, index: number) => ({
+    const channels = fixtureValue.fixture.channels.map((channelDef: InstanceChannel, index: number) => ({
       ...channelDef,
-      value: channelValues.get(fixtureId)?.[index] ?? fixtureValue.channels?.[index]?.value ?? 0,
+      value: channelValues.get(fixtureId)?.[index] ?? 0,
     }));
 
     // Convert RGB to channel values
@@ -629,12 +621,12 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     
     const sceneFixtureIds = new Set(
       scene.fixtureValues
-        .filter((fv: any) => !removedFixtures.has(fv.fixture.id))
-        .map((fv: any) => fv.fixture.id)
+        .filter((fv: SceneFixtureValue) => !removedFixtures.has(fv.fixture.id))
+        .map((fv: SceneFixtureValue) => fv.fixture.id)
     );
     
     return projectFixturesData.project.fixtures.filter(
-      (fixture: any) => !sceneFixtureIds.has(fixture.id)
+      (fixture: FixtureInstance) => !sceneFixtureIds.has(fixture.id)
     );
   }, [projectFixturesData, scene, removedFixtures]);
 
@@ -644,17 +636,17 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     
     // Start with existing fixtures that haven't been removed
     const fixtures = scene.fixtureValues.filter(
-      (fv: any) => !removedFixtures.has(fv.fixture.id)
+      (fv: SceneFixtureValue) => !removedFixtures.has(fv.fixture.id)
     );
     
     // Add newly selected fixtures
     if (selectedFixturesToAdd.size > 0 && projectFixturesData?.project?.fixtures) {
       let counter = tempIdCounter;
       selectedFixturesToAdd.forEach(fixtureId => {
-        const fixture = projectFixturesData.project.fixtures.find((f: any) => f.id === fixtureId);
+        const fixture = projectFixturesData.project.fixtures.find((f: FixtureInstance) => f.id === fixtureId);
         if (fixture) {
           // Create a new fixture value with default channel values
-          const defaultValues = fixture.channels.map((ch: any) => ch.defaultValue || 0);
+          const defaultValues = fixture.channels.map((ch: InstanceChannel) => ch.defaultValue || 0);
           fixtures.push({
             id: `temp-${counter++}-${fixtureId}`, // Temporary ID for new fixtures using counter
             fixture: fixture,
@@ -685,9 +677,9 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
         const newMap = new Map(prev);
         selectedFixturesToAdd.forEach(fixtureId => {
           if (!newMap.has(fixtureId)) {
-            const fixture = projectFixturesData.project.fixtures.find((f: any) => f.id === fixtureId);
+            const fixture = projectFixturesData.project.fixtures.find((f: FixtureInstance) => f.id === fixtureId);
             if (fixture) {
-              const defaultValues = fixture.channels.map((ch: any) => ch.defaultValue || 0);
+              const defaultValues = fixture.channels.map((ch: InstanceChannel) => ch.defaultValue || 0);
               newMap.set(fixtureId, defaultValues);
             }
           }
@@ -737,7 +729,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     });
 
     // Create fixture orders for the sorted list
-    const fixtureOrders = sortedFixtures.map((fv: any, index: number) => ({
+    const fixtureOrders = sortedFixtures.map((fv: SceneFixtureValue, index: number) => ({
       fixtureId: fv.fixture.id,
       order: index + 1,
     }));
@@ -765,15 +757,15 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     event.event?.preventDefault?.();
 
     if (over && active.id !== over.id && scene) {
-      const oldIndex = activeFixtureValues.findIndex((fv: any) => fv.fixture.id === active.id);
-      const newIndex = activeFixtureValues.findIndex((fv: any) => fv.fixture.id === over.id);
+      const oldIndex = activeFixtureValues.findIndex((fv: SceneFixtureValue) => fv.fixture.id === active.id);
+      const newIndex = activeFixtureValues.findIndex((fv: SceneFixtureValue) => fv.fixture.id === over.id);
 
       if (oldIndex !== -1 && newIndex !== -1) {
         // Create new order for all fixtures in the scene
         const newFixtureValues = arrayMove(activeFixtureValues, oldIndex, newIndex);
         
         // Update sceneOrder for all fixtures
-        const fixtureOrders = newFixtureValues.map((fv: any, index: number) => ({
+        const fixtureOrders = newFixtureValues.map((fv: SceneFixtureValue, index: number) => ({
           fixtureId: fv.fixture.id,
           order: index + 1,
         }));
@@ -806,7 +798,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     if (!scene) return;
 
     // Build fixture values from active fixtures
-    const fixtureValues = activeFixtureValues.map((fixtureValue: any) => ({
+    const fixtureValues = activeFixtureValues.map((fixtureValue: SceneFixtureValue) => ({
       fixtureId: fixtureValue.fixture.id,
       channelValues: channelValues.get(fixtureValue.fixture.id) || fixtureValue.channelValues || [],
     }));
@@ -1124,7 +1116,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
                   ) : (
                     <>
                       <div className="max-h-48 overflow-y-auto mb-3 space-y-2">
-                        {availableFixtures.map((fixture: any) => (
+                        {availableFixtures.map((fixture: FixtureInstance) => (
                           <label
                             key={fixture.id}
                             className="flex items-center p-2 hover:bg-gray-100 dark:hover:bg-gray-600/50 rounded cursor-pointer"
@@ -1188,11 +1180,11 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
                   onDragEnd={handleDragEnd}
                 >
                   <SortableContext 
-                    items={activeFixtureValues.map((fv: any) => fv.fixture.id)} 
+                    items={activeFixtureValues.map((fv: SceneFixtureValue) => fv.fixture.id)} 
                     strategy={verticalListSortingStrategy}
                   >
                     <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {activeFixtureValues.map((fixtureValue: any, index: number) => (
+                      {activeFixtureValues.map((fixtureValue: SceneFixtureValue, index: number) => (
                         <SortableFixtureRow
                           key={`${fixtureValue.id}-${index}`}
                           fixtureValue={fixtureValue}
