@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECT_FIXTURES, DELETE_FIXTURE_INSTANCE, CREATE_FIXTURE_INSTANCE, REORDER_PROJECT_FIXTURES } from '@/graphql/fixtures';
 import AddFixtureModal from '@/components/AddFixtureModal';
@@ -204,7 +204,8 @@ export default function FixturesPage() {
   const [reorderFixtures] = useMutation(REORDER_PROJECT_FIXTURES, {
     onError: (error) => {
       console.error('Reorder error:', error);
-      alert(`Error reordering fixtures: ${error.message}`);
+      // TODO: Replace with toast notification system
+      console.error(`Error reordering fixtures: ${error.message}`);
       refetch(); // Refresh to restore original order
     },
   });
@@ -216,34 +217,33 @@ export default function FixturesPage() {
     })
   );
 
-  const rawFixtures = data?.project?.fixtures || [];
-
-  // Sort fixtures based on current sort settings
-  const sortedFixtures = [...rawFixtures].sort((a, b) => {
-    let comparison = 0;
-    
-    switch (sortField) {
-      case 'name':
-        comparison = a.name.localeCompare(b.name);
-        break;
-      case 'universe':
-        comparison = a.universe - b.universe;
-        break;
-      case 'startChannel':
-        comparison = a.startChannel - b.startChannel;
-        break;
-      case 'original':
-        // Use projectOrder if available, fallback to createdAt
-        const aOrder = a.projectOrder ?? new Date(a.createdAt).getTime();
-        const bOrder = b.projectOrder ?? new Date(b.createdAt).getTime();
-        comparison = aOrder - bOrder;
-        break;
-    }
-    
-    return sortDirection === 'desc' ? -comparison : comparison;
-  });
-
-  const fixtures = sortedFixtures;
+  // Sort fixtures based on current sort settings with memoization
+  const fixtures = useMemo(() => {
+    const rawFixtures = data?.project?.fixtures || [];
+    return [...rawFixtures].sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortField) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'universe':
+          comparison = a.universe - b.universe;
+          break;
+        case 'startChannel':
+          comparison = a.startChannel - b.startChannel;
+          break;
+        case 'original':
+          // Use projectOrder if available, fallback to createdAt timestamp
+          const aOrder = a.projectOrder ?? Date.parse(a.createdAt);
+          const bOrder = b.projectOrder ?? Date.parse(b.createdAt);
+          comparison = aOrder - bOrder;
+          break;
+      }
+      
+      return sortDirection === 'desc' ? -comparison : comparison;
+    });
+  }, [rawFixtures, sortField, sortDirection]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -256,7 +256,7 @@ export default function FixturesPage() {
     }
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
@@ -272,17 +272,22 @@ export default function FixturesPage() {
           order: index + 1,
         }));
 
-        reorderFixtures({
-          variables: {
-            projectId: currentProject?.id,
-            fixtureOrders,
-          },
-        }).then(() => {
+        try {
+          await reorderFixtures({
+            variables: {
+              projectId: currentProject?.id,
+              fixtureOrders,
+            },
+          });
+          
           // Switch to original order view to show the new custom order
           setSortField('original');
           setSortDirection('asc');
           refetch();
-        });
+        } catch (error) {
+          console.error('Failed to reorder fixtures:', error);
+          // The mutation's onError handler will also trigger
+        }
       }
     }
   };
