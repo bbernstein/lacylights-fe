@@ -32,16 +32,10 @@ jobs:
         echo "Running ESLint with --max-warnings=0 (warnings cause failure)..."
         npm run lint:ci
     
-    - name: Run TypeScript type check (informational)
+    - name: Run TypeScript type check (strict - type errors cause failure)
       run: |
-        echo "Running TypeScript type check..."
-        if npm run type-check; then
-          echo "✅ TypeScript compilation successful"
-        else
-          echo "⚠️  TypeScript compilation has errors - these should be addressed over time"
-          echo "This is informational only and won't fail the CI"
-        fi
-        exit 0  # Always pass to not block CI on existing TS issues
+        echo "Running TypeScript type check with strict enforcement..."
+        npm run type-check
 
   build:
     runs-on: ubuntu-latest

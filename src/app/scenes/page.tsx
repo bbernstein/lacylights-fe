@@ -163,7 +163,7 @@ export default function ScenesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {scenes.map((scene) => (
+              {scenes.map((scene: Scene) => (
                 <tr key={scene.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     {scene.name}

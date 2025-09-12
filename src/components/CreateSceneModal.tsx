@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { CREATE_SCENE } from '@/graphql/scenes';
 import { GET_PROJECT_FIXTURES } from '@/graphql/fixtures';
-import { InstanceChannel } from '@/types';
+import { InstanceChannel, FixtureInstance } from '@/types';
 
 interface CreateSceneModalProps {
   isOpen: boolean;
@@ -43,7 +43,7 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
     // For fixtures with modes, we need to get the channels from the mode, not the definition
     // Create scene with all fixtures at their default values
     // Now we can directly use the fixture's channels!
-    const fixtureValues = fixtures.map((fixture) => {
+    const fixtureValues = fixtures.map((fixture: FixtureInstance) => {
       // Direct access to channels - no more complex logic!
       const channels = fixture.channels || [];
       const channelValues = channels.map((channel: InstanceChannel) => channel.defaultValue || 0);
@@ -145,7 +145,7 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
                     Fixtures to include ({fixtures.length})
                   </h4>
                   <div className="max-h-32 overflow-y-auto">
-                    {fixtures.map((fixture) => (
+                    {fixtures.map((fixture: FixtureInstance) => (
                       <div key={fixture.id} className="text-xs text-gray-600 dark:text-gray-400 py-1">
                         {fixture.name} - {fixture.manufacturer} {fixture.model}
                       </div>
