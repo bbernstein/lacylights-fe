@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLazyQuery, useMutation, useQuery } from '@apollo/client';
 import { GET_MANUFACTURERS, GET_MODELS, UPDATE_FIXTURE_INSTANCE, DELETE_FIXTURE_INSTANCE, GET_PROJECT_FIXTURES } from '@/graphql/fixtures';
 import { FixtureInstance } from '@/types';
@@ -41,7 +41,7 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
   const [getManufacturers, { loading: loadingManufacturers }] = useLazyQuery(GET_MANUFACTURERS, {
     onCompleted: (data) => {
       const uniqueManufacturers = Array.from(
-        new Set(data.fixtureDefinitions.map((def: any) => def.manufacturer))
+        new Set(data.fixtureDefinitions.map((def: { manufacturer: string }) => def.manufacturer))
       );
       setManufacturers(uniqueManufacturers);
     },
@@ -53,7 +53,7 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
       
       // If we're editing a fixture and this is for the current manufacturer, set the model data
       if (fixture && manufacturer === fixture.manufacturer) {
-        const currentModel = data.fixtureDefinitions.find((def: any) => def.id === fixture.definitionId);
+        const currentModel = data.fixtureDefinitions.find((def: { id: string; model: string; modes: Array<{ id: string; name: string; channelCount: number }> }) => def.id === fixture.definitionId);
         if (currentModel) {
           setSelectedModelData(currentModel);
         }
@@ -143,11 +143,11 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
   };
 
   // Get channel count for the selected mode
-  const getSelectedModeChannelCount = () => {
+  const getSelectedModeChannelCount = useCallback(() => {
     if (!selectedModelData || !selectedModeId) return 1;
     const mode = selectedModelData.modes.find((m) => m.id === selectedModeId);
     return mode?.channelCount || 1;
-  };
+  }, [selectedModelData, selectedModeId]);
 
   // Check if a channel range overlaps with existing fixtures
   const checkChannelOverlap = (univ: number, start: number) => {
@@ -169,7 +169,7 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
   };
 
   // Find next available channel that can fit the fixture
-  const findNextAvailableChannel = (univ: number, channelCount: number) => {
+  const findNextAvailableChannel = useCallback((univ: number, channelCount: number) => {
     const fixturesInUniverse = existingFixtures
       .filter(f => f.universe === univ)
       .sort((a, b) => a.startChannel - b.startChannel);
@@ -203,7 +203,7 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
 
     // No space found in this universe
     return -1;
-  };
+  }, [existingFixtures]);
 
   // Auto-select next available channel when toggled
   useEffect(() => {
@@ -217,7 +217,7 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
         setError(`No space available in universe ${universe} for fixture with ${channelCount} channels`);
       }
     }
-  }, [autoSelectChannel, universe, selectedModeId]);
+  }, [autoSelectChannel, universe, selectedModeId, getSelectedModeChannelCount, findNextAvailableChannel]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

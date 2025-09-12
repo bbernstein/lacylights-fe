@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECTS, CREATE_PROJECT } from '@/graphql/projects';
 import { Project } from '@/types';
@@ -24,32 +24,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const { data, loading, error, refetch } = useQuery(GET_PROJECTS);
   const [createProject] = useMutation(CREATE_PROJECT);
 
-  const projects = data?.projects || [];
+  const projects = useMemo(() => data?.projects || [], [data?.projects]);
 
-  // Auto-select first project or create one if none exist
-  useEffect(() => {
-    if (!loading && !currentProject && projects.length > 0) {
-      setCurrentProject(projects[0]);
-    } else if (!loading && projects.length === 0 && !error) {
-      // Auto-create a default project if none exist
-      createNewProject('Default Project', 'Automatically created project');
-    }
-  }, [loading, projects, currentProject, error]);
-
-  const selectProject = (project: Project) => {
-    setCurrentProject(project);
-    // Store in localStorage for persistence
-    localStorage.setItem('currentProjectId', project.id);
-  };
-
-  const selectProjectById = (projectId: string) => {
-    const project = projects.find(p => p.id === projectId);
-    if (project) {
-      selectProject(project);
-    }
-  };
-
-  const createNewProject = async (name: string, description?: string) => {
+  const createNewProject = useCallback(async (name: string, description?: string) => {
     try {
       const result = await createProject({
         variables: {
@@ -67,7 +44,31 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       console.error('Error creating project:', err);
       throw err;
     }
+  }, [createProject, refetch]);
+
+  // Auto-select first project or create one if none exist
+  useEffect(() => {
+    if (!loading && !currentProject && projects.length > 0) {
+      setCurrentProject(projects[0]);
+    } else if (!loading && projects.length === 0 && !error) {
+      // Auto-create a default project if none exist
+      createNewProject('Default Project', 'Automatically created project');
+    }
+  }, [loading, projects, currentProject, error, createNewProject]);
+
+  const selectProject = (project: Project) => {
+    setCurrentProject(project);
+    // Store in localStorage for persistence
+    localStorage.setItem('currentProjectId', project.id);
   };
+
+  const selectProjectById = (projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+      selectProject(project);
+    }
+  };
+
 
   // Try to restore project from localStorage
   useEffect(() => {

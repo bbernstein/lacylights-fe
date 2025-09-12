@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_CUE_LIST, PLAY_CUE, FADE_TO_BLACK } from '@/graphql/cueLists';
 import { Cue } from '@/types';
@@ -19,7 +19,7 @@ interface CueRowProps {
   fadeProgress?: number;
 }
 
-function CueRow({ cue, index, isActive, isNext, isPrevious, fadeProgress }: CueRowProps) {
+function CueRow({ cue, index: _index, isActive, isNext, isPrevious, fadeProgress }: CueRowProps) {
   // Set row background colors with better contrast
   let rowBgClass = '';
   if (isActive) {
@@ -122,7 +122,7 @@ export default function CueListPlaybackView({ cueListId, onClose }: CueListPlayb
   });
 
   const cueList = cueListData?.cueList;
-  const cues = cueList?.cues || [];
+  const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
   const currentCue = currentCueIndex >= 0 && currentCueIndex < cues.length ? cues[currentCueIndex] : null;
   const nextCue = currentCueIndex + 1 < cues.length ? cues[currentCueIndex + 1] : null;
 
@@ -134,7 +134,7 @@ export default function CueListPlaybackView({ cueListId, onClose }: CueListPlayb
     };
   }, []);
 
-  const startFadeProgress = (duration: number) => {
+  const startFadeProgress = useCallback((duration: number) => {
     setFadeProgress(0);
     const startTime = Date.now();
     
@@ -152,9 +152,9 @@ export default function CueListPlaybackView({ cueListId, onClose }: CueListPlayb
         }
       }
     }, 50);
-  };
+  }, []);
 
-  const handlePlayCue = async (cue: Cue, index: number) => {
+  const handlePlayCue = useCallback(async (cue: Cue, index: number) => {
     // Clear any existing timers
     if (followTimeoutRef.current) {
       clearTimeout(followTimeoutRef.current);
@@ -187,23 +187,23 @@ export default function CueListPlaybackView({ cueListId, onClose }: CueListPlayb
     } else {
       setIsPlaying(false);
     }
-  };
+  }, [playCue, startFadeProgress, cues]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (nextCue) {
       const nextIndex = currentCueIndex + 1;
       handlePlayCue(nextCue, nextIndex);
     }
-  };
+  }, [nextCue, currentCueIndex, handlePlayCue]);
 
-  const handlePrevious = () => {
+  const handlePrevious = useCallback(() => {
     if (currentCueIndex > 0) {
       const prevCue = cues[currentCueIndex - 1];
       handlePlayCue(prevCue, currentCueIndex - 1);
     }
-  };
+  }, [currentCueIndex, cues, handlePlayCue]);
 
-  const handleGo = () => {
+  const handleGo = useCallback(() => {
     if (currentCueIndex === -1 && cues.length > 0) {
       // Start from the beginning
       handlePlayCue(cues[0], 0);
@@ -211,9 +211,9 @@ export default function CueListPlaybackView({ cueListId, onClose }: CueListPlayb
       // Go to next cue
       handleNext();
     }
-  };
+  }, [currentCueIndex, cues, handlePlayCue, handleNext]);
 
-  const handleStop = async () => {
+  const handleStop = useCallback(async () => {
     // Clear any timers
     if (followTimeoutRef.current) {
       clearTimeout(followTimeoutRef.current);
@@ -235,9 +235,9 @@ export default function CueListPlaybackView({ cueListId, onClose }: CueListPlayb
     });
 
     setCurrentCueIndex(-1);
-  };
+  }, [fadeToBlack]);
 
-  const handleKeyPress = (e: KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: KeyboardEvent) => {
     if (e.code === 'Space' || e.key === 'Enter') {
       e.preventDefault();
       handleGo();
@@ -248,12 +248,12 @@ export default function CueListPlaybackView({ cueListId, onClose }: CueListPlayb
     } else if (e.key === 'ArrowRight') {
       handleNext();
     }
-  };
+  }, [handleGo, handleStop, handlePrevious, handleNext]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [currentCueIndex, nextCue]);
+  }, [handleKeyPress]);
 
   if (loading) {
     return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLazyQuery, useMutation, useQuery } from "@apollo/client";
 import {
   GET_MANUFACTURERS,
@@ -9,7 +9,7 @@ import {
   GET_PROJECT_FIXTURES,
 } from "@/graphql/fixtures";
 import Autocomplete from "./Autocomplete";
-import { FixtureInstance } from "@/types";
+import { FixtureDefinition } from "@/types";
 
 interface AddFixtureModalProps {
   isOpen: boolean;
@@ -56,14 +56,14 @@ export default function AddFixtureModal({
     skip: !projectId,
   });
 
-  const existingFixtures = fixturesData?.project?.fixtures || [];
+  const existingFixtures = useMemo(() => fixturesData?.project?.fixtures || [], [fixturesData?.project?.fixtures]);
 
   const [getManufacturers, { loading: loadingManufacturers }] = useLazyQuery(
     GET_MANUFACTURERS,
     {
       onCompleted: (data) => {
         const uniqueManufacturers = Array.from(
-          new Set(data.fixtureDefinitions.map((def: any) => def.manufacturer)),
+          new Set(data.fixtureDefinitions.map((def: FixtureDefinition) => def.manufacturer)),
         );
         setManufacturers(uniqueManufacturers);
       },
@@ -129,7 +129,13 @@ export default function AddFixtureModal({
     setSelectedModeId(modeId);
   };
 
-  const updateFixtureName = (
+  const getSelectedModeChannelCount = useCallback(() => {
+    if (!selectedModelData || !selectedModeId) return 1;
+    const mode = selectedModelData.modes.find((m) => m.id === selectedModeId);
+    return mode?.channelCount || 1;
+  }, [selectedModelData, selectedModeId]);
+
+  const updateFixtureName = useCallback((
     mfg: string,
     mdl: string,
     univ: number,
@@ -143,13 +149,8 @@ export default function AddFixtureModal({
         `${mfg} ${mdl} - U${univ}:${channel}-${channel + getSelectedModeChannelCount() * count - 1}`,
       );
     }
-  };
+  }, [getSelectedModeChannelCount]);
 
-  const getSelectedModeChannelCount = () => {
-    if (!selectedModelData || !selectedModeId) return 1;
-    const mode = selectedModelData.modes.find((m) => m.id === selectedModeId);
-    return mode?.channelCount || 1;
-  };
 
   // Check if a channel range overlaps with existing fixtures
   const checkChannelOverlap = (univ: number, start: number, count: number) => {
@@ -171,7 +172,7 @@ export default function AddFixtureModal({
   };
 
   // Find next available channel that can fit the fixture(s)
-  const findNextAvailableChannel = (univ: number, channelCount: number, count: number) => {
+  const findNextAvailableChannel = useCallback((univ: number, channelCount: number, count: number) => {
     const totalChannelsNeeded = channelCount * count;
     const fixturesInUniverse = existingFixtures
       .filter(f => f.universe === univ)
@@ -206,7 +207,7 @@ export default function AddFixtureModal({
 
     // No space found in this universe
     return -1;
-  };
+  }, [existingFixtures]);
 
   // Auto-select next available channel when toggled
   useEffect(() => {
@@ -220,7 +221,7 @@ export default function AddFixtureModal({
         setError(`No space available in universe ${universe} for ${numFixtures} fixture(s) with ${channelCount} channels each`);
       }
     }
-  }, [autoSelectChannel, universe, selectedModeId, numFixtures]);
+  }, [autoSelectChannel, universe, selectedModeId, numFixtures, findNextAvailableChannel, getSelectedModeChannelCount]);
 
   // Update fixture name when relevant fields change
   useEffect(() => {
@@ -240,6 +241,7 @@ export default function AddFixtureModal({
     startChannel,
     numFixtures,
     selectedModeId,
+    updateFixtureName,
   ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -297,7 +299,7 @@ export default function AddFixtureModal({
         });
       }
       // Success handling is done in the mutation's onCompleted
-    } catch (error) {
+    } catch {
       // Error handling is done in the mutation's onError
     }
   };

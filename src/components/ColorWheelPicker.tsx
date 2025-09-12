@@ -12,7 +12,7 @@ interface ColorWheelPickerProps {
 export default function ColorWheelPicker({
   currentColor,
   onColorChange,
-  onColorSelect
+  onColorSelect: _onColorSelect
 }: ColorWheelPickerProps) {
   const [pickerMode, setPickerMode] = useState<'hex' | 'rgb'>('hex');
   const [localColor, setLocalColor] = useState(currentColor);
