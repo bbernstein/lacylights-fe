@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_SCENE, UPDATE_SCENE, START_PREVIEW_SESSION, CANCEL_PREVIEW_SESSION, UPDATE_PREVIEW_CHANNEL, INITIALIZE_PREVIEW_WITH_SCENE } from '@/graphql/scenes';
 import { GET_PROJECT_FIXTURES, REORDER_SCENE_FIXTURES } from '@/graphql/fixtures';
@@ -493,11 +493,20 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     })
   );
 
+  // Ref to store timeout ID for debouncing
+  const debounceTimeoutRef = useRef<NodeJS.Timeout>();
+
   // Debounced preview update function
   const debouncedPreviewUpdate = useCallback((fixtureId: string, channelIndex: number, value: number) => {
     if (!previewMode || !previewSessionId) return;
     
-    const timeoutId = setTimeout(() => {
+    // Clear the previous timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    
+    // Set a new timeout
+    debounceTimeoutRef.current = setTimeout(() => {
       updatePreviewChannel({
         variables: {
           sessionId: previewSessionId,
@@ -507,8 +516,6 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
         },
       });
     }, 50); // 50ms debounce for smooth real-time updates
-    
-    return () => clearTimeout(timeoutId);
   }, [previewMode, previewSessionId, updatePreviewChannel]);
 
   const handleChannelValueChange = (fixtureId: string, channelIndex: number, value: number) => {
