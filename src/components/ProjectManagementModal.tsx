@@ -67,7 +67,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
         
         if (importResult.warnings.length > 0) {
           console.log('\n=== Import Warnings ===');
-          importResult.warnings.forEach((warning, index) => {
+          importResult.warnings.forEach((warning: string, index: number) => {
             console.log(`${index + 1}. ${warning}`);
           });
           console.log('========================\n');

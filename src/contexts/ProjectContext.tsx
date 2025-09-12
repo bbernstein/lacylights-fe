@@ -63,7 +63,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   };
 
   const selectProjectById = (projectId: string) => {
-    const project = projects.find(p => p.id === projectId);
+    const project = projects.find((p: Project) => p.id === projectId);
     if (project) {
       selectProject(project);
     }
@@ -74,7 +74,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const storedProjectId = localStorage.getItem('currentProjectId');
     if (storedProjectId && projects.length > 0) {
-      const storedProject = projects.find(p => p.id === storedProjectId);
+      const storedProject = projects.find((p: Project) => p.id === storedProjectId);
       if (storedProject) {
         setCurrentProject(storedProject);
       }

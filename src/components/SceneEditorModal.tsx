@@ -55,7 +55,7 @@ interface ColorSwatchProps {
 function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchProps) {
   const colorChannels = useMemo(() => 
     channels.filter(channel => 
-      COLOR_CHANNEL_TYPES.includes(channel.type as ChannelType)
+      COLOR_CHANNEL_TYPES.includes(channel.type as typeof COLOR_CHANNEL_TYPES[number])
     ),
     [channels]
   );
@@ -575,7 +575,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     const channelUpdates: { channelIndex: number; value: number }[] = [];
     
     Object.entries(newChannelValues).forEach(([channelId, value]) => {
-      const channelIndex = channels.findIndex(ch => ch.id === channelId);
+      const channelIndex = channels.findIndex((ch: InstanceChannel) => ch.id === channelId);
       if (channelIndex !== -1) {
         channelUpdates.push({ channelIndex, value });
       }
@@ -756,7 +756,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
         const newFixtureValues = arrayMove(activeFixtureValues, oldIndex, newIndex);
         
         // Update sceneOrder for all fixtures
-        const fixtureOrders = newFixtureValues.map((fv: SceneFixtureValue, index: number) => ({
+        const fixtureOrders = (newFixtureValues as SceneFixtureValue[]).map((fv: SceneFixtureValue, index: number) => ({
           fixtureId: fv.fixture.id,
           order: index + 1,
         }));

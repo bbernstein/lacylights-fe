@@ -377,15 +377,15 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
     const { active, over } = event;
 
     if (active.id !== over?.id && cueList) {
-      const oldIndex = cueList.cues.findIndex((cue) => cue.id === active.id);
-      const newIndex = cueList.cues.findIndex((cue) => cue.id === over?.id);
+      const oldIndex = cueList.cues.findIndex((cue: Cue) => cue.id === active.id);
+      const newIndex = cueList.cues.findIndex((cue: Cue) => cue.id === over?.id);
 
       if (oldIndex !== -1 && newIndex !== -1) {
         // Create the reordered array to calculate new cue numbers
         const reorderedCues = arrayMove(cueList.cues, oldIndex, newIndex);
         
         // Generate new cue numbers based on position, maintaining gaps for insertions
-        const cueOrders = reorderedCues.map((cue: Cue, index: number) => ({
+        const cueOrders = (reorderedCues as Cue[]).map((cue: Cue, index: number) => ({
           cueId: cue.id,
           cueNumber: index + 1, // Simple sequential numbering
         }));
@@ -473,7 +473,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
 
   const getNextCueNumber = useCallback(() => {
     if (!cueList?.cues || cueList.cues.length === 0) return 1;
-    const maxCueNumber = Math.max(...cueList.cues.map(c => c.cueNumber));
+    const maxCueNumber = Math.max(...cueList.cues.map((c: Cue) => c.cueNumber));
     return maxCueNumber + 1;
   }, [cueList?.cues]);
 
@@ -589,7 +589,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                         className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
                       >
                         <option value="">Select scene...</option>
-                        {scenes.map((scene) => (
+                        {scenes.map((scene: Scene) => (
                           <option key={scene.id} value={scene.id}>{scene.name}</option>
                         ))}
                       </select>
@@ -671,7 +671,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                       </tr>
                     </thead>
                     <SortableContext
-                      items={cueList.cues.map(cue => cue.id)}
+                      items={cueList.cues.map((cue: Cue) => cue.id)}
                       strategy={verticalListSortingStrategy}
                     >
                       <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -682,7 +682,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                             </td>
                           </tr>
                         ) : (
-                          cueList.cues.map(cue => (
+                          cueList.cues.map((cue: Cue) => (
                             <SortableCueRow
                               key={cue.id}
                               cue={cue}
