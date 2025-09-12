@@ -27,8 +27,10 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
-    - name: Run ESLint
-      run: npm run lint
+    - name: Run ESLint (strict - warnings cause failure)
+      run: |
+        echo "Running ESLint with --max-warnings=0 (warnings cause failure)..."
+        npm run lint:ci
     
     - name: Run TypeScript type check (informational)
       run: |
