@@ -175,8 +175,8 @@ export default function AddFixtureModal({
   const findNextAvailableChannel = useCallback((univ: number, channelCount: number, count: number) => {
     const totalChannelsNeeded = channelCount * count;
     const fixturesInUniverse = existingFixtures
-      .filter((f: any) => f.universe === univ)
-      .sort((a: any, b: any) => a.startChannel - b.startChannel);
+      .filter((f: { universe: number }) => f.universe === univ)
+      .sort((a: { startChannel: number }, b: { startChannel: number }) => a.startChannel - b.startChannel);
 
     // Check if we can start at channel 1
     if (fixturesInUniverse.length === 0 || fixturesInUniverse[0].startChannel > totalChannelsNeeded) {

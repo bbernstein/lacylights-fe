@@ -310,7 +310,7 @@ export default function CueListPlaybackView({ cueListId, onClose }: CueListPlayb
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800">
-              {cues.map((cue: any, index: number) => (
+              {cues.map((cue: { id: string }, index: number) => (
                 <CueRow
                   key={cue.id}
                   cue={cue}
