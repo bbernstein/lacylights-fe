@@ -5,6 +5,7 @@ import { useMutation, useQuery, useLazyQuery } from '@apollo/client';
 import { XMarkIcon, TrashIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT, IMPORT_PROJECT_FROM_QLC, GET_QLC_FIXTURE_MAPPING_SUGGESTIONS, EXPORT_PROJECT_TO_QLC } from '@/graphql/projects';
 import { useProject } from '@/contexts/ProjectContext';
+import { Project } from '@/types';
 
 interface ProjectManagementModalProps {
   isOpen: boolean;
@@ -120,7 +121,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     if (selectedProjects.size === data?.projects.length) {
       setSelectedProjects(new Set());
     } else {
-      setSelectedProjects(new Set(data?.projects.map((p: any) => p.id)));
+      setSelectedProjects(new Set(data?.projects.map((p: Project) => p.id)));
     }
   };
 
@@ -154,7 +155,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     
     // If we deleted the currently selected project, select another one
     if (selectedProjectId && selectedProjects.has(selectedProjectId)) {
-      const remainingProjects = data?.projects.filter((p: any) => !selectedProjects.has(p.id));
+      const remainingProjects = data?.projects.filter((p: Project) => !selectedProjects.has(p.id));
       if (remainingProjects?.length > 0) {
         selectProjectById(remainingProjects[0].id);
       }
@@ -171,7 +172,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     
     // If we deleted the currently selected project, select another one
     if (selectedProjectId === projectId) {
-      const remainingProjects = data?.projects.filter((p: any) => p.id !== projectId);
+      const remainingProjects = data?.projects.filter((p: Project) => p.id !== projectId);
       if (remainingProjects?.length > 0) {
         selectProjectById(remainingProjects[0].id);
       }
@@ -203,7 +204,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     }
   };
 
-  const handleStartEdit = (project: any) => {
+  const handleStartEdit = (project: Project) => {
     setEditingProject({
       id: project.id,
       name: project.name,
@@ -216,7 +217,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
 
     setError(null);
     
-    const result = await updateProject({
+    const _result = await updateProject({
       variables: {
         id: editingProject.id,
         input: {
@@ -281,7 +282,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
         // Use default mappings if available, otherwise create basic mappings
         const rawFixtureMappings = mappingData.defaultMappings.length > 0 
           ? mappingData.defaultMappings 
-          : mappingData.lacyLightsFixtures.map((fixture: any) => ({
+          : mappingData.lacyLightsFixtures.map((fixture: { manufacturer: string | null; model: string | null }) => ({
               lacyLightsKey: `${fixture.manufacturer ?? 'unknown'}/${fixture.model ?? 'unknown'}`,
               qlcManufacturer: fixture.manufacturer,
               qlcModel: fixture.model,
@@ -289,7 +290,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
             }));
 
         // Clean fixture mappings by removing Apollo's __typename field
-        const fixtureMappings = rawFixtureMappings.map((mapping: any) => ({
+        const fixtureMappings = rawFixtureMappings.map((mapping: { lacyLightsKey: string; qlcManufacturer: string; qlcModel: string; qlcMode: string }) => ({
           lacyLightsKey: mapping.lacyLightsKey,
           qlcManufacturer: mapping.qlcManufacturer,
           qlcModel: mapping.qlcModel,
@@ -421,7 +422,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
             <div className="text-gray-400 text-center py-8">No projects found</div>
           ) : (
             <div className="space-y-2">
-              {data?.projects.map((project: any) => (
+              {data?.projects.map((project: Project) => (
                 <div
                   key={project.id}
                   className={`flex items-center gap-3 p-3 rounded ${

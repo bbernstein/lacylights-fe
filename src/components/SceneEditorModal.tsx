@@ -494,27 +494,22 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   );
 
   // Debounced preview update function
-  const debouncedPreviewUpdate = useCallback(
-    (() => {
-      let timeoutId: NodeJS.Timeout;
-      return (fixtureId: string, channelIndex: number, value: number) => {
-        if (!previewMode || !previewSessionId) return;
-        
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-          updatePreviewChannel({
-            variables: {
-              sessionId: previewSessionId,
-              fixtureId,
-              channelIndex,
-              value,
-            },
-          });
-        }, 50); // 50ms debounce for smooth real-time updates
-      };
-    })(),
-    [previewMode, previewSessionId, updatePreviewChannel]
-  );
+  const debouncedPreviewUpdate = useCallback((fixtureId: string, channelIndex: number, value: number) => {
+    if (!previewMode || !previewSessionId) return;
+    
+    const timeoutId = setTimeout(() => {
+      updatePreviewChannel({
+        variables: {
+          sessionId: previewSessionId,
+          fixtureId,
+          channelIndex,
+          value,
+        },
+      });
+    }, 50); // 50ms debounce for smooth real-time updates
+    
+    return () => clearTimeout(timeoutId);
+  }, [previewMode, previewSessionId, updatePreviewChannel]);
 
   const handleChannelValueChange = (fixtureId: string, channelIndex: number, value: number) => {
     setChannelValues(prev => {

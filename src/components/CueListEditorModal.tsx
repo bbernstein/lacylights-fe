@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_CUE_LIST, UPDATE_CUE_LIST, CREATE_CUE, UPDATE_CUE, DELETE_CUE, REORDER_CUES } from '@/graphql/cueLists';
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
-import { CueList, Cue, Scene } from '@/types';
+import { Cue, Scene } from '@/types';
 import {
   DndContext,
   closestCenter,
@@ -471,17 +471,17 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
     onClose();
   };
 
-  const getNextCueNumber = () => {
+  const getNextCueNumber = useCallback(() => {
     if (!cueList?.cues || cueList.cues.length === 0) return 1;
     const maxCueNumber = Math.max(...cueList.cues.map(c => c.cueNumber));
     return maxCueNumber + 1;
-  };
+  }, [cueList?.cues]);
 
   useEffect(() => {
     if (showAddCue) {
       setNewCue(prev => ({ ...prev, cueNumber: getNextCueNumber().toString() }));
     }
-  }, [showAddCue, cueList?.cues]);
+  }, [showAddCue, getNextCueNumber]);
 
   if (!isOpen || !cueListId) return null;
 

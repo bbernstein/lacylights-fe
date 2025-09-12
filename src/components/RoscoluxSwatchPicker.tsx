@@ -115,7 +115,7 @@ function Tooltip({ filter, targetElement, isVisible }: TooltipProps) {
 }
 
 export default function RoscoluxSwatchPicker({
-  currentColor,
+  currentColor: _currentColor,
   onColorSelect,
   maxHeight = "calc(90vh - 200px)" // Default fallback for backwards compatibility
 }: RoscoluxSwatchPickerProps) {
