@@ -55,6 +55,7 @@ interface ColorSwatchProps {
 function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchProps) {
   const colorChannels = useMemo(() => 
     channels.filter(channel => 
+      // Type assertion needed because COLOR_CHANNEL_TYPES is a readonly array of specific ChannelType values
       COLOR_CHANNEL_TYPES.includes(channel.type as typeof COLOR_CHANNEL_TYPES[number])
     ),
     [channels]
