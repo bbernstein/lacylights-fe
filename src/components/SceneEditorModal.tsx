@@ -764,6 +764,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
         const newFixtureValues = arrayMove(activeFixtureValues, oldIndex, newIndex);
         
         // Update sceneOrder for all fixtures
+        // Type assertion needed because arrayMove returns unknown[] despite input being SceneFixtureValue[]
         const fixtureOrders = (newFixtureValues as SceneFixtureValue[]).map((fv: SceneFixtureValue, index: number) => ({
           fixtureId: fv.fixture.id,
           order: index + 1,
