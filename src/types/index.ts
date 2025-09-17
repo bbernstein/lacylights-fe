@@ -120,6 +120,14 @@ export interface Cue {
   notes?: string;
 }
 
+export interface BulkCueUpdateInput {
+  cueIds: string[];
+  fadeInTime?: number;
+  fadeOutTime?: number;
+  followTime?: number;
+  easingType?: string;
+}
+
 export interface UniverseOutput {
   universe: number;
   channels: number[];

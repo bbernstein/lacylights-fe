@@ -23,6 +23,8 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  DraggableAttributes,
+  DraggableSyntheticListeners,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -158,8 +160,8 @@ function SortableCueRow(props: SortableCueRowProps) {
 
 const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
   style?: React.CSSProperties;
-  dragAttributes?: any;
-  dragListeners?: any;
+  dragAttributes?: DraggableAttributes;
+  dragListeners?: DraggableSyntheticListeners;
   isDragging?: boolean;
 }>(({
   cue,

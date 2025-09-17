@@ -44,14 +44,15 @@ export default function ScenesPage() {
     },
   });
 
-  const scenes = data?.project?.scenes || [];
-  
+  // Memoize scenes to prevent dependency issues
+  const scenes = useMemo(() => data?.project?.scenes || [], [data?.project?.scenes]);
+
   // Sort scenes based on the toggle state
   const sortedScenes = useMemo(() => {
     if (!sortAlphabetically) {
       return scenes;
     }
-    return [...scenes].sort((a: Scene, b: Scene) => 
+    return [...scenes].sort((a: Scene, b: Scene) =>
       a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
     );
   }, [scenes, sortAlphabetically]);

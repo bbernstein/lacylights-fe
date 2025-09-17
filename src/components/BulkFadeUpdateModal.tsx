@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useMutation } from '@apollo/client';
 import { BULK_UPDATE_CUES } from '@/graphql/cueLists';
-import { Cue } from '@/types';
+import { Cue, BulkCueUpdateInput } from '@/types';
 
 interface BulkFadeUpdateModalProps {
   isOpen: boolean;
@@ -61,7 +61,7 @@ export default function BulkFadeUpdateModal({
       return;
     }
 
-    const input: any = {
+    const input: BulkCueUpdateInput = {
       cueIds: selectedCues.map(cue => cue.id),
     };
 
@@ -85,7 +85,7 @@ export default function BulkFadeUpdateModal({
 
     if (applyFollow) {
       if (followTime.trim() === '') {
-        input.followTime = null; // Clear follow time
+        input.followTime = undefined; // Clear follow time
       } else {
         const follow = parseFloat(followTime);
         if (isNaN(follow) || follow < 0) {
