@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECT_SCENES, DELETE_SCENE, ACTIVATE_SCENE, DUPLICATE_SCENE } from '@/graphql/scenes';
 import { useProject } from '@/contexts/ProjectContext';
@@ -12,6 +12,7 @@ export default function ScenesPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
+  const [sortAlphabetically, setSortAlphabetically] = useState(false);
   const { currentProject, loading: projectLoading } = useProject();
   
   const { data, loading, error, refetch } = useQuery(GET_PROJECT_SCENES, {
@@ -43,7 +44,18 @@ export default function ScenesPage() {
     },
   });
 
-  const scenes = data?.project?.scenes || [];
+  // Memoize scenes to prevent dependency issues
+  const scenes = useMemo(() => data?.project?.scenes || [], [data?.project?.scenes]);
+
+  // Sort scenes based on the toggle state
+  const sortedScenes = useMemo(() => {
+    if (!sortAlphabetically) {
+      return scenes;
+    }
+    return [...scenes].sort((a: Scene, b: Scene) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    );
+  }, [scenes, sortAlphabetically]);
 
   const handleSceneCreated = () => {
     refetch();
@@ -124,7 +136,22 @@ export default function ScenesPage() {
             Create and manage lighting scenes
           </p>
         </div>
-        <div className="mt-4 sm:mt-0">
+        <div className="mt-4 sm:mt-0 flex items-center space-x-3">
+          <button
+            type="button"
+            onClick={() => setSortAlphabetically(!sortAlphabetically)}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            title={sortAlphabetically ? "Show in original order" : "Sort alphabetically"}
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {sortAlphabetically ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
+              )}
+            </svg>
+            {sortAlphabetically ? 'Original Order' : 'Sort A-Z'}
+          </button>
           <button
             type="button"
             onClick={() => setIsCreateModalOpen(true)}
@@ -140,7 +167,7 @@ export default function ScenesPage() {
           <div className="p-6">
             <p className="text-gray-500 dark:text-gray-400">Loading scenes...</p>
           </div>
-        ) : scenes.length === 0 ? (
+        ) : sortedScenes.length === 0 ? (
           <div className="p-6">
             <p className="text-gray-500 dark:text-gray-400">No scenes yet. Create your first scene to get started.</p>
           </div>
@@ -163,7 +190,7 @@ export default function ScenesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {scenes.map((scene: Scene) => (
+              {sortedScenes.map((scene: Scene) => (
                 <tr key={scene.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     {scene.name}
