@@ -5,6 +5,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import { GET_CUE_LIST, UPDATE_CUE_LIST, CREATE_CUE, UPDATE_CUE, DELETE_CUE, REORDER_CUES } from '@/graphql/cueLists';
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { Cue, Scene } from '@/types';
+import BulkFadeUpdateModal from './BulkFadeUpdateModal';
 import {
   DndContext,
   closestCenter,
@@ -41,9 +42,11 @@ interface CueRowProps {
   onUpdate: (cue: Cue) => void;
   onDelete: (cue: Cue) => void;
   isDragging?: boolean;
+  isSelected?: boolean;
+  onSelect?: (cueId: string, selected: boolean) => void;
 }
 
-function SortableCueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
+function SortableCueRow({ cue, scenes, onUpdate, onDelete, isSelected, onSelect }: CueRowProps) {
   const {
     attributes,
     listeners,
@@ -68,6 +71,8 @@ function SortableCueRow({ cue, scenes, onUpdate, onDelete }: CueRowProps) {
       onUpdate={onUpdate}
       onDelete={onDelete}
       isDragging={isDragging}
+      isSelected={isSelected}
+      onSelect={onSelect}
       dragAttributes={attributes}
       dragListeners={listeners}
     />
@@ -81,7 +86,7 @@ interface CueRowInternalProps extends CueRowProps {
 }
 
 const CueRow = React.forwardRef<HTMLTableRowElement, CueRowInternalProps>(
-  ({ cue, scenes, onUpdate, onDelete, isDragging, style, dragAttributes, dragListeners }, ref) => {
+  ({ cue, scenes, onUpdate, onDelete, isDragging, isSelected, onSelect, style, dragAttributes, dragListeners }, ref) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     name: cue.name,
@@ -123,6 +128,14 @@ const CueRow = React.forwardRef<HTMLTableRowElement, CueRowInternalProps>(
   if (isEditing) {
     return (
       <tr ref={ref} style={style} className="bg-blue-50 dark:bg-blue-900/20">
+        <td className="px-4 py-3">
+          <input
+            type="checkbox"
+            checked={isSelected || false}
+            onChange={(e) => onSelect?.(cue.id, e.target.checked)}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+        </td>
         <td className="px-4 py-3">
           <div className="flex items-center space-x-2">
             <button
@@ -226,6 +239,14 @@ const CueRow = React.forwardRef<HTMLTableRowElement, CueRowInternalProps>(
       style={style} 
       className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${isDragging ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
     >
+      <td className="px-4 py-3">
+        <input
+          type="checkbox"
+          checked={isSelected || false}
+          onChange={(e) => onSelect?.(cue.id, e.target.checked)}
+          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+        />
+      </td>
       <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
         <div className="flex items-center space-x-2">
           <button
@@ -280,6 +301,8 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
   const [cueListDescription, setCueListDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showAddCue, setShowAddCue] = useState(false);
+  const [selectedCueIds, setSelectedCueIds] = useState<Set<string>>(new Set());
+  const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
   const [newCue, setNewCue] = useState({
     name: '',
     cueNumber: '1',
@@ -477,6 +500,33 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
     return maxCueNumber + 1;
   }, [cueList?.cues]);
 
+  // Selection handlers
+  const handleSelectCue = (cueId: string, selected: boolean) => {
+    setSelectedCueIds(prev => {
+      const newSet = new Set(prev);
+      if (selected) {
+        newSet.add(cueId);
+      } else {
+        newSet.delete(cueId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = (selected: boolean) => {
+    if (selected && cueList?.cues) {
+      setSelectedCueIds(new Set(cueList.cues.map((cue: Cue) => cue.id)));
+    } else {
+      setSelectedCueIds(new Set());
+    }
+  };
+
+  const handleBulkUpdate = () => {
+    setShowBulkUpdateModal(true);
+  };
+
+  const selectedCues = cueList?.cues.filter((cue: Cue) => selectedCueIds.has(cue.id)) || [];
+
   useEffect(() => {
     if (showAddCue) {
       setNewCue(prev => ({ ...prev, cueNumber: getNextCueNumber().toString() }));
@@ -544,9 +594,24 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
               )}
 
               <div className="flex justify-between items-center mb-4">
-                <h4 className="text-md font-medium text-gray-900 dark:text-white">
-                  Cues ({cueList.cues.length})
-                </h4>
+                <div className="flex items-center space-x-4">
+                  <h4 className="text-md font-medium text-gray-900 dark:text-white">
+                    Cues ({cueList.cues.length})
+                  </h4>
+                  {selectedCueIds.size > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {selectedCueIds.size} selected
+                      </span>
+                      <button
+                        onClick={handleBulkUpdate}
+                        className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700"
+                      >
+                        Update Fades
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={() => setShowAddCue(!showAddCue)}
                   className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
@@ -661,6 +726,14 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                   <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-700">
                       <tr>
+                        <th className="px-4 py-3 text-left">
+                          <input
+                            type="checkbox"
+                            checked={selectedCueIds.size > 0 && selectedCueIds.size === cueList.cues.length}
+                            onChange={(e) => handleSelectAll(e.target.checked)}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Cue #</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Name</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Scene</th>
@@ -677,7 +750,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                       <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                         {cueList.cues.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                            <td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                               No cues yet. Add your first cue to get started.
                             </td>
                           </tr>
@@ -689,6 +762,8 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                               scenes={scenes}
                               onUpdate={handleUpdateCue}
                               onDelete={handleDeleteCue}
+                              isSelected={selectedCueIds.has(cue.id)}
+                              onSelect={handleSelectCue}
                             />
                           ))
                         )}
@@ -727,6 +802,14 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
           )}
         </div>
       </div>
+      
+      {/* Bulk Update Modal */}
+      <BulkFadeUpdateModal
+        isOpen={showBulkUpdateModal}
+        onClose={() => setShowBulkUpdateModal(false)}
+        selectedCues={selectedCues}
+        onUpdate={refetch}
+      />
     </div>
   );
 }

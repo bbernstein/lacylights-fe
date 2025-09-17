@@ -155,3 +155,21 @@ export const REORDER_CUES = gql`
     reorderCues(cueListId: $cueListId, cueOrders: $cueOrders)
   }
 `;
+
+export const BULK_UPDATE_CUES = gql`
+  mutation BulkUpdateCues($input: BulkCueUpdateInput!) {
+    bulkUpdateCues(input: $input) {
+      id
+      name
+      cueNumber
+      scene {
+        id
+        name
+      }
+      fadeInTime
+      fadeOutTime
+      followTime
+      notes
+    }
+  }
+`;

@@ -5,15 +5,12 @@ import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECT_CUE_LISTS, DELETE_CUE_LIST } from '@/graphql/cueLists';
 import { useProject } from '@/contexts/ProjectContext';
 import CreateCueListModal from '@/components/CreateCueListModal';
-import CueListEditorModal from '@/components/CueListEditorModal';
-import CueListPlaybackView from '@/components/CueListPlaybackView';
+import CueListUnifiedView from '@/components/CueListUnifiedView';
 import { CueList } from '@/types';
 
 export default function CueListsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingCueListId, setEditingCueListId] = useState<string | null>(null);
-  const [playingCueListId, setPlayingCueListId] = useState<string | null>(null);
+  const [activeCueListId, setActiveCueListId] = useState<string | null>(null);
   const { currentProject, loading: projectLoading } = useProject();
   
   const { data, loading, error, refetch } = useQuery(GET_PROJECT_CUE_LISTS, {
@@ -46,22 +43,12 @@ export default function CueListsPage() {
     }
   };
 
-  const handleEditCueList = (cueList: CueList) => {
-    setEditingCueListId(cueList.id);
-    setIsEditModalOpen(true);
+  const handleOpenCueList = (cueList: CueList) => {
+    setActiveCueListId(cueList.id);
   };
 
-  const handleCloseEditModal = () => {
-    setIsEditModalOpen(false);
-    setEditingCueListId(null);
-  };
-
-  const handleRunCueList = (cueListId: string) => {
-    setPlayingCueListId(cueListId);
-  };
-
-  const handleClosePlaybackView = () => {
-    setPlayingCueListId(null);
+  const handleCloseUnifiedView = () => {
+    setActiveCueListId(null);
   };
 
   if (projectLoading) {
@@ -155,24 +142,14 @@ export default function CueListsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-2">
-                      <button 
-                        onClick={() => handleRunCueList(cueList.id)}
-                        disabled={cueList.cues.length === 0}
-                        className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 p-1 rounded hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Run cue list"
+                      <button
+                        onClick={() => handleOpenCueList(cueList)}
+                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                        title="Open cue list"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </button>
-                      <button 
-                        onClick={() => handleEditCueList(cueList)}
-                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                        title="Edit cue list"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
                       <button 
@@ -202,18 +179,10 @@ export default function CueListsPage() {
         />
       )}
 
-      <CueListEditorModal
-        isOpen={isEditModalOpen}
-        onClose={handleCloseEditModal}
-        cueListId={editingCueListId}
-        onCueListUpdated={refetch}
-        onRunCueList={handleRunCueList}
-      />
-
-      {playingCueListId && (
-        <CueListPlaybackView
-          cueListId={playingCueListId}
-          onClose={handleClosePlaybackView}
+      {activeCueListId && (
+        <CueListUnifiedView
+          cueListId={activeCueListId}
+          onClose={handleCloseUnifiedView}
         />
       )}
     </div>
