@@ -496,7 +496,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
 
   const getNextCueNumber = useCallback(() => {
     if (!cueList?.cues || cueList.cues.length === 0) return 1;
-    const maxCueNumber = Math.max(...cueList.cues.map((c: Cue) => c.cueNumber));
+    const maxCueNumber = Math.max(0, ...cueList.cues.map((c: Cue) => c.cueNumber));
     return maxCueNumber + 1;
   }, [cueList?.cues]);
 

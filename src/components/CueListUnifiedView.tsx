@@ -686,12 +686,12 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       variables: {
         input: {
           name: newCue.name,
-          cueNumber: parseFloat(newCue.cueNumber) || 1,
+          cueNumber: newCue.cueNumber ? parseFloat(newCue.cueNumber) : 1,
           cueListId: cueList.id,
           sceneId: newCue.sceneId,
           fadeInTime: parseFloat(newCue.fadeInTime) || 3,
           fadeOutTime: parseFloat(newCue.fadeOutTime) || 3,
-          followTime: parseFloat(newCue.followTime) || undefined,
+          followTime: newCue.followTime === '' || newCue.followTime == null ? undefined : parseFloat(newCue.followTime),
           notes: newCue.notes || undefined,
         },
       },
@@ -735,7 +735,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
   const getNextCueNumber = useCallback(() => {
     if (!cueList?.cues || cueList.cues.length === 0) return 1;
-    const maxCueNumber = Math.max(...cueList.cues.map((c: Cue) => c.cueNumber));
+    const maxCueNumber = Math.max(0, ...cueList.cues.map((c: Cue) => c.cueNumber));
     return maxCueNumber + 1;
   }, [cueList?.cues]);
 
