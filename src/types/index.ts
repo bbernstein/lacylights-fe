@@ -128,6 +128,15 @@ export interface BulkCueUpdateInput {
   easingType?: string;
 }
 
+export interface CueListPlaybackStatus {
+  cueListId: string;
+  currentCueIndex: number | null;
+  isPlaying: boolean;
+  currentCue?: Cue;
+  fadeProgress?: number;
+  lastUpdated: string;
+}
+
 export interface UniverseOutput {
   universe: number;
   channels: number[];

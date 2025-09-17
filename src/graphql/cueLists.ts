@@ -173,3 +173,24 @@ export const BULK_UPDATE_CUES = gql`
     }
   }
 `;
+
+export const CUE_LIST_PLAYBACK_SUBSCRIPTION = gql`
+  subscription CueListPlaybackUpdated($cueListId: ID!) {
+    cueListPlaybackUpdated(cueListId: $cueListId) {
+      cueListId
+      currentCueIndex
+      isPlaying
+      currentCue {
+        id
+        name
+        cueNumber
+        fadeInTime
+        fadeOutTime
+        followTime
+        notes
+      }
+      fadeProgress
+      lastUpdated
+    }
+  }
+`;

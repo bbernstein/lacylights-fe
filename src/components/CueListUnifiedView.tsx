@@ -15,6 +15,7 @@ import {
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { Cue, Scene } from '@/types';
 import BulkFadeUpdateModal from './BulkFadeUpdateModal';
+import { useCueListPlayback } from '@/hooks/useCueListPlayback';
 import {
   DndContext,
   closestCenter,
@@ -391,6 +392,9 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const [isPlaying, setIsPlaying] = useState(false);
   const [fadeProgress, setFadeProgress] = useState(0);
   const [editMode, setEditMode] = useState(false);
+
+  // Real-time playback synchronization
+  const { playbackStatus } = useCueListPlayback(cueListId);
   const [selectedCueIds, setSelectedCueIds] = useState<Set<string>>(new Set());
   const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
   const [showAddCue, setShowAddCue] = useState(false);
@@ -512,6 +516,15 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     };
   }, []);
 
+  // Sync subscription data with local state
+  useEffect(() => {
+    if (playbackStatus) {
+      setCurrentCueIndex(playbackStatus.currentCueIndex ?? -1);
+      setIsPlaying(playbackStatus.isPlaying);
+      setFadeProgress(playbackStatus.fadeProgress ?? 0);
+    }
+  }, [playbackStatus]);
+
   const startFadeProgress = useCallback((duration: number) => {
     setFadeProgress(0);
     const startTime = Date.now();
@@ -538,10 +551,12 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       followTimeoutRef.current = null;
     }
 
-    setCurrentCueIndex(index);
-    setIsPlaying(true);
-
-    startFadeProgress(cue.fadeInTime);
+    // Only set local state if subscription is not active
+    if (!playbackStatus) {
+      setCurrentCueIndex(index);
+      setIsPlaying(true);
+      startFadeProgress(cue.fadeInTime);
+    }
 
     await playCue({
       variables: {
@@ -559,9 +574,12 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
         handlePlayCue(nextCueToPlay, nextCueIndex);
       }, totalWaitTime);
     } else {
-      setIsPlaying(false);
+      // Only set local state if subscription is not active
+      if (!playbackStatus) {
+        setIsPlaying(false);
+      }
     }
-  }, [playCue, startFadeProgress, cues]);
+  }, [playCue, startFadeProgress, cues, playbackStatus]);
 
   const handleNext = useCallback(() => {
     if (nextCue) {
@@ -595,8 +613,11 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       fadeIntervalRef.current = null;
     }
 
-    setIsPlaying(false);
-    setFadeProgress(0);
+    // Only set local state if subscription is not active
+    if (!playbackStatus) {
+      setIsPlaying(false);
+      setFadeProgress(0);
+    }
 
     await fadeToBlack({
       variables: {
@@ -604,8 +625,10 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       },
     });
 
-    setCurrentCueIndex(-1);
-  }, [fadeToBlack]);
+    if (!playbackStatus) {
+      setCurrentCueIndex(-1);
+    }
+  }, [fadeToBlack, playbackStatus]);
 
   const handleKeyPress = useCallback((e: KeyboardEvent) => {
     if (!editMode) {
