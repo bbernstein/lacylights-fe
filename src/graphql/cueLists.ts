@@ -174,6 +174,57 @@ export const BULK_UPDATE_CUES = gql`
   }
 `;
 
+export const GET_CUE_LIST_PLAYBACK_STATUS = gql`
+  query GetCueListPlaybackStatus($cueListId: ID!) {
+    cueListPlaybackStatus(cueListId: $cueListId) {
+      cueListId
+      currentCueIndex
+      isPlaying
+      currentCue {
+        id
+        name
+        cueNumber
+        fadeInTime
+        fadeOutTime
+        followTime
+        notes
+      }
+      fadeProgress
+      lastUpdated
+    }
+  }
+`;
+
+export const START_CUE_LIST = gql`
+  mutation StartCueList($cueListId: ID!, $startFromCue: Int) {
+    startCueList(cueListId: $cueListId, startFromCue: $startFromCue)
+  }
+`;
+
+export const NEXT_CUE = gql`
+  mutation NextCue($cueListId: ID!, $fadeInTime: Float) {
+    nextCue(cueListId: $cueListId, fadeInTime: $fadeInTime)
+  }
+`;
+
+export const PREVIOUS_CUE = gql`
+  mutation PreviousCue($cueListId: ID!, $fadeInTime: Float) {
+    previousCue(cueListId: $cueListId, fadeInTime: $fadeInTime)
+  }
+`;
+
+export const GO_TO_CUE = gql`
+  mutation GoToCue($cueListId: ID!, $cueIndex: Int!, $fadeInTime: Float) {
+    goToCue(cueListId: $cueListId, cueIndex: $cueIndex, fadeInTime: $fadeInTime)
+  }
+`;
+
+export const STOP_CUE_LIST = gql`
+  mutation StopCueList($cueListId: ID!) {
+    stopCueList(cueListId: $cueListId)
+  }
+`;
+
 export const CUE_LIST_PLAYBACK_SUBSCRIPTION = gql`
   subscription CueListPlaybackUpdated($cueListId: ID!) {
     cueListPlaybackUpdated(cueListId: $cueListId) {

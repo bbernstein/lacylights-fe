@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_SCENE, UPDATE_SCENE, START_PREVIEW_SESSION, CANCEL_PREVIEW_SESSION, UPDATE_PREVIEW_CHANNEL, INITIALIZE_PREVIEW_WITH_SCENE } from '@/graphql/scenes';
+import { GET_SCENE, UPDATE_SCENE, GET_CURRENT_ACTIVE_SCENE, START_PREVIEW_SESSION, CANCEL_PREVIEW_SESSION, UPDATE_PREVIEW_CHANNEL, INITIALIZE_PREVIEW_WITH_SCENE } from '@/graphql/scenes';
 import { GET_PROJECT_FIXTURES, REORDER_SCENE_FIXTURES } from '@/graphql/fixtures';
 import {
   DndContext,
@@ -421,6 +421,14 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     variables: { projectId: scene?.project?.id },
     skip: !scene?.project?.id,
   });
+
+  // Query current active scene to check if this scene is currently being played
+  const { data: activeSceneData } = useQuery(GET_CURRENT_ACTIVE_SCENE, {
+    pollInterval: 1000, // Poll every 1 second for better live editing responsiveness
+  });
+
+  // Check if the scene being edited is currently active
+  const isSceneCurrentlyActive = activeSceneData?.currentActiveScene?.id === sceneId;
 
   const [updateScene, { loading: updating }] = useMutation(UPDATE_SCENE, {
     onCompleted: () => {
@@ -892,9 +900,19 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
           ) : (
             <form onSubmit={handleSubmit}>
               <div className="mb-6">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                  Edit Scene
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                    Edit Scene
+                  </h3>
+                  {isSceneCurrentlyActive && (
+                    <div className="flex items-center space-x-2 px-3 py-1 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-full">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                      <span className="text-xs font-medium text-green-800 dark:text-green-200">
+                        LIVE EDITING - Changes apply immediately
+                      </span>
+                    </div>
+                  )}
+                </div>
                 
                 <div className="space-y-4">
                   <div>
@@ -929,15 +947,19 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
                   {/* Preview Mode Toggle */}
                   <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
                     <div className="flex items-center space-x-3">
-                      <div className={`w-3 h-3 rounded-full ${previewMode ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`} />
+                      <div className={`w-3 h-3 rounded-full ${previewMode ? 'bg-blue-400 animate-pulse' : 'bg-gray-400'}`} />
                       <div>
                         <h4 className="text-sm font-medium text-gray-900 dark:text-white">
-                          Live Preview Mode
+                          Preview Mode
                         </h4>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {previewMode 
-                            ? 'Changes are sent to DMX output in real-time' 
-                            : 'Enable to see changes live while editing'
+                          {isSceneCurrentlyActive
+                            ? (previewMode
+                                ? 'Preview mode active (scene is also LIVE - saved changes apply immediately)'
+                                : 'Scene is LIVE - saved changes apply immediately. Preview mode for testing changes.')
+                            : (previewMode
+                                ? 'Changes are sent to DMX output in real-time for testing'
+                                : 'Enable to see changes live while editing (for testing only)')
                           }
                         </p>
                       </div>
