@@ -644,11 +644,12 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const handleNext = useCallback(async () => {
     if (!cueList) return;
 
+    // Early return if at the end of the list to avoid unnecessary mutation
+    if (currentCueIndex + 1 >= cues.length) return;
+
     // Set optimistic local state for immediate UI feedback
-    if (currentCueIndex + 1 < cues.length) {
-      setCurrentCueIndex(currentCueIndex + 1);
-      setIsPlaying(true);
-    }
+    setCurrentCueIndex(currentCueIndex + 1);
+    setIsPlaying(true);
 
     await nextCueMutation({
       variables: {

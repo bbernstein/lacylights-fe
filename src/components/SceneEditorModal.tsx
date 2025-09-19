@@ -428,9 +428,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   });
 
   // Check if the scene being edited is currently active
-  const isSceneCurrentlyActive = useMemo(() => {
-    return activeSceneData?.currentActiveScene?.id === sceneId;
-  }, [activeSceneData?.currentActiveScene?.id, sceneId]);
+  const isSceneCurrentlyActive = activeSceneData?.currentActiveScene?.id === sceneId;
 
   const [updateScene, { loading: updating }] = useMutation(UPDATE_SCENE, {
     onCompleted: () => {
