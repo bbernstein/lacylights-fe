@@ -563,7 +563,8 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     setIsPlaying(true);
 
     // Only start local fade progress if subscription is not providing it
-    if (!playbackStatus?.fadeProgress) {
+    // Check for null/undefined to avoid false positive when fadeProgress is 0
+    if (playbackStatus?.fadeProgress == null) {
       startFadeProgress(cue.fadeInTime);
     }
 

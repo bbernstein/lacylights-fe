@@ -1,5 +1,5 @@
 import { useSubscription } from '@apollo/client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { CUE_LIST_PLAYBACK_SUBSCRIPTION } from '../graphql/cueLists';
 import { CueListPlaybackStatus } from '../types';
 
@@ -19,13 +19,9 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
         setPlaybackStatus(subscriptionData.data.cueListPlaybackUpdated);
       }
     },
+    // Apollo Client automatically handles subscription cleanup and re-subscription
+    // when variables change, so no manual reset is needed
   });
-
-  // Clear status when cueListId changes
-  useEffect(() => {
-    // Reset playback status when switching to a different cue list
-    setPlaybackStatus(null);
-  }, [cueListId]);
 
   return {
     playbackStatus,
