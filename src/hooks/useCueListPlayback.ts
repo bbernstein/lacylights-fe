@@ -9,12 +9,11 @@ interface UseCueListPlaybackResult {
   error?: Error;
 }
 
-export function useCueListPlayback(cueListId?: string): UseCueListPlaybackResult {
+export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult {
   const [playbackStatus, setPlaybackStatus] = useState<CueListPlaybackStatus | null>(null);
 
   const { loading, error } = useSubscription(CUE_LIST_PLAYBACK_SUBSCRIPTION, {
     variables: { cueListId },
-    skip: !cueListId,
     onData: ({ data: subscriptionData }) => {
       if (subscriptionData?.data?.cueListPlaybackUpdated) {
         setPlaybackStatus(subscriptionData.data.cueListPlaybackUpdated);
@@ -24,9 +23,8 @@ export function useCueListPlayback(cueListId?: string): UseCueListPlaybackResult
 
   // Clear status when cueListId changes
   useEffect(() => {
-    if (!cueListId) {
-      setPlaybackStatus(null);
-    }
+    // Reset playback status when switching to a different cue list
+    setPlaybackStatus(null);
   }, [cueListId]);
 
   return {

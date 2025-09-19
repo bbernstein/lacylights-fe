@@ -41,6 +41,12 @@ interface CueListUnifiedViewProps {
   onClose: () => void;
 }
 
+// Helper function to convert subscription cue index to local state format
+// Backend uses null for "no active cue", frontend uses -1 for consistency
+const convertCueIndexForLocalState = (index: number | null | undefined): number => {
+  return index !== undefined && index !== null ? index : -1;
+};
+
 interface EditableCellProps {
   value: number;
   onUpdate: (value: number) => void;
@@ -519,12 +525,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   // Sync subscription data with local state
   useEffect(() => {
     if (playbackStatus) {
-      // Convert null to -1 for local state consistency (null = no active cue)
-      setCurrentCueIndex(
-        playbackStatus.currentCueIndex !== undefined && playbackStatus.currentCueIndex !== null
-          ? playbackStatus.currentCueIndex
-          : -1
-      );
+      setCurrentCueIndex(convertCueIndexForLocalState(playbackStatus.currentCueIndex));
       setIsPlaying(playbackStatus.isPlaying);
       setFadeProgress(playbackStatus.fadeProgress ?? 0);
     }
@@ -562,7 +563,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     setIsPlaying(true);
 
     // Only start local fade progress if subscription is not providing it
-    if (!playbackStatus) {
+    if (!playbackStatus?.fadeProgress) {
       startFadeProgress(cue.fadeInTime);
     }
 
