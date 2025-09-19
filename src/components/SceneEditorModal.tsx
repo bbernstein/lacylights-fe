@@ -424,7 +424,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
 
   // Query current active scene to check if this scene is currently being played
   const { data: activeSceneData } = useQuery(GET_CURRENT_ACTIVE_SCENE, {
-    pollInterval: 5000, // Poll every 5 seconds to reduce server load while keeping reasonable responsiveness
+    pollInterval: 1000, // Poll every 1 second for better live editing responsiveness
   });
 
   // Check if the scene being edited is currently active

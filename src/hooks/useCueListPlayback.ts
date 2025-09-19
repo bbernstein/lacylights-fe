@@ -35,7 +35,7 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
 
   // Set initial state from query data
   useEffect(() => {
-    if (queryData?.cueListPlaybackStatus && queryData.cueListPlaybackStatus !== playbackStatus) {
+    if (queryData?.cueListPlaybackStatus && JSON.stringify(queryData.cueListPlaybackStatus) !== JSON.stringify(playbackStatus)) {
       setPlaybackStatus(queryData.cueListPlaybackStatus);
     }
   }, [queryData, playbackStatus]);

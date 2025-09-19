@@ -132,7 +132,7 @@ interface SortableCueRowProps {
   isNext: boolean;
   isPrevious: boolean;
   fadeProgress?: number;
-  onPlayCue: (cue: Cue, index: number) => void;
+  onJumpToCue: (cue: Cue, index: number) => void;
   onUpdateCue: (cue: Cue) => void;
   onDeleteCue: (cue: Cue) => void;
   editMode: boolean;
@@ -181,7 +181,7 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
   isNext,
   isPrevious,
   fadeProgress,
-  onPlayCue,
+  onJumpToCue,
   onUpdateCue,
   onDeleteCue,
   editMode,
@@ -217,7 +217,7 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
 
   const handleRowClick = () => {
     if (!editMode) {
-      onPlayCue(cue, index);
+      onJumpToCue(cue, index);
     }
   };
 
@@ -382,7 +382,7 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onPlayCue(cue, index);
+              onJumpToCue(cue, index);
             }}
             className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 px-2 py-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-xs font-medium"
             title="Jump to this cue"
@@ -584,7 +584,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     }, 50);
   }, []);
 
-  const handlePlayCue = useCallback(async (cue: Cue, index: number) => {
+  const handleJumpToCue = useCallback(async (cue: Cue, index: number) => {
     if (!cueList) return;
 
     if (followTimeoutRef.current) {
@@ -617,7 +617,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       const nextCueToPlay = cues[nextCueIndex];
 
       followTimeoutRef.current = setTimeout(() => {
-        handlePlayCue(nextCueToPlay, nextCueIndex);
+        handleJumpToCue(nextCueToPlay, nextCueIndex);
       }, totalWaitTime);
     } else {
       // Set optimistic state - cue finished, subscription will override if needed
@@ -1078,7 +1078,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                         isNext={index === currentCueIndex + 1}
                         isPrevious={index < currentCueIndex}
                         fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
-                        onPlayCue={handlePlayCue}
+                        onJumpToCue={handleJumpToCue}
                         onUpdateCue={handleUpdateCue}
                         onDeleteCue={handleDeleteCue}
                         editMode={editMode}
