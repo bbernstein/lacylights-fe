@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useQuery, useMutation } from '@apollo/client';
 import {
   GET_CUE_LIST,
-  PLAY_CUE,
   FADE_TO_BLACK,
   UPDATE_CUE,
   CREATE_CUE,
@@ -441,12 +440,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     skip: !cueListData?.cueList?.project?.id,
   });
 
-  const [playCue] = useMutation(PLAY_CUE, {
-    onError: (error) => {
-      console.error('Error playing cue:', error);
-      setError(`Failed to play cue: ${error.message}`);
-    },
-  });
 
   const [fadeToBlack] = useMutation(FADE_TO_BLACK, {
     onError: (error) => {
@@ -608,24 +601,15 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       startFadeProgress(cue.fadeInTime);
     }
 
-    // If we're already in playback mode (currentCueIndex >= 0), use goToCue for better tracking
-    // Otherwise use playCue for direct cue execution
-    if (currentCueIndex >= 0) {
-      await goToCue({
-        variables: {
-          cueListId: cueList.id,
-          cueIndex: index,
-          fadeInTime: cue.fadeInTime,
-        },
-      });
-    } else {
-      await playCue({
-        variables: {
-          cueId: cue.id,
-          fadeInTime: cue.fadeInTime,
-        },
-      });
-    }
+    // Always use goToCue for playing cues to ensure consistent behavior and better tracking.
+    // This avoids inconsistent paths and simplifies mutation logic.
+    await goToCue({
+      variables: {
+        cueListId: cueList.id,
+        cueIndex: index,
+        fadeInTime: cue.fadeInTime,
+      },
+    });
 
     if (cue.followTime && cue.followTime > 0 && index + 1 < cues.length) {
       const totalWaitTime = (cue.fadeInTime + cue.followTime) * 1000;
@@ -639,7 +623,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       // Set optimistic state - cue finished, subscription will override if needed
       setIsPlaying(false);
     }
-  }, [playCue, goToCue, startFadeProgress, cues, playbackStatus, cueList, currentCueIndex]);
+  }, [goToCue, startFadeProgress, cues, playbackStatus, cueList]);
 
   const handleNext = useCallback(async () => {
     if (!cueList) return;
