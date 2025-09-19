@@ -519,7 +519,12 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   // Sync subscription data with local state
   useEffect(() => {
     if (playbackStatus) {
-      setCurrentCueIndex(playbackStatus.currentCueIndex ?? -1);
+      // Convert null to -1 for local state consistency (null = no active cue)
+      setCurrentCueIndex(
+        playbackStatus.currentCueIndex !== undefined && playbackStatus.currentCueIndex !== null
+          ? playbackStatus.currentCueIndex
+          : -1
+      );
       setIsPlaying(playbackStatus.isPlaying);
       setFadeProgress(playbackStatus.fadeProgress ?? 0);
     }
@@ -551,10 +556,13 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       followTimeoutRef.current = null;
     }
 
-    // Only set local state if subscription is not active
+    // Set optimistic local state for immediate UI feedback
+    // Subscription data will override these values when available
+    setCurrentCueIndex(index);
+    setIsPlaying(true);
+
+    // Only start local fade progress if subscription is not providing it
     if (!playbackStatus) {
-      setCurrentCueIndex(index);
-      setIsPlaying(true);
       startFadeProgress(cue.fadeInTime);
     }
 
@@ -574,10 +582,8 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
         handlePlayCue(nextCueToPlay, nextCueIndex);
       }, totalWaitTime);
     } else {
-      // Only set local state if subscription is not active
-      if (!playbackStatus) {
-        setIsPlaying(false);
-      }
+      // Set optimistic state - cue finished, subscription will override if needed
+      setIsPlaying(false);
     }
   }, [playCue, startFadeProgress, cues, playbackStatus]);
 
@@ -613,11 +619,10 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       fadeIntervalRef.current = null;
     }
 
-    // Only set local state if subscription is not active
-    if (!playbackStatus) {
-      setIsPlaying(false);
-      setFadeProgress(0);
-    }
+    // Set optimistic local state for immediate UI feedback
+    // Subscription data will override these values when available
+    setIsPlaying(false);
+    setFadeProgress(0);
 
     await fadeToBlack({
       variables: {
@@ -625,10 +630,9 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       },
     });
 
-    if (!playbackStatus) {
-      setCurrentCueIndex(-1);
-    }
-  }, [fadeToBlack, playbackStatus]);
+    // Reset cue index optimistically - subscription will override if needed
+    setCurrentCueIndex(-1);
+  }, [fadeToBlack]);
 
   const handleKeyPress = useCallback((e: KeyboardEvent) => {
     if (!editMode) {
