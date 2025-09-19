@@ -19,8 +19,11 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
         setPlaybackStatus(subscriptionData.data.cueListPlaybackUpdated);
       }
     },
+    // Note: Manual state reset on cueListId change is intentionally omitted
     // Apollo Client automatically handles subscription cleanup and re-subscription
-    // when variables change, so no manual reset is needed
+    // when variables change. Manual reset creates race conditions where
+    // playbackStatus becomes temporarily null even when valid data is available.
+    // The subscription will naturally update with new data for the new cueListId.
   });
 
   return {
