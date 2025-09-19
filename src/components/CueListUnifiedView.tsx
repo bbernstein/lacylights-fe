@@ -15,6 +15,7 @@ import {
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { Cue, Scene } from '@/types';
 import BulkFadeUpdateModal from './BulkFadeUpdateModal';
+import { useCueListPlayback } from '@/hooks/useCueListPlayback';
 import {
   DndContext,
   closestCenter,
@@ -39,6 +40,12 @@ interface CueListUnifiedViewProps {
   cueListId: string;
   onClose: () => void;
 }
+
+// Helper function to convert subscription cue index to local state format
+// Backend uses null for "no active cue", frontend uses -1 for consistency
+const convertCueIndexForLocalState = (index: number | null | undefined): number => {
+  return index !== undefined && index !== null ? index : -1;
+};
 
 interface EditableCellProps {
   value: number;
@@ -391,6 +398,9 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const [isPlaying, setIsPlaying] = useState(false);
   const [fadeProgress, setFadeProgress] = useState(0);
   const [editMode, setEditMode] = useState(false);
+
+  // Real-time playback synchronization
+  const { playbackStatus } = useCueListPlayback(cueListId);
   const [selectedCueIds, setSelectedCueIds] = useState<Set<string>>(new Set());
   const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
   const [showAddCue, setShowAddCue] = useState(false);
@@ -512,6 +522,15 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     };
   }, []);
 
+  // Sync subscription data with local state
+  useEffect(() => {
+    if (playbackStatus) {
+      setCurrentCueIndex(convertCueIndexForLocalState(playbackStatus.currentCueIndex));
+      setIsPlaying(playbackStatus.isPlaying);
+      setFadeProgress(playbackStatus.fadeProgress ?? 0);
+    }
+  }, [playbackStatus]);
+
   const startFadeProgress = useCallback((duration: number) => {
     setFadeProgress(0);
     const startTime = Date.now();
@@ -538,10 +557,16 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       followTimeoutRef.current = null;
     }
 
+    // Set optimistic local state for immediate UI feedback
+    // Subscription data will override these values when available
     setCurrentCueIndex(index);
     setIsPlaying(true);
 
-    startFadeProgress(cue.fadeInTime);
+    // Only start local fade progress if subscription is not providing it
+    // Check for null/undefined to avoid false positive when fadeProgress is 0
+    if (playbackStatus?.fadeProgress === undefined || playbackStatus?.fadeProgress === null) {
+      startFadeProgress(cue.fadeInTime);
+    }
 
     await playCue({
       variables: {
@@ -559,9 +584,10 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
         handlePlayCue(nextCueToPlay, nextCueIndex);
       }, totalWaitTime);
     } else {
+      // Set optimistic state - cue finished, subscription will override if needed
       setIsPlaying(false);
     }
-  }, [playCue, startFadeProgress, cues]);
+  }, [playCue, startFadeProgress, cues, playbackStatus]);
 
   const handleNext = useCallback(() => {
     if (nextCue) {
@@ -595,6 +621,8 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       fadeIntervalRef.current = null;
     }
 
+    // Set optimistic local state for immediate UI feedback
+    // Subscription data will override these values when available
     setIsPlaying(false);
     setFadeProgress(0);
 
@@ -604,6 +632,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       },
     });
 
+    // Reset cue index optimistically - subscription will override if needed
     setCurrentCueIndex(-1);
   }, [fadeToBlack]);
 
