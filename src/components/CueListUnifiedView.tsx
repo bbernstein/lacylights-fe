@@ -19,6 +19,7 @@ import {
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { Cue, Scene } from '@/types';
 import BulkFadeUpdateModal from './BulkFadeUpdateModal';
+import SceneEditorModal from './SceneEditorModal';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
 import {
   DndContext,
@@ -135,6 +136,7 @@ interface SortableCueRowProps {
   onJumpToCue: (cue: Cue, index: number) => void;
   onUpdateCue: (cue: Cue) => void;
   onDeleteCue: (cue: Cue) => void;
+  onEditScene: (sceneId: string) => void;
   editMode: boolean;
   scenes: Scene[];
   isSelected: boolean;
@@ -184,6 +186,7 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
   onJumpToCue,
   onUpdateCue,
   onDeleteCue,
+  onEditScene,
   editMode,
   scenes,
   isSelected,
@@ -308,13 +311,26 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => editMode && setShowSceneSelect(true)}
-            disabled={!editMode}
-            className={editMode ? 'hover:underline' : ''}
-          >
-            {cue.scene.name}
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => editMode && setShowSceneSelect(true)}
+              disabled={!editMode}
+              className={editMode ? 'hover:underline' : ''}
+            >
+              {cue.scene.name}
+            </button>
+            {editMode && (
+              <button
+                onClick={() => onEditScene(cue.scene.id)}
+                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1"
+                title="Edit scene"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+            )}
+          </div>
         )}
       </td>
 
@@ -411,6 +427,8 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const [cueListName, setCueListName] = useState('');
   const [cueListDescription, setCueListDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
+  const [showSceneEditor, setShowSceneEditor] = useState(false);
 
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const followTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -849,6 +867,20 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
   const selectedCues = cueList?.cues.filter((cue: Cue) => selectedCueIds.has(cue.id)) || [];
 
+  const handleEditScene = (sceneId: string) => {
+    setEditingSceneId(sceneId);
+    setShowSceneEditor(true);
+  };
+
+  const handleSceneUpdated = () => {
+    refetch();
+  };
+
+  const handleCloseSceneEditor = () => {
+    setShowSceneEditor(false);
+    setEditingSceneId(null);
+  };
+
   if (loading) {
     return (
       <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
@@ -1081,6 +1113,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                         onJumpToCue={handleJumpToCue}
                         onUpdateCue={handleUpdateCue}
                         onDeleteCue={handleDeleteCue}
+                        onEditScene={handleEditScene}
                         editMode={editMode}
                         scenes={scenes}
                         isSelected={selectedCueIds.has(cue.id)}
@@ -1166,6 +1199,14 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
         onClose={() => setShowBulkUpdateModal(false)}
         selectedCues={selectedCues}
         onUpdate={refetch}
+      />
+
+      {/* Scene Editor Modal */}
+      <SceneEditorModal
+        isOpen={showSceneEditor}
+        onClose={handleCloseSceneEditor}
+        sceneId={editingSceneId}
+        onSceneUpdated={handleSceneUpdated}
       />
     </div>
   );
