@@ -19,7 +19,9 @@ import {
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { Cue, Scene } from '@/types';
 import BulkFadeUpdateModal from './BulkFadeUpdateModal';
+import SceneEditorModal from './SceneEditorModal';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
+import { PencilIcon } from '@heroicons/react/24/outline';
 import {
   DndContext,
   closestCenter,
@@ -135,6 +137,7 @@ interface SortableCueRowProps {
   onJumpToCue: (cue: Cue, index: number) => void;
   onUpdateCue: (cue: Cue) => void;
   onDeleteCue: (cue: Cue) => void;
+  onEditScene: (sceneId: string) => void;
   editMode: boolean;
   scenes: Scene[];
   isSelected: boolean;
@@ -184,6 +187,7 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
   onJumpToCue,
   onUpdateCue,
   onDeleteCue,
+  onEditScene,
   editMode,
   scenes,
   isSelected,
@@ -308,13 +312,25 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => editMode && setShowSceneSelect(true)}
-            disabled={!editMode}
-            className={editMode ? 'hover:underline' : ''}
-          >
-            {cue.scene.name}
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => editMode && setShowSceneSelect(true)}
+              disabled={!editMode}
+              className={editMode ? 'hover:underline' : ''}
+            >
+              {cue.scene.name}
+            </button>
+            {editMode && (
+              <button
+                onClick={() => onEditScene(cue.scene.id)}
+                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1"
+                title="Edit scene"
+                aria-label="Edit scene"
+              >
+                <PencilIcon className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         )}
       </td>
 
@@ -411,6 +427,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const [cueListName, setCueListName] = useState('');
   const [cueListDescription, setCueListDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
 
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const followTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -849,6 +866,18 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
   const selectedCues = cueList?.cues.filter((cue: Cue) => selectedCueIds.has(cue.id)) || [];
 
+  const handleEditScene = (sceneId: string) => {
+    setEditingSceneId(sceneId);
+  };
+
+  const handleSceneUpdated = () => {
+    refetch();
+  };
+
+  const handleCloseSceneEditor = () => {
+    setEditingSceneId(null);
+  };
+
   if (loading) {
     return (
       <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
@@ -1081,6 +1110,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                         onJumpToCue={handleJumpToCue}
                         onUpdateCue={handleUpdateCue}
                         onDeleteCue={handleDeleteCue}
+                        onEditScene={handleEditScene}
                         editMode={editMode}
                         scenes={scenes}
                         isSelected={selectedCueIds.has(cue.id)}
@@ -1166,6 +1196,14 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
         onClose={() => setShowBulkUpdateModal(false)}
         selectedCues={selectedCues}
         onUpdate={refetch}
+      />
+
+      {/* Scene Editor Modal */}
+      <SceneEditorModal
+        isOpen={!!editingSceneId}
+        onClose={handleCloseSceneEditor}
+        sceneId={editingSceneId}
+        onSceneUpdated={handleSceneUpdated}
       />
     </div>
   );
