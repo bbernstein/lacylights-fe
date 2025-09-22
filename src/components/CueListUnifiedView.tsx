@@ -428,7 +428,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const [cueListDescription, setCueListDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
-  const [showSceneEditor, setShowSceneEditor] = useState(false);
 
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const followTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -869,7 +868,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
   const handleEditScene = (sceneId: string) => {
     setEditingSceneId(sceneId);
-    setShowSceneEditor(true);
   };
 
   const handleSceneUpdated = () => {
@@ -877,7 +875,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   };
 
   const handleCloseSceneEditor = () => {
-    setShowSceneEditor(false);
     setEditingSceneId(null);
   };
 
@@ -1202,14 +1199,12 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       />
 
       {/* Scene Editor Modal */}
-      {editingSceneId && (
-        <SceneEditorModal
-          isOpen={showSceneEditor}
-          onClose={handleCloseSceneEditor}
-          sceneId={editingSceneId}
-          onSceneUpdated={handleSceneUpdated}
-        />
-      )}
+      <SceneEditorModal
+        isOpen={!!editingSceneId}
+        onClose={handleCloseSceneEditor}
+        sceneId={editingSceneId}
+        onSceneUpdated={handleSceneUpdated}
+      />
     </div>
   );
 }
