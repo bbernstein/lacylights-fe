@@ -145,6 +145,14 @@ export const DUPLICATE_SCENE = gql`
   }
 `;
 
+export const GET_CURRENT_ACTIVE_SCENE = gql`
+  query GetCurrentActiveScene {
+    currentActiveScene {
+      id
+    }
+  }
+`;
+
 export const ACTIVATE_SCENE = gql`
   mutation ActivateScene($sceneId: ID!) {
     setSceneLive(sceneId: $sceneId)
