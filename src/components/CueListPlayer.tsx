@@ -23,10 +23,6 @@ const convertCueIndexForLocalState = (index: number | null | undefined): number 
 };
 
 export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
-  const [currentCueIndex, setCurrentCueIndex] = useState<number>(-1);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [fadeProgress, setFadeProgress] = useState(0);
-
   const { playbackStatus } = useCueListPlayback(cueListId);
 
   const { data: cueListData, loading } = useQuery(GET_CUE_LIST, {
@@ -42,23 +38,19 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
 
   const cueList = cueListData?.cueList;
   const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
+
+  // Get current state from subscription data only
+  const currentCueIndex = convertCueIndexForLocalState(playbackStatus?.currentCueIndex);
+  const isPlaying = playbackStatus?.isPlaying || false;
+  const fadeProgress = playbackStatus?.fadeProgress ?? 0;
+
   const currentCue = currentCueIndex >= 0 && currentCueIndex < cues.length ? cues[currentCueIndex] : null;
   const nextCue = currentCueIndex + 1 < cues.length ? cues[currentCueIndex + 1] : null;
-
-  useEffect(() => {
-    if (playbackStatus) {
-      setCurrentCueIndex(convertCueIndexForLocalState(playbackStatus.currentCueIndex));
-      setIsPlaying(playbackStatus.isPlaying);
-      setFadeProgress(playbackStatus.fadeProgress ?? 0);
-    }
-  }, [playbackStatus]);
 
   const handleGo = useCallback(async () => {
     if (!cueList) return;
 
     if (currentCueIndex === -1 && cues.length > 0) {
-      setCurrentCueIndex(0);
-      setIsPlaying(true);
       await startCueList({
         variables: {
           cueListId: cueList.id,
@@ -66,8 +58,6 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
         },
       });
     } else if (nextCue) {
-      setCurrentCueIndex(currentCueIndex + 1);
-      setIsPlaying(true);
       await nextCueMutation({
         variables: {
           cueListId: cueList.id,
@@ -80,8 +70,6 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
   const handlePrevious = useCallback(async () => {
     if (!cueList || currentCueIndex <= 0) return;
 
-    setCurrentCueIndex(currentCueIndex - 1);
-    setIsPlaying(true);
     await previousCueMutation({
       variables: {
         cueListId: cueList.id,
@@ -92,10 +80,6 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
 
   const handleStop = useCallback(async () => {
     if (!cueList) return;
-
-    setIsPlaying(false);
-    setFadeProgress(0);
-    setCurrentCueIndex(-1);
 
     await stopCueList({
       variables: {
@@ -114,9 +98,6 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
     if (!cueList || index < 0 || index >= cues.length) return;
 
     const cue = cues[index];
-    setCurrentCueIndex(index);
-    setIsPlaying(true);
-
     await goToCue({
       variables: {
         cueListId: cueList.id,
