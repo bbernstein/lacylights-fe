@@ -1203,7 +1203,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
       {/* Scene Editor Modal */}
       <SceneEditorModal
-        isOpen={showSceneEditor}
+        isOpen={showSceneEditor && editingSceneId !== null}
         onClose={handleCloseSceneEditor}
         sceneId={editingSceneId}
         onSceneUpdated={handleSceneUpdated}
