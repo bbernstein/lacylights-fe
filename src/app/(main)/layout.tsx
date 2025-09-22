@@ -1,3 +1,5 @@
+'use client';
+
 import { ReactNode } from 'react';
 import { Providers } from '../providers';
 import TabNavigation from '@/components/TabNavigation';
