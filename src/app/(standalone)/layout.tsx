@@ -1,10 +1,11 @@
 import { ReactNode } from 'react';
-import { Providers } from '../providers';
+import { ApolloProvider } from '@apollo/client';
+import apolloClient from '@/lib/apollo-client';
 
 export default function StandaloneLayout({ children }: { children: ReactNode }) {
   return (
-    <Providers>
+    <ApolloProvider client={apolloClient}>
       {children}
-    </Providers>
+    </ApolloProvider>
   );
 }
