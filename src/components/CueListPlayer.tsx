@@ -192,7 +192,7 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
                 <div className="mt-4 w-64 mx-auto">
                   <div className="bg-gray-700 rounded-full h-2">
                     <div
-                      className="bg-green-500 h-2 rounded-full transition-all duration-100"
+                      className="bg-green-500 h-2 rounded-full transition-all duration-50"
                       style={{ width: `${fadeProgress}%` }}
                     />
                   </div>
@@ -249,7 +249,7 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
           {/* Next arrow button - provides familiar lighting console navigation alongside main GO button */}
           <button
             onClick={handleGo}
-            disabled={!nextCue}
+            disabled={cues.length === 0 || (currentCueIndex >= cues.length - 1 && currentCueIndex !== -1)}
             className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="Next (→)"
           >

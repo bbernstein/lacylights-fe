@@ -43,9 +43,11 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
           if (!prevStatus) return newStatus;
 
           // Compare key fields to avoid unnecessary re-renders
+          const prevProgress = prevStatus.fadeProgress ?? 0;
+          const newProgress = newStatus.fadeProgress ?? 0;
           if (prevStatus.currentCueIndex === newStatus.currentCueIndex &&
               prevStatus.isPlaying === newStatus.isPlaying &&
-              Math.abs((prevStatus.fadeProgress ?? 0) - (newStatus.fadeProgress ?? 0)) < FADE_PROGRESS_THRESHOLD) {
+              Math.abs(prevProgress - newProgress) < FADE_PROGRESS_THRESHOLD) {
             return prevStatus; // No meaningful change, keep previous state
           }
 
