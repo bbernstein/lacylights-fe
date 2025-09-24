@@ -20,6 +20,9 @@ interface CueListPlayerProps {
   cueListId: string;
 }
 
+// Default fade out time in seconds for blackout operations
+const DEFAULT_FADEOUT_TIME = 3;
+
 export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
   const { playbackStatus } = useCueListPlayback(cueListId);
 
@@ -98,7 +101,7 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
 
     await fadeToBlack({
       variables: {
-        fadeOutTime: 3,
+        fadeOutTime: DEFAULT_FADEOUT_TIME,
       },
     });
   }, [cueList, stopCueList, fadeToBlack]);

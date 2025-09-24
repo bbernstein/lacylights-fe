@@ -44,6 +44,14 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+// Pop-out player window configuration
+const PLAYER_WINDOW = {
+  width: 600,
+  height: 700,
+  name: 'cueListPlayer',
+  features: 'resizable=yes,scrollbars=no,status=no,toolbar=no,menubar=no,location=no'
+} as const;
+
 interface CueListUnifiedViewProps {
   cueListId: string;
   onClose: () => void;
@@ -859,14 +867,12 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
               </button>
               <button
                 onClick={() => {
-                  const width = 600;
-                  const height = 700;
-                  const left = (window.screen.width - width) / 2;
-                  const top = (window.screen.height - height) / 2;
+                  const left = (window.screen.width - PLAYER_WINDOW.width) / 2;
+                  const top = (window.screen.height - PLAYER_WINDOW.height) / 2;
                   window.open(
                     `/player/${cueListId}`,
-                    'cueListPlayer',
-                    `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=no,status=no,toolbar=no,menubar=no,location=no`
+                    PLAYER_WINDOW.name,
+                    `width=${PLAYER_WINDOW.width},height=${PLAYER_WINDOW.height},left=${left},top=${top},${PLAYER_WINDOW.features}`
                   );
                 }}
                 className="px-3 py-1 rounded text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white flex items-center space-x-1"

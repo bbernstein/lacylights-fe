@@ -3,10 +3,18 @@ import { useState, useEffect } from 'react';
 import { GET_CUE_LIST_PLAYBACK_STATUS, CUE_LIST_PLAYBACK_SUBSCRIPTION } from '../graphql/cueLists';
 import { CueListPlaybackStatus } from '../types';
 
-// Threshold for fade progress comparison (in percentage points).
-// Only update playback status if fadeProgress changes by at least 1 percentage point,
-// to avoid unnecessary re-renders from minor fluctuations. The value '1' was chosen
-// because fadeProgress is typically reported as an integer percentage (0-100).
+/**
+ * Threshold for fade progress comparison (in percentage points).
+ * Only update playback status if fadeProgress changes by at least 1 percentage point,
+ * to avoid unnecessary re-renders from minor fluctuations.
+ *
+ * The fadeProgress value from the API is expected to be a number between 0 and 100,
+ * representing the percentage completion of a fade transition. This is defined by
+ * the CueListPlaybackStatus interface where fadeProgress?: number.
+ *
+ * The threshold of 1 means changes less than 1% are ignored, preventing excessive
+ * updates during smooth fade transitions while maintaining visual accuracy.
+ */
 const FADE_PROGRESS_THRESHOLD = 1;
 
 interface UseCueListPlaybackResult {
