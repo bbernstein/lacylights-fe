@@ -37,7 +37,7 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
           // Compare key fields to avoid unnecessary re-renders
           if (prevStatus.currentCueIndex === newStatus.currentCueIndex &&
               prevStatus.isPlaying === newStatus.isPlaying &&
-              Math.abs((prevStatus.fadeProgress || 0) - (newStatus.fadeProgress || 0)) < FADE_PROGRESS_THRESHOLD) {
+              Math.abs((prevStatus.fadeProgress ?? 0) - (newStatus.fadeProgress ?? 0)) < FADE_PROGRESS_THRESHOLD) {
             return prevStatus; // No meaningful change, keep previous state
           }
 
@@ -59,15 +59,8 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
     }
   }, [queryData?.cueListPlaybackStatus, playbackStatus]);
 
-  // Debug subscription errors
-  useEffect(() => {
-    if (subscriptionError) {
-      console.error('Subscription error:', subscriptionError);
-    }
-    if (queryError) {
-      console.error('Query error:', queryError);
-    }
-  }, [subscriptionError, queryError]);
+  // Note: Error handling is managed through the returned error property
+  // Production builds should use proper error monitoring instead of console logging
 
   return {
     playbackStatus,

@@ -421,7 +421,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const isPlaying = playbackStatus?.isPlaying || false;
   const fadeProgress = playbackStatus?.fadeProgress ?? 0;
 
-
   const [selectedCueIds, setSelectedCueIds] = useState<Set<string>>(new Set());
   const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
   const [showAddCue, setShowAddCue] = useState(false);
