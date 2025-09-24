@@ -110,14 +110,14 @@ export default function CueListPlaybackView({ cueListId, onClose }: CueListPlayb
   });
 
   const [playCue] = useMutation(PLAY_CUE, {
-    onError: (error) => {
-      console.error('Error playing cue:', error);
+    onError: () => {
+      // Errors are handled by the UI through error states
     },
   });
 
   const [fadeToBlack] = useMutation(FADE_TO_BLACK, {
-    onError: (error) => {
-      console.error('Error fading to black:', error);
+    onError: () => {
+      // Errors are handled by the UI through error states
     },
   });
 

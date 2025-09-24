@@ -32,7 +32,6 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
   // Shared refetch configuration for cue list mutations
   const refetchConfig = useMemo(() => ({
     refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
-    awaitRefetchQueries: true,
   }), [cueListId]);
 
   // Refetch configuration for fadeToBlack (no await needed for global fade)
@@ -57,6 +56,11 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
 
   const currentCue = currentCueIndex >= 0 && currentCueIndex < cues.length ? cues[currentCueIndex] : null;
   const nextCue = currentCueIndex + 1 < cues.length ? cues[currentCueIndex + 1] : null;
+
+  // Memoize the disable condition to avoid repetition
+  const isGoDisabled = useMemo(() => {
+    return cues.length === 0 || (currentCueIndex >= cues.length - 1 && currentCueIndex !== -1);
+  }, [cues.length, currentCueIndex]);
 
   const handleGo = useCallback(async () => {
     if (!cueList) return;
@@ -238,7 +242,7 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
 
           <button
             onClick={handleGo}
-            disabled={cues.length === 0 || (currentCueIndex >= cues.length - 1 && currentCueIndex !== -1)}
+            disabled={isGoDisabled}
             className="px-8 py-3 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-lg transition-colors"
             title="GO (Space/Enter)"
           >
@@ -248,7 +252,7 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
           {/* Next arrow button - provides familiar lighting console navigation alongside main GO button */}
           <button
             onClick={handleGo}
-            disabled={cues.length === 0 || (currentCueIndex >= cues.length - 1 && currentCueIndex !== -1)}
+            disabled={isGoDisabled}
             className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="Next (→)"
           >
