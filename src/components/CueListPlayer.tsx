@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   GET_CUE_LIST,
+  GET_CUE_LIST_PLAYBACK_STATUS,
   START_CUE_LIST,
   NEXT_CUE,
   PREVIOUS_CUE,
@@ -29,12 +30,29 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
     variables: { id: cueListId },
   });
 
-  const [startCueList] = useMutation(START_CUE_LIST);
-  const [nextCueMutation] = useMutation(NEXT_CUE);
-  const [previousCueMutation] = useMutation(PREVIOUS_CUE);
-  const [goToCue] = useMutation(GO_TO_CUE);
-  const [stopCueList] = useMutation(STOP_CUE_LIST);
-  const [fadeToBlack] = useMutation(FADE_TO_BLACK);
+  const [startCueList] = useMutation(START_CUE_LIST, {
+    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
+    awaitRefetchQueries: true,
+  });
+  const [nextCueMutation] = useMutation(NEXT_CUE, {
+    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
+    awaitRefetchQueries: true,
+  });
+  const [previousCueMutation] = useMutation(PREVIOUS_CUE, {
+    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
+    awaitRefetchQueries: true,
+  });
+  const [goToCue] = useMutation(GO_TO_CUE, {
+    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
+    awaitRefetchQueries: true,
+  });
+  const [stopCueList] = useMutation(STOP_CUE_LIST, {
+    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
+    awaitRefetchQueries: true,
+  });
+  const [fadeToBlack] = useMutation(FADE_TO_BLACK, {
+    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
+  });
 
   const cueList = cueListData?.cueList;
   const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
