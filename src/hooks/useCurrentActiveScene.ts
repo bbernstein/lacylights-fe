@@ -25,14 +25,23 @@ export function useCurrentActiveScene(): UseCurrentActiveSceneResult {
     onData: ({ data: subscriptionData }) => {
       if (subscriptionData?.data?.currentActiveSceneUpdated) {
         const newActiveScene = subscriptionData.data.currentActiveSceneUpdated;
-        setCurrentActiveScene(newActiveScene);
+        // Only update state if the scene has actually changed to prevent unnecessary re-renders
+        setCurrentActiveScene(prevScene => {
+          if (newActiveScene?.id !== prevScene?.id) {
+            return newActiveScene;
+          }
+          return prevScene;
+        });
       }
     },
   });
 
-  // Set initial state from query data ONLY if we don't have subscription data yet
+  // Set initial state from query data or update if query returns different data
   useEffect(() => {
-    if (queryData?.currentActiveScene && !currentActiveScene) {
+    if (
+      queryData?.currentActiveScene &&
+      (!currentActiveScene || queryData.currentActiveScene.id !== currentActiveScene.id)
+    ) {
       setCurrentActiveScene(queryData.currentActiveScene);
     }
   }, [queryData, currentActiveScene]);

@@ -248,6 +248,8 @@ export const DMX_OUTPUT_CHANGED = gql`
   }
 `;
 
+// Subscription for real-time updates when the currently active scene changes
+// Emits when a scene is activated/deactivated via scene activation or cue list playback
 export const CURRENT_ACTIVE_SCENE_UPDATED = gql`
   subscription CurrentActiveSceneUpdated {
     currentActiveSceneUpdated {
