@@ -1060,14 +1060,12 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                       </td>
                     </tr>
                   ) : (
-                    cues.map((cue: Cue, index: number) => {
-                      const isActive = index === currentCueIndex;
-                      return (
+                    cues.map((cue: Cue, index: number) => (
                       <SortableCueRow
                         key={cue.id}
                         cue={cue}
                         index={index}
-                        isActive={isActive}
+                        isActive={index === currentCueIndex}
                         isNext={index === currentCueIndex + 1}
                         isPrevious={index < currentCueIndex}
                         fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
@@ -1080,8 +1078,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                         isSelected={selectedCueIds.has(cue.id)}
                         onSelect={handleSelectCue}
                       />
-                    )
-                    })
+                    ))
                   )}
                 </tbody>
               </SortableContext>
