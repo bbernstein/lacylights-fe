@@ -245,15 +245,16 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
 
           <button
             onClick={handleGo}
-            disabled={currentCueIndex >= cues.length - 1}
+            disabled={cues.length === 0 || (currentCueIndex >= cues.length - 1 && currentCueIndex !== -1)}
             className="px-8 py-3 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-lg transition-colors"
             title="GO (Space/Enter)"
           >
             {currentCueIndex === -1 ? 'START' : 'GO'}
           </button>
 
+          {/* Next arrow button - provides familiar lighting console navigation alongside main GO button */}
           <button
-            onClick={() => nextCue && handleGo()}
+            onClick={handleGo}
             disabled={!nextCue}
             className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="Next (→)"
