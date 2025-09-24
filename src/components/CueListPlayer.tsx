@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   GET_CUE_LIST,
