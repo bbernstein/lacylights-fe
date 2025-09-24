@@ -17,7 +17,7 @@ export function useCurrentActiveScene(): UseCurrentActiveSceneResult {
 
   // Query initial active scene
   const { data: queryData, loading: queryLoading, error: queryError } = useQuery(GET_CURRENT_ACTIVE_SCENE, {
-    fetchPolicy: 'cache-and-network', // Always get fresh data on mount but use cache for immediate response
+    fetchPolicy: 'cache-and-network', // Returns cached data if available and always makes a network request to update the data
   });
 
   // Subscribe to real-time updates
