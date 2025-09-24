@@ -21,7 +21,7 @@ export function useCurrentActiveScene(): UseCurrentActiveSceneResult {
   });
 
   // Subscribe to real-time updates
-  const { loading: subscriptionLoading, error: subscriptionError } = useSubscription(CURRENT_ACTIVE_SCENE_UPDATED, {
+  const { error: subscriptionError } = useSubscription(CURRENT_ACTIVE_SCENE_UPDATED, {
     onData: ({ data: subscriptionData }) => {
       if (subscriptionData?.data?.currentActiveSceneUpdated) {
         const newActiveScene = subscriptionData.data.currentActiveSceneUpdated;
@@ -48,7 +48,7 @@ export function useCurrentActiveScene(): UseCurrentActiveSceneResult {
 
   return {
     currentActiveScene,
-    isLoading: queryLoading || subscriptionLoading,
+    isLoading: queryLoading,
     error: (queryError || subscriptionError) as Error | undefined,
   };
 }
