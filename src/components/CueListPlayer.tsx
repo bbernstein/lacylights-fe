@@ -54,16 +54,15 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
   const isPlaying = playbackStatus?.isPlaying || false;
   const fadeProgress = playbackStatus?.fadeProgress ?? 0;
 
-  const currentCue = currentCueIndex >= 0 && currentCueIndex < cues.length ? cues[currentCueIndex] : null;
   const nextCue = currentCueIndex + 1 < cues.length ? cues[currentCueIndex + 1] : null;
 
   // Get cues for the 5-cue display (2 previous + current + 2 next)
-  const getCuesForDisplay = () => {
-    const displayCues = [];
+  const displayCues = useMemo(() => {
+    const cuesForDisplay = [];
 
     for (let i = currentCueIndex - 2; i <= currentCueIndex + 2; i++) {
       if (i >= 0 && i < cues.length) {
-        displayCues.push({
+        cuesForDisplay.push({
           cue: cues[i],
           index: i,
           isCurrent: i === currentCueIndex,
@@ -73,10 +72,8 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
       }
     }
 
-    return displayCues;
-  };
-
-  const displayCues = getCuesForDisplay();
+    return cuesForDisplay;
+  }, [currentCueIndex, cues]);
 
   // Memoize the disable condition to avoid repetition
   const isGoDisabled = useMemo(() => {
