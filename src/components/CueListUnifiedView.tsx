@@ -19,6 +19,7 @@ import {
 } from '@/graphql/cueLists';
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { Cue, Scene } from '@/types';
+import { convertCueIndexForLocalState } from '@/utils/cueListHelpers';
 import BulkFadeUpdateModal from './BulkFadeUpdateModal';
 import SceneEditorModal from './SceneEditorModal';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
@@ -48,11 +49,6 @@ interface CueListUnifiedViewProps {
   onClose: () => void;
 }
 
-// Helper function to convert subscription cue index to local state format
-// Backend uses null for "no active cue", frontend uses -1 for consistency
-const convertCueIndexForLocalState = (index: number | null | undefined): number => {
-  return index !== undefined && index !== null ? index : -1;
-};
 
 interface EditableCellProps {
   value: number;

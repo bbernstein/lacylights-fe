@@ -14,14 +14,11 @@ import {
 } from '@/graphql/cueLists';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
 import { Cue } from '@/types';
+import { convertCueIndexForLocalState } from '@/utils/cueListHelpers';
 
 interface CueListPlayerProps {
   cueListId: string;
 }
-
-const convertCueIndexForLocalState = (index: number | null | undefined): number => {
-  return index !== undefined && index !== null ? index : -1;
-};
 
 export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
   const { playbackStatus } = useCueListPlayback(cueListId);
