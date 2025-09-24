@@ -223,7 +223,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
           originalFileName: file.name
         }
       });
-    } catch (error) {
+    } catch {
       setError('Failed to import project. Please check the file and try again.');
     } finally {
       setIsImporting(false);
@@ -272,7 +272,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
           }
         });
       }
-    } catch (error) {
+    } catch {
       setError('Failed to export project. Please try again.');
       setIsExporting(false);
       setExportingProjectId(null);

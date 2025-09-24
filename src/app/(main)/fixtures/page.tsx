@@ -180,7 +180,6 @@ export default function FixturesPage() {
       refetch();
     },
     onError: (error) => {
-      
       // Check if this is just a null return value issue
       if (error.message.includes('Cannot return null for non-nullable field')) {
         // The deletion might have succeeded, just refresh the list
@@ -196,16 +195,13 @@ export default function FixturesPage() {
       refetch();
     },
     onError: (error) => {
-      
       alert(`Error duplicating fixture: ${error.message}`);
     },
   });
 
   const [reorderFixtures] = useMutation(REORDER_PROJECT_FIXTURES, {
-    onError: (error) => {
-      
+    onError: (_error) => {
       // TODO: Replace with toast notification system
-      
       refetch(); // Refresh to restore original order
     },
   });
@@ -284,8 +280,7 @@ export default function FixturesPage() {
           setSortField('original');
           setSortDirection('asc');
           refetch();
-        } catch (error) {
-          
+        } catch {
           // The mutation's onError handler will also trigger
         }
       }

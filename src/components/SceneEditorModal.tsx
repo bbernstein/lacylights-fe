@@ -474,8 +474,8 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   });
 
   const [updatePreviewChannel] = useMutation(UPDATE_PREVIEW_CHANNEL, {
-    onError: (error) => {
-      
+    onError: (_error) => {
+
       // Don't show error for individual channel updates as they happen frequently
     },
   });
@@ -755,7 +755,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
       // Refresh scene data to get updated order
       await refetchScene();
     } catch (error) {
-      
+
       setError(`Failed to sort fixtures: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
@@ -791,8 +791,8 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
           
           // Don't call onSceneUpdated here as it might trigger unwanted side effects
           // The scene data has been refetched which is all we need
-        } catch (error) {
-          
+        } catch {
+
           // Error is already handled by the mutation's onError handler
         }
       }
@@ -834,8 +834,8 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
           sceneId: scene.id,
         },
       });
-    } catch (error) {
-      
+    } catch {
+
       setPreviewError('Failed to initialize preview with scene values');
     }
   };
