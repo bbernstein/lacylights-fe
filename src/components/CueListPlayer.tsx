@@ -30,29 +30,23 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
     variables: { id: cueListId },
   });
 
-  const [startCueList] = useMutation(START_CUE_LIST, {
+  // Shared refetch configuration for cue list mutations
+  const refetchConfig = useMemo(() => ({
     refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
     awaitRefetchQueries: true,
-  });
-  const [nextCueMutation] = useMutation(NEXT_CUE, {
+  }), [cueListId]);
+
+  // Refetch configuration for fadeToBlack (no await needed for global fade)
+  const fadeToBlackRefetchConfig = useMemo(() => ({
     refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
-    awaitRefetchQueries: true,
-  });
-  const [previousCueMutation] = useMutation(PREVIOUS_CUE, {
-    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
-    awaitRefetchQueries: true,
-  });
-  const [goToCue] = useMutation(GO_TO_CUE, {
-    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
-    awaitRefetchQueries: true,
-  });
-  const [stopCueList] = useMutation(STOP_CUE_LIST, {
-    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
-    awaitRefetchQueries: true,
-  });
-  const [fadeToBlack] = useMutation(FADE_TO_BLACK, {
-    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
-  });
+  }), [cueListId]);
+
+  const [startCueList] = useMutation(START_CUE_LIST, refetchConfig);
+  const [nextCueMutation] = useMutation(NEXT_CUE, refetchConfig);
+  const [previousCueMutation] = useMutation(PREVIOUS_CUE, refetchConfig);
+  const [goToCue] = useMutation(GO_TO_CUE, refetchConfig);
+  const [stopCueList] = useMutation(STOP_CUE_LIST, refetchConfig);
+  const [fadeToBlack] = useMutation(FADE_TO_BLACK, fadeToBlackRefetchConfig);
 
   const cueList = cueListData?.cueList;
   const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
