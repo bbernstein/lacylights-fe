@@ -20,6 +20,7 @@ import {
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { Cue, Scene } from '@/types';
 import { convertCueIndexForLocalState } from '@/utils/cueListHelpers';
+import { PLAYER_WINDOW } from '@/constants/playback';
 import BulkFadeUpdateModal from './BulkFadeUpdateModal';
 import SceneEditorModal from './SceneEditorModal';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
@@ -44,13 +45,6 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-// Pop-out player window configuration
-const PLAYER_WINDOW = {
-  width: 600,
-  height: 700,
-  name: 'cueListPlayer',
-  features: 'resizable=yes,scrollbars=no,status=no,toolbar=no,menubar=no,location=no'
-} as const;
 
 interface CueListUnifiedViewProps {
   cueListId: string;

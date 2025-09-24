@@ -15,13 +15,12 @@ import {
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
 import { Cue } from '@/types';
 import { convertCueIndexForLocalState } from '@/utils/cueListHelpers';
+import { DEFAULT_FADEOUT_TIME } from '@/constants/playback';
 
 interface CueListPlayerProps {
   cueListId: string;
 }
 
-// Default fade out time in seconds for blackout operations
-const DEFAULT_FADEOUT_TIME = 3;
 
 export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
   const { playbackStatus } = useCueListPlayback(cueListId);
