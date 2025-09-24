@@ -15,6 +15,11 @@ interface UseCurrentActiveSceneResult {
 export function useCurrentActiveScene(): UseCurrentActiveSceneResult {
   const [currentActiveScene, setCurrentActiveScene] = useState<CurrentActiveScene | null>(null);
 
+  // Helper function to check if scene update is needed
+  const shouldUpdateScene = (newScene: CurrentActiveScene | null, currentScene: CurrentActiveScene | null): boolean => {
+    return newScene?.id !== currentScene?.id;
+  };
+
   // Query initial active scene
   const { data: queryData, loading: queryLoading, error: queryError } = useQuery(GET_CURRENT_ACTIVE_SCENE, {
     fetchPolicy: 'cache-and-network', // Returns cached data if available and always makes a network request to update the data
@@ -23,11 +28,11 @@ export function useCurrentActiveScene(): UseCurrentActiveSceneResult {
   // Subscribe to real-time updates
   const { error: subscriptionError } = useSubscription(CURRENT_ACTIVE_SCENE_UPDATED, {
     onData: ({ data: subscriptionData }) => {
-      if (subscriptionData?.data?.currentActiveSceneUpdated) {
-        const newActiveScene = subscriptionData.data.currentActiveSceneUpdated;
+      const newActiveScene = subscriptionData?.data?.currentActiveSceneUpdated;
+      if (newActiveScene) {
         // Only update state if the scene has actually changed to prevent unnecessary re-renders
         setCurrentActiveScene(prevScene => {
-          if (newActiveScene?.id !== prevScene?.id) {
+          if (shouldUpdateScene(newActiveScene, prevScene)) {
             return newActiveScene;
           }
           return prevScene;
@@ -38,11 +43,9 @@ export function useCurrentActiveScene(): UseCurrentActiveSceneResult {
 
   // Set initial state from query data or update if query returns different data
   useEffect(() => {
-    if (
-      queryData?.currentActiveScene &&
-      (!currentActiveScene || queryData.currentActiveScene.id !== currentActiveScene.id)
-    ) {
-      setCurrentActiveScene(queryData.currentActiveScene);
+    const queryScene = queryData?.currentActiveScene;
+    if (queryScene && shouldUpdateScene(queryScene, currentActiveScene)) {
+      setCurrentActiveScene(queryScene);
     }
   }, [queryData]); // eslint-disable-line react-hooks/exhaustive-deps
 
