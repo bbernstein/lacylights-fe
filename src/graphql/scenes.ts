@@ -247,3 +247,11 @@ export const DMX_OUTPUT_CHANGED = gql`
     }
   }
 `;
+
+export const CURRENT_ACTIVE_SCENE_UPDATED = gql`
+  subscription CurrentActiveSceneUpdated {
+    currentActiveSceneUpdated {
+      id
+    }
+  }
+`;

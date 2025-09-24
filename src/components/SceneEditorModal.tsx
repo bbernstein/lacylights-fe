@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_SCENE, UPDATE_SCENE, GET_CURRENT_ACTIVE_SCENE, START_PREVIEW_SESSION, CANCEL_PREVIEW_SESSION, UPDATE_PREVIEW_CHANNEL, INITIALIZE_PREVIEW_WITH_SCENE } from '@/graphql/scenes';
+import { useCurrentActiveScene } from '@/hooks/useCurrentActiveScene';
+import { GET_SCENE, UPDATE_SCENE, START_PREVIEW_SESSION, CANCEL_PREVIEW_SESSION, UPDATE_PREVIEW_CHANNEL, INITIALIZE_PREVIEW_WITH_SCENE } from '@/graphql/scenes';
 import { GET_PROJECT_FIXTURES, REORDER_SCENE_FIXTURES } from '@/graphql/fixtures';
 import {
   DndContext,
@@ -422,13 +423,11 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     skip: !scene?.project?.id,
   });
 
-  // Query current active scene to check if this scene is currently being played
-  const { data: activeSceneData } = useQuery(GET_CURRENT_ACTIVE_SCENE, {
-    pollInterval: 1000, // Poll every 1 second for better live editing responsiveness
-  });
+  // Subscribe to current active scene updates to check if this scene is currently being played
+  const { currentActiveScene } = useCurrentActiveScene();
 
   // Check if the scene being edited is currently active
-  const isSceneCurrentlyActive = activeSceneData?.currentActiveScene?.id === sceneId;
+  const isSceneCurrentlyActive = currentActiveScene?.id === sceneId;
 
   const [updateScene, { loading: updating }] = useMutation(UPDATE_SCENE, {
     onCompleted: () => {
