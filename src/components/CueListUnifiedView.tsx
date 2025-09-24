@@ -465,7 +465,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
   const [fadeToBlack] = useMutation(FADE_TO_BLACK, {
     onError: (error) => {
-      console.error('Error fading to black:', error);
       setError(`Failed to fade to black: ${error.message}`);
     },
   });
@@ -473,35 +472,30 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const [startCueList] = useMutation(START_CUE_LIST, {
     refetchQueries: refetchPlaybackStatus,
     onError: (error) => {
-      console.error('Error starting cue list:', error);
       setError(`Failed to start cue list: ${error.message}`);
     },
   });
 
   const [nextCueMutation] = useMutation(NEXT_CUE, {
     onError: (error) => {
-      console.error('Error going to next cue:', error);
       setError(`Failed to go to next cue: ${error.message}`);
     },
   });
 
   const [previousCueMutation] = useMutation(PREVIOUS_CUE, {
     onError: (error) => {
-      console.error('Error going to previous cue:', error);
       setError(`Failed to go to previous cue: ${error.message}`);
     },
   });
 
   const [goToCue] = useMutation(GO_TO_CUE, {
     onError: (error) => {
-      console.error('Error jumping to cue:', error);
       setError(`Failed to jump to cue: ${error.message}`);
     },
   });
 
   const [stopCueList] = useMutation(STOP_CUE_LIST, {
     onError: (error) => {
-      console.error('Error stopping cue list:', error);
       setError(`Failed to stop cue list: ${error.message}`);
     },
   });

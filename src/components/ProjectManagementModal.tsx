@@ -28,68 +28,46 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   const [createProject] = useMutation(CREATE_PROJECT, {
     refetchQueries: [{ query: GET_PROJECTS }],
     onError: (error) => {
-      console.error('Create project error:', error);
       setError(`Failed to create project: ${error.message}`);
     },
   });
   const [deleteProject] = useMutation(DELETE_PROJECT, {
     refetchQueries: [{ query: GET_PROJECTS }],
     onError: (error) => {
-      console.error('Delete project error:', error);
       setError(`Failed to delete project: ${error.message}`);
     },
   });
   const [updateProject] = useMutation(UPDATE_PROJECT, {
     refetchQueries: [{ query: GET_PROJECTS }],
     onError: (error) => {
-      console.error('Update project error:', error);
       setError(`Failed to update project: ${error.message}`);
     },
   });
   const [importProjectFromQLC] = useMutation(IMPORT_PROJECT_FROM_QLC, {
     onError: (error) => {
-      console.error('Import project error:', error);
       setError(`Failed to import project: ${error.message}`);
     },
     onCompleted: async (data) => {
       await refetch();
-      
+
       if (data?.importProjectFromQLC?.project?.id) {
         selectProjectById(data.importProjectFromQLC.project.id);
-        
-        // Log detailed information to console for easy copying
-        const importResult = data.importProjectFromQLC;
-        console.log('=== QLC+ Import Results ===');
-        console.log(`Project: ${importResult.project.name}`);
-        console.log(`Fixtures: ${importResult.fixtureCount}`);
-        console.log(`Scenes: ${importResult.sceneCount}`);
-        console.log(`Cue Lists: ${importResult.cueListCount}`);
-        
-        if (importResult.warnings.length > 0) {
-          console.log('\n=== Import Warnings ===');
-          importResult.warnings.forEach((warning: string, index: number) => {
-            console.log(`${index + 1}. ${warning}`);
-          });
-          console.log('========================\n');
-        }
       }
     },
   });
   const [getFixtureMappingSuggestions] = useLazyQuery(GET_QLC_FIXTURE_MAPPING_SUGGESTIONS, {
     onError: (error) => {
-      console.error('Get fixture mapping suggestions error:', error);
       setError(`Failed to get fixture mappings: ${error.message}`);
     },
   });
   const [exportProjectToQLC] = useMutation(EXPORT_PROJECT_TO_QLC, {
     onError: (error) => {
-      console.error('Export project error:', error);
       setError(`Failed to export project: ${error.message}`);
     },
     onCompleted: (data) => {
       if (data?.exportProjectToQLC) {
         const exportResult = data.exportProjectToQLC;
-        
+
         // Create and download the file
         const blob = new Blob([exportResult.xmlContent], { type: 'application/xml' });
         const url = URL.createObjectURL(blob);
@@ -100,16 +78,8 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        
-        // Log export details to console
-        console.log('=== QLC+ Export Results ===');
-        console.log(`Project: ${exportResult.projectName}`);
-        console.log(`Fixtures: ${exportResult.fixtureCount}`);
-        console.log(`Scenes: ${exportResult.sceneCount}`);
-        console.log(`Cue Lists: ${exportResult.cueListCount}`);
-        console.log('===========================');
       }
-      
+
       setIsExporting(false);
       setExportingProjectId(null);
     },
@@ -147,8 +117,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     setError(null);
     
     for (const projectId of selectedProjects) {
-      const result = await deleteProject({ variables: { id: projectId } });
-      console.log('Delete result:', result);
+      await deleteProject({ variables: { id: projectId } });
     }
     
     setSelectedProjects(new Set());
@@ -167,8 +136,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
 
     setError(null);
     
-    const result = await deleteProject({ variables: { id: projectId } });
-    console.log('Delete single result:', result);
+    await deleteProject({ variables: { id: projectId } });
     
     // If we deleted the currently selected project, select another one
     if (selectedProjectId === projectId) {
@@ -255,8 +223,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
           originalFileName: file.name
         }
       });
-    } catch (error) {
-      console.error('Import error:', error);
+    } catch {
       setError('Failed to import project. Please check the file and try again.');
     } finally {
       setIsImporting(false);
@@ -305,8 +272,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
           }
         });
       }
-    } catch (error) {
-      console.error('Export error:', error);
+    } catch {
       setError('Failed to export project. Please try again.');
       setIsExporting(false);
       setExportingProjectId(null);

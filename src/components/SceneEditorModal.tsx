@@ -437,7 +437,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
       handleClose();
     },
     onError: (error) => {
-      console.error('Update scene error:', error);
+      
       if (error.graphQLErrors?.length > 0) {
         setError(error.graphQLErrors[0].message);
       } else if (error.networkError) {
@@ -455,7 +455,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
       setPreviewError(null);
     },
     onError: (error) => {
-      console.error('Start preview session error:', error);
+      
       setPreviewError(error.message);
       setPreviewMode(false);
     },
@@ -468,28 +468,28 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
       setPreviewError(null);
     },
     onError: (error) => {
-      console.error('Cancel preview session error:', error);
+      
       setPreviewError(error.message);
     },
   });
 
   const [updatePreviewChannel] = useMutation(UPDATE_PREVIEW_CHANNEL, {
-    onError: (error) => {
-      console.error('Update preview channel error:', error);
+    onError: (_error) => {
+
       // Don't show error for individual channel updates as they happen frequently
     },
   });
 
   const [initializePreviewWithScene] = useMutation(INITIALIZE_PREVIEW_WITH_SCENE, {
     onError: (error) => {
-      console.error('Initialize preview with scene error:', error);
+      
       setPreviewError(error.message);
     },
   });
 
   const [reorderSceneFixtures] = useMutation(REORDER_SCENE_FIXTURES, {
     onError: (error) => {
-      console.error('Reorder scene fixtures error:', error);
+      
       setError(`Failed to reorder fixtures: ${error.message}`);
     },
   });
@@ -755,7 +755,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
       // Refresh scene data to get updated order
       await refetchScene();
     } catch (error) {
-      console.error('Failed to sort scene fixtures:', error);
+
       setError(`Failed to sort fixtures: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
@@ -791,8 +791,8 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
           
           // Don't call onSceneUpdated here as it might trigger unwanted side effects
           // The scene data has been refetched which is all we need
-        } catch (error) {
-          console.error('Failed to reorder scene fixtures:', error);
+        } catch {
+
           // Error is already handled by the mutation's onError handler
         }
       }
@@ -834,8 +834,8 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
           sceneId: scene.id,
         },
       });
-    } catch (error) {
-      console.error('Error initializing preview with scene:', error);
+    } catch {
+
       setPreviewError('Failed to initialize preview with scene values');
     }
   };

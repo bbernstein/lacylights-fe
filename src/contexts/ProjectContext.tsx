@@ -41,7 +41,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('currentProjectId', result.data.createProject.id);
       }
     } catch (err) {
-      console.error('Error creating project:', err);
+      // Error handled by UI error states
       throw err;
     }
   }, [createProject, refetch]);

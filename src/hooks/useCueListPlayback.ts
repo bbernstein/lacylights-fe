@@ -29,13 +29,17 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
         setPlaybackStatus(prevStatus => {
           if (!prevStatus) return newStatus;
 
-          // Compare key fields to avoid unnecessary re-renders
+          // Prioritize important state changes (cue index and playing status)
+          if (prevStatus.currentCueIndex !== newStatus.currentCueIndex ||
+              prevStatus.isPlaying !== newStatus.isPlaying) {
+            return newStatus; // Always update for important state changes
+          }
+
+          // For fade progress-only changes, use threshold to avoid excessive updates
           const prevProgress = prevStatus.fadeProgress ?? 0;
           const newProgress = newStatus.fadeProgress ?? 0;
-          if (prevStatus.currentCueIndex === newStatus.currentCueIndex &&
-              prevStatus.isPlaying === newStatus.isPlaying &&
-              Math.abs(prevProgress - newProgress) < FADE_PROGRESS_THRESHOLD) {
-            return prevStatus; // No meaningful change, keep previous state
+          if (Math.abs(prevProgress - newProgress) < FADE_PROGRESS_THRESHOLD) {
+            return prevStatus; // Skip minor fade progress changes
           }
 
           return newStatus;
