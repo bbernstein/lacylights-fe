@@ -67,7 +67,7 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
     if (queryData?.cueListPlaybackStatus && !playbackStatus) {
       setPlaybackStatus(queryData.cueListPlaybackStatus);
     }
-  }, [queryData?.cueListPlaybackStatus, playbackStatus]);
+  }, [queryData, playbackStatus]);
 
   // Note: Error handling is managed through the returned error property
   // Production builds should use proper error monitoring instead of console logging

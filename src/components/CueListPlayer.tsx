@@ -192,7 +192,7 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
                 <div className="mt-4 w-64 mx-auto">
                   <div className="bg-gray-700 rounded-full h-2">
                     <div
-                      className="bg-green-500 h-2 rounded-full transition-all duration-50"
+                      className="bg-green-500 h-2 rounded-full transition-all duration-75"
                       style={{ width: `${fadeProgress}%` }}
                     />
                   </div>

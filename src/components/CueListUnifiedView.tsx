@@ -464,6 +464,10 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     skip: !cueListData?.cueList?.project?.id,
   });
 
+  // Memoize refetch configuration to avoid recreating on every render
+  const refetchPlaybackStatus = useMemo(() => [
+    { query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }
+  ], [cueListId]);
 
   const [fadeToBlack] = useMutation(FADE_TO_BLACK, {
     onError: (error) => {
@@ -473,7 +477,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   });
 
   const [startCueList] = useMutation(START_CUE_LIST, {
-    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
+    refetchQueries: refetchPlaybackStatus,
     onError: (error) => {
       console.error('Error starting cue list:', error);
       setError(`Failed to start cue list: ${error.message}`);
