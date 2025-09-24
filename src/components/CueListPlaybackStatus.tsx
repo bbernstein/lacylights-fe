@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
 
 interface CueListPlaybackStatusProps {
@@ -8,16 +8,28 @@ interface CueListPlaybackStatusProps {
   cueCount: number;
 }
 
-export default function CueListPlaybackStatus({ cueListId, cueCount }: CueListPlaybackStatusProps) {
+const CueListPlaybackStatus = memo(function CueListPlaybackStatus({ cueListId, cueCount }: CueListPlaybackStatusProps) {
   const { playbackStatus } = useCueListPlayback(cueListId);
 
-  if (!playbackStatus || !playbackStatus.isPlaying) {
+  const statusData = useMemo(() => {
+    if (!playbackStatus || !playbackStatus.isPlaying) {
+      return null;
+    }
+
+    const currentCueIndex = playbackStatus.currentCueIndex ?? -1;
+    const currentCueNumber = currentCueIndex >= 0 ? currentCueIndex + 1 : 0;
+    const fadeProgress = Math.round(playbackStatus.fadeProgress ?? 0);
+
+    return {
+      currentCueNumber,
+      fadeProgress,
+      showProgress: fadeProgress > 0 && fadeProgress < 100
+    };
+  }, [playbackStatus]);
+
+  if (!statusData) {
     return null;
   }
-
-  const currentCueIndex = playbackStatus.currentCueIndex ?? -1;
-  const currentCueNumber = currentCueIndex >= 0 ? currentCueIndex + 1 : 0;
-  const fadeProgress = playbackStatus.fadeProgress ?? 0;
 
   return (
     <div className="flex items-center space-x-2">
@@ -26,16 +38,21 @@ export default function CueListPlaybackStatus({ cueListId, cueCount }: CueListPl
         Playing
       </span>
       <span className="text-xs text-gray-500 dark:text-gray-400">
-        Cue {currentCueNumber}/{cueCount}
+        Cue {statusData.currentCueNumber}/{cueCount}
       </span>
-      {fadeProgress > 0 && fadeProgress < 100 && (
+      {statusData.showProgress && (
         <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1">
           <div
-            className="bg-green-600 h-1 rounded-full transition-all duration-100"
-            style={{ width: `${fadeProgress}%` }}
+            className="bg-green-600 h-1 rounded-full transition-all ease-linear"
+            style={{
+              width: `${statusData.fadeProgress}%`,
+              transitionDuration: '150ms'
+            }}
           />
         </div>
       )}
     </div>
   );
-}
+});
+
+export default CueListPlaybackStatus;

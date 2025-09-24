@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useQuery, useMutation } from '@apollo/client';
 import {
   GET_CUE_LIST,
+  GET_CUE_LIST_PLAYBACK_STATUS,
   FADE_TO_BLACK,
   UPDATE_CUE,
   CREATE_CUE,
@@ -423,6 +424,8 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const currentCueIndex = convertCueIndexForLocalState(playbackStatus?.currentCueIndex);
   const isPlaying = playbackStatus?.isPlaying || false;
   const fadeProgress = playbackStatus?.fadeProgress ?? 0;
+
+
   const [selectedCueIds, setSelectedCueIds] = useState<Set<string>>(new Set());
   const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
   const [showAddCue, setShowAddCue] = useState(false);
@@ -467,6 +470,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   });
 
   const [startCueList] = useMutation(START_CUE_LIST, {
+    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
     onError: (error) => {
       console.error('Error starting cue list:', error);
       setError(`Failed to start cue list: ${error.message}`);
@@ -628,8 +632,11 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const handleGo = useCallback(async () => {
     if (!cueList) return;
 
+    console.log('🚀 handleGo called - currentCueIndex:', currentCueIndex, 'cues.length:', cues.length);
+
     if (currentCueIndex === -1 && cues.length > 0) {
       // Starting fresh - use START_CUE_LIST
+      console.log('🚀 Starting cue list from cue 0');
       await startCueList({
         variables: {
           cueListId: cueList.id,
@@ -638,6 +645,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       });
     } else {
       // Already in progress - use NEXT_CUE
+      console.log('🚀 Calling handleNext');
       handleNext();
     }
   }, [currentCueIndex, cues, cueList, startCueList, handleNext]);
@@ -1056,12 +1064,14 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                       </td>
                     </tr>
                   ) : (
-                    cues.map((cue: Cue, index: number) => (
+                    cues.map((cue: Cue, index: number) => {
+                      const isActive = index === currentCueIndex;
+                      return (
                       <SortableCueRow
                         key={cue.id}
                         cue={cue}
                         index={index}
-                        isActive={index === currentCueIndex}
+                        isActive={isActive}
                         isNext={index === currentCueIndex + 1}
                         isPrevious={index < currentCueIndex}
                         fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
@@ -1074,7 +1084,8 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                         isSelected={selectedCueIds.has(cue.id)}
                         onSelect={handleSelectCue}
                       />
-                    ))
+                    )
+                    })
                   )}
                 </tbody>
               </SortableContext>

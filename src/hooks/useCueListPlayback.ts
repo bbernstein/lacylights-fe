@@ -23,7 +23,20 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
     variables: { cueListId },
     onData: ({ data: subscriptionData }) => {
       if (subscriptionData?.data?.cueListPlaybackUpdated) {
-        setPlaybackStatus(subscriptionData.data.cueListPlaybackUpdated);
+        const newStatus = subscriptionData.data.cueListPlaybackUpdated;
+        // Only update if data has meaningfully changed
+        setPlaybackStatus(prevStatus => {
+          if (!prevStatus) return newStatus;
+
+          // Compare key fields to avoid unnecessary re-renders
+          if (prevStatus.currentCueIndex === newStatus.currentCueIndex &&
+              prevStatus.isPlaying === newStatus.isPlaying &&
+              Math.abs((prevStatus.fadeProgress || 0) - (newStatus.fadeProgress || 0)) < 1) {
+            return prevStatus; // No meaningful change, keep previous state
+          }
+
+          return newStatus;
+        });
       }
     },
     // Note: Manual state reset on cueListId change is intentionally omitted
@@ -33,12 +46,22 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
     // The subscription will naturally update with new data for the new cueListId.
   });
 
-  // Set initial state from query data
+  // Set initial state from query data ONLY if we don't have subscription data yet
   useEffect(() => {
-    if (queryData?.cueListPlaybackStatus && JSON.stringify(queryData.cueListPlaybackStatus) !== JSON.stringify(playbackStatus)) {
+    if (queryData?.cueListPlaybackStatus && !playbackStatus) {
       setPlaybackStatus(queryData.cueListPlaybackStatus);
     }
-  }, [queryData, playbackStatus]);
+  }, [queryData?.cueListPlaybackStatus, playbackStatus]);
+
+  // Debug subscription errors
+  useEffect(() => {
+    if (subscriptionError) {
+      console.error('Subscription error:', subscriptionError);
+    }
+    if (queryError) {
+      console.error('Query error:', queryError);
+    }
+  }, [subscriptionError, queryError]);
 
   return {
     playbackStatus,
