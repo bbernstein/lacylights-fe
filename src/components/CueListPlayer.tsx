@@ -245,7 +245,7 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
 
           <button
             onClick={handleGo}
-            disabled={isPlaying || (currentCueIndex >= cues.length - 1)}
+            disabled={currentCueIndex >= cues.length - 1}
             className="px-8 py-3 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-lg transition-colors"
             title="GO (Space/Enter)"
           >

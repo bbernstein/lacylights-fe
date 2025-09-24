@@ -632,11 +632,8 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const handleGo = useCallback(async () => {
     if (!cueList) return;
 
-    console.log('🚀 handleGo called - currentCueIndex:', currentCueIndex, 'cues.length:', cues.length);
-
     if (currentCueIndex === -1 && cues.length > 0) {
       // Starting fresh - use START_CUE_LIST
-      console.log('🚀 Starting cue list from cue 0');
       await startCueList({
         variables: {
           cueListId: cueList.id,
@@ -645,7 +642,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       });
     } else {
       // Already in progress - use NEXT_CUE
-      console.log('🚀 Calling handleNext');
       handleNext();
     }
   }, [currentCueIndex, cues, cueList, startCueList, handleNext]);

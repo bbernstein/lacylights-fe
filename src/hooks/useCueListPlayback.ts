@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react';
 import { GET_CUE_LIST_PLAYBACK_STATUS, CUE_LIST_PLAYBACK_SUBSCRIPTION } from '../graphql/cueLists';
 import { CueListPlaybackStatus } from '../types';
 
+// Threshold for fade progress comparison to avoid unnecessary re-renders
+const FADE_PROGRESS_THRESHOLD = 1;
+
 interface UseCueListPlaybackResult {
   playbackStatus: CueListPlaybackStatus | null;
   isLoading: boolean;
@@ -31,7 +34,7 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
           // Compare key fields to avoid unnecessary re-renders
           if (prevStatus.currentCueIndex === newStatus.currentCueIndex &&
               prevStatus.isPlaying === newStatus.isPlaying &&
-              Math.abs((prevStatus.fadeProgress || 0) - (newStatus.fadeProgress || 0)) < 1) {
+              Math.abs((prevStatus.fadeProgress || 0) - (newStatus.fadeProgress || 0)) < FADE_PROGRESS_THRESHOLD) {
             return prevStatus; // No meaningful change, keep previous state
           }
 
