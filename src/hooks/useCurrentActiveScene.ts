@@ -44,7 +44,7 @@ export function useCurrentActiveScene(): UseCurrentActiveSceneResult {
     ) {
       setCurrentActiveScene(queryData.currentActiveScene);
     }
-  }, [queryData, currentActiveScene]);
+  }, [queryData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     currentActiveScene,
