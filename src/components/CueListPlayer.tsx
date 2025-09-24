@@ -54,8 +54,26 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
   const isPlaying = playbackStatus?.isPlaying || false;
   const fadeProgress = playbackStatus?.fadeProgress ?? 0;
 
-  const currentCue = currentCueIndex >= 0 && currentCueIndex < cues.length ? cues[currentCueIndex] : null;
   const nextCue = currentCueIndex + 1 < cues.length ? cues[currentCueIndex + 1] : null;
+
+  // Get cues for the 5-cue display (2 previous + current + 2 next)
+  const displayCues = useMemo(() => {
+    const cuesForDisplay = [];
+
+    for (let i = currentCueIndex - 2; i <= currentCueIndex + 2; i++) {
+      if (i >= 0 && i < cues.length) {
+        cuesForDisplay.push({
+          cue: cues[i],
+          index: i,
+          isCurrent: i === currentCueIndex,
+          isPrevious: i < currentCueIndex,
+          isNext: i > currentCueIndex
+        });
+      }
+    }
+
+    return cuesForDisplay;
+  }, [currentCueIndex, cues]);
 
   // Memoize the disable condition to avoid repetition
   const isGoDisabled = useMemo(() => {
@@ -177,51 +195,72 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
         )}
       </div>
 
-      {/* Current Cue Display */}
-      <div className="flex-1 flex flex-col justify-center items-center p-6">
-        <div className="text-center mb-8">
-          {currentCue ? (
-            <>
-              <div className="text-6xl font-bold mb-2">
-                {currentCue.cueNumber}
-              </div>
-              <div className="text-2xl text-gray-300 mb-4">
-                {currentCue.name}
-              </div>
-              <div className="text-lg text-gray-400">
-                Scene: {currentCue.scene.name}
-              </div>
-              {isPlaying && fadeProgress > 0 && fadeProgress < 100 && (
-                <div className="mt-4 w-64 mx-auto">
-                  <div className="bg-gray-700 rounded-full h-2">
-                    <div
-                      className="bg-green-500 h-2 rounded-full transition-all duration-75"
-                      style={{ width: `${fadeProgress}%` }}
-                    />
+      {/* Cue Display with 2 Previous + Current + 2 Next */}
+      <div className="flex-1 flex flex-col justify-center items-center p-6 overflow-y-auto">
+        {displayCues.length > 0 ? (
+          <div className="w-full max-w-2xl space-y-3">
+            {displayCues.map(({ cue, index, isCurrent, isPrevious, isNext }) => (
+              <div
+                key={cue.id}
+                className={`relative rounded-lg p-4 border transition-all duration-200 ${
+                  isCurrent
+                    ? 'bg-gray-700 border-green-500 border-2 scale-105 shadow-lg'
+                    : isPrevious
+                    ? 'bg-gray-800/50 border-gray-600 opacity-60'
+                    : isNext
+                    ? 'bg-gray-800/70 border-gray-600 opacity-80'
+                    : 'bg-gray-800 border-gray-700'
+                } ${!isCurrent ? 'cursor-pointer hover:bg-gray-700/70' : ''}`}
+                onClick={() => !isCurrent && handleJumpToCue(index)}
+              >
+                {/* Fade progress background for current cue */}
+                {isCurrent && isPlaying && fadeProgress > 0 && fadeProgress < 100 && (
+                  <div
+                    className="absolute inset-0 bg-green-600/20 rounded-lg transition-all duration-75"
+                    style={{ width: `${fadeProgress}%` }}
+                  />
+                )}
+
+                <div className="relative z-10 flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className={`text-2xl font-bold ${isCurrent ? 'text-green-400' : 'text-gray-300'}`}>
+                      {cue.cueNumber}
+                    </div>
+                    <div>
+                      <div className={`text-lg ${isCurrent ? 'text-white' : 'text-gray-300'}`}>
+                        {cue.name}
+                      </div>
+                      <div className={`text-sm ${isCurrent ? 'text-gray-300' : 'text-gray-500'}`}>
+                        Scene: {cue.scene.name}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status indicators */}
+                  <div className="flex flex-col items-end space-y-1">
+                    {isCurrent && (
+                      <span className="text-xs font-medium text-green-400 bg-green-900/50 px-2 py-1 rounded">
+                        LIVE
+                      </span>
+                    )}
+                    {isPrevious && (
+                      <span className="text-xs text-gray-500">
+                        PREVIOUS
+                      </span>
+                    )}
+                    {isNext && (
+                      <span className="text-xs text-blue-400">
+                        NEXT
+                      </span>
+                    )}
                   </div>
                 </div>
-              )}
-            </>
-          ) : (
-            <div className="text-2xl text-gray-400">
-              {cues.length > 0 ? 'Ready to start' : 'No cues in list'}
-            </div>
-          )}
-        </div>
-
-        {/* Next Cue Preview */}
-        {nextCue && (
-          <div className="bg-gray-800 rounded-lg p-4 max-w-md w-full">
-            <div className="text-sm text-gray-400 mb-2">Next:</div>
-            <div className="flex justify-between items-center">
-              <div>
-                <span className="text-xl font-bold mr-3">{nextCue.cueNumber}</span>
-                <span className="text-lg">{nextCue.name}</span>
               </div>
-              <div className="text-sm text-gray-400">
-                {nextCue.scene.name}
-              </div>
-            </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-2xl text-gray-400 text-center">
+            {cues.length > 0 ? 'Ready to start' : 'No cues in list'}
           </div>
         )}
       </div>

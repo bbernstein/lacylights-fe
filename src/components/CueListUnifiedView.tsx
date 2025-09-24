@@ -311,18 +311,25 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
             </button>
           </div>
         ) : (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 relative">
+            {/* Fade progress background for active cue */}
+            {isActive && fadeProgress !== undefined && fadeProgress < 100 && (
+              <div
+                className="absolute inset-0 bg-green-600/20 dark:bg-green-400/20 transition-all duration-100 rounded"
+                style={{ width: `${fadeProgress}%` }}
+              />
+            )}
             <button
               onClick={() => editMode && setShowSceneSelect(true)}
               disabled={!editMode}
-              className={editMode ? 'hover:underline' : ''}
+              className={`relative z-10 ${editMode ? 'hover:underline' : ''}`}
             >
               {cue.scene.name}
             </button>
             {editMode && (
               <button
                 onClick={() => onEditScene(cue.scene.id)}
-                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1"
+                className="relative z-10 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1"
                 title="Edit scene"
                 aria-label="Edit scene"
               >
@@ -360,17 +367,7 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
       <td className="px-3 py-3">
         <div className="flex items-center space-x-2">
           {isActive && (
-            <>
-              <span className="text-green-600 dark:text-green-400 font-medium text-sm">LIVE</span>
-              {fadeProgress !== undefined && fadeProgress < 100 && (
-                <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                  <div
-                    className="bg-green-600 h-1.5 rounded-full transition-all duration-100"
-                    style={{ width: `${fadeProgress}%` }}
-                  />
-                </div>
-              )}
-            </>
+            <span className="text-green-600 dark:text-green-400 font-medium text-sm">LIVE</span>
           )}
           {isNext && !isActive && (
             <span className="text-blue-600 dark:text-blue-400 font-medium text-sm">NEXT</span>
