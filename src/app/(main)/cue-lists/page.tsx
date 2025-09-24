@@ -6,6 +6,7 @@ import { GET_PROJECT_CUE_LISTS, DELETE_CUE_LIST } from '@/graphql/cueLists';
 import { useProject } from '@/contexts/ProjectContext';
 import CreateCueListModal from '@/components/CreateCueListModal';
 import CueListUnifiedView from '@/components/CueListUnifiedView';
+import CueListPlaybackStatus from '@/components/CueListPlaybackStatus';
 import { CueList } from '@/types';
 
 export default function CueListsPage() {
@@ -128,8 +129,13 @@ export default function CueListsPage() {
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {cueLists.map((cueList: CueList) => (
                 <tr key={cueList.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                    {cueList.name}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {cueList.name}
+                      </div>
+                      <CueListPlaybackStatus cueListId={cueList.id} cueCount={cueList.cues.length} />
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs break-words">
                     {cueList.description || '-'}

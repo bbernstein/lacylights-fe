@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useQuery, useMutation } from '@apollo/client';
 import {
   GET_CUE_LIST,
+  GET_CUE_LIST_PLAYBACK_STATUS,
   FADE_TO_BLACK,
   UPDATE_CUE,
   CREATE_CUE,
@@ -18,6 +19,8 @@ import {
 } from '@/graphql/cueLists';
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { Cue, Scene } from '@/types';
+import { convertCueIndexForLocalState } from '@/utils/cueListHelpers';
+import { PLAYER_WINDOW } from '@/constants/playback';
 import BulkFadeUpdateModal from './BulkFadeUpdateModal';
 import SceneEditorModal from './SceneEditorModal';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
@@ -42,16 +45,12 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+
 interface CueListUnifiedViewProps {
   cueListId: string;
   onClose: () => void;
 }
 
-// Helper function to convert subscription cue index to local state format
-// Backend uses null for "no active cue", frontend uses -1 for consistency
-const convertCueIndexForLocalState = (index: number | null | undefined): number => {
-  return index !== undefined && index !== null ? index : -1;
-};
 
 interface EditableCellProps {
   value: number;
@@ -414,13 +413,16 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
 CueRow.displayName = 'CueRow';
 
 export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifiedViewProps) {
-  const [currentCueIndex, setCurrentCueIndex] = useState<number>(-1);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [fadeProgress, setFadeProgress] = useState(0);
   const [editMode, setEditMode] = useState(false);
 
   // Real-time playback synchronization
   const { playbackStatus } = useCueListPlayback(cueListId);
+
+  // Get current state from subscription data only
+  const currentCueIndex = convertCueIndexForLocalState(playbackStatus?.currentCueIndex);
+  const isPlaying = playbackStatus?.isPlaying || false;
+  const fadeProgress = playbackStatus?.fadeProgress ?? 0;
+
   const [selectedCueIds, setSelectedCueIds] = useState<Set<string>>(new Set());
   const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
   const [showAddCue, setShowAddCue] = useState(false);
@@ -429,7 +431,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const [error, setError] = useState<string | null>(null);
   const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
 
-  const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const followTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [newCue, setNewCue] = useState({
@@ -457,6 +458,10 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     skip: !cueListData?.cueList?.project?.id,
   });
 
+  // Memoize refetch configuration to avoid recreating on every render
+  const refetchPlaybackStatus = useMemo(() => [
+    { query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }
+  ], [cueListId]);
 
   const [fadeToBlack] = useMutation(FADE_TO_BLACK, {
     onError: (error) => {
@@ -466,6 +471,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   });
 
   const [startCueList] = useMutation(START_CUE_LIST, {
+    refetchQueries: refetchPlaybackStatus,
     onError: (error) => {
       console.error('Error starting cue list:', error);
       setError(`Failed to start cue list: ${error.message}`);
@@ -567,39 +573,10 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
   useEffect(() => {
     return () => {
-      if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
       if (followTimeoutRef.current) clearTimeout(followTimeoutRef.current);
     };
   }, []);
 
-  // Sync subscription data with local state
-  useEffect(() => {
-    if (playbackStatus) {
-      setCurrentCueIndex(convertCueIndexForLocalState(playbackStatus.currentCueIndex));
-      setIsPlaying(playbackStatus.isPlaying);
-      setFadeProgress(playbackStatus.fadeProgress ?? 0);
-    }
-  }, [playbackStatus]);
-
-  const startFadeProgress = useCallback((duration: number) => {
-    setFadeProgress(0);
-    const startTime = Date.now();
-
-    if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
-
-    fadeIntervalRef.current = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min((elapsed / (duration * 1000)) * 100, 100);
-      setFadeProgress(progress);
-
-      if (progress >= 100) {
-        if (fadeIntervalRef.current) {
-          clearInterval(fadeIntervalRef.current);
-          fadeIntervalRef.current = null;
-        }
-      }
-    }, 50);
-  }, []);
 
   const handleJumpToCue = useCallback(async (cue: Cue, index: number) => {
     if (!cueList) return;
@@ -609,17 +586,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       followTimeoutRef.current = null;
     }
 
-    // Set optimistic local state for immediate UI feedback
-    setCurrentCueIndex(index);
-    setIsPlaying(true);
-
-    // Only start local fade progress if subscription is not providing it
-    if (playbackStatus?.fadeProgress === undefined || playbackStatus?.fadeProgress === null) {
-      startFadeProgress(cue.fadeInTime);
-    }
-
-    // Always use goToCue for playing cues to ensure consistent behavior and better tracking.
-    // This avoids inconsistent paths and simplifies mutation logic.
     await goToCue({
       variables: {
         cueListId: cueList.id,
@@ -636,21 +602,14 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       followTimeoutRef.current = setTimeout(() => {
         handleJumpToCue(nextCueToPlay, nextCueIndex);
       }, totalWaitTime);
-    } else {
-      // Set optimistic state - cue finished, subscription will override if needed
-      setIsPlaying(false);
     }
-  }, [goToCue, startFadeProgress, cues, playbackStatus, cueList]);
+  }, [goToCue, cues, cueList]);
 
   const handleNext = useCallback(async () => {
     if (!cueList) return;
 
     // Early return if at the end of the list to avoid unnecessary mutation
     if (currentCueIndex + 1 >= cues.length) return;
-
-    // Set optimistic local state for immediate UI feedback
-    setCurrentCueIndex(currentCueIndex + 1);
-    setIsPlaying(true);
 
     await nextCueMutation({
       variables: {
@@ -662,10 +621,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
   const handlePrevious = useCallback(async () => {
     if (!cueList || currentCueIndex <= 0) return;
-
-    // Set optimistic local state for immediate UI feedback
-    setCurrentCueIndex(currentCueIndex - 1);
-    setIsPlaying(true);
 
     await previousCueMutation({
       variables: {
@@ -680,9 +635,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
     if (currentCueIndex === -1 && cues.length > 0) {
       // Starting fresh - use START_CUE_LIST
-      setCurrentCueIndex(0);
-      setIsPlaying(true);
-
       await startCueList({
         variables: {
           cueListId: cueList.id,
@@ -702,15 +654,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       clearTimeout(followTimeoutRef.current);
       followTimeoutRef.current = null;
     }
-    if (fadeIntervalRef.current) {
-      clearInterval(fadeIntervalRef.current);
-      fadeIntervalRef.current = null;
-    }
-
-    // Set optimistic local state for immediate UI feedback
-    setIsPlaying(false);
-    setFadeProgress(0);
-    setCurrentCueIndex(-1);
 
     // Use stopCueList for formal cue list stopping, then fade to black
     await stopCueList({
@@ -919,6 +862,24 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                 title={editMode ? 'Exit edit mode' : 'Enter edit mode'}
               >
                 {editMode ? 'EDITING' : 'EDIT MODE'}
+              </button>
+              <button
+                onClick={() => {
+                  const left = (window.screen.width - PLAYER_WINDOW.width) / 2;
+                  const top = (window.screen.height - PLAYER_WINDOW.height) / 2;
+                  window.open(
+                    `/player/${cueListId}`,
+                    PLAYER_WINDOW.name,
+                    `width=${PLAYER_WINDOW.width},height=${PLAYER_WINDOW.height},left=${left},top=${top},${PLAYER_WINDOW.features}`
+                  );
+                }}
+                className="px-3 py-1 rounded text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white flex items-center space-x-1"
+                title="Open player in new window"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                <span>Pop Out Player</span>
               </button>
             </div>
             {cueListDescription && (
