@@ -408,7 +408,7 @@ describe('CueListUnifiedView', () => {
         },
       ];
 
-      renderWithProvider(errorMocks);
+      renderWithProvider(errorMocks as any);
 
       await waitFor(() => {
         expect(screen.getByText('Cue list not found')).toBeInTheDocument();
@@ -849,7 +849,7 @@ describe('CueListUnifiedView', () => {
         },
       ];
 
-      renderWithProvider(errorMocks);
+      renderWithProvider(errorMocks as any);
 
       await waitFor(() => {
         expect(screen.getByText('Cue list not found')).toBeInTheDocument();

@@ -140,14 +140,14 @@ describe('CueListPlayer', () => {
           query: eval(mutationName), // Dynamic query reference
           variables: expect.any(Object),
         },
-        result,
+        result: result as any,
       });
     });
 
     return baseMocks;
   };
 
-  const renderWithProvider = (mocks: unknown[]) => {
+  const renderWithProvider = (mocks: any[]) => {
     // Suppress console errors for cleaner test output
     const originalError = console.error;
     console.error = jest.fn();
@@ -156,7 +156,6 @@ describe('CueListPlayer', () => {
       <MockedProvider
         mocks={mocks}
         addTypename={false}
-        errorPolicy="all"
         defaultOptions={{
           watchQuery: { errorPolicy: 'all' },
           query: { errorPolicy: 'all' },
@@ -198,7 +197,7 @@ describe('CueListPlayer', () => {
             query: GET_CUE_LIST,
             variables: { id: mockCueListId },
           },
-          result: { loading: true },
+          result: { data: { loading: true } },
         },
       ];
 
@@ -212,7 +211,7 @@ describe('CueListPlayer', () => {
     });
 
     it('shows error state when cue list not found', async () => {
-      const mocks = createMocks({ data: { cueList: null } });
+      const mocks = createMocks({ data: { cueList: null } } as any);
 
       renderWithProvider(mocks);
 

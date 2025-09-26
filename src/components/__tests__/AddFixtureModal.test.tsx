@@ -314,7 +314,7 @@ describe('AddFixtureModal', () => {
           },
           error: new Error('Network error'),
         },
-      ];
+      ] as any;
 
       renderWithProvider(errorMocks);
 

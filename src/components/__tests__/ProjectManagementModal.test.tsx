@@ -291,7 +291,7 @@ describe('ProjectManagementModal', () => {
         },
       ];
 
-      renderWithProvider(errorMocks);
+      renderWithProvider(errorMocks as any);
 
       // Component should still render the modal structure
       expect(screen.getByText('Manage Projects')).toBeInTheDocument();

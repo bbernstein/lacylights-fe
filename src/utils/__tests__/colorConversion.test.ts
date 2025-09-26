@@ -59,9 +59,9 @@ describe('colorConversion', () => {
   describe('channelValuesToRgb', () => {
     it('converts channel values back to RGB', () => {
       const channels = [
-        { id: '1', type: ChannelType.RED, value: 255 },
-        { id: '2', type: ChannelType.GREEN, value: 0 },
-        { id: '3', type: ChannelType.BLUE, value: 0 },
+        { id: '1', type: ChannelType.RED, value: 255, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0 },
       ];
 
       const result = channelValuesToRgb(channels);
@@ -70,10 +70,10 @@ describe('colorConversion', () => {
 
     it('handles white channel contribution', () => {
       const channels = [
-        { id: '1', type: ChannelType.RED, value: 0 },
-        { id: '2', type: ChannelType.GREEN, value: 0 },
-        { id: '3', type: ChannelType.BLUE, value: 0 },
-        { id: '4', type: ChannelType.WHITE, value: 255 },
+        { id: '1', type: ChannelType.RED, value: 0, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: '4', type: ChannelType.WHITE, value: 255, offset: 3, name: 'White', minValue: 0, maxValue: 255, defaultValue: 0 },
       ];
 
       const result = channelValuesToRgb(channels);
@@ -91,9 +91,9 @@ describe('colorConversion', () => {
   describe('getFixtureColorType', () => {
     it('identifies RGB fixtures', () => {
       const channels = [
-        { id: '1', type: ChannelType.RED, value: 0 },
-        { id: '2', type: ChannelType.GREEN, value: 0 },
-        { id: '3', type: ChannelType.BLUE, value: 0 },
+        { id: '1', type: ChannelType.RED, value: 0, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0 },
       ];
 
       const result = getFixtureColorType(channels);
@@ -102,10 +102,10 @@ describe('colorConversion', () => {
 
     it('identifies RGBW fixtures', () => {
       const channels = [
-        { id: '1', type: ChannelType.RED, value: 0 },
-        { id: '2', type: ChannelType.GREEN, value: 0 },
-        { id: '3', type: ChannelType.BLUE, value: 0 },
-        { id: '4', type: ChannelType.WHITE, value: 0 },
+        { id: '1', type: ChannelType.RED, value: 0, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: '4', type: ChannelType.WHITE, value: 0, offset: 3, name: 'White', minValue: 0, maxValue: 255, defaultValue: 0 },
       ];
 
       const result = getFixtureColorType(channels);
@@ -119,7 +119,7 @@ describe('colorConversion', () => {
 
     it('identifies SINGLE channel fixtures', () => {
       const channels = [
-        { id: '1', type: ChannelType.INTENSITY, value: 0 },
+        { id: '1', type: ChannelType.INTENSITY, value: 0, offset: 0, name: 'Intensity', minValue: 0, maxValue: 255, defaultValue: 0 },
       ];
 
       const result = getFixtureColorType(channels);
@@ -138,9 +138,9 @@ describe('colorConversion', () => {
 
     it('creates basic mapping for simple fixtures', () => {
       const simpleChannels = [
-        { id: '1', type: ChannelType.RED, value: 0 },
-        { id: '2', type: ChannelType.GREEN, value: 0 },
-        { id: '3', type: ChannelType.BLUE, value: 0 },
+        { id: '1', type: ChannelType.RED, value: 0, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0 },
       ];
 
       const targetColor: RGBColor = { r: 255, g: 128, b: 64 };

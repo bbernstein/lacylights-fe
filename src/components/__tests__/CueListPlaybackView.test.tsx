@@ -114,7 +114,7 @@ const createMocks = (
         query: eval(mutationName),
         variables: expect.any(Object),
       },
-      result,
+      result: result as any,
     });
   });
 
@@ -135,7 +135,7 @@ describe('CueListPlaybackView', () => {
     jest.useRealTimers();
   });
 
-  const renderWithProvider = (mocks: unknown[]) => {
+  const renderWithProvider = (mocks: any[]) => {
     return render(
       <MockedProvider mocks={mocks} addTypename={false}>
         <CueListPlaybackView cueListId={mockCueListId} onClose={mockOnClose} />
@@ -152,7 +152,7 @@ describe('CueListPlaybackView', () => {
     });
 
     it('shows error state when cue list not found', async () => {
-      const mocks = createMocks({ data: { cueList: null } });
+      const mocks = createMocks({ data: { cueList: null } } as any);
       renderWithProvider(mocks);
 
       await waitFor(() => {

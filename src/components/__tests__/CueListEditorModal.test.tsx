@@ -390,9 +390,9 @@ describe('CueListEditorModal', () => {
             },
           },
         },
-      ];
+      ] as any;
 
-      renderWithProvider(errorMocks);
+      renderWithProvider(errorMocks as any);
 
       await waitFor(() => {
         expect(screen.getByText('Cue list not found')).toBeInTheDocument();
@@ -876,7 +876,7 @@ describe('CueListEditorModal', () => {
         },
       ];
 
-      renderWithProvider(errorMocks);
+      renderWithProvider(errorMocks as any);
 
       await waitFor(() => {
         expect(screen.getByDisplayValue('Test Cue List')).toBeInTheDocument();
@@ -901,7 +901,7 @@ describe('CueListEditorModal', () => {
         },
       ];
 
-      renderWithProvider(errorMocks);
+      renderWithProvider(errorMocks as any);
 
       // Should not crash, but may show loading state
       expect(screen.getByText('Loading cue list...')).toBeInTheDocument();

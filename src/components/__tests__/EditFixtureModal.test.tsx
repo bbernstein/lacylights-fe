@@ -398,7 +398,7 @@ describe('EditFixtureModal', () => {
         },
       ];
 
-      renderWithProvider(errorMocks);
+      renderWithProvider(errorMocks as any);
 
       // Should still render the modal
       expect(screen.getByRole('heading', { name: 'Edit Fixture' })).toBeInTheDocument();
