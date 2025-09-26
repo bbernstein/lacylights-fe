@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
@@ -15,7 +16,7 @@ import { GET_PROJECT_SCENES } from '../../graphql/scenes';
 
 // Mock the dnd-kit library
 jest.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children }: any) => (
+  DndContext: ({ children }: unknown) => (
     <div data-testid="dnd-context">
       {children}
     </div>
@@ -34,7 +35,11 @@ jest.mock('@dnd-kit/sortable', () => ({
     result.splice(newIndex, 0, removed);
     return result;
   }),
-  SortableContext: ({ children }: any) => <tbody data-testid="sortable-context">{children}</tbody>,
+  SortableContext: ({ children }: {
+    children: React.ReactNode;
+    items?: string[];
+    strategy?: unknown;
+  }) => <tbody data-testid="sortable-context">{children}</tbody>,
   sortableKeyboardCoordinates: jest.fn(),
   verticalListSortingStrategy: jest.fn(),
   useSortable: jest.fn(() => ({
@@ -57,7 +62,12 @@ jest.mock('@dnd-kit/utilities', () => ({
 
 // Mock BulkFadeUpdateModal
 jest.mock('../BulkFadeUpdateModal', () => {
-  return function MockBulkFadeUpdateModal({ isOpen, onClose, selectedCues, onUpdate }: any) {
+  return function MockBulkFadeUpdateModal({ isOpen, onClose, selectedCues, onUpdate }: {
+    isOpen?: boolean;
+    onClose?: () => void;
+    selectedCues?: unknown[];
+    onUpdate?: () => void;
+  }) {
     if (!isOpen) return null;
     return (
       <div data-testid="bulk-update-modal">
@@ -571,8 +581,8 @@ describe('CueListEditorModal', () => {
       const addButton = screen.getByText('Add Cue');
       await userEvent.click(addButton);
 
-      const submitButton = screen.getByRole('button', { name: 'Add Cue' });
-      expect(submitButton).toBeDisabled();
+      const _submitButton = screen.getByRole('button', { name: 'Add Cue' });
+      expect(_submitButton).toBeDisabled();
     });
   });
 

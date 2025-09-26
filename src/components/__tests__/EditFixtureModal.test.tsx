@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
 import EditFixtureModal from '../EditFixtureModal';
@@ -12,7 +12,13 @@ import {
 
 // Mock Autocomplete to simplify testing
 jest.mock('../Autocomplete', () => {
-  return function MockAutocomplete({ value, onChange, onSelect, options = [], placeholder }: any) {
+  return function MockAutocomplete({ value, onChange, onSelect, options = [], placeholder }: {
+    value?: string;
+    onChange?: (value: string) => void;
+    onSelect?: (value: string) => void;
+    options?: string[];
+    placeholder?: string;
+  }) {
     return (
       <div data-testid={`autocomplete-${placeholder?.toLowerCase().replace(/\s+/g, '-')}`}>
         <input

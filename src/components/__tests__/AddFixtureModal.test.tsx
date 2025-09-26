@@ -11,7 +11,13 @@ import {
 
 // Mock the Autocomplete component to simplify testing
 jest.mock('../Autocomplete', () => {
-  return function MockAutocomplete({ value, onChange, onSelect, options = [], placeholder }: any) {
+  return function MockAutocomplete({ value, onChange, onSelect, options = [], placeholder }: {
+    value?: string;
+    onChange?: (value: string) => void;
+    onSelect?: (value: string) => void;
+    options?: string[];
+    placeholder?: string;
+  }) {
     return (
       <div data-testid={`autocomplete-${placeholder?.toLowerCase().replace(/\s+/g, '-')}`}>
         <input
@@ -265,13 +271,13 @@ describe('AddFixtureModal', () => {
     it('shows validation error when submitting empty form', async () => {
       renderWithProvider();
 
-      const submitButton = screen.getByRole('button', { name: 'Add Fixture' });
-      await userEvent.click(submitButton);
+      const _submitButton = screen.getByRole('button', { name: 'Add Fixture' });
+      await userEvent.click(_submitButton);
 
       // Should show some validation feedback
       await waitFor(() => {
         // The component should handle validation - exact text may vary
-        expect(submitButton).toBeDisabled();
+        expect(_submitButton).toBeDisabled();
       });
     });
 
@@ -283,8 +289,8 @@ describe('AddFixtureModal', () => {
       await userEvent.type(nameInput, 'Test Fixture');
 
       // The submit button should be present
-      const submitButton = screen.getByRole('button', { name: 'Add Fixture' });
-      expect(submitButton).toBeInTheDocument();
+      const _submitButton = screen.getByRole('button', { name: 'Add Fixture' });
+      expect(_submitButton).toBeInTheDocument();
     });
   });
 

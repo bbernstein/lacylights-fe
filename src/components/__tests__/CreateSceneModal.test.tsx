@@ -296,10 +296,10 @@ describe('CreateSceneModal', () => {
         </MockedProvider>
       );
 
-      const descriptionInput = screen.getByLabelText('Description');
-      await userEvent.type(descriptionInput, 'A warm ambient scene');
+      const _descriptionInput = screen.getByLabelText('Description');
+      await userEvent.type(_descriptionInput, 'A warm ambient scene');
 
-      expect(descriptionInput).toHaveValue('A warm ambient scene');
+      expect(_descriptionInput).toHaveValue('A warm ambient scene');
     });
 
     it('requires scene name field', () => {
@@ -356,8 +356,8 @@ describe('CreateSceneModal', () => {
         </MockedProvider>
       );
 
-      const descriptionInput = screen.getByLabelText('Description');
-      expect(descriptionInput).not.toBeRequired();
+      const _descriptionInput = screen.getByLabelText('Description');
+      expect(_descriptionInput).not.toBeRequired();
     });
 
     it('disables submit button when name is empty', async () => {
@@ -386,8 +386,8 @@ describe('CreateSceneModal', () => {
       );
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        expect(submitButton).toBeDisabled();
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        expect(_submitButton).toBeDisabled();
       });
     });
 
@@ -420,8 +420,8 @@ describe('CreateSceneModal', () => {
       await userEvent.type(nameInput, 'Test Scene');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        expect(submitButton).toBeDisabled();
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        expect(_submitButton).toBeDisabled();
       });
     });
 
@@ -454,8 +454,8 @@ describe('CreateSceneModal', () => {
       await userEvent.type(nameInput, 'Test Scene');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        expect(submitButton).not.toBeDisabled();
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        expect(_submitButton).not.toBeDisabled();
       });
     });
 
@@ -488,8 +488,8 @@ describe('CreateSceneModal', () => {
       await userEvent.type(nameInput, '   ');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        expect(submitButton).toBeDisabled();
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        expect(_submitButton).toBeDisabled();
       });
     });
   });
@@ -557,14 +557,14 @@ describe('CreateSceneModal', () => {
       );
 
       const nameInput = screen.getByLabelText('Scene Name *');
-      const descriptionInput = screen.getByLabelText('Description');
+      const _descriptionInput = screen.getByLabelText('Description');
 
       await userEvent.type(nameInput, 'Test Scene');
-      await userEvent.type(descriptionInput, 'Test Description');
+      await userEvent.type(_descriptionInput, 'Test Description');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        fireEvent.click(submitButton);
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        fireEvent.click(_submitButton);
       });
 
       await waitFor(() => {
@@ -638,8 +638,8 @@ describe('CreateSceneModal', () => {
       await userEvent.type(nameInput, 'Test Scene');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        fireEvent.click(submitButton);
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        fireEvent.click(_submitButton);
       });
 
       await waitFor(() => {
@@ -714,8 +714,8 @@ describe('CreateSceneModal', () => {
       // Leave description empty
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        fireEvent.click(submitButton);
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        fireEvent.click(_submitButton);
       });
 
       await waitFor(() => {
@@ -788,8 +788,8 @@ describe('CreateSceneModal', () => {
       await userEvent.type(nameInput, 'Default Scene');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        fireEvent.click(submitButton);
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        fireEvent.click(_submitButton);
       });
 
       await waitFor(() => {
@@ -866,8 +866,8 @@ describe('CreateSceneModal', () => {
       await userEvent.type(nameInput, 'Test Scene');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        fireEvent.click(submitButton);
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        fireEvent.click(_submitButton);
       });
 
       expect(screen.getByRole('button', { name: 'Creating...' })).toBeInTheDocument();
@@ -939,8 +939,8 @@ describe('CreateSceneModal', () => {
       await userEvent.type(nameInput, 'Test Scene');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        fireEvent.click(submitButton);
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        fireEvent.click(_submitButton);
       });
 
       expect(screen.getByRole('button', { name: 'Creating...' })).toBeDisabled();
@@ -1000,8 +1000,8 @@ describe('CreateSceneModal', () => {
       await userEvent.type(nameInput, 'Test Scene');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        fireEvent.click(submitButton);
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        fireEvent.click(_submitButton);
       });
 
       await waitFor(() => {
@@ -1062,8 +1062,8 @@ describe('CreateSceneModal', () => {
       await userEvent.type(nameInput, 'Test Scene');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        fireEvent.click(submitButton);
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        fireEvent.click(_submitButton);
       });
 
       await waitFor(() => {
@@ -1167,8 +1167,8 @@ describe('CreateSceneModal', () => {
       await userEvent.type(nameInput, 'First Scene');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        fireEvent.click(submitButton);
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        fireEvent.click(_submitButton);
       });
 
       await waitFor(() => {
@@ -1180,8 +1180,8 @@ describe('CreateSceneModal', () => {
       await userEvent.type(nameInput, 'Second Scene');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        fireEvent.click(submitButton);
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        fireEvent.click(_submitButton);
       });
 
       await waitFor(() => {
@@ -1280,14 +1280,14 @@ describe('CreateSceneModal', () => {
       );
 
       const nameInput = screen.getByLabelText('Scene Name *');
-      const descriptionInput = screen.getByLabelText('Description');
+      const _descriptionInput = screen.getByLabelText('Description');
       const cancelButton = screen.getByText('Cancel');
 
       await userEvent.type(nameInput, 'Test Scene');
-      await userEvent.type(descriptionInput, 'Test Description');
+      await userEvent.type(_descriptionInput, 'Test Description');
 
       expect(nameInput).toHaveValue('Test Scene');
-      expect(descriptionInput).toHaveValue('Test Description');
+      expect(_descriptionInput).toHaveValue('Test Description');
 
       fireEvent.click(cancelButton);
 
@@ -1357,8 +1357,8 @@ describe('CreateSceneModal', () => {
       await userEvent.type(nameInput, 'Test Scene');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        fireEvent.click(submitButton);
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        fireEvent.click(_submitButton);
       });
 
       await waitFor(() => {
@@ -1443,8 +1443,8 @@ describe('CreateSceneModal', () => {
       await userEvent.type(nameInput, 'Test Scene');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        fireEvent.click(submitButton);
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        fireEvent.click(_submitButton);
       });
 
       await waitFor(() => {
@@ -1570,8 +1570,8 @@ describe('CreateSceneModal', () => {
       const cancelButton = screen.getByText('Cancel');
       expect(cancelButton).toHaveClass('inline-flex', 'justify-center', 'rounded-md', 'border', 'border-gray-300', 'bg-white', 'px-4', 'py-2', 'text-sm', 'font-medium', 'text-gray-700');
 
-      const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-      expect(submitButton).toHaveClass('inline-flex', 'justify-center', 'rounded-md', 'border', 'border-transparent', 'bg-blue-600', 'px-4', 'py-2', 'text-sm', 'font-medium', 'text-white', 'disabled:opacity-50', 'disabled:cursor-not-allowed');
+      const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+      expect(_submitButton).toHaveClass('inline-flex', 'justify-center', 'rounded-md', 'border', 'border-transparent', 'bg-blue-600', 'px-4', 'py-2', 'text-sm', 'font-medium', 'text-white', 'disabled:opacity-50', 'disabled:cursor-not-allowed');
     });
   });
 
@@ -1648,8 +1648,8 @@ describe('CreateSceneModal', () => {
       await userEvent.type(nameInput, 'Test Scene');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        fireEvent.click(submitButton);
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        fireEvent.click(_submitButton);
       });
 
       await waitFor(() => {
@@ -1732,8 +1732,8 @@ describe('CreateSceneModal', () => {
       await userEvent.type(nameInput, 'Test Scene');
 
       await waitFor(() => {
-        const submitButton = screen.getByRole('button', { name: 'Create Scene' });
-        fireEvent.click(submitButton);
+        const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
+        fireEvent.click(_submitButton);
       });
 
       await waitFor(() => {
@@ -1742,7 +1742,7 @@ describe('CreateSceneModal', () => {
     });
 
     it('skips query when projectId is not provided', () => {
-      const mocks: any[] = [];
+      const mocks: unknown[] = [];
 
       render(
         <MockedProvider mocks={mocks}>

@@ -14,7 +14,7 @@ describe('roscoluxFilters', () => {
     });
 
     it('all filters have required properties', () => {
-      ROSCOLUX_FILTERS.forEach((filter, index) => {
+      ROSCOLUX_FILTERS.forEach((filter, _index) => {
         expect(filter).toHaveProperty('filter', expect.any(String));
         expect(filter).toHaveProperty('applications', expect.any(String));
         expect(filter).toHaveProperty('keywords', expect.any(String));

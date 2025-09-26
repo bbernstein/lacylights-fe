@@ -147,7 +147,7 @@ describe('CueListPlayer', () => {
     return baseMocks;
   };
 
-  const renderWithProvider = (mocks: any[]) => {
+  const renderWithProvider = (mocks: unknown[]) => {
     // Suppress console errors for cleaner test output
     const originalError = console.error;
     console.error = jest.fn();
@@ -408,7 +408,7 @@ describe('CueListPlayer', () => {
         playbackStatus: { ...mockPlaybackStatus, currentCueIndex: -1 },
       });
 
-      const startMutation = jest.fn().mockResolvedValue({ data: {} });
+      const _startMutation = jest.fn().mockResolvedValue({ data: {} });
       const mocks = [
         ...createMocks(),
         {

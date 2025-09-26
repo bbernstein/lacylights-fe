@@ -159,14 +159,14 @@ describe('BulkFadeUpdateModal', () => {
         </MockedProvider>
       );
 
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
       const fadeInCheckbox = screen.getByLabelText('Fade In Time (seconds)');
 
-      expect(submitButton).toBeDisabled();
+      expect(_submitButton).toBeDisabled();
 
       await userEvent.click(fadeInCheckbox);
 
-      expect(submitButton).not.toBeDisabled();
+      expect(_submitButton).not.toBeDisabled();
     });
   });
 
@@ -243,11 +243,11 @@ describe('BulkFadeUpdateModal', () => {
 
       const checkbox = screen.getByLabelText('Fade In Time (seconds)');
       const input = screen.getAllByPlaceholderText('3.0')[0];
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(checkbox);
       await userEvent.type(input, 'invalid');
-      fireEvent.click(submitButton);
+      fireEvent.click(_submitButton);
 
       expect(screen.getByText('Fade in time must be a valid positive number')).toBeInTheDocument();
     });
@@ -261,7 +261,7 @@ describe('BulkFadeUpdateModal', () => {
 
       const checkbox = screen.getByLabelText('Fade In Time (seconds)');
       const input = screen.getAllByPlaceholderText('3.0')[0];
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(checkbox);
       await userEvent.type(input, '-1');
@@ -279,11 +279,11 @@ describe('BulkFadeUpdateModal', () => {
 
       const checkbox = screen.getByLabelText('Fade Out Time (seconds)');
       const input = screen.getAllByPlaceholderText('3.0')[1];
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(checkbox);
       await userEvent.type(input, 'abc');
-      fireEvent.click(submitButton);
+      fireEvent.click(_submitButton);
 
       expect(screen.getByText('Fade out time must be a valid positive number')).toBeInTheDocument();
     });
@@ -297,7 +297,7 @@ describe('BulkFadeUpdateModal', () => {
 
       const checkbox = screen.getByLabelText('Follow Time (seconds)');
       const input = screen.getByPlaceholderText('0.0');
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(checkbox);
       await userEvent.type(input, '-5');
@@ -347,7 +347,7 @@ describe('BulkFadeUpdateModal', () => {
       const fadeInInput = screen.getAllByPlaceholderText('3.0')[0];
       const fadeOutInput = screen.getAllByPlaceholderText('3.0')[1];
       const followInput = screen.getByPlaceholderText('0.0');
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(fadeInCheckbox);
       await userEvent.click(fadeOutCheckbox);
@@ -355,7 +355,7 @@ describe('BulkFadeUpdateModal', () => {
       await userEvent.type(fadeInInput, '0');
       await userEvent.type(fadeOutInput, '0');
       await userEvent.type(followInput, '0');
-      fireEvent.click(submitButton);
+      fireEvent.click(_submitButton);
 
       await waitFor(() => {
         expect(mockOnUpdate).toHaveBeenCalled();
@@ -400,11 +400,11 @@ describe('BulkFadeUpdateModal', () => {
 
       const checkbox = screen.getByLabelText('Fade In Time (seconds)');
       const input = screen.getAllByPlaceholderText('3.0')[0];
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(checkbox);
       await userEvent.type(input, '4.5');
-      fireEvent.click(submitButton);
+      fireEvent.click(_submitButton);
 
       await waitFor(() => {
         expect(mockOnUpdate).toHaveBeenCalled();
@@ -453,7 +453,7 @@ describe('BulkFadeUpdateModal', () => {
       const fadeInInput = screen.getAllByPlaceholderText('3.0')[0];
       const fadeOutInput = screen.getAllByPlaceholderText('3.0')[1];
       const followInput = screen.getByPlaceholderText('0.0');
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(fadeInCheckbox);
       await userEvent.click(fadeOutCheckbox);
@@ -461,7 +461,7 @@ describe('BulkFadeUpdateModal', () => {
       await userEvent.type(fadeInInput, '2.5');
       await userEvent.type(fadeOutInput, '3.5');
       await userEvent.type(followInput, '1.0');
-      fireEvent.click(submitButton);
+      fireEvent.click(_submitButton);
 
       await waitFor(() => {
         expect(mockOnUpdate).toHaveBeenCalled();
@@ -503,11 +503,11 @@ describe('BulkFadeUpdateModal', () => {
       );
 
       const checkbox = screen.getByLabelText('Follow Time (seconds)');
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(checkbox);
       // Leave input empty to clear follow time
-      fireEvent.click(submitButton);
+      fireEvent.click(_submitButton);
 
       await waitFor(() => {
         expect(mockOnUpdate).toHaveBeenCalled();
@@ -550,7 +550,7 @@ describe('BulkFadeUpdateModal', () => {
 
       const checkbox = screen.getByLabelText('Fade In Time (seconds)');
       const input = screen.getAllByPlaceholderText('3.0')[0];
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
 
       // First trigger an error
       fireEvent.submit(screen.getByText('Update Cues').closest('form')!);
@@ -559,7 +559,7 @@ describe('BulkFadeUpdateModal', () => {
       // Then submit successfully
       await userEvent.click(checkbox);
       await userEvent.type(input, '3');
-      fireEvent.click(submitButton);
+      fireEvent.click(_submitButton);
 
       await waitFor(() => {
         expect(screen.queryByText('Please select at least one timing to update')).not.toBeInTheDocument();
@@ -604,11 +604,11 @@ describe('BulkFadeUpdateModal', () => {
 
       const checkbox = screen.getByLabelText('Fade In Time (seconds)');
       const input = screen.getAllByPlaceholderText('3.0')[0];
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(checkbox);
       await userEvent.type(input, '3');
-      fireEvent.click(submitButton);
+      fireEvent.click(_submitButton);
 
       expect(screen.getByText('Updating...')).toBeInTheDocument();
     });
@@ -649,12 +649,12 @@ describe('BulkFadeUpdateModal', () => {
 
       const checkbox = screen.getByLabelText('Fade In Time (seconds)');
       const input = screen.getAllByPlaceholderText('3.0')[0];
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
       const cancelButton = screen.getByText('Cancel');
 
       await userEvent.click(checkbox);
       await userEvent.type(input, '3');
-      fireEvent.click(submitButton);
+      fireEvent.click(_submitButton);
 
       expect(screen.getByText('Updating...')).toBeDisabled();
       expect(cancelButton).toBeDisabled();
@@ -686,11 +686,11 @@ describe('BulkFadeUpdateModal', () => {
 
       const checkbox = screen.getByLabelText('Fade In Time (seconds)');
       const input = screen.getAllByPlaceholderText('3.0')[0];
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(checkbox);
       await userEvent.type(input, '3');
-      fireEvent.click(submitButton);
+      fireEvent.click(_submitButton);
 
       await waitFor(() => {
         expect(screen.getByText('Failed to update cues')).toBeInTheDocument();
@@ -704,7 +704,7 @@ describe('BulkFadeUpdateModal', () => {
         </MockedProvider>
       );
 
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
       fireEvent.submit(screen.getByText('Update Cues').closest('form')!);
 
       const errorElement = screen.getByText('Please select at least one timing to update');
@@ -797,11 +797,11 @@ describe('BulkFadeUpdateModal', () => {
 
       const checkbox = screen.getByLabelText('Fade In Time (seconds)');
       const input = screen.getAllByPlaceholderText('3.0')[0];
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(checkbox);
       await userEvent.type(input, '3');
-      fireEvent.click(submitButton);
+      fireEvent.click(_submitButton);
 
       await waitFor(() => {
         expect(mockOnUpdate).toHaveBeenCalled();
@@ -865,8 +865,8 @@ describe('BulkFadeUpdateModal', () => {
       const cancelButton = screen.getByText('Cancel');
       expect(cancelButton).toHaveClass('px-4', 'py-2', 'text-sm', 'font-medium', 'text-gray-700', 'dark:text-gray-300', 'bg-white', 'dark:bg-gray-700', 'border', 'border-gray-300', 'dark:border-gray-600', 'rounded-md');
 
-      const submitButton = screen.getByText('Update Cues');
-      expect(submitButton).toHaveClass('px-4', 'py-2', 'text-sm', 'font-medium', 'text-white', 'bg-blue-600', 'border', 'border-transparent', 'rounded-md', 'disabled:opacity-50', 'disabled:cursor-not-allowed');
+      const _submitButton = screen.getByText('Update Cues');
+      expect(_submitButton).toHaveClass('px-4', 'py-2', 'text-sm', 'font-medium', 'text-white', 'bg-blue-600', 'border', 'border-transparent', 'rounded-md', 'disabled:opacity-50', 'disabled:cursor-not-allowed');
     });
   });
 
@@ -926,11 +926,11 @@ describe('BulkFadeUpdateModal', () => {
 
       const checkbox = screen.getByLabelText('Fade In Time (seconds)');
       const input = screen.getAllByPlaceholderText('3.0')[0];
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(checkbox);
       await userEvent.type(input, '1.25');
-      fireEvent.click(submitButton);
+      fireEvent.click(_submitButton);
 
       await waitFor(() => {
         expect(mockOnUpdate).toHaveBeenCalled();
@@ -972,11 +972,11 @@ describe('BulkFadeUpdateModal', () => {
 
       const checkbox = screen.getByLabelText('Follow Time (seconds)');
       const input = screen.getByPlaceholderText('0.0');
-      const submitButton = screen.getByText('Update Cues');
+      const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(checkbox);
       await userEvent.type(input, '   '); // Just whitespace
-      fireEvent.click(submitButton);
+      fireEvent.click(_submitButton);
 
       await waitFor(() => {
         expect(mockOnUpdate).toHaveBeenCalled();

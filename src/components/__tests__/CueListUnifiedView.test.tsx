@@ -1,19 +1,20 @@
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
 import CueListUnifiedView from '../CueListUnifiedView';
 import {
   GET_CUE_LIST,
-  GET_CUE_LIST_PLAYBACK_STATUS,
+  
   FADE_TO_BLACK,
   UPDATE_CUE,
   CREATE_CUE,
   DELETE_CUE,
-  REORDER_CUES,
-  UPDATE_CUE_LIST,
+  
+  
   START_CUE_LIST,
   NEXT_CUE,
-  PREVIOUS_CUE,
+  
   GO_TO_CUE,
   STOP_CUE_LIST
 } from '../../graphql/cueLists';
@@ -21,7 +22,7 @@ import { GET_PROJECT_SCENES } from '../../graphql/scenes';
 
 // Mock drag and drop functionality
 jest.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children }: any) => <div data-testid="dnd-context">{children}</div>,
+  DndContext: ({ children }: unknown) => <div data-testid="dnd-context">{children}</div>,
   closestCenter: jest.fn(),
   KeyboardSensor: jest.fn(),
   PointerSensor: jest.fn(),
@@ -36,7 +37,11 @@ jest.mock('@dnd-kit/sortable', () => ({
     result.splice(newIndex, 0, removed);
     return result;
   }),
-  SortableContext: ({ children }: any) => <div data-testid="sortable-context">{children}</div>,
+  SortableContext: ({ children }: {
+    children: React.ReactNode;
+    items?: string[];
+    strategy?: unknown;
+  }) => <div data-testid="sortable-context">{children}</div>,
   sortableKeyboardCoordinates: jest.fn(),
   verticalListSortingStrategy: jest.fn(),
   useSortable: jest.fn(() => ({
@@ -64,7 +69,12 @@ jest.mock('../../hooks/useCueListPlayback', () => ({
 
 // Mock child components
 jest.mock('../BulkFadeUpdateModal', () => {
-  return function MockBulkFadeUpdateModal({ isOpen, onClose, selectedCues, onUpdate }: any) {
+  return function MockBulkFadeUpdateModal({ isOpen, onClose, selectedCues, onUpdate }: {
+    isOpen?: boolean;
+    onClose?: () => void;
+    selectedCues?: unknown[];
+    onUpdate?: () => void;
+  }) {
     return isOpen ? (
       <div data-testid="bulk-fade-update-modal">
         <div>Selected cues: {selectedCues?.length || 0}</div>
@@ -76,7 +86,7 @@ jest.mock('../BulkFadeUpdateModal', () => {
 });
 
 jest.mock('../SceneEditorModal', () => {
-  return function MockSceneEditorModal({ isOpen, onClose, sceneId, onSceneUpdated }: any) {
+  return function MockSceneEditorModal({ isOpen, onClose, sceneId, onSceneUpdated }: unknown) {
     return isOpen ? (
       <div data-testid="scene-editor-modal">
         <div>Editing scene: {sceneId}</div>

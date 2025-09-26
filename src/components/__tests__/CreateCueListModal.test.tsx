@@ -8,14 +8,6 @@ const mockProjectId = 'project-123';
 const mockOnClose = jest.fn();
 const mockOnCueListCreated = jest.fn();
 
-const createMockProvider = (mocks: any[]) => {
-  return ({ children }: { children: React.ReactNode }) => (
-    <MockedProvider mocks={mocks} addTypename={false}>
-      {children}
-    </MockedProvider>
-  );
-};
-
 describe('CreateCueListModal', () => {
   const defaultProps = {
     isOpen: true,
@@ -96,10 +88,10 @@ describe('CreateCueListModal', () => {
         </MockedProvider>
       );
 
-      const descriptionInput = screen.getByLabelText('Description');
-      await userEvent.type(descriptionInput, 'This is a test description');
+      const _descriptionInput = screen.getByLabelText('Description');
+      await userEvent.type(_descriptionInput, 'This is a test description');
 
-      expect(descriptionInput).toHaveValue('This is a test description');
+      expect(_descriptionInput).toHaveValue('This is a test description');
     });
 
     it('requires name field', () => {
@@ -120,8 +112,8 @@ describe('CreateCueListModal', () => {
         </MockedProvider>
       );
 
-      const descriptionInput = screen.getByLabelText('Description');
-      expect(descriptionInput).not.toHaveAttribute('required');
+      const _descriptionInput = screen.getByLabelText('Description');
+      expect(_descriptionInput).not.toHaveAttribute('required');
     });
   });
 
@@ -160,12 +152,12 @@ describe('CreateCueListModal', () => {
       );
 
       const nameInput = screen.getByLabelText('Cue List Name *');
-      const descriptionInput = screen.getByLabelText('Description');
-      const submitButton = screen.getByRole('button', { name: 'Create Cue List' });
+      const _descriptionInput = screen.getByLabelText('Description');
+      const _submitButton = screen.getByRole('button', { name: 'Create Cue List' });
 
       await userEvent.type(nameInput, 'Test Cue List');
-      await userEvent.type(descriptionInput, 'Test Description');
-      fireEvent.click(submitButton);
+      await userEvent.type(_descriptionInput, 'Test Description');
+      fireEvent.click(_submitButton);
 
       await waitFor(() => {
         expect(mockOnCueListCreated).toHaveBeenCalled();
@@ -207,10 +199,10 @@ describe('CreateCueListModal', () => {
       );
 
       const nameInput = screen.getByLabelText('Cue List Name *');
-      const submitButton = screen.getByRole('button', { name: 'Create Cue List' });
+      const _submitButton = screen.getByRole('button', { name: 'Create Cue List' });
 
       await userEvent.type(nameInput, 'Test Cue List');
-      fireEvent.click(submitButton);
+      fireEvent.click(_submitButton);
 
       await waitFor(() => {
         expect(mockOnCueListCreated).toHaveBeenCalled();
@@ -252,7 +244,7 @@ describe('CreateCueListModal', () => {
       );
 
       const nameInput = screen.getByLabelText('Cue List Name *');
-      const descriptionInput = screen.getByLabelText('Description');
+      const _descriptionInput = screen.getByLabelText('Description');
 
       await userEvent.type(nameInput, 'Test Cue List');
       // Leave description empty by not typing anything
@@ -270,8 +262,8 @@ describe('CreateCueListModal', () => {
         </MockedProvider>
       );
 
-      const submitButton = screen.getByRole('button', { name: 'Create Cue List' });
-      expect(submitButton).toBeDisabled();
+      const _submitButton = screen.getByRole('button', { name: 'Create Cue List' });
+      expect(_submitButton).toBeDisabled();
     });
 
     it('enables submit button when name is provided', async () => {
@@ -282,11 +274,11 @@ describe('CreateCueListModal', () => {
       );
 
       const nameInput = screen.getByLabelText('Cue List Name *');
-      const submitButton = screen.getByRole('button', { name: 'Create Cue List' });
+      const _submitButton = screen.getByRole('button', { name: 'Create Cue List' });
 
       await userEvent.type(nameInput, 'Test');
 
-      expect(submitButton).not.toBeDisabled();
+      expect(_submitButton).not.toBeDisabled();
     });
 
     it('disables submit button when name contains only whitespace', async () => {
@@ -297,11 +289,11 @@ describe('CreateCueListModal', () => {
       );
 
       const nameInput = screen.getByLabelText('Cue List Name *');
-      const submitButton = screen.getByRole('button', { name: 'Create Cue List' });
+      const _submitButton = screen.getByRole('button', { name: 'Create Cue List' });
 
       await userEvent.type(nameInput, '   ');
 
-      expect(submitButton).toBeDisabled();
+      expect(_submitButton).toBeDisabled();
     });
 
     it('prevents form submission with preventDefault', async () => {
@@ -536,10 +528,10 @@ describe('CreateCueListModal', () => {
       );
 
       const nameInput = screen.getByLabelText('Cue List Name *') as HTMLInputElement;
-      const descriptionInput = screen.getByLabelText('Description') as HTMLTextAreaElement;
+      const _descriptionInput = screen.getByLabelText('Description') as HTMLTextAreaElement;
 
       await userEvent.type(nameInput, 'Test Name');
-      await userEvent.type(descriptionInput, 'Test Description');
+      await userEvent.type(_descriptionInput, 'Test Description');
 
       fireEvent.click(screen.getByText('Cancel'));
 
@@ -669,8 +661,8 @@ describe('CreateCueListModal', () => {
       const cancelButton = screen.getByText('Cancel');
       expect(cancelButton).toHaveClass('border', 'border-gray-300', 'bg-white', 'text-gray-700');
 
-      const submitButton = screen.getByRole('button', { name: 'Create Cue List' });
-      expect(submitButton).toHaveClass('bg-blue-600', 'text-white', 'hover:bg-blue-700');
+      const _submitButton = screen.getByRole('button', { name: 'Create Cue List' });
+      expect(_submitButton).toHaveClass('bg-blue-600', 'text-white', 'hover:bg-blue-700');
     });
   });
 });

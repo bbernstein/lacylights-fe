@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+
 import { MockedProvider } from '@apollo/client/testing';
 import CueListPlaybackView from '../CueListPlaybackView';
 import { GET_CUE_LIST, PLAY_CUE, FADE_TO_BLACK } from '../../graphql/cueLists';
@@ -135,7 +135,7 @@ describe('CueListPlaybackView', () => {
     jest.useRealTimers();
   });
 
-  const renderWithProvider = (mocks: any[]) => {
+  const renderWithProvider = (mocks: unknown[]) => {
     return render(
       <MockedProvider mocks={mocks} addTypename={false}>
         <CueListPlaybackView cueListId={mockCueListId} onClose={mockOnClose} />

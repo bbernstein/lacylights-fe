@@ -1,21 +1,21 @@
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
-import { act } from 'react';
 import SceneEditorModal from '../SceneEditorModal';
 import {
   GET_SCENE,
   UPDATE_SCENE,
   START_PREVIEW_SESSION,
   CANCEL_PREVIEW_SESSION,
-  UPDATE_PREVIEW_CHANNEL,
+  
   INITIALIZE_PREVIEW_WITH_SCENE,
 } from '../../graphql/scenes';
-import { GET_PROJECT_FIXTURES, REORDER_SCENE_FIXTURES } from '../../graphql/fixtures';
+import { GET_PROJECT_FIXTURES } from '../../graphql/fixtures';
 
 // Mock @dnd-kit to simplify testing
 jest.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children }: any) => <div data-testid="dnd-context">{children}</div>,
+  DndContext: ({ children }: unknown) => <div data-testid="dnd-context">{children}</div>,
   closestCenter: jest.fn(),
   KeyboardSensor: jest.fn(),
   PointerSensor: jest.fn(),
@@ -31,7 +31,11 @@ jest.mock('@dnd-kit/sortable', () => ({
     result.splice(to, 0, removed);
     return result;
   }),
-  SortableContext: ({ children }: any) => <div data-testid="sortable-context">{children}</div>,
+  SortableContext: ({ children }: {
+    children: React.ReactNode;
+    items?: string[];
+    strategy?: unknown;
+  }) => <div data-testid="sortable-context">{children}</div>,
   sortableKeyboardCoordinates: jest.fn(),
   verticalListSortingStrategy: jest.fn(),
   useSortable: jest.fn(() => ({
@@ -62,7 +66,7 @@ jest.mock('../../hooks/useCurrentActiveScene', () => ({
 
 // Mock ColorPickerModal
 jest.mock('../ColorPickerModal', () => {
-  return function MockColorPickerModal({ isOpen, onClose, onColorSelect }: any) {
+  return function MockColorPickerModal({ isOpen, onClose, onColorSelect }: unknown) {
     if (!isOpen) return null;
     return (
       <div data-testid="color-picker-modal">
@@ -739,7 +743,7 @@ describe('SceneEditorModal', () => {
       // After error, the modal should either show error message or simply not load the scene content
       await waitFor(() => {
         // Check that either an error message is shown or the scene data is not loaded
-        const headings = screen.queryAllByRole('heading');
+        const _headings = screen.queryAllByRole('heading');
         const hasErrorMessage = screen.queryByText(/error/i) !== null;
         const hasSceneForm = screen.queryByLabelText(/scene name/i) !== null;
 

@@ -20,7 +20,7 @@ jest.mock('@heroicons/react/24/outline', () => ({
 
 // Mock the ProjectManagementModal
 jest.mock('../ProjectManagementModal', () => {
-  return function MockProjectManagementModal({ isOpen, onClose }: any) {
+  return function MockProjectManagementModal({ isOpen, onClose }: unknown) {
     return isOpen ? (
       <div data-testid="project-management-modal">
         <button onClick={onClose}>Close Modal</button>

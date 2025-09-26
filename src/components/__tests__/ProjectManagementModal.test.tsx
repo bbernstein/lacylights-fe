@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
 import ProjectManagementModal from '../ProjectManagementModal';
@@ -6,10 +6,10 @@ import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '..
 
 // Mock heroicons
 jest.mock('@heroicons/react/24/outline', () => ({
-  XMarkIcon: ({ className }: any) => <div className={className} data-testid="x-mark-icon">X</div>,
-  TrashIcon: ({ className }: any) => <div className={className} data-testid="trash-icon">🗑</div>,
-  PlusIcon: ({ className }: any) => <div className={className} data-testid="plus-icon">+</div>,
-  PencilIcon: ({ className }: any) => <div className={className} data-testid="pencil-icon">✏️</div>,
+  XMarkIcon: ({ className }: unknown) => <div className={className} data-testid="x-mark-icon">X</div>,
+  TrashIcon: ({ className }: unknown) => <div className={className} data-testid="trash-icon">🗑</div>,
+  PlusIcon: ({ className }: unknown) => <div className={className} data-testid="plus-icon">+</div>,
+  PencilIcon: ({ className }: unknown) => <div className={className} data-testid="pencil-icon">✏️</div>,
 }));
 
 // Mock the useProject hook

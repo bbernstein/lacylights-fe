@@ -23,12 +23,14 @@ const mockPlaybackStatus = {
   lastUpdated: '2023-01-01T12:00:00Z',
 };
 
-const createMockProvider = (mocks: any[]) => {
-  return ({ children }: { children: React.ReactNode }) =>
+const createMockProvider = (mocks: unknown[]) => {
+  const TestProvider = ({ children }: { children: React.ReactNode }) =>
     React.createElement(MockedProvider, { mocks, addTypename: false }, children);
+  TestProvider.displayName = 'TestProvider';
+  return TestProvider;
 };
 
-const createMocksWithSubscription = (cueListId: string, queryResult: any, subscriptionResult: any = null) => {
+const createMocksWithSubscription = (cueListId: string, queryResult: unknown, subscriptionResult: unknown = null) => {
   const mocks = [
     {
       request: {

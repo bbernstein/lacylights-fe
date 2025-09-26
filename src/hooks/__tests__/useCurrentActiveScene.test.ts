@@ -8,13 +8,15 @@ const mockActiveScene = {
   id: 'scene-123',
 };
 
-const mockUpdatedScene = {
+const _mockUpdatedScene = {
   id: 'scene-456',
 };
 
-const createMockProvider = (mocks: any[]) => {
-  return ({ children }: { children: React.ReactNode }) =>
+const createMockProvider = (mocks: unknown[]) => {
+  const TestProvider = ({ children }: { children: React.ReactNode }) =>
     React.createElement(MockedProvider, { mocks, addTypename: false }, children);
+  TestProvider.displayName = 'TestProvider';
+  return TestProvider;
 };
 
 describe('useCurrentActiveScene', () => {

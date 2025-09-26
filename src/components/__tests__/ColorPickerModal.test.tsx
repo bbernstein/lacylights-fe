@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import ColorPickerModal from '../ColorPickerModal';
 
 jest.mock('../ColorWheelPicker', () => {
-  return function MockColorWheelPicker({ currentColor, onColorChange, onColorSelect }: any) {
+  return function MockColorWheelPicker({ currentColor, onColorChange, onColorSelect }: unknown) {
     return (
       <div data-testid="color-wheel-picker">
         <div>Current: rgb({currentColor.r}, {currentColor.g}, {currentColor.b})</div>
@@ -23,7 +23,7 @@ jest.mock('../ColorWheelPicker', () => {
 });
 
 jest.mock('../RoscoluxSwatchPicker', () => {
-  return function MockRoscoluxSwatchPicker({ currentColor, onColorSelect }: any) {
+  return function MockRoscoluxSwatchPicker({ currentColor, onColorSelect }: unknown) {
     return (
       <div data-testid="roscolux-swatch-picker">
         <div>Current: rgb({currentColor.r}, {currentColor.g}, {currentColor.b})</div>

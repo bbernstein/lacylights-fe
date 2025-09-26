@@ -110,7 +110,7 @@ describe('CueListPlaybackStatus', () => {
       mockUseCueListPlayback.mockReturnValue({
         playbackStatus: {
           cueListId: 'test-123',
-          currentCueIndex: undefined as any,
+          currentCueIndex: undefined as number | null,
           isPlaying: true,
           fadeProgress: 0,
           lastUpdated: '2023-01-01T00:00:00Z',
@@ -208,7 +208,7 @@ describe('CueListPlaybackStatus', () => {
           cueListId: 'test-123',
           currentCueIndex: 0,
           isPlaying: true,
-          fadeProgress: null as any,
+          fadeProgress: null as number | null,
           lastUpdated: '2023-01-01T00:00:00Z',
         },
         isLoading: false,

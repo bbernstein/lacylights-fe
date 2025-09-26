@@ -4,24 +4,33 @@
     "next/typescript"
   ],
   "rules": {
-    // TypeScript specific rules to catch issues we fixed
-    // Set to warn instead of error to not break CI on existing code
+    // TypeScript specific rules - treat warnings as errors
     "@typescript-eslint/no-unused-vars": [
-      "warn",
+      "error",
       {
         "argsIgnorePattern": "^_",
         "varsIgnorePattern": "^_",
         "ignoreRestSiblings": true
       }
     ],
-    "@typescript-eslint/no-explicit-any": "warn",
-    
+    "@typescript-eslint/no-explicit-any": "error",
+    "@typescript-eslint/no-require-imports": "error",
+
     // React specific rules
-    "react-hooks/exhaustive-deps": "warn",
-    
+    "react-hooks/exhaustive-deps": "error",
+    "react/display-name": "error",
+
     // General code quality rules
     "no-console": "off",  // Allow console in this project
-    "prefer-const": "warn",
-    "no-var": "warn"
-  }
+    "prefer-const": "error",
+    "no-var": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "rules": {
+        "@typescript-eslint/no-require-imports": "off"
+      }
+    }
+  ]
 }
