@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { MockedProvider } from '@apollo/client/testing';
+import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import React from 'react';
 import { useCueListPlayback } from '../useCueListPlayback';
 import { GET_CUE_LIST_PLAYBACK_STATUS, CUE_LIST_PLAYBACK_SUBSCRIPTION } from '../../graphql/cueLists';
@@ -23,14 +23,14 @@ const mockPlaybackStatus = {
   lastUpdated: '2023-01-01T12:00:00Z',
 };
 
-const createMockProvider = (mocks: unknown[]) => {
+const createMockProvider = (mocks: MockedResponse[]) => {
   const TestProvider = ({ children }: { children: React.ReactNode }) =>
     React.createElement(MockedProvider, { mocks, addTypename: false }, children);
   TestProvider.displayName = 'TestProvider';
   return TestProvider;
 };
 
-const createMocksWithSubscription = (cueListId: string, queryResult: unknown, subscriptionResult: unknown = null) => {
+const createMocksWithSubscription = (cueListId: string, queryResult: { data?: { cueListPlaybackStatus?: unknown } }, subscriptionResult: unknown = null): MockedResponse[] => {
   const mocks = [
     {
       request: {

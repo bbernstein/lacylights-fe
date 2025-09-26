@@ -3,26 +3,28 @@ import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
 import BulkFadeUpdateModal from '../BulkFadeUpdateModal';
 import { BULK_UPDATE_CUES } from '../../graphql/cueLists';
-import { Cue } from '../../types';
+import { Cue, Scene } from '../../types';
 
 const mockSelectedCues: Cue[] = [
   {
     id: '1',
     name: 'Cue 1',
-    sceneId: 'scene-1',
-    order: 0,
+    scene: { id: 'scene-1', name: 'Scene 1' } as Scene,
+    cueNumber: 0,
     fadeInTime: 3,
     fadeOutTime: 3,
-    followTime: null,
+    followTime: undefined,
+    notes: undefined,
   },
   {
     id: '2',
     name: 'Cue 2',
-    sceneId: 'scene-2',
-    order: 1,
+    scene: { id: 'scene-2', name: 'Scene 2' } as Scene,
+    cueNumber: 1,
     fadeInTime: 2,
     fadeOutTime: 2,
     followTime: 1,
+    notes: undefined,
   },
 ];
 
@@ -324,10 +326,10 @@ describe('BulkFadeUpdateModal', () => {
             data: {
               bulkUpdateCues: mockSelectedCues.map(cue => ({
                 ...cue,
-                cueNumber: cue.order + 1,
+                cueNumber: cue.cueNumber + 1,
                 scene: {
-                  id: cue.sceneId,
-                  name: `Scene ${cue.order + 1}`,
+                  id: cue.scene.id,
+                  name: `Scene ${cue.cueNumber + 1}`,
                 },
               })),
             },
@@ -381,10 +383,10 @@ describe('BulkFadeUpdateModal', () => {
             data: {
               bulkUpdateCues: mockSelectedCues.map(cue => ({
                 ...cue,
-                cueNumber: cue.order + 1,
+                cueNumber: cue.cueNumber + 1,
                 scene: {
-                  id: cue.sceneId,
-                  name: `Scene ${cue.order + 1}`,
+                  id: cue.scene.id,
+                  name: `Scene ${cue.cueNumber + 1}`,
                 },
               })),
             },
@@ -430,10 +432,10 @@ describe('BulkFadeUpdateModal', () => {
             data: {
               bulkUpdateCues: mockSelectedCues.map(cue => ({
                 ...cue,
-                cueNumber: cue.order + 1,
+                cueNumber: cue.cueNumber + 1,
                 scene: {
-                  id: cue.sceneId,
-                  name: `Scene ${cue.order + 1}`,
+                  id: cue.scene.id,
+                  name: `Scene ${cue.cueNumber + 1}`,
                 },
               })),
             },
@@ -485,10 +487,10 @@ describe('BulkFadeUpdateModal', () => {
             data: {
               bulkUpdateCues: mockSelectedCues.map(cue => ({
                 ...cue,
-                cueNumber: cue.order + 1,
+                cueNumber: cue.cueNumber + 1,
                 scene: {
-                  id: cue.sceneId,
-                  name: `Scene ${cue.order + 1}`,
+                  id: cue.scene.id,
+                  name: `Scene ${cue.cueNumber + 1}`,
                 },
               })),
             },
@@ -531,10 +533,10 @@ describe('BulkFadeUpdateModal', () => {
             data: {
               bulkUpdateCues: mockSelectedCues.map(cue => ({
                 ...cue,
-                cueNumber: cue.order + 1,
+                cueNumber: cue.cueNumber + 1,
                 scene: {
-                  id: cue.sceneId,
-                  name: `Scene ${cue.order + 1}`,
+                  id: cue.scene.id,
+                  name: `Scene ${cue.cueNumber + 1}`,
                 },
               })),
             },
@@ -585,10 +587,10 @@ describe('BulkFadeUpdateModal', () => {
             data: {
               bulkUpdateCues: mockSelectedCues.map(cue => ({
                 ...cue,
-                cueNumber: cue.order + 1,
+                cueNumber: cue.cueNumber + 1,
                 scene: {
-                  id: cue.sceneId,
-                  name: `Scene ${cue.order + 1}`,
+                  id: cue.scene.id,
+                  name: `Scene ${cue.cueNumber + 1}`,
                 },
               })),
             },
@@ -630,10 +632,10 @@ describe('BulkFadeUpdateModal', () => {
             data: {
               bulkUpdateCues: mockSelectedCues.map(cue => ({
                 ...cue,
-                cueNumber: cue.order + 1,
+                cueNumber: cue.cueNumber + 1,
                 scene: {
-                  id: cue.sceneId,
-                  name: `Scene ${cue.order + 1}`,
+                  id: cue.scene.id,
+                  name: `Scene ${cue.cueNumber + 1}`,
                 },
               })),
             },
@@ -778,10 +780,10 @@ describe('BulkFadeUpdateModal', () => {
             data: {
               bulkUpdateCues: mockSelectedCues.map(cue => ({
                 ...cue,
-                cueNumber: cue.order + 1,
+                cueNumber: cue.cueNumber + 1,
                 scene: {
-                  id: cue.sceneId,
-                  name: `Scene ${cue.order + 1}`,
+                  id: cue.scene.id,
+                  name: `Scene ${cue.cueNumber + 1}`,
                 },
               })),
             },
@@ -907,10 +909,10 @@ describe('BulkFadeUpdateModal', () => {
             data: {
               bulkUpdateCues: mockSelectedCues.map(cue => ({
                 ...cue,
-                cueNumber: cue.order + 1,
+                cueNumber: cue.cueNumber + 1,
                 scene: {
-                  id: cue.sceneId,
-                  name: `Scene ${cue.order + 1}`,
+                  id: cue.scene.id,
+                  name: `Scene ${cue.cueNumber + 1}`,
                 },
               })),
             },
@@ -953,10 +955,10 @@ describe('BulkFadeUpdateModal', () => {
             data: {
               bulkUpdateCues: mockSelectedCues.map(cue => ({
                 ...cue,
-                cueNumber: cue.order + 1,
+                cueNumber: cue.cueNumber + 1,
                 scene: {
-                  id: cue.sceneId,
-                  name: `Scene ${cue.order + 1}`,
+                  id: cue.scene.id,
+                  name: `Scene ${cue.cueNumber + 1}`,
                 },
               })),
             },

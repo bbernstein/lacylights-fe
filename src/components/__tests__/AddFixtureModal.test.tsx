@@ -314,9 +314,9 @@ describe('AddFixtureModal', () => {
           },
           error: new Error('Network error'),
         },
-      ];
+      ] as const;
 
-      renderWithProvider(errorMocks);
+      renderWithProvider(errorMocks as Parameters<typeof renderWithProvider>[0]);
 
       // Component should still render even with errors
       expect(screen.getByRole('heading', { name: 'Add Fixture' })).toBeInTheDocument();

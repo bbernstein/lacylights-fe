@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { MockedProvider } from '@apollo/client/testing';
+import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import React from 'react';
 import { useCurrentActiveScene } from '../useCurrentActiveScene';
 import { GET_CURRENT_ACTIVE_SCENE } from '../../graphql/scenes';
@@ -12,7 +12,7 @@ const _mockUpdatedScene = {
   id: 'scene-456',
 };
 
-const createMockProvider = (mocks: unknown[]) => {
+const createMockProvider = (mocks: MockedResponse[]) => {
   const TestProvider = ({ children }: { children: React.ReactNode }) =>
     React.createElement(MockedProvider, { mocks, addTypename: false }, children);
   TestProvider.displayName = 'TestProvider';

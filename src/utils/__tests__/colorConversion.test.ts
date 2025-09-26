@@ -16,12 +16,12 @@ import { ChannelType } from '@/types';
 
 describe('colorConversion', () => {
   const mockChannels = [
-    { id: '1', type: ChannelType.RED, value: 0 },
-    { id: '2', type: ChannelType.GREEN, value: 0 },
-    { id: '3', type: ChannelType.BLUE, value: 0 },
-    { id: '4', type: ChannelType.WHITE, value: 0 },
-    { id: '5', type: ChannelType.AMBER, value: 0 },
-    { id: '6', type: ChannelType.UV, value: 0 },
+    { id: '1', type: ChannelType.RED, value: 0, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0 },
+    { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0 },
+    { id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0 },
+    { id: '4', type: ChannelType.WHITE, value: 0, offset: 3, name: 'White', minValue: 0, maxValue: 255, defaultValue: 0 },
+    { id: '5', type: ChannelType.AMBER, value: 0, offset: 4, name: 'Amber', minValue: 0, maxValue: 255, defaultValue: 0 },
+    { id: '6', type: ChannelType.UV, value: 0, offset: 5, name: 'UV', minValue: 0, maxValue: 255, defaultValue: 0 },
   ];
 
   describe('rgbToChannelValues', () => {
