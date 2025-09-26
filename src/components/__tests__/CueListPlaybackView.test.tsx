@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 
-import { MockedProvider } from '@apollo/client/testing';
+import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import CueListPlaybackView from '../CueListPlaybackView';
 import { GET_CUE_LIST, PLAY_CUE, FADE_TO_BLACK } from '../../graphql/cueLists';
 
@@ -35,7 +35,7 @@ const mockCueList = {
       },
       fadeInTime: 2.0,
       fadeOutTime: 3.0,
-      followTime: null,
+      followTime: undefined,
       notes: '',
       __typename: 'Cue',
     },
@@ -75,7 +75,7 @@ const mockCueList = {
       },
       fadeInTime: 3.0,
       fadeOutTime: 4.0,
-      followTime: null,
+      followTime: undefined,
       notes: '',
       __typename: 'Cue',
     },
@@ -859,7 +859,7 @@ describe('CueListPlaybackView', () => {
     });
 
     it('handles cue list without description', async () => {
-      const cueListNoDesc = { ...mockCueList, description: null };
+      const cueListNoDesc = { ...mockCueList, description: "" };
       const mocks = createMocks({ data: { cueList: cueListNoDesc } });
       renderWithProvider(mocks);
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MockedProvider } from '@apollo/client/testing';
+import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import CueListUnifiedView from '../CueListUnifiedView';
 import {
   GET_CUE_LIST,
@@ -22,7 +22,7 @@ import { GET_PROJECT_SCENES } from '../../graphql/scenes';
 
 // Mock drag and drop functionality
 jest.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children }: unknown) => <div data-testid="dnd-context">{children}</div>,
+  DndContext: ({ children }: { children: React.ReactNode }) => <div data-testid="dnd-context">{children}</div>,
   closestCenter: jest.fn(),
   KeyboardSensor: jest.fn(),
   PointerSensor: jest.fn(),

@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MockedProvider } from '@apollo/client/testing';
+import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import CueListEditorModal from '../CueListEditorModal';
 import {
   GET_CUE_LIST,
@@ -16,7 +16,7 @@ import { GET_PROJECT_SCENES } from '../../graphql/scenes';
 
 // Mock the dnd-kit library
 jest.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children }: unknown) => (
+  DndContext: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="dnd-context">
       {children}
     </div>
@@ -123,7 +123,7 @@ const mockCues = [
     scene: mockScenes[0],
     fadeInTime: 3,
     fadeOutTime: 3,
-    followTime: null,
+    followTime: undefined,
     notes: 'Test notes',
     __typename: 'Cue',
   },
@@ -257,7 +257,7 @@ const createMocks = () => [
           scene: mockScenes[0],
           fadeInTime: 3,
           fadeOutTime: 3,
-          followTime: null,
+          followTime: undefined,
           notes: null,
           __typename: 'Cue',
         },
@@ -950,7 +950,7 @@ describe('CueListEditorModal', () => {
     it('handles cue list without description', async () => {
       const cueListWithoutDesc = {
         ...mockCueList,
-        description: null,
+        description: "",
       };
 
       const mocks = [

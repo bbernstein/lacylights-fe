@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MockedProvider } from '@apollo/client/testing';
+import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import CreateCueListModal from '../CreateCueListModal';
 import { CREATE_CUE_LIST } from '../../graphql/cueLists';
 
@@ -183,7 +183,7 @@ describe('CreateCueListModal', () => {
               createCueList: {
                 id: 'new-cuelist-123',
                 name: 'Test Cue List',
-                description: null,
+                description: "",
                 createdAt: '2023-01-01T00:00:00Z',
                 cues: [],
               },
@@ -228,7 +228,7 @@ describe('CreateCueListModal', () => {
               createCueList: {
                 id: 'new-cuelist-123',
                 name: 'Test Cue List',
-                description: null,
+                description: "",
                 createdAt: '2023-01-01T00:00:00Z',
                 cues: [],
               },
@@ -314,7 +314,7 @@ describe('CreateCueListModal', () => {
               createCueList: {
                 id: 'new-cuelist-123',
                 name: 'Test',
-                description: null,
+                description: "",
                 createdAt: '2023-01-01T00:00:00Z',
                 cues: [],
               },
@@ -360,7 +360,7 @@ describe('CreateCueListModal', () => {
               createCueList: {
                 id: 'new-cuelist-123',
                 name: 'Test',
-                description: null,
+                description: "",
                 createdAt: '2023-01-01T00:00:00Z',
                 cues: [],
               },
@@ -402,7 +402,7 @@ describe('CreateCueListModal', () => {
               createCueList: {
                 id: 'new-cuelist-123',
                 name: 'Test',
-                description: null,
+                description: "",
                 createdAt: '2023-01-01T00:00:00Z',
                 cues: [],
               },
@@ -592,7 +592,7 @@ describe('CreateCueListModal', () => {
               createCueList: {
                 id: 'new-cuelist-123',
                 name: 'Test',
-                description: null,
+                description: "",
                 createdAt: '2023-01-01T00:00:00Z',
                 cues: [],
               },

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MockedProvider } from '@apollo/client/testing';
+import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import EditFixtureModal from '../EditFixtureModal';
 import {
   GET_MANUFACTURERS,
@@ -9,6 +9,7 @@ import {
   DELETE_FIXTURE_INSTANCE,
   GET_PROJECT_FIXTURES,
 } from '../../graphql/fixtures';
+import { FixtureType, ChannelType } from '../../types';
 
 // Mock Autocomplete to simplify testing
 jest.mock('../Autocomplete', () => {
@@ -51,7 +52,7 @@ const mockFixture = {
   definitionId: 'def-1',
   manufacturer: 'ETC',
   model: 'S4 LED',
-  type: 'LED',
+  type: FixtureType.LED_PAR,
   modeName: 'Basic',
   channelCount: 4,
   project: {
@@ -59,10 +60,10 @@ const mockFixture = {
     name: 'Test Project',
   },
   channels: [
-    { id: 'ch-1', offset: 0, name: 'Red', type: 'red', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-    { id: 'ch-2', offset: 1, name: 'Green', type: 'green', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-    { id: 'ch-3', offset: 2, name: 'Blue', type: 'blue', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-    { id: 'ch-4', offset: 3, name: 'White', type: 'white', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
+    { id: 'ch-1', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },
+    { id: 'ch-2', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
+    { id: 'ch-3', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0 },
+    { id: 'ch-4', offset: 3, name: 'White', type: ChannelType.WHITE, minValue: 0, maxValue: 255, defaultValue: 0 },
   ],
   __typename: 'FixtureInstance',
 };
@@ -82,14 +83,14 @@ const mockProjectFixtures = {
       definitionId: 'def-2',
       manufacturer: 'Chauvet',
       model: 'Par LED',
-      type: 'LED',
+      type: FixtureType.LED_PAR,
       modeName: 'RGBW',
       channelCount: 4,
       channels: [
-        { id: 'ch-5', offset: 0, name: 'Red', type: 'red', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-        { id: 'ch-6', offset: 1, name: 'Green', type: 'green', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-        { id: 'ch-7', offset: 2, name: 'Blue', type: 'blue', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-        { id: 'ch-8', offset: 3, name: 'White', type: 'white', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
+        { id: 'ch-5', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: 'ch-6', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: 'ch-7', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: 'ch-8', offset: 3, name: 'White', type: ChannelType.WHITE, minValue: 0, maxValue: 255, defaultValue: 0 },
       ],
       __typename: 'FixtureInstance',
     },

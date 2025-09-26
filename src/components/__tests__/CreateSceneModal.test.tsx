@@ -1,10 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MockedProvider } from '@apollo/client/testing';
+import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import CreateSceneModal from '../CreateSceneModal';
 import { CREATE_SCENE } from '../../graphql/scenes';
 import { GET_PROJECT_FIXTURES } from '../../graphql/fixtures';
-import { FixtureInstance } from '../../types';
+import { FixtureInstance, ChannelType, FixtureType } from '../../types';
 
 const mockProjectId = 'project-123';
 const mockOnClose = jest.fn();
@@ -17,7 +17,7 @@ const mockFixtures: FixtureInstance[] = [
     description: 'Test fixture 1',
     manufacturer: 'Chauvet',
     model: 'SlimPAR Pro',
-    type: 'LED',
+    type: FixtureType.LED_PAR,
     modeName: 'RGBW',
     universe: 1,
     startChannel: 1,
@@ -26,12 +26,12 @@ const mockFixtures: FixtureInstance[] = [
     projectOrder: 1,
     createdAt: '2023-01-01T12:00:00Z',
     definitionId: 'def-1',
-    project: { id: mockProjectId, name: 'Test Project', __typename: 'Project' },
+    project: { id: mockProjectId, name: 'Test Project' } as FixtureInstance['project'],
     channels: [
-      { id: '1', offset: 0, name: 'Red', type: 'red', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-      { id: '2', offset: 1, name: 'Green', type: 'green', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-      { id: '3', offset: 2, name: 'Blue', type: 'blue', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-      { id: '4', offset: 3, name: 'Master', type: 'intensity', minValue: 0, maxValue: 255, defaultValue: 255, __typename: 'Channel' },
+      { id: '1', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },
+      { id: '2', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
+      { id: '3', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0 },
+      { id: '4', offset: 3, name: 'Master', type: ChannelType.INTENSITY, minValue: 0, maxValue: 255, defaultValue: 255 },
     ],
     __typename: 'FixtureInstance',
   },
@@ -41,7 +41,7 @@ const mockFixtures: FixtureInstance[] = [
     description: 'Test fixture 2',
     manufacturer: 'ADJ',
     model: 'Mega Hex Par',
-    type: 'LED',
+    type: FixtureType.LED_PAR,
     modeName: 'RGBWAU',
     universe: 1,
     startChannel: 5,
@@ -50,14 +50,14 @@ const mockFixtures: FixtureInstance[] = [
     projectOrder: 2,
     createdAt: '2023-01-02T12:00:00Z',
     definitionId: 'def-2',
-    project: { id: mockProjectId, name: 'Test Project', __typename: 'Project' },
+    project: { id: mockProjectId, name: 'Test Project' } as FixtureInstance['project'],
     channels: [
-      { id: '5', offset: 0, name: 'Red', type: 'red', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-      { id: '6', offset: 1, name: 'Green', type: 'green', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-      { id: '7', offset: 2, name: 'Blue', type: 'blue', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-      { id: '8', offset: 3, name: 'White', type: 'white', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-      { id: '9', offset: 4, name: 'Amber', type: 'amber', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-      { id: '10', offset: 5, name: 'UV', type: 'uv', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
+      { id: '5', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },
+      { id: '6', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
+      { id: '7', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0 },
+      { id: '8', offset: 3, name: 'White', type: ChannelType.WHITE, minValue: 0, maxValue: 255, defaultValue: 0 },
+      { id: '9', offset: 4, name: 'Amber', type: ChannelType.AMBER, minValue: 0, maxValue: 255, defaultValue: 0 },
+      { id: '10', offset: 5, name: 'UV', type: ChannelType.UV, minValue: 0, maxValue: 255, defaultValue: 0 },
     ],
     __typename: 'FixtureInstance',
   },
@@ -106,7 +106,7 @@ describe('CreateSceneModal', () => {
     });
 
     it('returns null when isOpen is false', () => {
-      const mocks = [];
+      const mocks: never[] = [];
       const { container } = render(
         <MockedProvider mocks={mocks}>
           <CreateSceneModal {...defaultProps} isOpen={false} />
@@ -616,7 +616,7 @@ describe('CreateSceneModal', () => {
               createScene: {
                 id: 'scene-1',
                 name: 'Test Scene',
-                description: null,
+                description: "",
                 fixtureValues: [],
                 project: { id: 'project-1', name: 'Test Project' },
                 createdAt: '2023-01-01T12:00:00Z',
@@ -691,7 +691,7 @@ describe('CreateSceneModal', () => {
               createScene: {
                 id: 'scene-1',
                 name: 'Test Scene',
-                description: null,
+                description: "",
                 fixtureValues: [],
                 project: { id: 'project-1', name: 'Test Project' },
                 createdAt: '2023-01-01T12:00:00Z',
@@ -766,7 +766,7 @@ describe('CreateSceneModal', () => {
               createScene: {
                 id: 'scene-1',
                 name: 'Default Scene',
-                description: null,
+                description: "",
                 fixtureValues: [],
                 project: { id: 'project-1', name: 'Test Project' },
                 createdAt: '2023-01-01T12:00:00Z',
@@ -844,7 +844,7 @@ describe('CreateSceneModal', () => {
               createScene: {
                 id: 'scene-1',
                 name: 'Test Scene',
-                description: null,
+                description: "",
                 fixtureValues: [],
                 project: { id: 'project-1', name: 'Test Project' },
                 createdAt: '2023-01-01T12:00:00Z',
@@ -917,7 +917,7 @@ describe('CreateSceneModal', () => {
               createScene: {
                 id: 'scene-1',
                 name: 'Test Scene',
-                description: null,
+                description: "",
                 fixtureValues: [],
                 project: { id: 'project-1', name: 'Test Project' },
                 createdAt: '2023-01-01T12:00:00Z',
@@ -1144,7 +1144,7 @@ describe('CreateSceneModal', () => {
               createScene: {
                 id: 'scene-1',
                 name: 'Second Scene',
-                description: null,
+                description: "",
                 fixtureValues: [],
                 project: { id: 'project-1', name: 'Test Project' },
                 createdAt: '2023-01-01T12:00:00Z',
@@ -1421,7 +1421,7 @@ describe('CreateSceneModal', () => {
               createScene: {
                 id: 'scene-1',
                 name: 'Test Scene',
-                description: null,
+                description: "",
                 fixtureValues: [],
                 project: { id: 'project-1', name: 'Test Project' },
                 createdAt: '2023-01-01T12:00:00Z',
@@ -1626,7 +1626,7 @@ describe('CreateSceneModal', () => {
               createScene: {
                 id: 'scene-1',
                 name: 'Test Scene',
-                description: null,
+                description: "",
                 fixtureValues: [],
                 project: { id: 'project-1', name: 'Test Project' },
                 createdAt: '2023-01-01T12:00:00Z',
@@ -1668,8 +1668,8 @@ describe('CreateSceneModal', () => {
           startChannel: 1,
           channelCount: 2,
           channels: [
-            { id: '1', offset: 0, name: 'Red', type: 'red', minValue: 0, maxValue: 255, defaultValue: 0 },
-            { id: '2', offset: 1, name: 'Green', type: 'green', minValue: 0, maxValue: 255, defaultValue: 0 },
+            { id: '1', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },
+            { id: '2', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
           ],
         },
       ];
@@ -1710,7 +1710,7 @@ describe('CreateSceneModal', () => {
               createScene: {
                 id: 'scene-1',
                 name: 'Test Scene',
-                description: null,
+                description: "",
                 fixtureValues: [],
                 project: { id: 'project-1', name: 'Test Project' },
                 createdAt: '2023-01-01T12:00:00Z',

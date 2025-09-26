@@ -1,8 +1,9 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MockedProvider } from '@apollo/client/testing';
+import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import SceneEditorModal from '../SceneEditorModal';
+import { ChannelType, FixtureType } from '../../types';
 import {
   GET_SCENE,
   UPDATE_SCENE,
@@ -15,7 +16,7 @@ import { GET_PROJECT_FIXTURES } from '../../graphql/fixtures';
 
 // Mock @dnd-kit to simplify testing
 jest.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children }: unknown) => <div data-testid="dnd-context">{children}</div>,
+  DndContext: ({ children }: { children: React.ReactNode }) => <div data-testid="dnd-context">{children}</div>,
   closestCenter: jest.fn(),
   KeyboardSensor: jest.fn(),
   PointerSensor: jest.fn(),
@@ -92,7 +93,7 @@ const mockFixtures = [
     description: 'Test fixture 1',
     manufacturer: 'ETC',
     model: 'S4 LED',
-    type: 'LED',
+    type: FixtureType.LED_PAR,
     modeName: 'RGBW',
     universe: 1,
     startChannel: 1,
@@ -103,10 +104,10 @@ const mockFixtures = [
     definitionId: 'def-1',
     project: mockProject,
     channels: [
-      { id: 'ch-1', offset: 0, name: 'Red', type: 'red', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-      { id: 'ch-2', offset: 1, name: 'Green', type: 'green', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-      { id: 'ch-3', offset: 2, name: 'Blue', type: 'blue', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-      { id: 'ch-4', offset: 3, name: 'Intensity', type: 'intensity', minValue: 0, maxValue: 255, defaultValue: 255, __typename: 'Channel' },
+      { id: 'ch-1', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },
+      { id: 'ch-2', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
+      { id: 'ch-3', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0 },
+      { id: 'ch-4', offset: 3, name: 'Intensity', type: ChannelType.INTENSITY, minValue: 0, maxValue: 255, defaultValue: 255 },
     ],
     __typename: 'FixtureInstance',
   },
@@ -116,7 +117,7 @@ const mockFixtures = [
     description: 'Test fixture 2',
     manufacturer: 'Chauvet',
     model: 'SlimPAR Pro',
-    type: 'LED',
+    type: FixtureType.LED_PAR,
     modeName: 'RGB',
     universe: 1,
     startChannel: 5,
@@ -127,9 +128,9 @@ const mockFixtures = [
     definitionId: 'def-2',
     project: mockProject,
     channels: [
-      { id: 'ch-5', offset: 0, name: 'Red', type: 'red', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-      { id: 'ch-6', offset: 1, name: 'Green', type: 'green', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
-      { id: 'ch-7', offset: 2, name: 'Blue', type: 'blue', minValue: 0, maxValue: 255, defaultValue: 0, __typename: 'Channel' },
+      { id: 'ch-5', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },
+      { id: 'ch-6', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
+      { id: 'ch-7', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0 },
     ],
     __typename: 'FixtureInstance',
   },
@@ -879,7 +880,7 @@ describe('SceneEditorModal', () => {
       const fixtureWithoutColor = {
         ...mockFixtures[0],
         channels: [
-          { id: 'ch-1', offset: 0, name: 'Intensity', type: 'intensity', minValue: 0, maxValue: 255, defaultValue: 255, __typename: 'Channel' },
+          { id: 'ch-1', offset: 0, name: 'Intensity', type: ChannelType.INTENSITY, minValue: 0, maxValue: 255, defaultValue: 255 },
         ],
       };
 

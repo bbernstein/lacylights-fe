@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MockedProvider } from '@apollo/client/testing';
+import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import CueListPlayer from '../CueListPlayer';
 import {
   GET_CUE_LIST,
@@ -55,7 +55,7 @@ describe('CueListPlayer', () => {
         },
         fadeInTime: 2.0,
         fadeOutTime: 3.0,
-        followTime: null,
+        followTime: undefined,
         notes: '',
         __typename: 'Cue',
       },
@@ -75,7 +75,7 @@ describe('CueListPlayer', () => {
         },
         fadeInTime: 1.5,
         fadeOutTime: 2.5,
-        followTime: null,
+        followTime: undefined,
         notes: '',
         __typename: 'Cue',
       },
@@ -95,7 +95,7 @@ describe('CueListPlayer', () => {
         },
         fadeInTime: 3.0,
         fadeOutTime: 4.0,
-        followTime: null,
+        followTime: undefined,
         notes: '',
         __typename: 'Cue',
       },
@@ -703,7 +703,7 @@ describe('CueListPlayer', () => {
 
   describe('edge cases', () => {
     it('handles missing cue list description', async () => {
-      const cueListWithoutDescription = { ...mockCueList, description: null };
+      const cueListWithoutDescription = { ...mockCueList, description: "" };
       const mocks = createMocks({ data: { cueList: cueListWithoutDescription } });
 
       renderWithProvider(mocks);

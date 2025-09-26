@@ -17,14 +17,14 @@ jest.mock('../../utils/colorConversion', () => ({
 }));
 
 jest.mock('react-colorful', () => ({
-  HexColorPicker: ({ color, onChange }: unknown) => (
+  HexColorPicker: ({ color, onChange }: { color: string; onChange: (color: string) => void }) => (
     <div data-testid="hex-color-picker">
       <div>Color: {color}</div>
       <button onClick={() => onChange('#ff0000')}>Change to Red</button>
       <button onClick={() => onChange('#00ff00')}>Change to Green</button>
     </div>
   ),
-  RgbColorPicker: ({ color, onChange }: unknown) => (
+  RgbColorPicker: ({ color, onChange }: { color: { r: number; g: number; b: number }; onChange: (color: { r: number; g: number; b: number }) => void }) => (
     <div data-testid="rgb-color-picker">
       <div>RGB: {color.r}, {color.g}, {color.b}</div>
       <button onClick={() => onChange({ r: 255, g: 0, b: 0 })}>Change to Red RGB</button>
