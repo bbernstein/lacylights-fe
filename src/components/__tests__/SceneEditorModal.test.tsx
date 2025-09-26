@@ -716,7 +716,7 @@ describe('SceneEditorModal', () => {
       const backdrop = document.querySelector('.bg-gray-500.bg-opacity-75');
       expect(backdrop).toBeInTheDocument();
 
-      await userEvent.click(backdrop);
+      await userEvent.click(backdrop!);
       expect(mockOnClose).toHaveBeenCalled();
     });
   });

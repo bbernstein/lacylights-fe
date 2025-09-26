@@ -71,9 +71,9 @@ jest.mock('../BulkFadeUpdateModal', () => {
     if (!isOpen) return null;
     return (
       <div data-testid="bulk-update-modal">
-        <div>Selected Cues: {selectedCues.length}</div>
+        <div>Selected Cues: {selectedCues?.length || 0}</div>
         <button onClick={onClose}>Cancel</button>
-        <button onClick={() => { onUpdate(); onClose(); }}>Update</button>
+        <button onClick={() => { onUpdate?.(); onClose?.(); }}>Update</button>
       </div>
     );
   };

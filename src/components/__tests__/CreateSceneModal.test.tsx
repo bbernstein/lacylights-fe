@@ -33,7 +33,6 @@ const mockFixtures: FixtureInstance[] = [
       { id: '3', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0 },
       { id: '4', offset: 3, name: 'Master', type: ChannelType.INTENSITY, minValue: 0, maxValue: 255, defaultValue: 255 },
     ],
-    __typename: 'FixtureInstance',
   },
   {
     id: '2',
@@ -59,7 +58,6 @@ const mockFixtures: FixtureInstance[] = [
       { id: '9', offset: 4, name: 'Amber', type: ChannelType.AMBER, minValue: 0, maxValue: 255, defaultValue: 0 },
       { id: '10', offset: 5, name: 'UV', type: ChannelType.UV, minValue: 0, maxValue: 255, defaultValue: 0 },
     ],
-    __typename: 'FixtureInstance',
   },
 ];
 
@@ -1742,7 +1740,7 @@ describe('CreateSceneModal', () => {
     });
 
     it('skips query when projectId is not provided', () => {
-      const mocks: unknown[] = [];
+      const mocks: any[] = [];
 
       render(
         <MockedProvider mocks={mocks}>

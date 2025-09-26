@@ -58,6 +58,12 @@ const mockFixture = {
   project: {
     id: 'project-1',
     name: 'Test Project',
+    createdAt: '2023-01-01T00:00:00Z',
+    updatedAt: '2023-01-01T00:00:00Z',
+    fixtures: [],
+    scenes: [],
+    cueLists: [],
+    users: [],
   },
   channels: [
     { id: 'ch-1', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },

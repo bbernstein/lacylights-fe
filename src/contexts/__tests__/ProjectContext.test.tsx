@@ -55,7 +55,7 @@ const newProject = {
   users: [],
 };
 
-const createMockProvider = (mocks: unknown[]) => {
+const createMockProvider = (mocks: any[]) => {
   const TestProvider = ({ children }: { children: React.ReactNode }) =>
     React.createElement(MockedProvider, { mocks, addTypename: false }, children);
   TestProvider.displayName = 'TestProvider';
@@ -126,12 +126,11 @@ describe('ProjectContext', () => {
       render(
         React.createElement(
           createMockProvider(mocks),
-          {},
+          { children:
           React.createElement(
             ProjectProvider,
-            {},
-            React.createElement(TestComponent)
-          )
+            { children: React.createElement(TestComponent) }
+          ) }
         )
       );
 
@@ -151,12 +150,11 @@ describe('ProjectContext', () => {
       render(
         React.createElement(
           createMockProvider(mocks),
-          {},
+          { children:
           React.createElement(
             ProjectProvider,
-            {},
-            React.createElement(TestComponent)
-          )
+            { children: React.createElement(TestComponent) }
+          ) }
         )
       );
 
@@ -180,12 +178,11 @@ describe('ProjectContext', () => {
       render(
         React.createElement(
           createMockProvider(mocks),
-          {},
+          { children:
           React.createElement(
             ProjectProvider,
-            {},
-            React.createElement(TestComponent)
-          )
+            { children: React.createElement(TestComponent) }
+          ) }
         )
       );
 
@@ -219,12 +216,11 @@ describe('ProjectContext', () => {
       render(
         React.createElement(
           createMockProvider(mocks),
-          {},
+          { children:
           React.createElement(
             ProjectProvider,
-            {},
-            React.createElement(TestComponent)
-          )
+            { children: React.createElement(TestComponent) }
+          ) }
         )
       );
 
@@ -249,12 +245,11 @@ describe('ProjectContext', () => {
       render(
         React.createElement(
           createMockProvider(mocks),
-          {},
+          { children:
           React.createElement(
             ProjectProvider,
-            {},
-            React.createElement(TestComponent)
-          )
+            { children: React.createElement(TestComponent) }
+          ) }
         )
       );
 
@@ -277,12 +272,11 @@ describe('ProjectContext', () => {
       render(
         React.createElement(
           createMockProvider(mocks),
-          {},
+          { children:
           React.createElement(
             ProjectProvider,
-            {},
-            React.createElement(TestComponent)
-          )
+            { children: React.createElement(TestComponent) }
+          ) }
         )
       );
 
@@ -304,12 +298,11 @@ describe('ProjectContext', () => {
       render(
         React.createElement(
           createMockProvider(mocks),
-          {},
+          { children:
           React.createElement(
             ProjectProvider,
-            {},
-            React.createElement(TestComponent)
-          )
+            { children: React.createElement(TestComponent) }
+          ) }
         )
       );
 
@@ -336,12 +329,11 @@ describe('ProjectContext', () => {
       render(
         React.createElement(
           createMockProvider(mocks),
-          {},
+          { children:
           React.createElement(
             ProjectProvider,
-            {},
-            React.createElement(TestComponent)
-          )
+            { children: React.createElement(TestComponent) }
+          ) }
         )
       );
 
@@ -368,12 +360,11 @@ describe('ProjectContext', () => {
       render(
         React.createElement(
           createMockProvider(mocks),
-          {},
+          { children:
           React.createElement(
             ProjectProvider,
-            {},
-            React.createElement(TestComponent)
-          )
+            { children: React.createElement(TestComponent) }
+          ) }
         )
       );
 
@@ -412,12 +403,11 @@ describe('ProjectContext', () => {
       render(
         React.createElement(
           createMockProvider(mocks),
-          {},
+          { children:
           React.createElement(
             ProjectProvider,
-            {},
-            React.createElement(TestComponent)
-          )
+            { children: React.createElement(TestComponent) }
+          ) }
         )
       );
 
@@ -456,12 +446,11 @@ describe('ProjectContext', () => {
       render(
         React.createElement(
           createMockProvider(mocks),
-          {},
+          { children:
           React.createElement(
             ProjectProvider,
-            {},
-            React.createElement(TestComponent)
-          )
+            { children: React.createElement(TestComponent) }
+          ) }
         )
       );
 
@@ -497,12 +486,11 @@ describe('ProjectContext', () => {
       render(
         React.createElement(
           createMockProvider(mocks),
-          {},
+          { children:
           React.createElement(
             ProjectProvider,
-            {},
-            React.createElement(TestComponent)
-          )
+            { children: React.createElement(TestComponent) }
+          ) }
         )
       );
 
@@ -533,12 +521,11 @@ describe('ProjectContext', () => {
       render(
         React.createElement(
           createMockProvider(mocks),
-          {},
+          { children:
           React.createElement(
             ProjectProvider,
-            {},
-            React.createElement(TestComponent)
-          )
+            { children: React.createElement(TestComponent) }
+          ) }
         )
       );
 
@@ -566,12 +553,11 @@ describe('ProjectContext', () => {
       render(
         React.createElement(
           createMockProvider(mocks),
-          {},
+          { children:
           React.createElement(
             ProjectProvider,
-            {},
-            React.createElement(TestComponent)
-          )
+            { children: React.createElement(TestComponent) }
+          ) }
         )
       );
 
