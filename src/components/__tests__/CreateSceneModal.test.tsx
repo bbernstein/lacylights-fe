@@ -6,6 +6,18 @@ import { CREATE_SCENE } from '../../graphql/scenes';
 import { GET_PROJECT_FIXTURES } from '../../graphql/fixtures';
 import { FixtureInstance, ChannelType, FixtureType } from '../../types';
 
+// Type for test mocks that may not perfectly match GraphQL schemas
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TestMockResponse = {
+  request: {
+    query: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    variables?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  };
+  result?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  error?: Error;
+  delay?: number;
+};
+
 const mockProjectId = 'project-123';
 const mockOnClose = jest.fn();
 const mockOnSceneCreated = jest.fn();
@@ -1740,7 +1752,7 @@ describe('CreateSceneModal', () => {
     });
 
     it('skips query when projectId is not provided', () => {
-      const mocks: any[] = [];
+      const mocks: TestMockResponse[] = [];
 
       render(
         <MockedProvider mocks={mocks}>

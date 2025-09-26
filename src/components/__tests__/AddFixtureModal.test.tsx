@@ -2,6 +2,18 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
 import AddFixtureModal from '../AddFixtureModal';
+
+// Type for test mocks that may not perfectly match GraphQL schemas
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TestMockResponse = {
+  request: {
+    query: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    variables?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  };
+  result?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  error?: Error;
+  delay?: number;
+};
 import {
   GET_MANUFACTURERS,
   GET_MODELS,
@@ -314,7 +326,7 @@ describe('AddFixtureModal', () => {
           },
           error: new Error('Network error'),
         },
-      ] as any;
+      ] as TestMockResponse[];
 
       renderWithProvider(errorMocks);
 

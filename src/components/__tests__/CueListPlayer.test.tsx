@@ -140,14 +140,14 @@ describe('CueListPlayer', () => {
           query: eval(mutationName), // Dynamic query reference
           variables: expect.any(Object),
         },
-        result: result as any,
+        result: result as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       });
     });
 
     return baseMocks;
   };
 
-  const renderWithProvider = (mocks: any[]) => {
+  const renderWithProvider = (mocks: TestMockResponse[]) => {
     // Suppress console errors for cleaner test output
     const originalError = console.error;
     console.error = jest.fn();
@@ -211,7 +211,7 @@ describe('CueListPlayer', () => {
     });
 
     it('shows error state when cue list not found', async () => {
-      const mocks = createMocks({ data: { cueList: null } } as any);
+      const mocks = createMocks({ data: { cueList: null } } as TestMockResponse[]);
 
       renderWithProvider(mocks);
 

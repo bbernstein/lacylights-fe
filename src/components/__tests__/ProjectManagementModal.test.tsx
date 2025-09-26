@@ -4,6 +4,17 @@ import { MockedProvider } from '@apollo/client/testing';
 import ProjectManagementModal from '../ProjectManagementModal';
 import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '../../graphql/projects';
 
+// Type for test mocks that may not perfectly match GraphQL schemas
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TestMockResponse = {
+  request: {
+    query: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    variables?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  };
+  result?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  error?: Error;
+  delay?: number;
+};
 // Mock heroicons
 jest.mock('@heroicons/react/24/outline', () => ({
   XMarkIcon: ({ className }: { className?: string }) => <div className={className} data-testid="x-mark-icon">X</div>,
@@ -291,7 +302,7 @@ describe('ProjectManagementModal', () => {
         },
       ];
 
-      renderWithProvider(errorMocks as any);
+      renderWithProvider(errorMocks as TestMockResponse[]);
 
       // Component should still render the modal structure
       expect(screen.getByText('Manage Projects')).toBeInTheDocument();

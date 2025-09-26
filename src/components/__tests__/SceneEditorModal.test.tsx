@@ -625,7 +625,7 @@ describe('SceneEditorModal', () => {
         },
       ];
 
-      renderWithProvider(delayedMocks as any);
+      renderWithProvider(delayedMocks as TestMockResponse[]);
 
       await waitFor(() => {
         expect(screen.getByLabelText(/scene name/i)).toBeInTheDocument();
@@ -673,7 +673,7 @@ describe('SceneEditorModal', () => {
         },
       ];
 
-      renderWithProvider(delayedMocks as any);
+      renderWithProvider(delayedMocks as TestMockResponse[]);
 
       await waitFor(() => {
         expect(screen.getByLabelText(/scene name/i)).toBeInTheDocument();
@@ -733,7 +733,7 @@ describe('SceneEditorModal', () => {
         },
       ];
 
-      renderWithProvider(errorMocks as any);
+      renderWithProvider(errorMocks as TestMockResponse[]);
 
       // Component should show loading initially, then handle error gracefully
       // It might show "Loading scene..." then some error state or just fail to load content
@@ -775,7 +775,7 @@ describe('SceneEditorModal', () => {
         },
       ];
 
-      renderWithProvider(errorMocks as any);
+      renderWithProvider(errorMocks as TestMockResponse[]);
 
       await waitFor(() => {
         expect(screen.getByLabelText(/scene name/i)).toBeInTheDocument();
@@ -866,7 +866,7 @@ describe('SceneEditorModal', () => {
         ...createMocks().slice(1),
       ];
 
-      renderWithProvider(mocks as any);
+      renderWithProvider(mocks as TestMockResponse[]);
 
       await waitFor(() => {
         expect(screen.getByRole('heading', { name: /edit scene/i })).toBeInTheDocument();
@@ -912,7 +912,7 @@ describe('SceneEditorModal', () => {
         ...createMocks().slice(1),
       ];
 
-      renderWithProvider(mocks as any);
+      renderWithProvider(mocks as TestMockResponse[]);
 
       await waitFor(() => {
         expect(screen.getByText('Light 1')).toBeInTheDocument();

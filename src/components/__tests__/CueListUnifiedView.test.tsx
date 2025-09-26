@@ -20,6 +20,17 @@ import {
 } from '../../graphql/cueLists';
 import { GET_PROJECT_SCENES } from '../../graphql/scenes';
 
+// Type for test mocks that may not perfectly match GraphQL schemas
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TestMockResponse = {
+  request: {
+    query: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    variables?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  };
+  result?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  error?: Error;
+  delay?: number;
+};
 // Mock drag and drop functionality
 jest.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: React.ReactNode }) => <div data-testid="dnd-context">{children}</div>,
@@ -408,7 +419,7 @@ describe('CueListUnifiedView', () => {
         },
       ];
 
-      renderWithProvider(errorMocks as any);
+      renderWithProvider(errorMocks as TestMockResponse[]);
 
       await waitFor(() => {
         expect(screen.getByText('Cue list not found')).toBeInTheDocument();
@@ -849,7 +860,7 @@ describe('CueListUnifiedView', () => {
         },
       ];
 
-      renderWithProvider(errorMocks as any);
+      renderWithProvider(errorMocks as TestMockResponse[]);
 
       await waitFor(() => {
         expect(screen.getByText('Cue list not found')).toBeInTheDocument();

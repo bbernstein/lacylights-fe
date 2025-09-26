@@ -14,6 +14,18 @@ import {
 } from '../../graphql/cueLists';
 import { GET_PROJECT_SCENES } from '../../graphql/scenes';
 
+// Type for test mocks that may not perfectly match GraphQL schemas
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TestMockResponse = {
+  request: {
+    query: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    variables?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  };
+  result?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  error?: Error;
+  delay?: number;
+};
+
 // Mock the dnd-kit library
 jest.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: React.ReactNode }) => (
@@ -390,9 +402,9 @@ describe('CueListEditorModal', () => {
             },
           },
         },
-      ] as any;
+      ] as TestMockResponse[];
 
-      renderWithProvider(errorMocks as any);
+      renderWithProvider(errorMocks as TestMockResponse[]);
 
       await waitFor(() => {
         expect(screen.getByText('Cue list not found')).toBeInTheDocument();
@@ -876,7 +888,7 @@ describe('CueListEditorModal', () => {
         },
       ];
 
-      renderWithProvider(errorMocks as any);
+      renderWithProvider(errorMocks as TestMockResponse[]);
 
       await waitFor(() => {
         expect(screen.getByDisplayValue('Test Cue List')).toBeInTheDocument();
@@ -901,7 +913,7 @@ describe('CueListEditorModal', () => {
         },
       ];
 
-      renderWithProvider(errorMocks as any);
+      renderWithProvider(errorMocks as TestMockResponse[]);
 
       // Should not crash, but may show loading state
       expect(screen.getByText('Loading cue list...')).toBeInTheDocument();
