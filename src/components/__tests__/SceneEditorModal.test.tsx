@@ -625,7 +625,7 @@ describe('SceneEditorModal', () => {
         },
       ];
 
-      renderWithProvider(delayedMocks as TestMockResponse[]);
+      renderWithProvider(delayedMocks as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
       await waitFor(() => {
         expect(screen.getByLabelText(/scene name/i)).toBeInTheDocument();
@@ -673,7 +673,7 @@ describe('SceneEditorModal', () => {
         },
       ];
 
-      renderWithProvider(delayedMocks as TestMockResponse[]);
+      renderWithProvider(delayedMocks as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
       await waitFor(() => {
         expect(screen.getByLabelText(/scene name/i)).toBeInTheDocument();
@@ -733,7 +733,7 @@ describe('SceneEditorModal', () => {
         },
       ];
 
-      renderWithProvider(errorMocks as TestMockResponse[]);
+      renderWithProvider(errorMocks as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
       // Component should show loading initially, then handle error gracefully
       // It might show "Loading scene..." then some error state or just fail to load content
@@ -775,7 +775,7 @@ describe('SceneEditorModal', () => {
         },
       ];
 
-      renderWithProvider(errorMocks as TestMockResponse[]);
+      renderWithProvider(errorMocks as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
       await waitFor(() => {
         expect(screen.getByLabelText(/scene name/i)).toBeInTheDocument();
@@ -866,7 +866,7 @@ describe('SceneEditorModal', () => {
         ...createMocks().slice(1),
       ];
 
-      renderWithProvider(mocks as TestMockResponse[]);
+      renderWithProvider(mocks as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
       await waitFor(() => {
         expect(screen.getByRole('heading', { name: /edit scene/i })).toBeInTheDocument();
@@ -912,7 +912,7 @@ describe('SceneEditorModal', () => {
         ...createMocks().slice(1),
       ];
 
-      renderWithProvider(mocks as TestMockResponse[]);
+      renderWithProvider(mocks as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
       await waitFor(() => {
         expect(screen.getByText('Light 1')).toBeInTheDocument();

@@ -147,7 +147,7 @@ describe('CueListPlayer', () => {
     return baseMocks;
   };
 
-  const renderWithProvider = (mocks: TestMockResponse[]) => {
+  const renderWithProvider = (mocks: any[]) => { // eslint-disable-line @typescript-eslint/no-explicit-any
     // Suppress console errors for cleaner test output
     const originalError = console.error;
     console.error = jest.fn();
@@ -211,7 +211,7 @@ describe('CueListPlayer', () => {
     });
 
     it('shows error state when cue list not found', async () => {
-      const mocks = createMocks({ data: { cueList: null } } as TestMockResponse[]);
+      const mocks = createMocks({ data: { cueList: null } } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
       renderWithProvider(mocks);
 

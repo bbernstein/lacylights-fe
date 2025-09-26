@@ -4,17 +4,6 @@ import { MockedProvider } from '@apollo/client/testing';
 import CueListPlaybackView from '../CueListPlaybackView';
 import { GET_CUE_LIST, PLAY_CUE, FADE_TO_BLACK } from '../../graphql/cueLists';
 
-// Type for test mocks that may not perfectly match GraphQL schemas
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type TestMockResponse = {
-  request: {
-    query: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-    variables?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  };
-  result?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  error?: Error;
-  delay?: number;
-};
 const mockCueListId = 'test-cuelist-123';
 
 const mockCueList = {
@@ -146,7 +135,7 @@ describe('CueListPlaybackView', () => {
     jest.useRealTimers();
   });
 
-  const renderWithProvider = (mocks: TestMockResponse[]) => {
+  const renderWithProvider = (mocks: any[]) => { // eslint-disable-line @typescript-eslint/no-explicit-any
     return render(
       <MockedProvider mocks={mocks} addTypename={false}>
         <CueListPlaybackView cueListId={mockCueListId} onClose={mockOnClose} />
@@ -163,7 +152,7 @@ describe('CueListPlaybackView', () => {
     });
 
     it('shows error state when cue list not found', async () => {
-      const mocks = createMocks({ data: { cueList: null } } as TestMockResponse[]);
+      const mocks = createMocks({ data: { cueList: null } } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       renderWithProvider(mocks);
 
       await waitFor(() => {

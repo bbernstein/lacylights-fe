@@ -11,17 +11,6 @@ import {
 } from '../../graphql/fixtures';
 import { FixtureType, ChannelType } from '../../types';
 
-// Type for test mocks that may not perfectly match GraphQL schemas
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type TestMockResponse = {
-  request: {
-    query: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-    variables?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  };
-  result?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  error?: Error;
-  delay?: number;
-};
 // Mock Autocomplete to simplify testing
 jest.mock('../Autocomplete', () => {
   return function MockAutocomplete({ value, onChange, onSelect, options = [], placeholder }: {
@@ -409,7 +398,7 @@ describe('EditFixtureModal', () => {
         },
       ];
 
-      renderWithProvider(errorMocks as TestMockResponse[]);
+      renderWithProvider(errorMocks as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
       // Should still render the modal
       expect(screen.getByRole('heading', { name: 'Edit Fixture' })).toBeInTheDocument();
