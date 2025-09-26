@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 
-import { MockedProvider, MockedResponse } from '@apollo/client/testing';
+import { MockedProvider } from '@apollo/client/testing';
 import CueListPlaybackView from '../CueListPlaybackView';
 import { GET_CUE_LIST, PLAY_CUE, FADE_TO_BLACK } from '../../graphql/cueLists';
 

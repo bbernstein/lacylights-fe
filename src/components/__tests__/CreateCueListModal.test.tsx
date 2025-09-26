@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MockedProvider, MockedResponse } from '@apollo/client/testing';
+import { MockedProvider } from '@apollo/client/testing';
 import CreateCueListModal from '../CreateCueListModal';
 import { CREATE_CUE_LIST } from '../../graphql/cueLists';
 

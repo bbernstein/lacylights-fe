@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MockedProvider, MockedResponse } from '@apollo/client/testing';
+import { MockedProvider } from '@apollo/client/testing';
 import BulkFadeUpdateModal from '../BulkFadeUpdateModal';
 import { BULK_UPDATE_CUES } from '../../graphql/cueLists';
 import { Cue, Scene } from '../../types';

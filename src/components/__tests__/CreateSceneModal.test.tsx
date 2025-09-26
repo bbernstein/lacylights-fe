@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MockedProvider, MockedResponse } from '@apollo/client/testing';
+import { MockedProvider } from '@apollo/client/testing';
 import CreateSceneModal from '../CreateSceneModal';
 import { CREATE_SCENE } from '../../graphql/scenes';
 import { GET_PROJECT_FIXTURES } from '../../graphql/fixtures';
