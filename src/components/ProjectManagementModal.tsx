@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation, useQuery, useLazyQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import { XMarkIcon, TrashIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
-import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT, IMPORT_PROJECT_FROM_QLC, GET_QLC_FIXTURE_MAPPING_SUGGESTIONS, EXPORT_PROJECT_TO_QLC } from '@/graphql/projects';
+import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '@/graphql/projects';
 import { useProject } from '@/contexts/ProjectContext';
 import { Project } from '@/types';
+import ImportExportButtons from './ImportExportButtons';
 
 interface ProjectManagementModalProps {
   isOpen: boolean;
@@ -20,9 +21,6 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [editingProject, setEditingProject] = useState<{id: string, name: string, description: string} | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportingProjectId, setExportingProjectId] = useState<string | null>(null);
 
   const { data, loading, refetch } = useQuery(GET_PROJECTS);
   const [createProject] = useMutation(CREATE_PROJECT, {
@@ -41,47 +39,6 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     refetchQueries: [{ query: GET_PROJECTS }],
     onError: (error) => {
       setError(`Failed to update project: ${error.message}`);
-    },
-  });
-  const [importProjectFromQLC] = useMutation(IMPORT_PROJECT_FROM_QLC, {
-    onError: (error) => {
-      setError(`Failed to import project: ${error.message}`);
-    },
-    onCompleted: async (data) => {
-      await refetch();
-
-      if (data?.importProjectFromQLC?.project?.id) {
-        selectProjectById(data.importProjectFromQLC.project.id);
-      }
-    },
-  });
-  const [getFixtureMappingSuggestions] = useLazyQuery(GET_QLC_FIXTURE_MAPPING_SUGGESTIONS, {
-    onError: (error) => {
-      setError(`Failed to get fixture mappings: ${error.message}`);
-    },
-  });
-  const [exportProjectToQLC] = useMutation(EXPORT_PROJECT_TO_QLC, {
-    onError: (error) => {
-      setError(`Failed to export project: ${error.message}`);
-    },
-    onCompleted: (data) => {
-      if (data?.exportProjectToQLC) {
-        const exportResult = data.exportProjectToQLC;
-
-        // Create and download the file
-        const blob = new Blob([exportResult.xmlContent], { type: 'application/xml' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${exportResult.projectName}.qxw`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
-
-      setIsExporting(false);
-      setExportingProjectId(null);
     },
   });
 
@@ -203,80 +160,13 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     setEditingProject(null);
   };
 
-  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!file.name.endsWith('.qxw')) {
-      setError('Please select a QLC+ workspace file (.qxw)');
-      return;
-    }
-
-    setError(null);
-    setIsImporting(true);
-
-    try {
-      const xmlContent = await file.text();
-      await importProjectFromQLC({
-        variables: {
-          xmlContent,
-          originalFileName: file.name
-        }
-      });
-    } catch {
-      setError('Failed to import project. Please check the file and try again.');
-    } finally {
-      setIsImporting(false);
-      // Reset file input
-      event.target.value = '';
-    }
+  const handleImportComplete = async (projectId: string) => {
+    await refetch();
+    selectProjectById(projectId);
   };
 
-  const handleExportProject = async (projectId: string) => {
-    setError(null);
-    setIsExporting(true);
-    setExportingProjectId(projectId);
-
-    try {
-      // First get fixture mapping suggestions
-      const mappingResult = await getFixtureMappingSuggestions({
-        variables: { projectId }
-      });
-
-      if (mappingResult.data?.getQLCFixtureMappingSuggestions) {
-        const mappingData = mappingResult.data.getQLCFixtureMappingSuggestions;
-        
-        // Use default mappings if available, otherwise create basic mappings
-        const rawFixtureMappings = mappingData.defaultMappings.length > 0 
-          ? mappingData.defaultMappings 
-          : mappingData.lacyLightsFixtures.map((fixture: { manufacturer: string | null; model: string | null }) => ({
-              lacyLightsKey: `${fixture.manufacturer ?? 'unknown'}/${fixture.model ?? 'unknown'}`,
-              qlcManufacturer: fixture.manufacturer,
-              qlcModel: fixture.model,
-              qlcMode: 'Default'
-            }));
-
-        // Clean fixture mappings by removing Apollo's __typename field
-        const fixtureMappings = rawFixtureMappings.map((mapping: { lacyLightsKey: string; qlcManufacturer: string; qlcModel: string; qlcMode: string }) => ({
-          lacyLightsKey: mapping.lacyLightsKey,
-          qlcManufacturer: mapping.qlcManufacturer,
-          qlcModel: mapping.qlcModel,
-          qlcMode: mapping.qlcMode
-        }));
-
-        // Export the project with the mappings
-        await exportProjectToQLC({
-          variables: {
-            projectId,
-            fixtureMappings
-          }
-        });
-      }
-    } catch {
-      setError('Failed to export project. Please try again.');
-      setIsExporting(false);
-      setExportingProjectId(null);
-    }
+  const handleExportError = (errorMessage: string) => {
+    setError(errorMessage);
   };
 
   return (
@@ -298,7 +188,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
           </div>
         )}
 
-        <div className="mb-4 flex gap-2">
+        <div className="mb-4 flex gap-2 flex-wrap">
           <button
             onClick={() => setIsCreating(true)}
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex items-center gap-2"
@@ -306,21 +196,12 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
             <PlusIcon className="h-4 w-4" />
             New Project
           </button>
-          
-          <label className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors flex items-center gap-2 cursor-pointer">
-            <input
-              type="file"
-              accept=".qxw"
-              onChange={handleFileImport}
-              className="hidden"
-              disabled={isImporting}
-            />
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            {isImporting ? 'Importing...' : 'Import QLC+'}
-          </label>
-          
+
+          <ImportExportButtons
+            onImportComplete={handleImportComplete}
+            onError={handleExportError}
+          />
+
           {selectedProjects.size > 0 && (
             <button
               onClick={handleDeleteSelected}
@@ -330,7 +211,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
               Delete Selected ({selectedProjects.size})
             </button>
           )}
-          
+
           {data?.projects?.length > 0 && (
             <button
               onClick={handleSelectAll}
@@ -449,24 +330,11 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
                   {selectedProjectId === project.id && (
                     <span className="text-green-500 text-sm">Current</span>
                   )}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleExportProject(project.id)}
-                      disabled={isExporting}
-                      className="text-gray-400 hover:text-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Export to QLC+"
-                    >
-                      {exportingProjectId === project.id ? (
-                        <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                      ) : (
-                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      )}
-                    </button>
+                  <div className="flex gap-2 items-center">
+                    <ImportExportButtons
+                      projectId={project.id}
+                      onError={handleExportError}
+                    />
                     <button
                       onClick={() => handleStartEdit(project)}
                       className="text-gray-400 hover:text-blue-500 transition-colors"
