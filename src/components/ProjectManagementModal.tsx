@@ -334,6 +334,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
                     <ImportExportButtons
                       projectId={project.id}
                       onError={handleExportError}
+                      exportOnly={true}
                     />
                     <button
                       onClick={() => handleStartEdit(project)}

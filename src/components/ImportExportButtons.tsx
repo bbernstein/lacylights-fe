@@ -15,6 +15,8 @@ interface ImportExportButtonsProps {
   onImportComplete?: (projectId: string) => void;
   onError?: (error: string) => void;
   disabled?: boolean;
+  /** If true, only show export button (for per-project controls) */
+  exportOnly?: boolean;
 }
 
 type ExportFormat = 'lacylights' | 'qlcplus';
@@ -24,7 +26,8 @@ export default function ImportExportButtons({
   projectId,
   onImportComplete,
   onError,
-  disabled = false
+  disabled = false,
+  exportOnly = false
 }: ImportExportButtonsProps) {
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -227,45 +230,47 @@ export default function ImportExportButtons({
 
   return (
     <div className="flex gap-2">
-      {/* Import Button with Dropdown */}
-      <div className="relative">
-        <button
-          onClick={() => setShowFormatMenu(!showFormatMenu)}
-          disabled={disabled || isImporting}
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-          {isImporting ? 'Importing...' : 'Import'}
-          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-          </svg>
-        </button>
+      {/* Import Button with Dropdown - Only show if not export-only mode */}
+      {!exportOnly && (
+        <div className="relative">
+          <button
+            onClick={() => setShowFormatMenu(!showFormatMenu)}
+            disabled={disabled || isImporting}
+            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            {isImporting ? 'Importing...' : 'Import'}
+            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
 
-        {showFormatMenu && (
-          <div className="absolute top-full left-0 mt-1 bg-gray-700 rounded shadow-lg py-1 z-10 min-w-[180px]">
-            <button
-              onClick={() => handleImport('auto')}
-              className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors"
-            >
-              Auto-detect format
-            </button>
-            <button
-              onClick={() => handleImport('lacylights')}
-              className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors"
-            >
-              LacyLights (.json)
-            </button>
-            <button
-              onClick={() => handleImport('qlcplus')}
-              className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors"
-            >
-              QLC+ (.qxw)
-            </button>
-          </div>
-        )}
-      </div>
+          {showFormatMenu && (
+            <div className="absolute top-full left-0 mt-1 bg-gray-700 rounded shadow-lg py-1 z-10 min-w-[180px]">
+              <button
+                onClick={() => handleImport('auto')}
+                className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors"
+              >
+                Auto-detect format
+              </button>
+              <button
+                onClick={() => handleImport('lacylights')}
+                className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors"
+              >
+                LacyLights (.json)
+              </button>
+              <button
+                onClick={() => handleImport('qlcplus')}
+                className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors"
+              >
+                QLC+ (.qxw)
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Export Button with Dropdown */}
       {projectId && (
