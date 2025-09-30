@@ -24,6 +24,41 @@ interface ImportExportButtonsProps {
 type ExportFormat = 'lacylights' | 'qlcplus';
 type ImportFormat = 'auto' | 'lacylights' | 'qlcplus';
 
+/**
+ * Sanitize filename to prevent directory traversal and remove invalid characters
+ */
+function sanitizeFilename(filename: string): string {
+  return filename
+    .replace(/[/\\?%*:|"<>]/g, '-') // Replace invalid characters with dash
+    .replace(/\.+/g, '.') // Replace multiple dots with single dot
+    .replace(/^\.+/, '') // Remove leading dots
+    .trim();
+}
+
+/**
+ * Create fixture mappings from LacyLights fixtures or default mappings
+ */
+function createFixtureMappings(
+  defaultMappings: Array<{ lacyLightsKey: string; qlcManufacturer: string; qlcModel: string; qlcMode: string }>,
+  lacyLightsFixtures: Array<{ manufacturer: string | null; model: string | null }>
+) {
+  const rawMappings = defaultMappings.length > 0
+    ? defaultMappings
+    : lacyLightsFixtures.map((fixture) => ({
+        lacyLightsKey: getFixtureKey(fixture.manufacturer, fixture.model),
+        qlcManufacturer: getManufacturer(fixture.manufacturer),
+        qlcModel: getModel(fixture.model),
+        qlcMode: 'Default'
+      }));
+
+  return rawMappings.map((mapping) => ({
+    lacyLightsKey: mapping.lacyLightsKey,
+    qlcManufacturer: mapping.qlcManufacturer,
+    qlcModel: mapping.qlcModel,
+    qlcMode: mapping.qlcMode
+  }));
+}
+
 export default function ImportExportButtons({
   projectId,
   onImportComplete,
@@ -162,21 +197,10 @@ export default function ImportExportButtons({
         if (mappingResult.data?.getQLCFixtureMappingSuggestions) {
           const mappingData = mappingResult.data.getQLCFixtureMappingSuggestions;
 
-          const rawFixtureMappings = mappingData.defaultMappings.length > 0
-            ? mappingData.defaultMappings
-            : mappingData.lacyLightsFixtures.map((fixture: { manufacturer: string | null; model: string | null }) => ({
-                lacyLightsKey: getFixtureKey(fixture.manufacturer, fixture.model),
-                qlcManufacturer: getManufacturer(fixture.manufacturer),
-                qlcModel: getModel(fixture.model),
-                qlcMode: 'Default'
-              }));
-
-          const fixtureMappings = rawFixtureMappings.map((mapping: { lacyLightsKey: string; qlcManufacturer: string; qlcModel: string; qlcMode: string }) => ({
-            lacyLightsKey: mapping.lacyLightsKey,
-            qlcManufacturer: mapping.qlcManufacturer,
-            qlcModel: mapping.qlcModel,
-            qlcMode: mapping.qlcMode
-          }));
+          const fixtureMappings = createFixtureMappings(
+            mappingData.defaultMappings,
+            mappingData.lacyLightsFixtures
+          );
 
           const result = await exportProjectToQLC({
             variables: {
@@ -191,7 +215,7 @@ export default function ImportExportButtons({
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `${exportResult.projectName}.qxw`;
+            link.download = `${sanitizeFilename(exportResult.projectName)}.qxw`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -217,7 +241,7 @@ export default function ImportExportButtons({
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
-          link.download = `${exportResult.projectName}.json`;
+          link.download = `${sanitizeFilename(exportResult.projectName)}.json`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
