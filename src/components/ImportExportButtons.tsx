@@ -25,14 +25,32 @@ type ExportFormat = 'lacylights' | 'qlcplus';
 type ImportFormat = 'auto' | 'lacylights' | 'qlcplus';
 
 /**
+ * Format error message from caught exception
+ */
+function formatErrorMessage(error: unknown, prefix: string): string {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  return `${prefix} ${errorMessage}`;
+}
+
+/**
  * Sanitize filename to prevent directory traversal and remove invalid characters
  */
 function sanitizeFilename(filename: string): string {
-  return filename
+  const MAX_FILENAME_LENGTH = 255;
+  let sanitized = filename
     .replace(/[/\\?%*:|"<>]/g, '-') // Replace invalid characters with dash
     .replace(/\.+/g, '.') // Replace multiple dots with single dot
     .replace(/^\.+/, '') // Remove leading dots
     .trim();
+  // If the filename is empty after sanitization, use a default name
+  if (!sanitized) {
+    sanitized = 'untitled';
+  }
+  // Truncate to maximum allowed length
+  if (sanitized.length > MAX_FILENAME_LENGTH) {
+    sanitized = sanitized.substring(0, MAX_FILENAME_LENGTH);
+  }
+  return sanitized;
 }
 
 /**
@@ -140,7 +158,7 @@ export default function ImportExportButtons({
         } else if (format === 'lacylights' || file.name.endsWith('.json')) {
           detectedFormat = 'lacylights';
         } else {
-          onError?.('Unable to determine file format. Supported formats: .qxw (QLC+), .json (LacyLights).');
+          onError?.('Unable to determine file format. Supported formats: .qxw (QLC+), .json/.lacylights (LacyLights).');
           setIsImporting(false);
           return;
         }
@@ -168,8 +186,7 @@ export default function ImportExportButtons({
           });
         }
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        onError?.(`Failed to import project. Please check the file and try again. Error: ${errorMessage}`);
+        onError?.(formatErrorMessage(err, 'Failed to import project. Please check the file and try again. Error:'));
       } finally {
         setIsImporting(false);
       }
@@ -249,12 +266,7 @@ export default function ImportExportButtons({
         }
       }
     } catch (error) {
-      const errorMessage =
-        'Failed to export project. ' +
-        (error && typeof error === 'object' && 'message' in error
-          ? (error as Error).message
-          : String(error));
-      onError?.(errorMessage);
+      onError?.(formatErrorMessage(error, 'Failed to export project.'));
     } finally {
       setIsExporting(false);
     }
