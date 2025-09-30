@@ -10,6 +10,10 @@ import {
   GET_QLC_FIXTURE_MAPPING_SUGGESTIONS
 } from '@/graphql/projects';
 
+// Constants for fallback values
+const UNKNOWN_MANUFACTURER = 'unknown';
+const UNKNOWN_MODEL = 'unknown';
+
 interface ImportExportButtonsProps {
   projectId?: string;
   onImportComplete?: (projectId: string) => void;
@@ -83,10 +87,10 @@ export default function ImportExportButtons({
     if (format === 'qlcplus') {
       input.accept = '.qxw';
     } else if (format === 'lacylights') {
-      input.accept = '.json,.lacylights';
+      input.accept = '.json';
     } else {
       // auto-detect
-      input.accept = '.qxw,.json,.lacylights';
+      input.accept = '.qxw,.json';
     }
 
     input.onchange = async (e) => {
@@ -100,7 +104,7 @@ export default function ImportExportButtons({
         let detectedFormat: 'lacylights' | 'qlcplus';
         if (format === 'qlcplus' || file.name.endsWith('.qxw')) {
           detectedFormat = 'qlcplus';
-        } else if (format === 'lacylights' || file.name.endsWith('.json') || file.name.endsWith('.lacylights')) {
+        } else if (format === 'lacylights' || file.name.endsWith('.json')) {
           detectedFormat = 'lacylights';
         } else {
           onError?.('Unable to determine file format. Please specify the format explicitly.');
@@ -162,7 +166,7 @@ export default function ImportExportButtons({
           const rawFixtureMappings = mappingData.defaultMappings.length > 0
             ? mappingData.defaultMappings
             : mappingData.lacyLightsFixtures.map((fixture: { manufacturer: string | null; model: string | null }) => ({
-                lacyLightsKey: `${fixture.manufacturer ?? 'unknown'}/${fixture.model ?? 'unknown'}`,
+                lacyLightsKey: `${fixture.manufacturer ?? UNKNOWN_MANUFACTURER}/${fixture.model ?? UNKNOWN_MODEL}`,
                 qlcManufacturer: fixture.manufacturer,
                 qlcModel: fixture.model,
                 qlcMode: 'Default'
@@ -214,7 +218,7 @@ export default function ImportExportButtons({
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
-          link.download = `${exportResult.projectName}.lacylights.json`;
+          link.download = `${exportResult.projectName}.json`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);

@@ -14,7 +14,8 @@ interface ProjectContextType {
   selectProjectById: (projectId: string) => void;
   createNewProject: (name: string, description?: string) => Promise<void>;
   selectedProjectId: string | null;
-  refetch: () => Promise<Project[]>;
+  refetch: () => Promise<void>;
+  refetchAndGet: () => Promise<Project[]>;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -28,6 +29,10 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const projects = useMemo(() => data?.projects || [], [data?.projects]);
 
   const refetch = useCallback(async () => {
+    await refetchQuery();
+  }, [refetchQuery]);
+
+  const refetchAndGet = useCallback(async () => {
     const result = await refetchQuery();
     return result.data?.projects || [];
   }, [refetchQuery]);
@@ -99,6 +104,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         createNewProject,
         selectedProjectId: currentProject?.id || null,
         refetch,
+        refetchAndGet,
       }}
     >
       {children}
