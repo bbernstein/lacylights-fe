@@ -14,7 +14,6 @@ interface ProjectContextType {
   selectProjectById: (projectId: string) => void;
   createNewProject: (name: string, description?: string) => Promise<void>;
   selectedProjectId: string | null;
-  refetch: () => Promise<void>;
   refetchAndGet: () => Promise<Project[]>;
 }
 
@@ -27,10 +26,6 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [createProject] = useMutation(CREATE_PROJECT);
 
   const projects = useMemo(() => data?.projects || [], [data?.projects]);
-
-  const refetch = useCallback(async () => {
-    await refetchQuery();
-  }, [refetchQuery]);
 
   const refetchAndGet = useCallback(async () => {
     const result = await refetchQuery();
@@ -45,7 +40,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-      await refetch();
+      await refetchAndGet();
 
       if (result.data?.createProject) {
         setCurrentProject(result.data.createProject);
@@ -55,7 +50,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       // Error handled by UI error states
       throw err;
     }
-  }, [createProject, refetch]);
+  }, [createProject, refetchAndGet]);
 
   // Auto-select first project or create one if none exist
   useEffect(() => {
@@ -103,7 +98,6 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         selectProjectById,
         createNewProject,
         selectedProjectId: currentProject?.id || null,
-        refetch,
         refetchAndGet,
       }}
     >
