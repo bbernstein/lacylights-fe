@@ -14,6 +14,7 @@ interface ProjectContextType {
   selectProjectById: (projectId: string) => void;
   createNewProject: (name: string, description?: string) => Promise<void>;
   selectedProjectId: string | null;
+  refetch: () => Promise<void>;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -21,10 +22,14 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   
-  const { data, loading, error, refetch } = useQuery(GET_PROJECTS);
+  const { data, loading, error, refetch: refetchQuery } = useQuery(GET_PROJECTS);
   const [createProject] = useMutation(CREATE_PROJECT);
 
   const projects = useMemo(() => data?.projects || [], [data?.projects]);
+
+  const refetch = useCallback(async () => {
+    await refetchQuery();
+  }, [refetchQuery]);
 
   const createNewProject = useCallback(async (name: string, description?: string) => {
     try {
@@ -33,9 +38,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
           input: { name, description }
         }
       });
-      
+
       await refetch();
-      
+
       if (result.data?.createProject) {
         setCurrentProject(result.data.createProject);
         localStorage.setItem('currentProjectId', result.data.createProject.id);
@@ -82,7 +87,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }, [projects]);
 
   return (
-    <ProjectContext.Provider 
+    <ProjectContext.Provider
       value={{
         currentProject,
         projects,
@@ -92,6 +97,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         selectProjectById,
         createNewProject,
         selectedProjectId: currentProject?.id || null,
+        refetch,
       }}
     >
       {children}
