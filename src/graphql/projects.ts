@@ -128,3 +128,36 @@ export const EXPORT_PROJECT_TO_QLC = gql`
     }
   }
 `;
+
+export const EXPORT_PROJECT = gql`
+  mutation ExportProject($projectId: ID!, $options: ExportOptionsInput) {
+    exportProject(projectId: $projectId, options: $options) {
+      projectId
+      projectName
+      jsonContent
+      stats {
+        fixtureDefinitionsCount
+        fixtureInstancesCount
+        scenesCount
+        cueListsCount
+        cuesCount
+      }
+    }
+  }
+`;
+
+export const IMPORT_PROJECT = gql`
+  mutation ImportProject($jsonContent: String!, $options: ImportOptionsInput!) {
+    importProject(jsonContent: $jsonContent, options: $options) {
+      projectId
+      stats {
+        fixtureDefinitionsCreated
+        fixtureInstancesCreated
+        scenesCreated
+        cueListsCreated
+        cuesCreated
+      }
+      warnings
+    }
+  }
+`;
