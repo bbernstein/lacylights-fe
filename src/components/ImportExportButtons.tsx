@@ -9,10 +9,7 @@ import {
   EXPORT_PROJECT_TO_QLC,
   GET_QLC_FIXTURE_MAPPING_SUGGESTIONS
 } from '@/graphql/projects';
-
-// Constants for fallback values
-const UNKNOWN_MANUFACTURER = 'unknown';
-const UNKNOWN_MODEL = 'unknown';
+import { getFixtureKey, getManufacturer, getModel } from '@/constants/fixtures';
 
 interface ImportExportButtonsProps {
   projectId?: string;
@@ -166,9 +163,9 @@ export default function ImportExportButtons({
           const rawFixtureMappings = mappingData.defaultMappings.length > 0
             ? mappingData.defaultMappings
             : mappingData.lacyLightsFixtures.map((fixture: { manufacturer: string | null; model: string | null }) => ({
-                lacyLightsKey: `${fixture.manufacturer ?? UNKNOWN_MANUFACTURER}/${fixture.model ?? UNKNOWN_MODEL}`,
-                qlcManufacturer: fixture.manufacturer ?? UNKNOWN_MANUFACTURER,
-                qlcModel: fixture.model ?? UNKNOWN_MODEL,
+                lacyLightsKey: getFixtureKey(fixture.manufacturer, fixture.model),
+                qlcManufacturer: getManufacturer(fixture.manufacturer),
+                qlcModel: getModel(fixture.model),
                 qlcMode: 'Default'
               }));
 
