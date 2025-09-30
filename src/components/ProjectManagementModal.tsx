@@ -14,7 +14,7 @@ interface ProjectManagementModalProps {
 }
 
 export default function ProjectManagementModal({ isOpen, onClose }: ProjectManagementModalProps) {
-  const { selectProject, selectProjectById, selectedProjectId } = useProject();
+  const { refetchAndSelectById, selectProjectById, selectedProjectId } = useProject();
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
   const [isCreating, setIsCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
@@ -161,12 +161,8 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   };
 
   const handleImportComplete = async (projectId: string) => {
-    const result = await refetch();
-    const updatedProjects = result.data?.projects || [];
-    const project = updatedProjects.find((p: Project) => p.id === projectId);
-    if (project) {
-      selectProject(project);
-    }
+    await refetch();
+    await refetchAndSelectById(projectId);
   };
 
   const handleExportError = (errorMessage: string) => {

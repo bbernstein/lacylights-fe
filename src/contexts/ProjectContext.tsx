@@ -15,6 +15,7 @@ interface ProjectContextType {
   createNewProject: (name: string, description?: string) => Promise<void>;
   selectedProjectId: string | null;
   refetchAndGet: () => Promise<Project[]>;
+  refetchAndSelectById: (projectId: string) => Promise<void>;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -75,6 +76,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refetchAndSelectById = useCallback(async (projectId: string) => {
+    const updatedProjects = await refetchAndGet();
+    const project = updatedProjects.find((p: Project) => p.id === projectId);
+    if (project) {
+      selectProject(project);
+    }
+  }, [refetchAndGet]);
+
 
   // Try to restore project from localStorage
   useEffect(() => {
@@ -99,6 +108,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         createNewProject,
         selectedProjectId: currentProject?.id || null,
         refetchAndGet,
+        refetchAndSelectById,
       }}
     >
       {children}

@@ -105,7 +105,7 @@ export default function ImportExportButtons({
         } else if (format === 'lacylights' || file.name.endsWith('.json')) {
           detectedFormat = 'lacylights';
         } else {
-          onError?.('Unable to determine file format. Please specify the format explicitly.');
+          onError?.('Unable to determine file format. Supported formats: .qxw (QLC+), .json (LacyLights).');
           setIsImporting(false);
           return;
         }
@@ -132,8 +132,9 @@ export default function ImportExportButtons({
             }
           });
         }
-      } catch {
-        onError?.('Failed to import project. Please check the file and try again.');
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        onError?.(`Failed to import project. Please check the file and try again. Error: ${errorMessage}`);
       } finally {
         setIsImporting(false);
       }
@@ -223,8 +224,13 @@ export default function ImportExportButtons({
           URL.revokeObjectURL(url);
         }
       }
-    } catch {
-      onError?.('Failed to export project. Please try again.');
+    } catch (error) {
+      const errorMessage =
+        'Failed to export project. ' +
+        (error && typeof error === 'object' && 'message' in error
+          ? (error as Error).message
+          : String(error));
+      onError?.(errorMessage);
     } finally {
       setIsExporting(false);
     }

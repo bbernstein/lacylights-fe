@@ -7,7 +7,7 @@ import ProjectManagementModal from './ProjectManagementModal';
 import ImportExportButtons from './ImportExportButtons';
 
 export default function ProjectSelector() {
-  const { currentProject, projects, loading, selectProject, refetchAndGet } = useProject();
+  const { currentProject, projects, loading, selectProject, refetchAndSelectById } = useProject();
   const [isOpen, setIsOpen] = useState(false);
   const [showManagementModal, setShowManagementModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,11 +33,7 @@ export default function ProjectSelector() {
   }, []);
 
   const handleImportComplete = async (projectId: string) => {
-    const updatedProjects = await refetchAndGet();
-    const project = updatedProjects.find(p => p.id === projectId);
-    if (project) {
-      selectProject(project);
-    }
+    await refetchAndSelectById(projectId);
     setIsOpen(false);
   };
 
