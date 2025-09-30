@@ -14,7 +14,7 @@ interface ProjectManagementModalProps {
 }
 
 export default function ProjectManagementModal({ isOpen, onClose }: ProjectManagementModalProps) {
-  const { selectProjectById, selectedProjectId } = useProject();
+  const { selectProject, selectProjectById, selectedProjectId } = useProject();
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
   const [isCreating, setIsCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
@@ -165,7 +165,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     const updatedProjects = result.data?.projects || [];
     const project = updatedProjects.find((p: Project) => p.id === projectId);
     if (project) {
-      selectProjectById(projectId);
+      selectProject(project);
     }
   };
 
