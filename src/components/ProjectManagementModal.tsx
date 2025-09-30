@@ -161,8 +161,12 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   };
 
   const handleImportComplete = async (projectId: string) => {
-    await refetch();
-    selectProjectById(projectId);
+    const result = await refetch();
+    const updatedProjects = result.data?.projects || [];
+    const project = updatedProjects.find((p: Project) => p.id === projectId);
+    if (project) {
+      selectProjectById(projectId);
+    }
   };
 
   const handleExportError = (errorMessage: string) => {

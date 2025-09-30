@@ -33,8 +33,8 @@ export default function ProjectSelector() {
   }, []);
 
   const handleImportComplete = async (projectId: string) => {
-    await refetch();
-    const project = projects.find(p => p.id === projectId);
+    const updatedProjects = await refetch();
+    const project = updatedProjects.find(p => p.id === projectId);
     if (project) {
       selectProject(project);
     }
