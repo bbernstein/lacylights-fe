@@ -10,6 +10,7 @@ import {
   GET_QLC_FIXTURE_MAPPING_SUGGESTIONS
 } from '@/graphql/projects';
 import { getFixtureKey, getManufacturer, getModel } from '@/constants/fixtures';
+import { ImportMode, FixtureConflictStrategy } from '@/constants/import';
 
 interface ImportExportButtonsProps {
   projectId?: string;
@@ -124,8 +125,8 @@ export default function ImportExportButtons({
             variables: {
               jsonContent: content,
               options: {
-                mode: 'CREATE',
-                fixtureConflictStrategy: 'SKIP',
+                mode: ImportMode.CREATE,
+                fixtureConflictStrategy: FixtureConflictStrategy.SKIP,
                 importBuiltInFixtures: true
               }
             }
