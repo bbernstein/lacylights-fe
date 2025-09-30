@@ -167,8 +167,8 @@ export default function ImportExportButtons({
             ? mappingData.defaultMappings
             : mappingData.lacyLightsFixtures.map((fixture: { manufacturer: string | null; model: string | null }) => ({
                 lacyLightsKey: `${fixture.manufacturer ?? UNKNOWN_MANUFACTURER}/${fixture.model ?? UNKNOWN_MODEL}`,
-                qlcManufacturer: fixture.manufacturer,
-                qlcModel: fixture.model,
+                qlcManufacturer: fixture.manufacturer ?? UNKNOWN_MANUFACTURER,
+                qlcModel: fixture.model ?? UNKNOWN_MODEL,
                 qlcMode: 'Default'
               }));
 
