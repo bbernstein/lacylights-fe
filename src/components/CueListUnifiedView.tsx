@@ -1100,10 +1100,10 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                 value={cueListName}
                 onChange={(e) => setCueListName(e.target.value)}
                 onBlur={handleUpdateCueList}
-                className="text-xl md:text-2xl font-bold bg-transparent text-white border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none max-w-[200px] md:max-w-none truncate"
+                className="text-xl md:text-2xl font-bold bg-transparent text-white border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none"
                 disabled={!editMode}
               />
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex gap-2">
                 <button
                   onClick={() => setEditMode(!editMode)}
                   className={`px-3 py-1 rounded text-sm font-medium whitespace-nowrap ${
@@ -1131,8 +1131,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
-                  <span className="hidden sm:inline">Pop Out Player</span>
-                  <span className="sm:hidden">Pop Out</span>
+                  <span>Pop Out Player</span>
                 </button>
               </div>
             </div>
@@ -1143,7 +1142,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                 value={cueListDescription}
                 onChange={(e) => setCueListDescription(e.target.value)}
                 onBlur={handleUpdateCueList}
-                className="text-gray-400 mt-1 bg-transparent border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none max-w-full text-sm md:text-base"
+                className="text-gray-400 mt-1 bg-transparent border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none w-full text-sm md:text-base"
                 disabled={!editMode}
               />
             )}
