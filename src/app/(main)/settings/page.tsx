@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_SETTINGS, UPDATE_SETTING } from '@/graphql/settings';
-import { Setting, UpdateSettingInput } from '@/types';
+import { GET_SETTINGS, UPDATE_SETTING, GET_NETWORK_INTERFACE_OPTIONS } from '@/graphql/settings';
+import { Setting, UpdateSettingInput, NetworkInterfaceOption } from '@/types';
 
 export default function SettingsPage() {
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -11,18 +11,31 @@ export default function SettingsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
+  const [manualEntry, setManualEntry] = useState(false);
 
   const { data, loading, error, refetch } = useQuery(GET_SETTINGS);
+  const { data: interfaceData } = useQuery(GET_NETWORK_INTERFACE_OPTIONS);
   const [updateSetting, { loading: updating }] = useMutation(UPDATE_SETTING);
+
+  const networkInterfaces: NetworkInterfaceOption[] = interfaceData?.networkInterfaceOptions || [];
+
+  const getDisplayName = (key: string): string => {
+    if (key === 'artnet_broadcast_address') {
+      return 'Artnet Broadcast Address';
+    }
+    return key;
+  };
 
   const handleEdit = (setting: Setting) => {
     setEditingKey(setting.key);
     setEditingValue(setting.value);
+    setManualEntry(false);
   };
 
   const handleCancel = () => {
     setEditingKey(null);
     setEditingValue('');
+    setManualEntry(false);
   };
 
   const handleSave = async (key: string) => {
@@ -175,17 +188,63 @@ export default function SettingsPage() {
               {settings.map((setting) => (
                 <tr key={setting.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                    {setting.key}
+                    {getDisplayName(setting.key)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                     {editingKey === setting.key ? (
-                      <input
-                        type="text"
-                        value={editingValue}
-                        onChange={(e) => setEditingValue(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                        autoFocus
-                      />
+                      setting.key === 'artnet_broadcast_address' ? (
+                        <div className="space-y-2">
+                          {!manualEntry ? (
+                            <>
+                              <select
+                                value={editingValue}
+                                onChange={(e) => {
+                                  if (e.target.value === '__manual__') {
+                                    setManualEntry(true);
+                                  } else {
+                                    setEditingValue(e.target.value);
+                                  }
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                autoFocus
+                              >
+                                <option value="">Select network interface...</option>
+                                {networkInterfaces.map((iface) => (
+                                  <option key={iface.name} value={iface.broadcast}>
+                                    {iface.description}
+                                  </option>
+                                ))}
+                                <option value="__manual__">Enter manually...</option>
+                              </select>
+                            </>
+                          ) : (
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                value={editingValue}
+                                onChange={(e) => setEditingValue(e.target.value)}
+                                placeholder="e.g., 192.168.1.255"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => setManualEntry(false)}
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                              >
+                                ← Back to dropdown
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          value={editingValue}
+                          onChange={(e) => setEditingValue(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                          autoFocus
+                        />
+                      )
                     ) : (
                       setting.value
                     )}

@@ -44,3 +44,15 @@ export const GET_SYSTEM_INFO = gql`
     }
   }
 `;
+
+export const GET_NETWORK_INTERFACE_OPTIONS = gql`
+  query GetNetworkInterfaceOptions {
+    networkInterfaceOptions {
+      name
+      address
+      broadcast
+      description
+      interfaceType
+    }
+  }
+`;

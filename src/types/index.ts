@@ -155,6 +155,14 @@ export interface SystemInfo {
   artnetEnabled: boolean;
 }
 
+export interface NetworkInterfaceOption {
+  name: string;
+  address: string;
+  broadcast: string;
+  description: string;
+  interfaceType: string;
+}
+
 export interface User {
   id: string;
   email: string;
