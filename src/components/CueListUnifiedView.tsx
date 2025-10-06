@@ -1090,62 +1090,67 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   return (
     <div className="fixed inset-0 z-50 bg-gray-900 flex flex-col">
       {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="flex items-center space-x-4">
+      <div className="bg-gray-800 border-b border-gray-700 px-3 py-3 md:px-6 md:py-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            {/* Cue List Name and Buttons */}
+            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
               <input
                 type="text"
                 value={cueListName}
                 onChange={(e) => setCueListName(e.target.value)}
                 onBlur={handleUpdateCueList}
-                className="text-2xl font-bold bg-transparent text-white border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                className="text-xl md:text-2xl font-bold bg-transparent text-white border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none max-w-[200px] md:max-w-none truncate"
                 disabled={!editMode}
               />
-              <button
-                onClick={() => setEditMode(!editMode)}
-                className={`px-3 py-1 rounded text-sm font-medium ${
-                  editMode
-                    ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                }`}
-                title={editMode ? 'Exit edit mode' : 'Enter edit mode'}
-              >
-                {editMode ? 'EDITING' : 'EDIT MODE'}
-              </button>
-              <button
-                onClick={() => {
-                  const left = (window.screen.width - PLAYER_WINDOW.width) / 2;
-                  const top = (window.screen.height - PLAYER_WINDOW.height) / 2;
-                  window.open(
-                    `/player/${cueListId}`,
-                    PLAYER_WINDOW.name,
-                    `width=${PLAYER_WINDOW.width},height=${PLAYER_WINDOW.height},left=${left},top=${top},${PLAYER_WINDOW.features}`
-                  );
-                }}
-                className="px-3 py-1 rounded text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white flex items-center space-x-1"
-                title="Open player in new window"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-                <span>Pop Out Player</span>
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => setEditMode(!editMode)}
+                  className={`px-3 py-1 rounded text-sm font-medium whitespace-nowrap ${
+                    editMode
+                      ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
+                  title={editMode ? 'Exit edit mode' : 'Enter edit mode'}
+                >
+                  {editMode ? 'EDITING' : 'EDIT MODE'}
+                </button>
+                <button
+                  onClick={() => {
+                    const left = (window.screen.width - PLAYER_WINDOW.width) / 2;
+                    const top = (window.screen.height - PLAYER_WINDOW.height) / 2;
+                    window.open(
+                      `/player/${cueListId}`,
+                      PLAYER_WINDOW.name,
+                      `width=${PLAYER_WINDOW.width},height=${PLAYER_WINDOW.height},left=${left},top=${top},${PLAYER_WINDOW.features}`
+                    );
+                  }}
+                  className="px-3 py-1 rounded text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white flex items-center space-x-1 whitespace-nowrap"
+                  title="Open player in new window"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  <span className="hidden sm:inline">Pop Out Player</span>
+                  <span className="sm:hidden">Pop Out</span>
+                </button>
+              </div>
             </div>
+            {/* Description */}
             {cueListDescription && (
               <input
                 type="text"
                 value={cueListDescription}
                 onChange={(e) => setCueListDescription(e.target.value)}
                 onBlur={handleUpdateCueList}
-                className="text-gray-400 mt-1 bg-transparent border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                className="text-gray-400 mt-1 bg-transparent border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none max-w-full text-sm md:text-base"
                 disabled={!editMode}
               />
             )}
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white p-2 rounded hover:bg-gray-700"
+            className="text-gray-400 hover:text-white p-2 rounded hover:bg-gray-700 flex-shrink-0"
             title="Close unified view"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
