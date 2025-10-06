@@ -409,6 +409,209 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
 
 CueRow.displayName = 'CueRow';
 
+function CueCard(props: SortableCueRowProps) {
+  const {
+    cue,
+    index,
+    isActive,
+    isNext,
+    isPrevious,
+    fadeProgress,
+    onJumpToCue,
+    onUpdateCue,
+    onDeleteCue,
+    onEditScene,
+    editMode,
+    scenes,
+    isSelected,
+    onSelect,
+  } = props;
+
+  const [showSceneSelect, setShowSceneSelect] = useState(false);
+  const [selectedSceneId, setSelectedSceneId] = useState(cue.scene.id);
+
+  let bgClass = 'bg-white dark:bg-gray-800';
+  let textColorClass = 'text-gray-800 dark:text-gray-100';
+
+  if (isActive) {
+    bgClass = 'bg-green-50 dark:bg-green-900/40 border-green-500';
+    textColorClass = 'text-gray-900 dark:text-white';
+  } else if (isNext) {
+    bgClass = 'bg-blue-50 dark:bg-blue-900/30 border-blue-500';
+    textColorClass = 'text-gray-900 dark:text-white';
+  } else if (isPrevious) {
+    bgClass = 'bg-gray-50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-700';
+  }
+
+  const handleRowClick = () => {
+    if (!editMode) {
+      onJumpToCue(cue, index);
+    }
+  };
+
+  const handleSceneChange = () => {
+    onUpdateCue({
+      ...cue,
+      scene: scenes.find(s => s.id === selectedSceneId) || cue.scene,
+    });
+    setShowSceneSelect(false);
+  };
+
+  return (
+    <div
+      className={`${bgClass} border-2 rounded-lg p-4 mb-3 ${textColorClass} ${!editMode ? 'cursor-pointer' : ''}`}
+      onClick={handleRowClick}
+    >
+      {/* Line 1: Cue # + Name, Fade In, Status */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center space-x-3 flex-1">
+          {editMode && (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={(e) => {
+                e.stopPropagation();
+                onSelect(cue.id, e.target.checked);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+          )}
+          <span className="font-bold text-sm">{cue.cueNumber}</span>
+          <span className="font-medium flex-1">{cue.name}</span>
+        </div>
+        <div className="flex items-center space-x-3" onClick={(e) => e.stopPropagation()}>
+          <div className="text-sm text-right">
+            <span className="text-gray-500 dark:text-gray-400">in: </span>
+            <EditableCell
+              value={cue.fadeInTime}
+              onUpdate={(value) => onUpdateCue({ ...cue, fadeInTime: value })}
+              disabled={!editMode}
+            />
+          </div>
+          {isActive && <span className="text-green-600 dark:text-green-400 font-bold text-xs">LIVE</span>}
+          {isNext && !isActive && <span className="text-blue-600 dark:text-blue-400 font-bold text-xs">NEXT</span>}
+        </div>
+      </div>
+
+      {/* Line 2: Scene, Fade Out */}
+      <div className="flex items-center justify-between mb-2" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center space-x-2 flex-1">
+          <span className="text-sm text-gray-500 dark:text-gray-400">Scene:</span>
+          {editMode && showSceneSelect ? (
+            <div className="flex items-center space-x-1">
+              <select
+                value={selectedSceneId}
+                onChange={(e) => setSelectedSceneId(e.target.value)}
+                className="text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {scenes.map((scene) => (
+                  <option key={scene.id} value={scene.id}>{scene.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={handleSceneChange}
+                className="text-green-600 hover:text-green-800 p-1"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedSceneId(cue.scene.id);
+                  setShowSceneSelect(false);
+                }}
+                className="text-gray-600 hover:text-gray-800 p-1"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2 relative flex-1">
+              {isActive && fadeProgress !== undefined && fadeProgress < 100 && (
+                <div
+                  className="absolute inset-0 bg-green-600/20 dark:bg-green-400/20 transition-all duration-100 rounded"
+                  style={{ width: `${fadeProgress}%` }}
+                />
+              )}
+              <button
+                onClick={() => editMode && setShowSceneSelect(true)}
+                disabled={!editMode}
+                className={`relative z-10 text-sm ${editMode ? 'hover:underline' : ''}`}
+              >
+                {cue.scene.name}
+              </button>
+              {editMode && (
+                <button
+                  onClick={() => onEditScene(cue.scene.id)}
+                  className="relative z-10 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  title="Edit scene"
+                >
+                  <PencilIcon className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="text-sm text-right">
+          <span className="text-gray-500 dark:text-gray-400">out: </span>
+          <EditableCell
+            value={cue.fadeOutTime}
+            onUpdate={(value) => onUpdateCue({ ...cue, fadeOutTime: value })}
+            disabled={!editMode}
+          />
+        </div>
+      </div>
+
+      {/* Line 3: Follow time, GO button, Delete */}
+      <div className="flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-1">
+          {editMode && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteCue(cue);
+              }}
+              className="text-red-600 hover:text-red-800 p-1"
+              title="Delete cue"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <div className="flex items-center space-x-3">
+          <div className="text-sm text-right">
+            <span className="text-gray-500 dark:text-gray-400">follow: </span>
+            <EditableCell
+              value={cue.followTime || 0}
+              onUpdate={(value) => onUpdateCue({ ...cue, followTime: value > 0 ? value : undefined })}
+              disabled={!editMode}
+            />
+          </div>
+          {!editMode && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onJumpToCue(cue, index);
+              }}
+              className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 px-3 py-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-sm font-bold"
+              title="Jump to this cue"
+            >
+              GO
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifiedViewProps) {
   const [editMode, setEditMode] = useState(false);
 
@@ -993,7 +1196,39 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
       {/* Cue List Table */}
       <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-6">
-        <div className="bg-white dark:bg-gray-800/90 rounded-lg overflow-hidden shadow-lg">
+        {/* Mobile Card Layout */}
+        <div className="lg:hidden">
+          {cues.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 text-center">
+              <p className="text-gray-500 dark:text-gray-400">
+                No cues yet. {editMode ? 'Add your first cue to get started.' : 'Switch to edit mode to add cues.'}
+              </p>
+            </div>
+          ) : (
+            cues.map((cue: Cue, index: number) => (
+              <CueCard
+                key={cue.id}
+                cue={cue}
+                index={index}
+                isActive={index === currentCueIndex}
+                isNext={index === currentCueIndex + 1}
+                isPrevious={index < currentCueIndex}
+                fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
+                onJumpToCue={handleJumpToCue}
+                onUpdateCue={handleUpdateCue}
+                onDeleteCue={handleDeleteCue}
+                onEditScene={handleEditScene}
+                editMode={editMode}
+                scenes={scenes}
+                isSelected={selectedCueIds.has(cue.id)}
+                onSelect={handleSelectCue}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Desktop Table Layout */}
+        <div className="hidden lg:block bg-white dark:bg-gray-800/90 rounded-lg overflow-hidden shadow-lg">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
