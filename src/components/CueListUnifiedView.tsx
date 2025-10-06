@@ -409,7 +409,40 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
 
 CueRow.displayName = 'CueRow';
 
-function CueCard(props: SortableCueRowProps) {
+function SortableCueCard(props: SortableCueRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.cue.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <CueCard
+      {...props}
+      ref={setNodeRef}
+      style={style}
+      dragAttributes={attributes}
+      dragListeners={listeners}
+      isDragging={isDragging}
+    />
+  );
+}
+
+const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
+  style?: React.CSSProperties;
+  dragAttributes?: DraggableAttributes;
+  dragListeners?: DraggableSyntheticListeners;
+  isDragging?: boolean;
+}>((props, ref) => {
   const {
     cue,
     index,
@@ -425,6 +458,10 @@ function CueCard(props: SortableCueRowProps) {
     scenes,
     isSelected,
     onSelect,
+    style,
+    dragAttributes,
+    dragListeners,
+    isDragging,
   } = props;
 
   const [showSceneSelect, setShowSceneSelect] = useState(false);
@@ -433,7 +470,9 @@ function CueCard(props: SortableCueRowProps) {
   let bgClass = 'bg-white dark:bg-gray-800';
   let textColorClass = 'text-gray-800 dark:text-gray-100';
 
-  if (isActive) {
+  if (isDragging) {
+    bgClass = 'bg-yellow-50 dark:bg-yellow-900/20';
+  } else if (isActive) {
     bgClass = 'bg-green-50 dark:bg-green-900/40 border-green-500';
     textColorClass = 'text-gray-900 dark:text-white';
   } else if (isNext) {
@@ -459,6 +498,8 @@ function CueCard(props: SortableCueRowProps) {
 
   return (
     <div
+      ref={ref}
+      style={style}
       className={`${bgClass} border-2 rounded-lg p-4 mb-3 ${textColorClass} ${!editMode ? 'cursor-pointer' : ''}`}
       onClick={handleRowClick}
     >
@@ -476,6 +517,19 @@ function CueCard(props: SortableCueRowProps) {
               onClick={(e) => e.stopPropagation()}
               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
+          )}
+          {editMode && (
+            <button
+              className="cursor-grab hover:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+              {...dragAttributes}
+              {...dragListeners}
+              onClick={(e) => e.stopPropagation()}
+              title="Drag to reorder"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9h8M8 15h8" />
+              </svg>
+            </button>
           )}
           <span className="font-bold text-sm">{cue.cueNumber}</span>
           <span className="font-medium flex-1">{cue.name}</span>
@@ -610,7 +664,9 @@ function CueCard(props: SortableCueRowProps) {
       </div>
     </div>
   );
-}
+});
+
+CueCard.displayName = 'CueCard';
 
 export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifiedViewProps) {
   const [editMode, setEditMode] = useState(false);
@@ -1205,25 +1261,36 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
               </p>
             </div>
           ) : (
-            cues.map((cue: Cue, index: number) => (
-              <CueCard
-                key={cue.id}
-                cue={cue}
-                index={index}
-                isActive={index === currentCueIndex}
-                isNext={index === currentCueIndex + 1}
-                isPrevious={index < currentCueIndex}
-                fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
-                onJumpToCue={handleJumpToCue}
-                onUpdateCue={handleUpdateCue}
-                onDeleteCue={handleDeleteCue}
-                onEditScene={handleEditScene}
-                editMode={editMode}
-                scenes={scenes}
-                isSelected={selectedCueIds.has(cue.id)}
-                onSelect={handleSelectCue}
-              />
-            ))
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={cueList.cues.map((cue: Cue) => cue.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {cues.map((cue: Cue, index: number) => (
+                  <SortableCueCard
+                    key={cue.id}
+                    cue={cue}
+                    index={index}
+                    isActive={index === currentCueIndex}
+                    isNext={index === currentCueIndex + 1}
+                    isPrevious={index < currentCueIndex}
+                    fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
+                    onJumpToCue={handleJumpToCue}
+                    onUpdateCue={handleUpdateCue}
+                    onDeleteCue={handleDeleteCue}
+                    onEditScene={handleEditScene}
+                    editMode={editMode}
+                    scenes={scenes}
+                    isSelected={selectedCueIds.has(cue.id)}
+                    onSelect={handleSelectCue}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
           )}
         </div>
 
