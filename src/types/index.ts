@@ -142,6 +142,14 @@ export interface UniverseOutput {
   channels: number[];
 }
 
+export interface Setting {
+  id: string;
+  key: string;
+  value: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -247,4 +255,9 @@ export interface FixtureDefinitionFilter {
   type?: FixtureType;
   isBuiltIn?: boolean;
   channelTypes?: ChannelType[];
+}
+
+export interface UpdateSettingInput {
+  key: string;
+  value: string;
 }
