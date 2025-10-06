@@ -102,7 +102,7 @@ export default function SettingsPage() {
       </div>
 
       {allSettings.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
@@ -135,7 +135,7 @@ export default function SettingsPage() {
                             clipRule="evenodd"
                           />
                         </svg>
-                        <div className="invisible group-hover:visible absolute left-0 top-6 z-10 w-64 p-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded shadow-lg">
+                        <div className="invisible group-hover:visible absolute left-0 top-6 z-50 w-64 p-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded shadow-lg pointer-events-none">
                           {setting.description}
                         </div>
                       </div>
