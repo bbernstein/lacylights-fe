@@ -35,3 +35,12 @@ export const UPDATE_SETTING = gql`
     }
   }
 `;
+
+export const GET_SYSTEM_INFO = gql`
+  query GetSystemInfo {
+    systemInfo {
+      artnetBroadcastAddress
+      artnetEnabled
+    }
+  }
+`;

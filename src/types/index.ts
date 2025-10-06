@@ -150,6 +150,11 @@ export interface Setting {
   updatedAt: string;
 }
 
+export interface SystemInfo {
+  artnetBroadcastAddress: string;
+  artnetEnabled: boolean;
+}
+
 export interface User {
   id: string;
   email: string;
