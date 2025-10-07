@@ -144,6 +144,7 @@ const mockCueList = {
   id: 'cuelist-1',
   name: 'Test Cue List',
   description: 'Test Description',
+  loop: false,
   project: mockProject,
   cues: mockCues,
   createdAt: '2023-01-01T12:00:00Z',

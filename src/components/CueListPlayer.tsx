@@ -85,26 +85,41 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   const isPlaying = playbackStatus?.isPlaying || false;
   const fadeProgress = playbackStatus?.fadeProgress ?? 0;
 
-  const nextCue = currentCueIndex + 1 < cues.length ? cues[currentCueIndex + 1] : null;
+  // Calculate next cue with loop support
+  const nextCue = useMemo(() => {
+    if (currentCueIndex + 1 < cues.length) {
+      return cues[currentCueIndex + 1];
+    }
+    // If on last cue and loop is enabled, next cue is the first cue
+    if (cueList?.loop && cues.length > 0 && currentCueIndex === cues.length - 1) {
+      return cues[0];
+    }
+    return null;
+  }, [currentCueIndex, cues, cueList?.loop]);
 
   // Get cues for the 5-cue display (2 previous + current + 2 next)
   const displayCues = useMemo(() => {
     const cuesForDisplay = [];
 
+    // Determine if first cue should be marked as "next" due to loop
+    const isLoopingToFirst = cueList?.loop && currentCueIndex === cues.length - 1;
+
     for (let i = currentCueIndex - 2; i <= currentCueIndex + 2; i++) {
       if (i >= 0 && i < cues.length) {
+        const isNext = i > currentCueIndex || (isLoopingToFirst && i === 0);
+
         cuesForDisplay.push({
           cue: cues[i],
           index: i,
           isCurrent: i === currentCueIndex,
-          isPrevious: i < currentCueIndex,
-          isNext: i > currentCueIndex
+          isPrevious: i < currentCueIndex && !(isLoopingToFirst && i === 0),
+          isNext: isNext && i !== currentCueIndex
         });
       }
     }
 
     return cuesForDisplay;
-  }, [currentCueIndex, cues]);
+  }, [currentCueIndex, cues, cueList?.loop]);
 
   // Memoize the disable condition to avoid repetition
   // When loop is enabled, GO button should always work (even at last cue)

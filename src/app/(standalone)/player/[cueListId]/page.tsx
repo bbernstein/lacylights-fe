@@ -5,6 +5,9 @@ interface PageProps {
   params: Promise<{ cueListId: string }>;
 }
 
+// Allow dynamic params that aren't in generateStaticParams (needed for dev mode)
+export const dynamicParams = true;
+
 // Generate static params for static export
 // We must return at least one param for static export to work
 // The actual cue list ID will be handled client-side from the URL

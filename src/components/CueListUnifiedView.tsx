@@ -684,6 +684,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const [showAddCue, setShowAddCue] = useState(false);
   const [cueListName, setCueListName] = useState('');
   const [cueListDescription, setCueListDescription] = useState('');
+  const [cueListLoop, setCueListLoop] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
 
@@ -705,6 +706,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       if (data.cueList) {
         setCueListName(data.cueList.name);
         setCueListDescription(data.cueList.description || '');
+        setCueListLoop(data.cueList.loop || false);
       }
     },
   });
@@ -812,7 +814,18 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
   const scenes = scenesData?.project?.scenes || [];
   const currentCue = currentCueIndex >= 0 && currentCueIndex < cues.length ? cues[currentCueIndex] : null;
-  const nextCue = currentCueIndex + 1 < cues.length ? cues[currentCueIndex + 1] : null;
+
+  // Calculate next cue with loop support
+  const nextCue = useMemo(() => {
+    if (currentCueIndex + 1 < cues.length) {
+      return cues[currentCueIndex + 1];
+    }
+    // If on last cue and loop is enabled, next cue is the first cue
+    if (cueList?.loop && cues.length > 0 && currentCueIndex === cues.length - 1) {
+      return cues[0];
+    }
+    return null;
+  }, [currentCueIndex, cues, cueList?.loop]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -858,13 +871,17 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const handleNext = useCallback(async () => {
     if (!cueList) return;
 
-    // Early return if at the end of the list to avoid unnecessary mutation
-    if (currentCueIndex + 1 >= cues.length) return;
+    // Early return if at the end of the list (unless loop is enabled)
+    if (!cueList.loop && currentCueIndex + 1 >= cues.length) return;
+
+    // When loop is enabled and at last cue, use first cue's fade time
+    const isLooping = cueList.loop && currentCueIndex === cues.length - 1;
+    const fadeInTime = isLooping ? cues[0]?.fadeInTime : cues[currentCueIndex + 1]?.fadeInTime;
 
     await nextCueMutation({
       variables: {
         cueListId: cueList.id,
-        fadeInTime: cues[currentCueIndex + 1]?.fadeInTime,
+        fadeInTime,
       },
     });
   }, [nextCueMutation, cueList, currentCueIndex, cues]);
@@ -1019,6 +1036,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
         input: {
           name: cueListName,
           description: cueListDescription || undefined,
+          loop: cueListLoop,
           projectId: cueList.project.id,
         },
       },
@@ -1145,6 +1163,40 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                 className="text-gray-400 mt-1 bg-transparent border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none w-full text-sm md:text-base"
                 disabled={!editMode}
               />
+            )}
+            {/* Loop checkbox */}
+            {editMode && (
+              <div className="mt-2">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={cueListLoop}
+                    onChange={(e) => {
+                      const newLoopValue = e.target.checked;
+                      setCueListLoop(newLoopValue);
+
+                      // Update immediately with new value (don't wait for state update)
+                      if (cueList) {
+                        updateCueList({
+                          variables: {
+                            id: cueList.id,
+                            input: {
+                              name: cueListName,
+                              description: cueListDescription || undefined,
+                              loop: newLoopValue,
+                              projectId: cueList.project.id,
+                            },
+                          },
+                        });
+                      }
+                    }}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-300">
+                    Loop cue list (restart from first cue after last cue finishes)
+                  </span>
+                </label>
+              </div>
             )}
           </div>
           <button
@@ -1274,25 +1326,31 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                 items={cueList.cues.map((cue: Cue) => cue.id)}
                 strategy={verticalListSortingStrategy}
               >
-                {cues.map((cue: Cue, index: number) => (
-                  <SortableCueCard
-                    key={cue.id}
-                    cue={cue}
-                    index={index}
-                    isActive={index === currentCueIndex}
-                    isNext={index === currentCueIndex + 1}
-                    isPrevious={index < currentCueIndex}
-                    fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
-                    onJumpToCue={handleJumpToCue}
-                    onUpdateCue={handleUpdateCue}
-                    onDeleteCue={handleDeleteCue}
-                    onEditScene={handleEditScene}
-                    editMode={editMode}
-                    scenes={scenes}
-                    isSelected={selectedCueIds.has(cue.id)}
-                    onSelect={handleSelectCue}
-                  />
-                ))}
+                {cues.map((cue: Cue, index: number) => {
+                  // Calculate isNext with loop support
+                  const isLoopingToFirst = cueList?.loop && currentCueIndex === cues.length - 1 && index === 0;
+                  const isNext = index === currentCueIndex + 1 || isLoopingToFirst;
+
+                  return (
+                    <SortableCueCard
+                      key={cue.id}
+                      cue={cue}
+                      index={index}
+                      isActive={index === currentCueIndex}
+                      isNext={isNext}
+                      isPrevious={index < currentCueIndex && !isLoopingToFirst}
+                      fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
+                      onJumpToCue={handleJumpToCue}
+                      onUpdateCue={handleUpdateCue}
+                      onDeleteCue={handleDeleteCue}
+                      onEditScene={handleEditScene}
+                      editMode={editMode}
+                      scenes={scenes}
+                      isSelected={selectedCueIds.has(cue.id)}
+                      onSelect={handleSelectCue}
+                    />
+                  );
+                })}
               </SortableContext>
             </DndContext>
           )}
@@ -1356,25 +1414,31 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                       </td>
                     </tr>
                   ) : (
-                    cues.map((cue: Cue, index: number) => (
-                      <SortableCueRow
-                        key={cue.id}
-                        cue={cue}
-                        index={index}
-                        isActive={index === currentCueIndex}
-                        isNext={index === currentCueIndex + 1}
-                        isPrevious={index < currentCueIndex}
-                        fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
-                        onJumpToCue={handleJumpToCue}
-                        onUpdateCue={handleUpdateCue}
-                        onDeleteCue={handleDeleteCue}
-                        onEditScene={handleEditScene}
-                        editMode={editMode}
-                        scenes={scenes}
-                        isSelected={selectedCueIds.has(cue.id)}
-                        onSelect={handleSelectCue}
-                      />
-                    ))
+                    cues.map((cue: Cue, index: number) => {
+                      // Calculate isNext with loop support
+                      const isLoopingToFirst = cueList?.loop && currentCueIndex === cues.length - 1 && index === 0;
+                      const isNext = index === currentCueIndex + 1 || isLoopingToFirst;
+
+                      return (
+                        <SortableCueRow
+                          key={cue.id}
+                          cue={cue}
+                          index={index}
+                          isActive={index === currentCueIndex}
+                          isNext={isNext}
+                          isPrevious={index < currentCueIndex && !isLoopingToFirst}
+                          fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
+                          onJumpToCue={handleJumpToCue}
+                          onUpdateCue={handleUpdateCue}
+                          onDeleteCue={handleDeleteCue}
+                          onEditScene={handleEditScene}
+                          editMode={editMode}
+                          scenes={scenes}
+                          isSelected={selectedCueIds.has(cue.id)}
+                          onSelect={handleSelectCue}
+                        />
+                      );
+                    })
                   )}
                 </tbody>
               </SortableContext>
@@ -1400,7 +1464,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
             <button
               onClick={handleGo}
-              disabled={isPlaying || (currentCueIndex >= cues.length - 1) || editMode}
+              disabled={isPlaying || (!cueList?.loop && currentCueIndex >= cues.length - 1) || editMode}
               className="inline-flex items-center px-8 py-4 border border-transparent rounded-md text-lg font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {currentCueIndex === -1 ? 'START' : 'GO'}

@@ -107,6 +107,7 @@ const mockCueList = {
   id: 'cuelist-1',
   name: 'Test Cue List',
   description: 'Test description',
+  loop: false,
   project: {
     id: 'project-1',
     name: 'Test Project',
@@ -369,10 +370,21 @@ describe('CueListUnifiedView', () => {
     window.confirm = jest.fn(() => true);
     // Mock window.open for player window
     window.open = jest.fn();
+
+    // Simulate desktop viewport by hiding mobile layout and showing desktop layout
+    // Mobile uses lg:hidden, desktop uses hidden lg:block
+    const style = document.createElement('style');
+    style.innerHTML = `
+      [class*="lg:hidden"] { display: none !important; }
+      [class*="hidden"][class*="lg:block"] { display: block !important; }
+    `;
+    document.head.appendChild(style);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
+    // Clean up style elements
+    document.head.querySelectorAll('style').forEach(el => el.remove());
   });
 
   describe('loading and error states', () => {

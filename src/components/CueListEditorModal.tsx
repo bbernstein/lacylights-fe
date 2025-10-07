@@ -596,8 +596,23 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                       type="checkbox"
                       checked={cueListLoop}
                       onChange={(e) => {
-                        setCueListLoop(e.target.checked);
-                        handleUpdateCueList();
+                        const newLoopValue = e.target.checked;
+                        setCueListLoop(newLoopValue);
+
+                        // Update immediately with new value (don't wait for state update)
+                        if (cueList) {
+                          updateCueList({
+                            variables: {
+                              id: cueList.id,
+                              input: {
+                                name: cueListName,
+                                description: cueListDescription || undefined,
+                                loop: newLoopValue,
+                                projectId: cueList.project.id,
+                              },
+                            },
+                          });
+                        }
                       }}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
