@@ -10,7 +10,8 @@ import {
   PREVIOUS_CUE,
   GO_TO_CUE,
   STOP_CUE_LIST,
-  FADE_TO_BLACK
+  FADE_TO_BLACK,
+  UPDATE_CUE_LIST
 } from '@/graphql/cueLists';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
 import { Cue } from '@/types';
@@ -74,6 +75,7 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   const [goToCue] = useMutation(GO_TO_CUE, refetchConfig);
   const [stopCueList] = useMutation(STOP_CUE_LIST, refetchConfig);
   const [fadeToBlack] = useMutation(FADE_TO_BLACK, fadeToBlackRefetchConfig);
+  const [updateCueList] = useMutation(UPDATE_CUE_LIST);
 
   const cueList = cueListData?.cueList;
   const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
@@ -105,9 +107,12 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   }, [currentCueIndex, cues]);
 
   // Memoize the disable condition to avoid repetition
+  // When loop is enabled, GO button should always work (even at last cue)
   const isGoDisabled = useMemo(() => {
-    return cues.length === 0 || (currentCueIndex >= cues.length - 1 && currentCueIndex !== -1);
-  }, [cues.length, currentCueIndex]);
+    if (cues.length === 0) return true;
+    if (cueList?.loop) return false; // Loop enabled, always allow GO
+    return currentCueIndex >= cues.length - 1 && currentCueIndex !== -1;
+  }, [cues.length, currentCueIndex, cueList?.loop]);
 
   const handleGo = useCallback(async () => {
     if (!cueList) return;
@@ -155,6 +160,23 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
       },
     });
   }, [cueList, stopCueList, fadeToBlack]);
+
+  const handleToggleLoop = useCallback(async () => {
+    if (!cueList) return;
+
+    await updateCueList({
+      variables: {
+        id: cueList.id,
+        input: {
+          name: cueList.name,
+          description: cueList.description,
+          loop: !cueList.loop,
+          projectId: cueList.project.id,
+        },
+      },
+      refetchQueries: [{ query: GET_CUE_LIST, variables: { id: cueList.id } }],
+    });
+  }, [cueList, updateCueList]);
 
   const handleJumpToCue = useCallback(async (index: number) => {
     if (!cueList || index < 0 || index >= cues.length) return;
@@ -297,6 +319,21 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
       {/* Control Bar */}
       <div className="bg-gray-800 border-t border-gray-700 p-4">
         <div className="flex items-center justify-center space-x-4">
+          {/* Loop toggle button */}
+          <button
+            onClick={handleToggleLoop}
+            className={`p-3 rounded-lg transition-colors ${
+              cueList.loop
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            }`}
+            title={cueList.loop ? 'Loop enabled - Click to disable' : 'Loop disabled - Click to enable'}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+
           <button
             onClick={handlePrevious}
             disabled={currentCueIndex <= 0}

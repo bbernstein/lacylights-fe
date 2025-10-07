@@ -299,6 +299,7 @@ CueRow.displayName = 'CueRow';
 export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueListUpdated, onRunCueList }: CueListEditorModalProps) {
   const [cueListName, setCueListName] = useState('');
   const [cueListDescription, setCueListDescription] = useState('');
+  const [cueListLoop, setCueListLoop] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddCue, setShowAddCue] = useState(false);
   const [selectedCueIds, setSelectedCueIds] = useState<Set<string>>(new Set());
@@ -320,6 +321,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
       if (data.cueList) {
         setCueListName(data.cueList.name);
         setCueListDescription(data.cueList.description || '');
+        setCueListLoop(data.cueList.loop || false);
       }
     },
   });
@@ -433,6 +435,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
         input: {
           name: cueListName,
           description: cueListDescription || undefined,
+          loop: cueListLoop,
           projectId: cueList.project.id,
         },
       },
@@ -489,6 +492,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
   const handleClose = () => {
     setCueListName('');
     setCueListDescription('');
+    setCueListLoop(false);
     setError(null);
     setShowAddCue(false);
     onClose();
@@ -584,6 +588,23 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                   </div>
+                </div>
+
+                <div className="mb-4">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={cueListLoop}
+                      onChange={(e) => {
+                        setCueListLoop(e.target.checked);
+                        handleUpdateCueList();
+                      }}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Loop cue list (restart from first cue after last cue finishes)
+                    </span>
+                  </label>
                 </div>
               </div>
 

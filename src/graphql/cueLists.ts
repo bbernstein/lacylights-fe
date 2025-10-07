@@ -8,6 +8,7 @@ export const GET_PROJECT_CUE_LISTS = gql`
         id
         name
         description
+        loop
         createdAt
         updatedAt
         cues {
@@ -34,6 +35,7 @@ export const GET_CUE_LIST = gql`
       id
       name
       description
+      loop
       createdAt
       updatedAt
       project {
@@ -64,6 +66,7 @@ export const CREATE_CUE_LIST = gql`
       id
       name
       description
+      loop
       createdAt
       cues {
         id
@@ -80,6 +83,7 @@ export const UPDATE_CUE_LIST = gql`
       id
       name
       description
+      loop
       updatedAt
       cues {
         id
