@@ -4,12 +4,32 @@ import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
 import { getMainDefinition } from '@apollo/client/utilities';
 
+// Determine URLs based on environment
+// In production (behind nginx), use relative paths
+// In development, use localhost
+const getGraphQLUrl = () => {
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    // Production: use relative path (nginx proxy)
+    return `${window.location.protocol}//${window.location.host}/graphql`;
+  }
+  return process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:4000/graphql';
+};
+
+const getWebSocketUrl = () => {
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    // Production: use WebSocket with current host (nginx proxy)
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${wsProtocol}//${window.location.host}/ws`;
+  }
+  return process.env.NEXT_PUBLIC_GRAPHQL_WS_URL || 'ws://localhost:4000/graphql';
+};
+
 const httpLink = createHttpLink({
-  uri: process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:4000/graphql',
+  uri: getGraphQLUrl(),
 });
 
 const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(createClient({
-  url: process.env.NEXT_PUBLIC_GRAPHQL_WS_URL || 'ws://localhost:4000/graphql',
+  url: getWebSocketUrl(),
   connectionParams: () => {
     const token = localStorage.getItem('token');
     return {
