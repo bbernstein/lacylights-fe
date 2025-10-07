@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   GET_CUE_LIST,
@@ -22,11 +22,40 @@ interface CueListPlayerProps {
 }
 
 
-export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
+export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlayerProps) {
+  // Extract actual cueListId from URL if we received the __dynamic__ placeholder
+  const [actualCueListId, setActualCueListId] = useState<string>(() => {
+    if (cueListIdProp === '__dynamic__' && typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      const match = pathname.match(/\/player\/([^\/]+)/);
+      return match?.[1] || cueListIdProp;
+    }
+    return cueListIdProp;
+  });
+
+  useEffect(() => {
+    if (cueListIdProp === '__dynamic__') {
+      // Extract cueListId from URL pathname
+      // URL pattern is /player/[cueListId]
+      const pathname = window.location.pathname;
+      const match = pathname.match(/\/player\/([^\/]+)/);
+      if (match && match[1]) {
+        setActualCueListId(match[1]);
+      }
+    } else {
+      setActualCueListId(cueListIdProp);
+    }
+  }, [cueListIdProp]);
+
+  const cueListId = actualCueListId;
+  const isDynamicPlaceholder = cueListId === '__dynamic__';
+
+  // Call all hooks unconditionally (required by React)
   const { playbackStatus } = useCueListPlayback(cueListId);
 
   const { data: cueListData, loading } = useQuery(GET_CUE_LIST, {
     variables: { id: cueListId },
+    skip: isDynamicPlaceholder,
   });
 
   // Shared refetch configuration for cue list mutations
@@ -169,7 +198,7 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleKeyPress]);
 
-  if (loading) {
+  if (loading || isDynamicPlaceholder) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-900 text-white">
         <p>Loading...</p>
