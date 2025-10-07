@@ -4,6 +4,7 @@ import { ReactNode } from 'react';
 import { Providers } from '../providers';
 import TabNavigation from '@/components/TabNavigation';
 import ProjectSelector from '@/components/ProjectSelector';
+import SystemStatusBar from '@/components/SystemStatusBar';
 
 export default function MainLayout({ children }: { children: ReactNode }) {
   return (
@@ -19,6 +20,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             </div>
           </div>
         </header>
+        <SystemStatusBar />
         <TabNavigation />
         <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
           {children}

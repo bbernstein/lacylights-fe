@@ -409,6 +409,265 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
 
 CueRow.displayName = 'CueRow';
 
+function SortableCueCard(props: SortableCueRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.cue.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <CueCard
+      {...props}
+      ref={setNodeRef}
+      style={style}
+      dragAttributes={attributes}
+      dragListeners={listeners}
+      isDragging={isDragging}
+    />
+  );
+}
+
+const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
+  style?: React.CSSProperties;
+  dragAttributes?: DraggableAttributes;
+  dragListeners?: DraggableSyntheticListeners;
+  isDragging?: boolean;
+}>((props, ref) => {
+  const {
+    cue,
+    index,
+    isActive,
+    isNext,
+    isPrevious,
+    fadeProgress,
+    onJumpToCue,
+    onUpdateCue,
+    onDeleteCue,
+    onEditScene,
+    editMode,
+    scenes,
+    isSelected,
+    onSelect,
+    style,
+    dragAttributes,
+    dragListeners,
+    isDragging,
+  } = props;
+
+  const [showSceneSelect, setShowSceneSelect] = useState(false);
+  const [selectedSceneId, setSelectedSceneId] = useState(cue.scene.id);
+
+  let bgClass = 'bg-white dark:bg-gray-800';
+  let textColorClass = 'text-gray-800 dark:text-gray-100';
+
+  if (isDragging) {
+    bgClass = 'bg-yellow-50 dark:bg-yellow-900/20';
+  } else if (isActive) {
+    bgClass = 'bg-green-50 dark:bg-green-900/40 border-green-500';
+    textColorClass = 'text-gray-900 dark:text-white';
+  } else if (isNext) {
+    bgClass = 'bg-blue-50 dark:bg-blue-900/30 border-blue-500';
+    textColorClass = 'text-gray-900 dark:text-white';
+  } else if (isPrevious) {
+    bgClass = 'bg-gray-50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-700';
+  }
+
+  const handleRowClick = () => {
+    if (!editMode) {
+      onJumpToCue(cue, index);
+    }
+  };
+
+  const handleSceneChange = () => {
+    onUpdateCue({
+      ...cue,
+      scene: scenes.find(s => s.id === selectedSceneId) || cue.scene,
+    });
+    setShowSceneSelect(false);
+  };
+
+  return (
+    <div
+      ref={ref}
+      style={style}
+      className={`${bgClass} border-2 rounded-lg p-4 mb-3 ${textColorClass} ${!editMode ? 'cursor-pointer' : ''}`}
+      onClick={handleRowClick}
+    >
+      {/* Line 1: Cue # + Name, Fade In, Status */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center space-x-3 flex-1">
+          {editMode && (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={(e) => {
+                e.stopPropagation();
+                onSelect(cue.id, e.target.checked);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+          )}
+          {editMode && (
+            <button
+              className="cursor-grab hover:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+              {...dragAttributes}
+              {...dragListeners}
+              onClick={(e) => e.stopPropagation()}
+              title="Drag to reorder"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9h8M8 15h8" />
+              </svg>
+            </button>
+          )}
+          <span className="font-bold text-sm">{cue.cueNumber}</span>
+          <span className="font-medium flex-1">{cue.name}</span>
+        </div>
+        <div className="flex items-center space-x-3" onClick={(e) => e.stopPropagation()}>
+          <div className="text-sm text-right">
+            <span className="text-gray-500 dark:text-gray-400">in: </span>
+            <EditableCell
+              value={cue.fadeInTime}
+              onUpdate={(value) => onUpdateCue({ ...cue, fadeInTime: value })}
+              disabled={!editMode}
+            />
+          </div>
+          {isActive && <span className="text-green-600 dark:text-green-400 font-bold text-xs">LIVE</span>}
+          {isNext && !isActive && <span className="text-blue-600 dark:text-blue-400 font-bold text-xs">NEXT</span>}
+        </div>
+      </div>
+
+      {/* Line 2: Scene, Fade Out */}
+      <div className="flex items-center justify-between mb-2" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center space-x-2 flex-1">
+          <span className="text-sm text-gray-500 dark:text-gray-400">Scene:</span>
+          {editMode && showSceneSelect ? (
+            <div className="flex items-center space-x-1">
+              <select
+                value={selectedSceneId}
+                onChange={(e) => setSelectedSceneId(e.target.value)}
+                className="text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {scenes.map((scene) => (
+                  <option key={scene.id} value={scene.id}>{scene.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={handleSceneChange}
+                className="text-green-600 hover:text-green-800 p-1"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedSceneId(cue.scene.id);
+                  setShowSceneSelect(false);
+                }}
+                className="text-gray-600 hover:text-gray-800 p-1"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2 relative flex-1">
+              {isActive && fadeProgress !== undefined && fadeProgress < 100 && (
+                <div
+                  className="absolute inset-0 bg-green-600/20 dark:bg-green-400/20 transition-all duration-100 rounded"
+                  style={{ width: `${fadeProgress}%` }}
+                />
+              )}
+              <button
+                onClick={() => editMode && setShowSceneSelect(true)}
+                disabled={!editMode}
+                className={`relative z-10 text-sm ${editMode ? 'hover:underline' : ''}`}
+              >
+                {cue.scene.name}
+              </button>
+              {editMode && (
+                <button
+                  onClick={() => onEditScene(cue.scene.id)}
+                  className="relative z-10 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  title="Edit scene"
+                >
+                  <PencilIcon className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="text-sm text-right">
+          <span className="text-gray-500 dark:text-gray-400">out: </span>
+          <EditableCell
+            value={cue.fadeOutTime}
+            onUpdate={(value) => onUpdateCue({ ...cue, fadeOutTime: value })}
+            disabled={!editMode}
+          />
+        </div>
+      </div>
+
+      {/* Line 3: Follow time, GO button, Delete */}
+      <div className="flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-1">
+          {editMode && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteCue(cue);
+              }}
+              className="text-red-600 hover:text-red-800 p-1"
+              title="Delete cue"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <div className="flex items-center space-x-3">
+          <div className="text-sm text-right">
+            <span className="text-gray-500 dark:text-gray-400">follow: </span>
+            <EditableCell
+              value={cue.followTime || 0}
+              onUpdate={(value) => onUpdateCue({ ...cue, followTime: value > 0 ? value : undefined })}
+              disabled={!editMode}
+            />
+          </div>
+          {!editMode && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onJumpToCue(cue, index);
+              }}
+              className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 px-3 py-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-sm font-bold"
+              title="Jump to this cue"
+            >
+              GO
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+CueCard.displayName = 'CueCard';
+
 export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifiedViewProps) {
   const [editMode, setEditMode] = useState(false);
 
@@ -831,62 +1090,66 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   return (
     <div className="fixed inset-0 z-50 bg-gray-900 flex flex-col">
       {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="flex items-center space-x-4">
+      <div className="bg-gray-800 border-b border-gray-700 px-3 py-3 md:px-6 md:py-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            {/* Cue List Name and Buttons */}
+            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
               <input
                 type="text"
                 value={cueListName}
                 onChange={(e) => setCueListName(e.target.value)}
                 onBlur={handleUpdateCueList}
-                className="text-2xl font-bold bg-transparent text-white border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                className="text-xl md:text-2xl font-bold bg-transparent text-white border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none"
                 disabled={!editMode}
               />
-              <button
-                onClick={() => setEditMode(!editMode)}
-                className={`px-3 py-1 rounded text-sm font-medium ${
-                  editMode
-                    ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                }`}
-                title={editMode ? 'Exit edit mode' : 'Enter edit mode'}
-              >
-                {editMode ? 'EDITING' : 'EDIT MODE'}
-              </button>
-              <button
-                onClick={() => {
-                  const left = (window.screen.width - PLAYER_WINDOW.width) / 2;
-                  const top = (window.screen.height - PLAYER_WINDOW.height) / 2;
-                  window.open(
-                    `/player/${cueListId}`,
-                    PLAYER_WINDOW.name,
-                    `width=${PLAYER_WINDOW.width},height=${PLAYER_WINDOW.height},left=${left},top=${top},${PLAYER_WINDOW.features}`
-                  );
-                }}
-                className="px-3 py-1 rounded text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white flex items-center space-x-1"
-                title="Open player in new window"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-                <span>Pop Out Player</span>
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditMode(!editMode)}
+                  className={`px-3 py-1 rounded text-sm font-medium whitespace-nowrap ${
+                    editMode
+                      ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
+                  title={editMode ? 'Exit edit mode' : 'Enter edit mode'}
+                >
+                  {editMode ? 'EDITING' : 'EDIT MODE'}
+                </button>
+                <button
+                  onClick={() => {
+                    const left = (window.screen.width - PLAYER_WINDOW.width) / 2;
+                    const top = (window.screen.height - PLAYER_WINDOW.height) / 2;
+                    window.open(
+                      `/player/${cueListId}`,
+                      PLAYER_WINDOW.name,
+                      `width=${PLAYER_WINDOW.width},height=${PLAYER_WINDOW.height},left=${left},top=${top},${PLAYER_WINDOW.features}`
+                    );
+                  }}
+                  className="px-3 py-1 rounded text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white flex items-center space-x-1 whitespace-nowrap"
+                  title="Open player in new window"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  <span>Pop Out Player</span>
+                </button>
+              </div>
             </div>
+            {/* Description */}
             {cueListDescription && (
               <input
                 type="text"
                 value={cueListDescription}
                 onChange={(e) => setCueListDescription(e.target.value)}
                 onBlur={handleUpdateCueList}
-                className="text-gray-400 mt-1 bg-transparent border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                className="text-gray-400 mt-1 bg-transparent border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none w-full text-sm md:text-base"
                 disabled={!editMode}
               />
             )}
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white p-2 rounded hover:bg-gray-700"
+            className="text-gray-400 hover:text-white p-2 rounded hover:bg-gray-700 flex-shrink-0"
             title="Close unified view"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -993,7 +1256,50 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
       {/* Cue List Table */}
       <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-6">
-        <div className="bg-white dark:bg-gray-800/90 rounded-lg overflow-hidden shadow-lg">
+        {/* Mobile Card Layout */}
+        <div className="lg:hidden">
+          {cues.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 text-center">
+              <p className="text-gray-500 dark:text-gray-400">
+                No cues yet. {editMode ? 'Add your first cue to get started.' : 'Switch to edit mode to add cues.'}
+              </p>
+            </div>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={cueList.cues.map((cue: Cue) => cue.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {cues.map((cue: Cue, index: number) => (
+                  <SortableCueCard
+                    key={cue.id}
+                    cue={cue}
+                    index={index}
+                    isActive={index === currentCueIndex}
+                    isNext={index === currentCueIndex + 1}
+                    isPrevious={index < currentCueIndex}
+                    fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
+                    onJumpToCue={handleJumpToCue}
+                    onUpdateCue={handleUpdateCue}
+                    onDeleteCue={handleDeleteCue}
+                    onEditScene={handleEditScene}
+                    editMode={editMode}
+                    scenes={scenes}
+                    isSelected={selectedCueIds.has(cue.id)}
+                    onSelect={handleSelectCue}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          )}
+        </div>
+
+        {/* Desktop Table Layout */}
+        <div className="hidden lg:block bg-white dark:bg-gray-800/90 rounded-lg overflow-hidden shadow-lg">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
