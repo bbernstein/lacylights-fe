@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   GET_CUE_LIST,
@@ -10,7 +10,8 @@ import {
   PREVIOUS_CUE,
   GO_TO_CUE,
   STOP_CUE_LIST,
-  FADE_TO_BLACK
+  FADE_TO_BLACK,
+  UPDATE_CUE_LIST
 } from '@/graphql/cueLists';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
 import { Cue } from '@/types';
@@ -22,11 +23,32 @@ interface CueListPlayerProps {
 }
 
 
-export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
+export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlayerProps) {
+  // Helper to extract cueListId from URL if needed
+  function extractCueListId(cueListIdProp: string): string {
+    if (cueListIdProp === '__dynamic__' && typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      const match = pathname.match(/\/player\/([^\/]+)/);
+      return match?.[1] || cueListIdProp;
+    }
+    return cueListIdProp;
+  }
+
+  const [actualCueListId, setActualCueListId] = useState<string>(() => extractCueListId(cueListIdProp));
+
+  useEffect(() => {
+    setActualCueListId(extractCueListId(cueListIdProp));
+  }, [cueListIdProp]);
+
+  const cueListId = actualCueListId;
+  const isDynamicPlaceholder = cueListId === '__dynamic__';
+
+  // Call all hooks unconditionally (required by React)
   const { playbackStatus } = useCueListPlayback(cueListId);
 
   const { data: cueListData, loading } = useQuery(GET_CUE_LIST, {
     variables: { id: cueListId },
+    skip: isDynamicPlaceholder,
   });
 
   // Shared refetch configuration for cue list mutations
@@ -45,6 +67,7 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
   const [goToCue] = useMutation(GO_TO_CUE, refetchConfig);
   const [stopCueList] = useMutation(STOP_CUE_LIST, refetchConfig);
   const [fadeToBlack] = useMutation(FADE_TO_BLACK, fadeToBlackRefetchConfig);
+  const [updateCueList] = useMutation(UPDATE_CUE_LIST);
 
   const cueList = cueListData?.cueList;
   const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
@@ -54,31 +77,49 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
   const isPlaying = playbackStatus?.isPlaying || false;
   const fadeProgress = playbackStatus?.fadeProgress ?? 0;
 
-  const nextCue = currentCueIndex + 1 < cues.length ? cues[currentCueIndex + 1] : null;
+  // Calculate next cue with loop support
+  const nextCue = useMemo(() => {
+    if (currentCueIndex + 1 < cues.length) {
+      return cues[currentCueIndex + 1];
+    }
+    // If on last cue and loop is enabled, next cue is the first cue
+    if (cueList?.loop && cues.length > 0 && currentCueIndex === cues.length - 1) {
+      return cues[0];
+    }
+    return null;
+  }, [currentCueIndex, cues, cueList?.loop]);
 
   // Get cues for the 5-cue display (2 previous + current + 2 next)
   const displayCues = useMemo(() => {
     const cuesForDisplay = [];
 
+    // Determine if first cue should be marked as "next" due to loop
+    const isLoopingToFirst = cueList?.loop && currentCueIndex === cues.length - 1;
+
     for (let i = currentCueIndex - 2; i <= currentCueIndex + 2; i++) {
       if (i >= 0 && i < cues.length) {
+        const isNext = i > currentCueIndex || (isLoopingToFirst && i === 0);
+
         cuesForDisplay.push({
           cue: cues[i],
           index: i,
           isCurrent: i === currentCueIndex,
-          isPrevious: i < currentCueIndex,
-          isNext: i > currentCueIndex
+          isPrevious: i < currentCueIndex && !(isLoopingToFirst && i === 0),
+          isNext: isNext && i !== currentCueIndex
         });
       }
     }
 
     return cuesForDisplay;
-  }, [currentCueIndex, cues]);
+  }, [currentCueIndex, cues, cueList?.loop]);
 
   // Memoize the disable condition to avoid repetition
+  // When loop is enabled, GO button should always work (even at last cue)
   const isGoDisabled = useMemo(() => {
-    return cues.length === 0 || (currentCueIndex >= cues.length - 1 && currentCueIndex !== -1);
-  }, [cues.length, currentCueIndex]);
+    if (cues.length === 0) return true;
+    if (cueList?.loop) return false; // Loop enabled, always allow GO
+    return currentCueIndex >= cues.length - 1 && currentCueIndex !== -1;
+  }, [cues.length, currentCueIndex, cueList?.loop]);
 
   const handleGo = useCallback(async () => {
     if (!cueList) return;
@@ -127,6 +168,23 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
     });
   }, [cueList, stopCueList, fadeToBlack]);
 
+  const handleToggleLoop = useCallback(async () => {
+    if (!cueList) return;
+
+    await updateCueList({
+      variables: {
+        id: cueList.id,
+        input: {
+          name: cueList.name,
+          description: cueList.description || undefined,
+          loop: !cueList.loop,
+          projectId: cueList.project.id,
+        },
+      },
+      refetchQueries: [{ query: GET_CUE_LIST, variables: { id: cueList.id } }],
+    });
+  }, [cueList, updateCueList]);
+
   const handleJumpToCue = useCallback(async (index: number) => {
     if (!cueList || index < 0 || index >= cues.length) return;
 
@@ -169,7 +227,7 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleKeyPress]);
 
-  if (loading) {
+  if (loading || isDynamicPlaceholder) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-900 text-white">
         <p>Loading...</p>
@@ -268,6 +326,21 @@ export default function CueListPlayer({ cueListId }: CueListPlayerProps) {
       {/* Control Bar */}
       <div className="bg-gray-800 border-t border-gray-700 p-4">
         <div className="flex items-center justify-center space-x-4">
+          {/* Loop toggle button */}
+          <button
+            onClick={handleToggleLoop}
+            className={`p-3 rounded-lg transition-colors ${
+              cueList.loop
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            }`}
+            title={cueList.loop ? 'Loop enabled - Click to disable' : 'Loop disabled - Click to enable'}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+
           <button
             onClick={handlePrevious}
             disabled={currentCueIndex <= 0}

@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:export": "next build",
     "start": "next start",
+    "serve:export": "npx serve out",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "lint:ci": "next lint --max-warnings=0",

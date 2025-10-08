@@ -123,7 +123,7 @@ const mockCues = [
     scene: mockScenes[0],
     fadeInTime: 3,
     fadeOutTime: 3,
-    followTime: undefined,
+    followTime: null,
     notes: 'Test notes',
     __typename: 'Cue',
   },
@@ -144,6 +144,7 @@ const mockCueList = {
   id: 'cuelist-1',
   name: 'Test Cue List',
   description: 'Test Description',
+  loop: false,
   project: mockProject,
   cues: mockCues,
   createdAt: '2023-01-01T12:00:00Z',
@@ -243,7 +244,7 @@ const createMocks = () => [
           sceneId: 'scene-1',
           fadeInTime: 3,
           fadeOutTime: 3,
-          followTime: undefined,
+          followTime: null,
           notes: undefined,
         },
       },
@@ -257,7 +258,7 @@ const createMocks = () => [
           scene: mockScenes[0],
           fadeInTime: 3,
           fadeOutTime: 3,
-          followTime: undefined,
+          followTime: null,
           notes: null,
           __typename: 'Cue',
         },
@@ -276,7 +277,7 @@ const createMocks = () => [
           sceneId: 'scene-1',
           fadeInTime: 4,
           fadeOutTime: 4,
-          followTime: undefined,
+          followTime: null,
           notes: undefined,
         },
       },
@@ -687,7 +688,7 @@ describe('CueListEditorModal', () => {
       });
 
       const checkboxes = screen.getAllByRole('checkbox');
-      expect(checkboxes).toHaveLength(3); // 1 select all + 2 individual cues
+      expect(checkboxes).toHaveLength(4); // 1 loop + 1 select all + 2 individual cues
     });
 
     it('allows selecting individual cues', async () => {
@@ -698,7 +699,7 @@ describe('CueListEditorModal', () => {
       });
 
       const checkboxes = screen.getAllByRole('checkbox');
-      const cueCheckbox = checkboxes[1]; // First cue checkbox
+      const cueCheckbox = checkboxes[2]; // First cue checkbox (0=loop, 1=select all, 2+=cues)
 
       await userEvent.click(cueCheckbox);
       expect(cueCheckbox).toBeChecked();
@@ -715,7 +716,7 @@ describe('CueListEditorModal', () => {
       });
 
       const checkboxes = screen.getAllByRole('checkbox');
-      const selectAllCheckbox = checkboxes[0];
+      const selectAllCheckbox = checkboxes[1]; // 0=loop, 1=select all, 2+=cues
 
       await userEvent.click(selectAllCheckbox);
 
@@ -731,7 +732,7 @@ describe('CueListEditorModal', () => {
       });
 
       const checkboxes = screen.getAllByRole('checkbox');
-      const cueCheckbox = checkboxes[1];
+      const cueCheckbox = checkboxes[2]; // 0=loop, 1=select all, 2+=cues
 
       await userEvent.click(cueCheckbox);
 
@@ -868,6 +869,7 @@ describe('CueListEditorModal', () => {
               input: {
                 name: 'Test Cue List',
                 description: 'Test Description',
+                loop: false,
                 projectId: 'project-1',
               },
             },

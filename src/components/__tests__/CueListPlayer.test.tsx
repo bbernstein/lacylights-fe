@@ -30,6 +30,7 @@ describe('CueListPlayer', () => {
     id: mockCueListId,
     name: 'Test Cue List',
     description: 'A test cue list for testing',
+    loop: false,
     createdAt: '2023-01-01T12:00:00Z',
     updatedAt: '2023-01-01T12:00:00Z',
     project: {

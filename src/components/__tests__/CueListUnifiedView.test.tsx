@@ -107,6 +107,7 @@ const mockCueList = {
   id: 'cuelist-1',
   name: 'Test Cue List',
   description: 'Test description',
+  loop: false,
   project: {
     id: 'project-1',
     name: 'Test Project',
@@ -363,16 +364,32 @@ const renderWithProvider = (mocks = createMocks(), props = {}, playbackOverrides
 };
 
 describe('CueListUnifiedView', () => {
+  let desktopViewportStyle: HTMLStyleElement | null = null;
+
   beforeEach(() => {
     jest.clearAllMocks();
     // Mock window.confirm for delete tests
     window.confirm = jest.fn(() => true);
     // Mock window.open for player window
     window.open = jest.fn();
+
+    // Simulate desktop viewport by hiding mobile layout and showing desktop layout
+    // Mobile uses lg:hidden, desktop uses hidden lg:block
+    desktopViewportStyle = document.createElement('style');
+    desktopViewportStyle.innerHTML = `
+      [class*="lg:hidden"] { display: none !important; }
+      [class*="hidden"][class*="lg:block"] { display: block !important; }
+    `;
+    document.head.appendChild(desktopViewportStyle);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
+    // Clean up the specific style element we created
+    if (desktopViewportStyle && desktopViewportStyle.parentNode) {
+      desktopViewportStyle.parentNode.removeChild(desktopViewportStyle);
+    }
+    desktopViewportStyle = null;
   });
 
   describe('loading and error states', () => {
@@ -431,10 +448,11 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        expect(screen.getByText('Opening')).toBeInTheDocument();
-        expect(screen.getByText('Transition')).toBeInTheDocument();
-        expect(screen.getByText('Scene 1')).toBeInTheDocument();
-        expect(screen.getByText('Scene 2')).toBeInTheDocument();
+        // Both mobile and desktop views render, so use getAllByText
+        expect(screen.getAllByText('Opening')[0]).toBeInTheDocument();
+        expect(screen.getAllByText('Transition')[0]).toBeInTheDocument();
+        expect(screen.getAllByText('Scene 1')[0]).toBeInTheDocument();
+        expect(screen.getAllByText('Scene 2')[0]).toBeInTheDocument();
       });
     });
 
@@ -631,14 +649,16 @@ describe('CueListUnifiedView', () => {
         expect(screen.getByDisplayValue('Test Cue List')).toBeInTheDocument();
       });
 
-      expect(screen.getByText('LIVE')).toBeInTheDocument();
+      // Both mobile and desktop views render LIVE indicator
+      expect(screen.getAllByText('LIVE')[0]).toBeInTheDocument();
     });
 
     it('shows NEXT indicator for next cue', async () => {
       renderWithProvider(createMocks(), {}, { currentCueIndex: 0 });
 
       await waitFor(() => {
-        expect(screen.getByText('NEXT')).toBeInTheDocument();
+        // Both mobile and desktop views render NEXT indicator
+        expect(screen.getAllByText('NEXT')[0]).toBeInTheDocument();
       });
     });
 
@@ -771,9 +791,9 @@ describe('CueListUnifiedView', () => {
       const input = screen.getByDisplayValue('3');
       fireEvent.keyDown(input, { key: 'Escape' });
 
-      // Should revert to button after escape
+      // Should revert to button after escape (4 total: 2 mobile + 2 desktop)
       await waitFor(() => {
-        expect(screen.getAllByText('3s')).toHaveLength(2);
+        expect(screen.getAllByText('3s')).toHaveLength(4);
       });
     });
   });
@@ -789,7 +809,9 @@ describe('CueListUnifiedView', () => {
       const editButton = screen.getByText('EDIT MODE');
       await userEvent.click(editButton);
 
-      const selectAllCheckbox = screen.getAllByRole('checkbox')[0];
+      // Get select-all checkbox from desktop table (in thead)
+      const table = screen.getByRole('table');
+      const selectAllCheckbox = table.querySelector('thead input[type="checkbox"]') as HTMLInputElement;
       await userEvent.click(selectAllCheckbox);
 
       expect(screen.getByText('2 selected')).toBeInTheDocument();
@@ -818,7 +840,8 @@ describe('CueListUnifiedView', () => {
       renderWithProvider(emptyCueListMocks);
 
       await waitFor(() => {
-        expect(screen.getByText(/No cues yet/)).toBeInTheDocument();
+        // Both mobile and desktop views show empty state
+        expect(screen.getAllByText(/No cues yet/)[0]).toBeInTheDocument();
       });
     });
   });
@@ -866,7 +889,8 @@ describe('CueListUnifiedView', () => {
       });
 
       expect(screen.getByTitle('Close unified view')).toBeInTheDocument();
-      expect(screen.getAllByTitle('Jump to this cue')).toHaveLength(2);
+      // Both mobile and desktop views render jump buttons (2 cues × 2 views = 4)
+      expect(screen.getAllByTitle('Jump to this cue')).toHaveLength(4);
     });
 
     it('has proper table structure', async () => {
@@ -885,8 +909,9 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        expect(screen.getByTestId('dnd-context')).toBeInTheDocument();
-        expect(screen.getByTestId('sortable-context')).toBeInTheDocument();
+        // Both mobile and desktop views have DndContext and SortableContext
+        expect(screen.getAllByTestId('dnd-context')[0]).toBeInTheDocument();
+        expect(screen.getAllByTestId('sortable-context')[0]).toBeInTheDocument();
       });
     });
   });
@@ -896,8 +921,8 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        // Should show follow time of 5s for the second cue
-        expect(screen.getByText('5s')).toBeInTheDocument();
+        // Should show follow time of 5s for the second cue (both mobile and desktop)
+        expect(screen.getAllByText('5s')[0]).toBeInTheDocument();
       });
     });
   });

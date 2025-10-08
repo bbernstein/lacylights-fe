@@ -31,6 +31,7 @@ export const GET_PROJECT = gql`
       cueLists {
         id
         name
+        loop
       }
     }
   }
