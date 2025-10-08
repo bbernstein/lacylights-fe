@@ -184,7 +184,7 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
         id: cueList.id,
         input: {
           name: cueList.name,
-          description: cueList.description,
+          description: cueList.description || undefined,
           loop: !cueList.loop,
           projectId: cueList.project.id,
         },

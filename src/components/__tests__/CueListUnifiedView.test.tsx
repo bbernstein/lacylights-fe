@@ -364,6 +364,8 @@ const renderWithProvider = (mocks = createMocks(), props = {}, playbackOverrides
 };
 
 describe('CueListUnifiedView', () => {
+  let desktopViewportStyle: HTMLStyleElement | null = null;
+
   beforeEach(() => {
     jest.clearAllMocks();
     // Mock window.confirm for delete tests
@@ -373,18 +375,21 @@ describe('CueListUnifiedView', () => {
 
     // Simulate desktop viewport by hiding mobile layout and showing desktop layout
     // Mobile uses lg:hidden, desktop uses hidden lg:block
-    const style = document.createElement('style');
-    style.innerHTML = `
+    desktopViewportStyle = document.createElement('style');
+    desktopViewportStyle.innerHTML = `
       [class*="lg:hidden"] { display: none !important; }
       [class*="hidden"][class*="lg:block"] { display: block !important; }
     `;
-    document.head.appendChild(style);
+    document.head.appendChild(desktopViewportStyle);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
-    // Clean up style elements
-    document.head.querySelectorAll('style').forEach(el => el.remove());
+    // Clean up the specific style element we created
+    if (desktopViewportStyle && desktopViewportStyle.parentNode) {
+      desktopViewportStyle.parentNode.removeChild(desktopViewportStyle);
+    }
+    desktopViewportStyle = null;
   });
 
   describe('loading and error states', () => {

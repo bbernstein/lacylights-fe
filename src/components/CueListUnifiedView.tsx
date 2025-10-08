@@ -1027,7 +1027,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     });
   };
 
-  const handleUpdateCueList = () => {
+  const handleUpdateCueList = (overrides?: { loop?: boolean }) => {
     if (!cueList) return;
 
     updateCueList({
@@ -1036,7 +1036,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
         input: {
           name: cueListName,
           description: cueListDescription || undefined,
-          loop: cueListLoop,
+          loop: overrides?.loop !== undefined ? overrides.loop : cueListLoop,
           projectId: cueList.project.id,
         },
       },
@@ -1174,21 +1174,8 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                     onChange={(e) => {
                       const newLoopValue = e.target.checked;
                       setCueListLoop(newLoopValue);
-
                       // Update immediately with new value (don't wait for state update)
-                      if (cueList) {
-                        updateCueList({
-                          variables: {
-                            id: cueList.id,
-                            input: {
-                              name: cueListName,
-                              description: cueListDescription || undefined,
-                              loop: newLoopValue,
-                              projectId: cueList.project.id,
-                            },
-                          },
-                        });
-                      }
+                      handleUpdateCueList({ loop: newLoopValue });
                     }}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
@@ -1338,7 +1325,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                       index={index}
                       isActive={index === currentCueIndex}
                       isNext={isNext}
-                      isPrevious={index < currentCueIndex && !isLoopingToFirst}
+                      isPrevious={index < currentCueIndex && !(isLoopingToFirst && index === 0)}
                       fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
                       onJumpToCue={handleJumpToCue}
                       onUpdateCue={handleUpdateCue}
@@ -1426,7 +1413,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                           index={index}
                           isActive={index === currentCueIndex}
                           isNext={isNext}
-                          isPrevious={index < currentCueIndex && !isLoopingToFirst}
+                          isPrevious={index < currentCueIndex && !(isLoopingToFirst && index === 0)}
                           fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
                           onJumpToCue={handleJumpToCue}
                           onUpdateCue={handleUpdateCue}

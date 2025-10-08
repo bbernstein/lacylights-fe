@@ -15,8 +15,8 @@ const nextConfig: NextConfig = {
   // Environment variables for GraphQL endpoints
   // These will be proxied by nginx in production
   env: {
-    NEXT_PUBLIC_GRAPHQL_HTTP: process.env.NEXT_PUBLIC_GRAPHQL_HTTP || '/graphql',
-    NEXT_PUBLIC_GRAPHQL_WS: process.env.NEXT_PUBLIC_GRAPHQL_WS || '/ws',
+    NEXT_PUBLIC_GRAPHQL_URL: process.env.NEXT_PUBLIC_GRAPHQL_URL || '/graphql',
+    NEXT_PUBLIC_GRAPHQL_WS_URL: process.env.NEXT_PUBLIC_GRAPHQL_WS_URL || '/ws',
   },
 };
 

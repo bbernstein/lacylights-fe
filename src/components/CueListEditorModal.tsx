@@ -426,7 +426,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
     }
   };
 
-  const handleUpdateCueList = () => {
+  const handleUpdateCueList = (overrides?: { loop?: boolean }) => {
     if (!cueList) return;
 
     updateCueList({
@@ -435,7 +435,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
         input: {
           name: cueListName,
           description: cueListDescription || undefined,
-          loop: cueListLoop,
+          loop: overrides?.loop !== undefined ? overrides.loop : cueListLoop,
           projectId: cueList.project.id,
         },
       },
@@ -598,21 +598,8 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                       onChange={(e) => {
                         const newLoopValue = e.target.checked;
                         setCueListLoop(newLoopValue);
-
                         // Update immediately with new value (don't wait for state update)
-                        if (cueList) {
-                          updateCueList({
-                            variables: {
-                              id: cueList.id,
-                              input: {
-                                name: cueListName,
-                                description: cueListDescription || undefined,
-                                loop: newLoopValue,
-                                projectId: cueList.project.id,
-                              },
-                            },
-                          });
-                        }
+                        handleUpdateCueList({ loop: newLoopValue });
                       }}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
