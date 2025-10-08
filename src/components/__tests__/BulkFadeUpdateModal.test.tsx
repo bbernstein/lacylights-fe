@@ -13,8 +13,8 @@ const mockSelectedCues: Cue[] = [
     cueNumber: 0,
     fadeInTime: 3,
     fadeOutTime: 3,
-    followTime: null,
-    notes: null,
+    followTime: undefined,
+    notes: undefined,
   },
   {
     id: '2',
@@ -24,7 +24,7 @@ const mockSelectedCues: Cue[] = [
     fadeInTime: 2,
     fadeOutTime: 2,
     followTime: 1,
-    notes: null,
+    notes: undefined,
   },
 ];
 

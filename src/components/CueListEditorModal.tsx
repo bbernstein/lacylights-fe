@@ -426,8 +426,11 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
     }
   };
 
-  const handleUpdateCueList = (overrides?: { loop?: boolean }) => {
+  const handleUpdateCueList = (overridesOrEvent?: { loop?: boolean } | React.FocusEvent) => {
     if (!cueList) return;
+
+    // Check if this is an overrides object (has a loop property) or an event
+    const overrides = overridesOrEvent && 'loop' in overridesOrEvent ? overridesOrEvent : undefined;
 
     updateCueList({
       variables: {
