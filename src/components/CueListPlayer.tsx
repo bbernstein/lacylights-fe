@@ -43,6 +43,38 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
     setActualCueListId(extractCueListId(cueListIdProp));
   }, [cueListIdProp]);
 
+  const cueListId = actualCueListId;
+  const isDynamicPlaceholder = cueListId === '__dynamic__';
+
+  // Call all hooks unconditionally (required by React)
+  const { playbackStatus } = useCueListPlayback(cueListId);
+
+  const { data: cueListData, loading } = useQuery(GET_CUE_LIST, {
+    variables: { id: cueListId },
+    skip: isDynamicPlaceholder,
+  });
+
+  // Shared refetch configuration for cue list mutations
+  const refetchConfig = useMemo(() => ({
+    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
+  }), [cueListId]);
+
+  // Refetch configuration for fadeToBlack (no await needed for global fade)
+  const fadeToBlackRefetchConfig = useMemo(() => ({
+    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
+  }), [cueListId]);
+
+  const [startCueList] = useMutation(START_CUE_LIST, refetchConfig);
+  const [nextCueMutation] = useMutation(NEXT_CUE, refetchConfig);
+  const [previousCueMutation] = useMutation(PREVIOUS_CUE, refetchConfig);
+  const [goToCue] = useMutation(GO_TO_CUE, refetchConfig);
+  const [stopCueList] = useMutation(STOP_CUE_LIST, refetchConfig);
+  const [fadeToBlack] = useMutation(FADE_TO_BLACK, fadeToBlackRefetchConfig);
+  const [updateCueList] = useMutation(UPDATE_CUE_LIST);
+
+  const cueList = cueListData?.cueList;
+  const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
+
   // Calculate how many cues can fit in the available space using ResizeObserver
   useEffect(() => {
     if (!containerRef.current) return;
@@ -86,38 +118,6 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
       clearTimeout(timer);
     };
   }, [cues.length]); // Recalculate when cues change
-
-  const cueListId = actualCueListId;
-  const isDynamicPlaceholder = cueListId === '__dynamic__';
-
-  // Call all hooks unconditionally (required by React)
-  const { playbackStatus } = useCueListPlayback(cueListId);
-
-  const { data: cueListData, loading } = useQuery(GET_CUE_LIST, {
-    variables: { id: cueListId },
-    skip: isDynamicPlaceholder,
-  });
-
-  // Shared refetch configuration for cue list mutations
-  const refetchConfig = useMemo(() => ({
-    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
-  }), [cueListId]);
-
-  // Refetch configuration for fadeToBlack (no await needed for global fade)
-  const fadeToBlackRefetchConfig = useMemo(() => ({
-    refetchQueries: [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
-  }), [cueListId]);
-
-  const [startCueList] = useMutation(START_CUE_LIST, refetchConfig);
-  const [nextCueMutation] = useMutation(NEXT_CUE, refetchConfig);
-  const [previousCueMutation] = useMutation(PREVIOUS_CUE, refetchConfig);
-  const [goToCue] = useMutation(GO_TO_CUE, refetchConfig);
-  const [stopCueList] = useMutation(STOP_CUE_LIST, refetchConfig);
-  const [fadeToBlack] = useMutation(FADE_TO_BLACK, fadeToBlackRefetchConfig);
-  const [updateCueList] = useMutation(UPDATE_CUE_LIST);
-
-  const cueList = cueListData?.cueList;
-  const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
 
   // Get current state from subscription data only
   const currentCueIndex = convertCueIndexForLocalState(playbackStatus?.currentCueIndex);
