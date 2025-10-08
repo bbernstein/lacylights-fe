@@ -97,14 +97,18 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
     const isLoopingToFirst = cueList?.loop && currentCueIndex === cues.length - 1;
 
     return cues.map((cue, i) => {
-      const isNext = i > currentCueIndex || (isLoopingToFirst && i === 0);
+      // Only mark immediate previous (one before current)
+      const isPrevious = i === currentCueIndex - 1;
+
+      // Only mark immediate next (one after current, or first if looping from last)
+      const isNext = i === currentCueIndex + 1 || (isLoopingToFirst && i === 0);
 
       return {
         cue,
         index: i,
         isCurrent: i === currentCueIndex,
-        isPrevious: i < currentCueIndex && !(isLoopingToFirst && i === 0),
-        isNext: isNext && i !== currentCueIndex
+        isPrevious,
+        isNext
       };
     });
   }, [currentCueIndex, cues, cueList?.loop]);
