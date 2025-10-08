@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   GET_CUE_LIST,
@@ -35,10 +35,33 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   }
 
   const [actualCueListId, setActualCueListId] = useState<string>(() => extractCueListId(cueListIdProp));
+  const [visibleCueCount, setVisibleCueCount] = useState(5); // Default to 5 (2 before, current, 2 after)
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setActualCueListId(extractCueListId(cueListIdProp));
   }, [cueListIdProp]);
+
+  // Calculate how many cues can fit in the available space
+  useEffect(() => {
+    const calculateVisibleCues = () => {
+      if (!containerRef.current) return;
+
+      const containerHeight = containerRef.current.clientHeight;
+      // Each cue card is approximately 120px tall with margins (estimate)
+      const estimatedCueHeight = 124; // 120px + 4px spacing
+      const maxCues = Math.floor(containerHeight / estimatedCueHeight);
+
+      // Ensure odd number so current cue is centered, minimum 5
+      const oddMaxCues = maxCues % 2 === 0 ? maxCues - 1 : maxCues;
+      setVisibleCueCount(Math.max(5, oddMaxCues));
+    };
+
+    calculateVisibleCues();
+    window.addEventListener('resize', calculateVisibleCues);
+
+    return () => window.removeEventListener('resize', calculateVisibleCues);
+  }, []);
 
   const cueListId = actualCueListId;
   const isDynamicPlaceholder = cueListId === '__dynamic__';
@@ -89,14 +112,17 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
     return null;
   }, [currentCueIndex, cues, cueList?.loop]);
 
-  // Get cues for the 5-cue display (2 previous + current + 2 next)
+  // Get cues for display - dynamically calculated based on available space
   const displayCues = useMemo(() => {
     const cuesForDisplay = [];
+
+    // Calculate how many cues to show before and after current
+    const cuesPerSide = Math.floor(visibleCueCount / 2);
 
     // Determine if first cue should be marked as "next" due to loop
     const isLoopingToFirst = cueList?.loop && currentCueIndex === cues.length - 1;
 
-    for (let i = currentCueIndex - 2; i <= currentCueIndex + 2; i++) {
+    for (let i = currentCueIndex - cuesPerSide; i <= currentCueIndex + cuesPerSide; i++) {
       if (i >= 0 && i < cues.length) {
         const isNext = i > currentCueIndex || (isLoopingToFirst && i === 0);
 
@@ -111,7 +137,7 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
     }
 
     return cuesForDisplay;
-  }, [currentCueIndex, cues, cueList?.loop]);
+  }, [currentCueIndex, cues, cueList?.loop, visibleCueCount]);
 
   // Memoize the disable condition to avoid repetition
   // When loop is enabled, GO button should always work (even at last cue)
@@ -253,8 +279,8 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
         )}
       </div>
 
-      {/* Cue Display with 2 Previous + Current + 2 Next */}
-      <div className="flex-1 flex flex-col justify-center items-center p-6 overflow-y-auto">
+      {/* Cue Display - dynamically shows as many cues as fit in available space */}
+      <div ref={containerRef} className="flex-1 flex flex-col justify-center items-center p-6 overflow-y-auto">
         {displayCues.length > 0 ? (
           <div className="w-full max-w-2xl space-y-3">
             {displayCues.map(({ cue, index, isCurrent, isPrevious, isNext }) => (
