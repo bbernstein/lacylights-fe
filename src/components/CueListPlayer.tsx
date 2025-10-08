@@ -96,7 +96,7 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
     // Determine if first cue should be marked as "next" due to loop
     const isLoopingToFirst = cueList?.loop && currentCueIndex === cues.length - 1;
 
-    return cues.map((cue, i) => {
+    return cues.map((cue: Cue, i: number) => {
       // Only mark immediate previous (one before current)
       const isPrevious = i === currentCueIndex - 1;
 
@@ -268,7 +268,7 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
       <div ref={containerRef} className="flex-1 flex flex-col items-center p-6 overflow-y-auto">
         {displayCues.length > 0 ? (
           <div className="w-full max-w-2xl space-y-3">
-            {displayCues.map(({ cue, index, isCurrent, isPrevious, isNext }) => (
+            {displayCues.map(({ cue, index, isCurrent, isPrevious, isNext }: { cue: Cue; index: number; isCurrent: boolean; isPrevious: boolean; isNext: boolean }) => (
               <div
                 key={cue.id}
                 ref={isCurrent ? currentCueRef : null}
