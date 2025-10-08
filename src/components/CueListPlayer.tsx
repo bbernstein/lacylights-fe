@@ -35,33 +35,57 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   }
 
   const [actualCueListId, setActualCueListId] = useState<string>(() => extractCueListId(cueListIdProp));
-  const [visibleCueCount, setVisibleCueCount] = useState(5); // Default to 5 (2 before, current, 2 after)
+  const [visibleCueCount, setVisibleCueCount] = useState(999); // Start with large number to show all
   const containerRef = useRef<HTMLDivElement>(null);
+  const cueCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setActualCueListId(extractCueListId(cueListIdProp));
   }, [cueListIdProp]);
 
-  // Calculate how many cues can fit in the available space
+  // Calculate how many cues can fit in the available space using ResizeObserver
   useEffect(() => {
+    if (!containerRef.current) return;
+
     const calculateVisibleCues = () => {
       if (!containerRef.current) return;
 
       const containerHeight = containerRef.current.clientHeight;
-      // Each cue card is approximately 120px tall with margins (estimate)
-      const estimatedCueHeight = 124; // 120px + 4px spacing
-      const maxCues = Math.floor(containerHeight / estimatedCueHeight);
+
+      // Measure actual cue card height if available, otherwise estimate
+      let cueHeight = 88; // Default estimate based on typical card size
+      if (cueCardRef.current) {
+        const cardRect = cueCardRef.current.getBoundingClientRect();
+        const computedStyle = window.getComputedStyle(cueCardRef.current);
+        const marginBottom = parseFloat(computedStyle.marginBottom);
+        cueHeight = cardRect.height + marginBottom;
+      }
+
+      const maxCues = Math.floor(containerHeight / cueHeight);
 
       // Ensure odd number so current cue is centered, minimum 5
       const oddMaxCues = maxCues % 2 === 0 ? maxCues - 1 : maxCues;
-      setVisibleCueCount(Math.max(5, oddMaxCues));
+      const finalCount = Math.max(5, oddMaxCues);
+
+      setVisibleCueCount(finalCount);
     };
 
-    calculateVisibleCues();
-    window.addEventListener('resize', calculateVisibleCues);
+    // Use ResizeObserver to watch container size changes
+    const resizeObserver = new ResizeObserver(() => {
+      // Small delay to ensure layout is complete
+      requestAnimationFrame(calculateVisibleCues);
+    });
 
-    return () => window.removeEventListener('resize', calculateVisibleCues);
-  }, []);
+    resizeObserver.observe(containerRef.current);
+
+    // Initial calculation with delay to ensure DOM is ready
+    const timer = setTimeout(calculateVisibleCues, 100);
+
+    return () => {
+      resizeObserver.disconnect();
+      clearTimeout(timer);
+    };
+  }, [cues.length]); // Recalculate when cues change
 
   const cueListId = actualCueListId;
   const isDynamicPlaceholder = cueListId === '__dynamic__';
@@ -283,9 +307,10 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
       <div ref={containerRef} className="flex-1 flex flex-col justify-center items-center p-6 overflow-y-auto">
         {displayCues.length > 0 ? (
           <div className="w-full max-w-2xl space-y-3">
-            {displayCues.map(({ cue, index, isCurrent, isPrevious, isNext }) => (
+            {displayCues.map(({ cue, index, isCurrent, isPrevious, isNext }, mapIndex) => (
               <div
                 key={cue.id}
+                ref={mapIndex === 0 ? cueCardRef : null}
                 className={`relative rounded-lg p-4 border transition-all duration-200 ${
                   isCurrent
                     ? 'bg-gray-700 border-green-500 border-2 scale-105 shadow-lg'
