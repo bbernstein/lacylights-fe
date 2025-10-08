@@ -244,7 +244,7 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   }
 
   return (
-    <div className="bg-gray-900 text-white h-screen flex flex-col">
+    <div className="absolute inset-0 bg-gray-900 text-white flex flex-col">
       {/* Header */}
       <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
         <h1 className="text-lg font-bold">{cueList.name}</h1>

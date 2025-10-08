@@ -1,17 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECT_CUE_LISTS, DELETE_CUE_LIST } from '@/graphql/cueLists';
 import { useProject } from '@/contexts/ProjectContext';
 import CreateCueListModal from '@/components/CreateCueListModal';
-import CueListUnifiedView from '@/components/CueListUnifiedView';
 import CueListPlaybackStatus from '@/components/CueListPlaybackStatus';
 import { CueList } from '@/types';
 
 export default function CueListsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [activeCueListId, setActiveCueListId] = useState<string | null>(null);
+  const router = useRouter();
   const { currentProject, loading: projectLoading } = useProject();
   
   const { data, loading, error, refetch } = useQuery(GET_PROJECT_CUE_LISTS, {
@@ -45,11 +45,7 @@ export default function CueListsPage() {
   };
 
   const handleOpenCueList = (cueList: CueList) => {
-    setActiveCueListId(cueList.id);
-  };
-
-  const handleCloseUnifiedView = () => {
-    setActiveCueListId(null);
+    router.push(`/cue-lists/${cueList.id}`);
   };
 
   if (projectLoading) {
@@ -220,13 +216,6 @@ export default function CueListsPage() {
           onClose={() => setIsCreateModalOpen(false)}
           projectId={currentProject.id}
           onCueListCreated={handleCueListCreated}
-        />
-      )}
-
-      {activeCueListId && (
-        <CueListUnifiedView
-          cueListId={activeCueListId}
-          onClose={handleCloseUnifiedView}
         />
       )}
     </div>

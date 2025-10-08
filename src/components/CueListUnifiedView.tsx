@@ -20,7 +20,6 @@ import {
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { Cue, Scene } from '@/types';
 import { convertCueIndexForLocalState } from '@/utils/cueListHelpers';
-import { PLAYER_WINDOW } from '@/constants/playback';
 import BulkFadeUpdateModal from './BulkFadeUpdateModal';
 import SceneEditorModal from './SceneEditorModal';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
@@ -1109,7 +1108,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-gray-900 flex flex-col">
+    <div className="absolute inset-0 bg-gray-900 flex flex-col">
       {/* Header */}
       <div className="bg-gray-800 border-b border-gray-700 px-3 py-3 md:px-6 md:py-4">
         <div className="flex items-start justify-between gap-2">
@@ -1135,24 +1134,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                   title={editMode ? 'Exit edit mode' : 'Enter edit mode'}
                 >
                   {editMode ? 'EDITING' : 'EDIT MODE'}
-                </button>
-                <button
-                  onClick={() => {
-                    const left = (window.screen.width - PLAYER_WINDOW.width) / 2;
-                    const top = (window.screen.height - PLAYER_WINDOW.height) / 2;
-                    window.open(
-                      `/player/${cueListId}`,
-                      PLAYER_WINDOW.name,
-                      `width=${PLAYER_WINDOW.width},height=${PLAYER_WINDOW.height},left=${left},top=${top},${PLAYER_WINDOW.features}`
-                    );
-                  }}
-                  className="px-3 py-1 rounded text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white flex items-center space-x-1 whitespace-nowrap"
-                  title="Open player in new window"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                  <span>Pop Out Player</span>
                 </button>
               </div>
             </div>
