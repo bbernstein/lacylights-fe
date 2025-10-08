@@ -869,6 +869,7 @@ describe('CueListEditorModal', () => {
               input: {
                 name: 'Test Cue List',
                 description: 'Test Description',
+                loop: false,
                 projectId: 'project-1',
               },
             },

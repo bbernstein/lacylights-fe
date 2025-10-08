@@ -71,7 +71,10 @@ jest.mock('../ColorPickerModal', () => {
     if (!isOpen) return null;
     return (
       <div data-testid="color-picker-modal">
-        <button onClick={() => onColorSelect?.({ r: 255, g: 0, b: 0 })}>
+        <button onClick={() => {
+          onColorSelect?.({ r: 255, g: 0, b: 0 });
+          onClose?.(); // Real modal calls onClose after onColorSelect
+        }}>
           Select Red
         </button>
         <button onClick={onClose}>Close Color Picker</button>

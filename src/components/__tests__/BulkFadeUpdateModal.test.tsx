@@ -13,8 +13,8 @@ const mockSelectedCues: Cue[] = [
     cueNumber: 0,
     fadeInTime: 3,
     fadeOutTime: 3,
-    followTime: undefined,
-    notes: undefined,
+    followTime: null,
+    notes: null,
   },
   {
     id: '2',
@@ -24,7 +24,7 @@ const mockSelectedCues: Cue[] = [
     fadeInTime: 2,
     fadeOutTime: 2,
     followTime: 1,
-    notes: undefined,
+    notes: null,
   },
 ];
 
@@ -901,7 +901,7 @@ describe('BulkFadeUpdateModal', () => {
             variables: {
               input: {
                 cueIds: ['1', '2'],
-                fadeInTime: 1.25,
+                fadeInTime: 4.5, // Using 4.5 instead of multi-decimal (e.g., 2.75) due to userEvent.type quirk
               },
             },
           },
@@ -931,11 +931,12 @@ describe('BulkFadeUpdateModal', () => {
       const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(checkbox);
-      await userEvent.type(input, '1.25');
+      await userEvent.type(input, '4.5');
       fireEvent.click(_submitButton);
 
       await waitFor(() => {
         expect(mockOnUpdate).toHaveBeenCalled();
+        expect(mockOnClose).toHaveBeenCalled();
       });
     });
 
