@@ -24,28 +24,20 @@ interface CueListPlayerProps {
 
 
 export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlayerProps) {
-  // Extract actual cueListId from URL if we received the __dynamic__ placeholder
-  const [actualCueListId, setActualCueListId] = useState<string>(() => {
+  // Helper to extract cueListId from URL if needed
+  function extractCueListId(cueListIdProp: string): string {
     if (cueListIdProp === '__dynamic__' && typeof window !== 'undefined') {
       const pathname = window.location.pathname;
       const match = pathname.match(/\/player\/([^\/]+)/);
       return match?.[1] || cueListIdProp;
     }
     return cueListIdProp;
-  });
+  }
+
+  const [actualCueListId, setActualCueListId] = useState<string>(() => extractCueListId(cueListIdProp));
 
   useEffect(() => {
-    if (cueListIdProp === '__dynamic__') {
-      // Extract cueListId from URL pathname
-      // URL pattern is /player/[cueListId]
-      const pathname = window.location.pathname;
-      const match = pathname.match(/\/player\/([^\/]+)/);
-      if (match && match[1]) {
-        setActualCueListId(match[1]);
-      }
-    } else {
-      setActualCueListId(cueListIdProp);
-    }
+    setActualCueListId(extractCueListId(cueListIdProp));
   }, [cueListIdProp]);
 
   const cueListId = actualCueListId;
