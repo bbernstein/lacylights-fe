@@ -162,10 +162,10 @@ function SortableCueRow(props: SortableCueRowProps) {
   // Combine sortable ref and scroll ref
   const combinedRef = useCallback((node: HTMLTableRowElement | null) => {
     setNodeRef(node);
-    if (props.currentCueRef) {
+    if (props.currentCueRef && props.isActive) {
       props.currentCueRef.current = node;
     }
-  }, [setNodeRef, props.currentCueRef]);
+  }, [setNodeRef, props.currentCueRef, props.isActive]);
 
   return (
     <CueRow
@@ -436,10 +436,10 @@ function SortableCueCard(props: SortableCueRowProps) {
   // Combine sortable ref and scroll ref
   const combinedRef = useCallback((node: HTMLDivElement | null) => {
     setNodeRef(node);
-    if (props.currentCueRef) {
+    if (props.currentCueRef && props.isActive) {
       props.currentCueRef.current = node;
     }
-  }, [setNodeRef, props.currentCueRef]);
+  }, [setNodeRef, props.currentCueRef, props.isActive]);
 
   return (
     <CueCard
@@ -859,12 +859,19 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
   // Auto-scroll to current cue when it changes (only in play mode, not edit mode)
   useEffect(() => {
-    if (!editMode && currentCueRef.current && currentCueIndex >= 0) {
-      currentCueRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-        inline: 'nearest'
-      });
+    if (!editMode && currentCueIndex >= 0) {
+      // Use setTimeout to ensure DOM is ready, especially for mobile layout
+      const scrollTimer = setTimeout(() => {
+        if (currentCueRef.current) {
+          currentCueRef.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          });
+        }
+      }, 100);
+
+      return () => clearTimeout(scrollTimer);
     }
   }, [currentCueIndex, editMode]);
 
