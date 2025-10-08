@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Enable static export for Raspberry Pi deployment
-  output: 'export',
+  // Enable static export only for production builds (Raspberry Pi deployment)
+  // In dev mode, we need dynamic routing for the main app routes
+  output: process.env.NODE_ENV === 'production' ? 'export' : undefined,
 
   // Disable image optimization for static export
   images: {
