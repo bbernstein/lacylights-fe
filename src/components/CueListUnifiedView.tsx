@@ -863,13 +863,16 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       // Use setTimeout to ensure DOM is ready, especially for mobile layout
       const scrollTimer = setTimeout(() => {
         if (currentCueRef.current) {
-          currentCueRef.current.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-            inline: 'nearest'
+          // Request animation frame for smoother scrolling, especially on mobile
+          requestAnimationFrame(() => {
+            currentCueRef.current?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+              inline: 'nearest'
+            });
           });
         }
-      }, 100);
+      }, 150); // Increased delay for mobile layouts
 
       return () => clearTimeout(scrollTimer);
     }
