@@ -184,7 +184,7 @@ describe('TabNavigation', () => {
       render(<TabNavigation />);
 
       const links = screen.getAllByRole('link');
-      expect(links).toHaveLength(3);
+      expect(links).toHaveLength(4); // Fixtures, Scenes, Cue Lists, Settings
 
       links.forEach((link) => {
         expect(link).toHaveAttribute('href');
@@ -202,6 +202,7 @@ describe('TabNavigation', () => {
         { name: 'Fixtures', href: '/fixtures' },
         { name: 'Scenes', href: '/scenes' },
         { name: 'Cue Lists', href: '/cue-lists' },
+        { name: 'Settings', href: '/settings' },
       ];
 
       expectedTabs.forEach((tab) => {

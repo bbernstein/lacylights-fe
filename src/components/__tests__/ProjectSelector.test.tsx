@@ -29,6 +29,13 @@ jest.mock('../ProjectManagementModal', () => {
   };
 });
 
+// Mock the ImportExportButtons
+jest.mock('../ImportExportButtons', () => {
+  return function MockImportExportButtons() {
+    return <div data-testid="import-export-buttons">Import/Export</div>;
+  };
+});
+
 const mockProjects = [
   { id: '1', name: 'Project Alpha' },
   { id: '2', name: 'Project Beta' },

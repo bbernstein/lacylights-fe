@@ -229,7 +229,14 @@ const createMocks = () => [
       data: {
         startPreviewSession: {
           id: 'preview-1',
-          projectId: mockProject.id,
+          project: {
+            id: mockProject.id,
+            name: mockProject.name,
+            __typename: 'Project',
+          },
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          dmxOutput: [],
           __typename: 'PreviewSession',
         },
       },
