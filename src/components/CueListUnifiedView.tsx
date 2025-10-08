@@ -140,6 +140,7 @@ interface SortableCueRowProps {
   scenes: Scene[];
   isSelected: boolean;
   onSelect: (cueId: string, selected: boolean) => void;
+  currentCueRef?: React.MutableRefObject<HTMLTableRowElement | HTMLDivElement | null>;
 }
 
 function SortableCueRow(props: SortableCueRowProps) {
@@ -158,10 +159,18 @@ function SortableCueRow(props: SortableCueRowProps) {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Combine sortable ref and scroll ref
+  const combinedRef = useCallback((node: HTMLTableRowElement | null) => {
+    setNodeRef(node);
+    if (props.currentCueRef) {
+      props.currentCueRef.current = node;
+    }
+  }, [setNodeRef, props.currentCueRef]);
+
   return (
     <CueRow
       {...props}
-      ref={setNodeRef}
+      ref={combinedRef}
       style={style}
       dragAttributes={attributes}
       dragListeners={listeners}
@@ -424,10 +433,18 @@ function SortableCueCard(props: SortableCueRowProps) {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Combine sortable ref and scroll ref
+  const combinedRef = useCallback((node: HTMLDivElement | null) => {
+    setNodeRef(node);
+    if (props.currentCueRef) {
+      props.currentCueRef.current = node;
+    }
+  }, [setNodeRef, props.currentCueRef]);
+
   return (
     <CueCard
       {...props}
-      ref={setNodeRef}
+      ref={combinedRef}
       style={style}
       dragAttributes={attributes}
       dragListeners={listeners}
@@ -688,6 +705,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
 
   const followTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentCueRef = useRef<HTMLDivElement | HTMLTableRowElement | null>(null);
 
   const [newCue, setNewCue] = useState({
     name: '',
@@ -838,6 +856,17 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       if (followTimeoutRef.current) clearTimeout(followTimeoutRef.current);
     };
   }, []);
+
+  // Auto-scroll to current cue when it changes (only in play mode, not edit mode)
+  useEffect(() => {
+    if (!editMode && currentCueRef.current && currentCueIndex >= 0) {
+      currentCueRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest'
+      });
+    }
+  }, [currentCueIndex, editMode]);
 
 
   const handleJumpToCue = useCallback(async (cue: Cue, index: number) => {
@@ -1301,16 +1330,17 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                   // Calculate isNext with loop support
                   const isLoopingToFirst = cueList?.loop && currentCueIndex === cues.length - 1 && index === 0;
                   const isNext = index === currentCueIndex + 1 || isLoopingToFirst;
+                  const isActive = index === currentCueIndex;
 
                   return (
                     <SortableCueCard
                       key={cue.id}
                       cue={cue}
                       index={index}
-                      isActive={index === currentCueIndex}
+                      isActive={isActive}
                       isNext={isNext}
                       isPrevious={index < currentCueIndex && !(isLoopingToFirst && index === 0)}
-                      fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
+                      fadeProgress={isActive ? fadeProgress : undefined}
                       onJumpToCue={handleJumpToCue}
                       onUpdateCue={handleUpdateCue}
                       onDeleteCue={handleDeleteCue}
@@ -1319,6 +1349,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                       scenes={scenes}
                       isSelected={selectedCueIds.has(cue.id)}
                       onSelect={handleSelectCue}
+                      currentCueRef={isActive ? currentCueRef : undefined}
                     />
                   );
                 })}
@@ -1389,16 +1420,17 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                       // Calculate isNext with loop support
                       const isLoopingToFirst = cueList?.loop && currentCueIndex === cues.length - 1 && index === 0;
                       const isNext = index === currentCueIndex + 1 || isLoopingToFirst;
+                      const isActive = index === currentCueIndex;
 
                       return (
                         <SortableCueRow
                           key={cue.id}
                           cue={cue}
                           index={index}
-                          isActive={index === currentCueIndex}
+                          isActive={isActive}
                           isNext={isNext}
                           isPrevious={index < currentCueIndex && !(isLoopingToFirst && index === 0)}
-                          fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
+                          fadeProgress={isActive ? fadeProgress : undefined}
                           onJumpToCue={handleJumpToCue}
                           onUpdateCue={handleUpdateCue}
                           onDeleteCue={handleDeleteCue}
@@ -1407,6 +1439,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                           scenes={scenes}
                           isSelected={selectedCueIds.has(cue.id)}
                           onSelect={handleSelectCue}
+                          currentCueRef={isActive ? currentCueRef : undefined}
                         />
                       );
                     })
