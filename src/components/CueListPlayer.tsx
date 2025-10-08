@@ -35,9 +35,8 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   }
 
   const [actualCueListId, setActualCueListId] = useState<string>(() => extractCueListId(cueListIdProp));
-  const [visibleCueCount, setVisibleCueCount] = useState(999); // Start with large number to show all
   const containerRef = useRef<HTMLDivElement>(null);
-  const cueCardRef = useRef<HTMLDivElement>(null);
+  const currentCueRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setActualCueListId(extractCueListId(cueListIdProp));
@@ -75,50 +74,6 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   const cueList = cueListData?.cueList;
   const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
 
-  // Calculate how many cues can fit in the available space using ResizeObserver
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const calculateVisibleCues = () => {
-      if (!containerRef.current) return;
-
-      const containerHeight = containerRef.current.clientHeight;
-
-      // Measure actual cue card height if available, otherwise estimate
-      let cueHeight = 88; // Default estimate based on typical card size
-      if (cueCardRef.current) {
-        const cardRect = cueCardRef.current.getBoundingClientRect();
-        const computedStyle = window.getComputedStyle(cueCardRef.current);
-        const marginBottom = parseFloat(computedStyle.marginBottom);
-        cueHeight = cardRect.height + marginBottom;
-      }
-
-      const maxCues = Math.floor(containerHeight / cueHeight);
-
-      // Ensure odd number so current cue is centered, minimum 5
-      const oddMaxCues = maxCues % 2 === 0 ? maxCues - 1 : maxCues;
-      const finalCount = Math.max(5, oddMaxCues);
-
-      setVisibleCueCount(finalCount);
-    };
-
-    // Use ResizeObserver to watch container size changes
-    const resizeObserver = new ResizeObserver(() => {
-      // Small delay to ensure layout is complete
-      requestAnimationFrame(calculateVisibleCues);
-    });
-
-    resizeObserver.observe(containerRef.current);
-
-    // Initial calculation with delay to ensure DOM is ready
-    const timer = setTimeout(calculateVisibleCues, 100);
-
-    return () => {
-      resizeObserver.disconnect();
-      clearTimeout(timer);
-    };
-  }, [cues.length]); // Recalculate when cues change
-
   // Get current state from subscription data only
   const currentCueIndex = convertCueIndexForLocalState(playbackStatus?.currentCueIndex);
   const isPlaying = playbackStatus?.isPlaying || false;
@@ -136,32 +91,34 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
     return null;
   }, [currentCueIndex, cues, cueList?.loop]);
 
-  // Get cues for display - dynamically calculated based on available space
+  // Display all cues with proper state indicators
   const displayCues = useMemo(() => {
-    const cuesForDisplay = [];
-
-    // Calculate how many cues to show before and after current
-    const cuesPerSide = Math.floor(visibleCueCount / 2);
-
     // Determine if first cue should be marked as "next" due to loop
     const isLoopingToFirst = cueList?.loop && currentCueIndex === cues.length - 1;
 
-    for (let i = currentCueIndex - cuesPerSide; i <= currentCueIndex + cuesPerSide; i++) {
-      if (i >= 0 && i < cues.length) {
-        const isNext = i > currentCueIndex || (isLoopingToFirst && i === 0);
+    return cues.map((cue, i) => {
+      const isNext = i > currentCueIndex || (isLoopingToFirst && i === 0);
 
-        cuesForDisplay.push({
-          cue: cues[i],
-          index: i,
-          isCurrent: i === currentCueIndex,
-          isPrevious: i < currentCueIndex && !(isLoopingToFirst && i === 0),
-          isNext: isNext && i !== currentCueIndex
-        });
-      }
+      return {
+        cue,
+        index: i,
+        isCurrent: i === currentCueIndex,
+        isPrevious: i < currentCueIndex && !(isLoopingToFirst && i === 0),
+        isNext: isNext && i !== currentCueIndex
+      };
+    });
+  }, [currentCueIndex, cues, cueList?.loop]);
+
+  // Auto-scroll to current cue when it changes
+  useEffect(() => {
+    if (currentCueRef.current && currentCueIndex >= 0) {
+      currentCueRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest'
+      });
     }
-
-    return cuesForDisplay;
-  }, [currentCueIndex, cues, cueList?.loop, visibleCueCount]);
+  }, [currentCueIndex]);
 
   // Memoize the disable condition to avoid repetition
   // When loop is enabled, GO button should always work (even at last cue)
@@ -303,14 +260,14 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
         )}
       </div>
 
-      {/* Cue Display - dynamically shows as many cues as fit in available space */}
-      <div ref={containerRef} className="flex-1 flex flex-col justify-center items-center p-6 overflow-y-auto">
+      {/* Cue Display - shows all cues with auto-scroll to current */}
+      <div ref={containerRef} className="flex-1 flex flex-col items-center p-6 overflow-y-auto">
         {displayCues.length > 0 ? (
           <div className="w-full max-w-2xl space-y-3">
-            {displayCues.map(({ cue, index, isCurrent, isPrevious, isNext }, mapIndex) => (
+            {displayCues.map(({ cue, index, isCurrent, isPrevious, isNext }) => (
               <div
                 key={cue.id}
-                ref={mapIndex === 0 ? cueCardRef : null}
+                ref={isCurrent ? currentCueRef : null}
                 className={`relative rounded-lg p-4 border transition-all duration-200 ${
                   isCurrent
                     ? 'bg-gray-700 border-green-500 border-2 scale-105 shadow-lg'
