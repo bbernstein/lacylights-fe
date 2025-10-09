@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import CueListPlayer from '@/components/CueListPlayer';
 import CueListUnifiedView from '@/components/CueListUnifiedView';
@@ -9,24 +8,18 @@ interface CueListPageClientProps {
   cueListId: string;
 }
 
-export default function CueListPageClient({ cueListId: cueListIdProp }: CueListPageClientProps) {
-  // Helper to extract cueListId from URL if needed (for static export)
-  function extractCueListId(cueListIdProp: string): string {
-    if (cueListIdProp === '__dynamic__' && typeof window !== 'undefined') {
-      const pathname = window.location.pathname;
-      const match = pathname.match(/\/cue-lists\/([^\/\?]+)/);
-      return match?.[1] || cueListIdProp;
-    }
-    return cueListIdProp;
+// Helper to extract cueListId from URL if needed (for static export)
+function extractCueListId(cueListIdProp: string): string {
+  if (cueListIdProp === '__dynamic__' && typeof window !== 'undefined') {
+    const pathname = window.location.pathname;
+    const match = pathname.match(/\/cue-lists\/([^\/\?]+)/);
+    return match?.[1] || cueListIdProp;
   }
+  return cueListIdProp;
+}
 
-  const [actualCueListId, setActualCueListId] = useState<string>(() => extractCueListId(cueListIdProp));
-
-  useEffect(() => {
-    setActualCueListId(extractCueListId(cueListIdProp));
-  }, [cueListIdProp]);
-
-  const cueListId = actualCueListId;
+export default function CueListPageClient({ cueListId: cueListIdProp }: CueListPageClientProps) {
+  const cueListId = extractCueListId(cueListIdProp);
   const router = useRouter();
   const searchParams = useSearchParams();
 
