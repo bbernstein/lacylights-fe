@@ -84,6 +84,21 @@ Key GraphQL operations:
 
 ## Building for Production
 
+### Static Export (for Raspberry Pi)
+
+LacyLights frontend is deployed as a static export on Raspberry Pi:
+
+```bash
+npm run build
+```
+
+This generates a static site in the `out/` directory optimized for nginx deployment.
+
+For complete Raspberry Pi deployment instructions, see:
+📖 **[Raspberry Pi Deployment Guide](https://github.com/bbernstein/lacylights-node/blob/main/deploy/DEPLOYMENT.md)**
+
+### Development Production Server
+
 ```bash
 npm run build
 npm start
