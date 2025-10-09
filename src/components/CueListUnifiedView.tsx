@@ -70,23 +70,32 @@ function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   // Check if this field should auto-focus after render (for arrow navigation)
+  // Runs on every render to check if this field should be focused after a navigation
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (autoFocusFieldRef?.current && fieldType && cueIndex !== undefined) {
       const { fieldType: targetFieldType, cueIndex: targetCueIndex } = autoFocusFieldRef.current;
       if (targetFieldType === fieldType && targetCueIndex === cueIndex) {
-        console.log('Auto-focusing field from ref', { fieldType, cueIndex });
         setIsEditing(true);
-        autoFocusFieldRef.current = null; // Clear the ref after using it
+        // Don't clear the ref here - wait until we actually focus
       }
     }
-  }, [autoFocusFieldRef, fieldType, cueIndex]);
+  });
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
       inputRef.current.select();
+
+      // Clear the ref now that we've actually entered edit mode
+      if (autoFocusFieldRef?.current && fieldType && cueIndex !== undefined) {
+        const { fieldType: targetFieldType, cueIndex: targetCueIndex } = autoFocusFieldRef.current;
+        if (targetFieldType === fieldType && targetCueIndex === cueIndex) {
+          autoFocusFieldRef.current = null;
+        }
+      }
     }
-  }, [isEditing]);
+  }, [isEditing, autoFocusFieldRef, fieldType, cueIndex]);
 
   const handleSave = () => {
     const newValue = parseFloat(editValue);
@@ -105,11 +114,8 @@ function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 
 
   const navigateToField = (direction: 'up' | 'down') => {
     if (!fieldType || cueIndex === undefined) {
-      console.log('No fieldType or cueIndex', { fieldType, cueIndex });
       return;
     }
-
-    console.log('Navigating', { direction, fieldType, currentIndex: cueIndex });
 
     // Calculate target field
     const targetIndex = direction === 'down' ? cueIndex + 1 : cueIndex - 1;
@@ -120,7 +126,6 @@ function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 
         fieldType,
         cueIndex: targetIndex
       };
-      console.log('Set autoFocusFieldRef to', autoFocusFieldRef.current);
     }
 
     // Save current field (this will trigger GraphQL mutation and refetch)
@@ -195,23 +200,32 @@ function EditableTextCell({ value, onUpdate, disabled = false, placeholder = '',
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   // Check if this field should auto-focus after render (for arrow navigation)
+  // Runs on every render to check if this field should be focused after a navigation
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (autoFocusFieldRef?.current && fieldType && cueIndex !== undefined) {
       const { fieldType: targetFieldType, cueIndex: targetCueIndex } = autoFocusFieldRef.current;
       if (targetFieldType === fieldType && targetCueIndex === cueIndex) {
-        console.log('Auto-focusing field from ref', { fieldType, cueIndex });
         setIsEditing(true);
-        autoFocusFieldRef.current = null; // Clear the ref after using it
+        // Don't clear the ref here - wait until we actually focus
       }
     }
-  }, [autoFocusFieldRef, fieldType, cueIndex]);
+  });
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
       inputRef.current.select();
+
+      // Clear the ref now that we've actually entered edit mode
+      if (autoFocusFieldRef?.current && fieldType && cueIndex !== undefined) {
+        const { fieldType: targetFieldType, cueIndex: targetCueIndex } = autoFocusFieldRef.current;
+        if (targetFieldType === fieldType && targetCueIndex === cueIndex) {
+          autoFocusFieldRef.current = null;
+        }
+      }
     }
-  }, [isEditing]);
+  }, [isEditing, autoFocusFieldRef, fieldType, cueIndex]);
 
   const handleSave = () => {
     const trimmedValue = editValue.trim();
@@ -230,11 +244,8 @@ function EditableTextCell({ value, onUpdate, disabled = false, placeholder = '',
 
   const navigateToField = (direction: 'up' | 'down') => {
     if (!fieldType || cueIndex === undefined) {
-      console.log('No fieldType or cueIndex', { fieldType, cueIndex });
       return;
     }
-
-    console.log('Navigating', { direction, fieldType, currentIndex: cueIndex });
 
     // Calculate target field
     const targetIndex = direction === 'down' ? cueIndex + 1 : cueIndex - 1;
@@ -245,7 +256,6 @@ function EditableTextCell({ value, onUpdate, disabled = false, placeholder = '',
         fieldType,
         cueIndex: targetIndex
       };
-      console.log('Set autoFocusFieldRef to', autoFocusFieldRef.current);
     }
 
     // Save current field (this will trigger GraphQL mutation and refetch)
