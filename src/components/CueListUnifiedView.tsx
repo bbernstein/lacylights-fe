@@ -70,7 +70,11 @@ function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   // Check if this field should auto-focus after render (for arrow navigation)
-  // Runs on every render to check if this field should be focused after a navigation
+  // IMPORTANT: This intentionally runs on every render (no deps array) because:
+  // 1. GraphQL refetch causes complete re-render with fresh data
+  // 2. The ref persists across renders but doesn't trigger re-renders when changed
+  // 3. We need to check on every render if THIS specific field instance should focus
+  // 4. Adding deps would prevent it from running after refetch, breaking navigation
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (autoFocusFieldRef?.current && fieldType && cueIndex !== undefined) {
@@ -200,7 +204,11 @@ function EditableTextCell({ value, onUpdate, disabled = false, placeholder = '',
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   // Check if this field should auto-focus after render (for arrow navigation)
-  // Runs on every render to check if this field should be focused after a navigation
+  // IMPORTANT: This intentionally runs on every render (no deps array) because:
+  // 1. GraphQL refetch causes complete re-render with fresh data
+  // 2. The ref persists across renders but doesn't trigger re-renders when changed
+  // 3. We need to check on every render if THIS specific field instance should focus
+  // 4. Adding deps would prevent it from running after refetch, breaking navigation
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (autoFocusFieldRef?.current && fieldType && cueIndex !== undefined) {
@@ -570,7 +578,7 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
       <td className={`px-3 py-3 text-sm ${textColorClass}`} onClick={(e) => e.stopPropagation()}>
         <EditableCell
           value={cue.followTime ?? 0}
-          onUpdate={(value) => onUpdateCue({ ...cue, followTime: value >= 0 ? value : undefined })}
+          onUpdate={(value) => onUpdateCue({ ...cue, followTime: value > 0 ? value : undefined })}
           disabled={!editMode}
           fieldType="follow"
           cueIndex={index}
@@ -883,7 +891,7 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
             <span className="text-gray-500 dark:text-gray-400">follow: </span>
             <EditableCell
               value={cue.followTime ?? 0}
-              onUpdate={(value) => onUpdateCue({ ...cue, followTime: value >= 0 ? value : undefined })}
+              onUpdate={(value) => onUpdateCue({ ...cue, followTime: value > 0 ? value : undefined })}
               disabled={!editMode}
               fieldType="follow"
               cueIndex={index}
@@ -1234,7 +1242,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
           sceneId: cue.scene.id,
           fadeInTime: cue.fadeInTime,
           fadeOutTime: cue.fadeOutTime,
-          followTime: cue.followTime ?? undefined,
+          followTime: cue.followTime || undefined,
           notes: cue.notes || undefined,
         },
       },
@@ -1736,7 +1744,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
           </button>
 
           <button
-            onClick={handleGo}
+            onClick={handleNext}
             disabled={isPlaying || (!cueList?.loop && currentCueIndex >= cues.length - 1) || editMode}
             className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="Next (→)"
