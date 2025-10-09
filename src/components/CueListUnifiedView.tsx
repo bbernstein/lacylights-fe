@@ -151,35 +151,35 @@ function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 
     // Tab key: let default behavior happen, onBlur will save
   };
 
-  if (isEditing && !disabled) {
-    return (
-      <input
-        ref={inputRef}
-        type="number"
-        step={step}
-        min={min}
-        value={editValue}
-        onChange={(e) => setEditValue(e.target.value)}
-        onBlur={handleSave}
-        onKeyDown={handleKeyDown}
-        className="w-20 px-1 py-0 text-sm border border-blue-500 rounded bg-white dark:bg-gray-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-        onClick={(e) => e.stopPropagation()}
-      />
-    );
-  }
-
   return (
-    <button
-      ref={buttonRef}
-      onClick={() => !disabled && setIsEditing(true)}
-      onFocus={() => !disabled && setIsEditing(true)}
-      disabled={disabled}
-      data-field-type={fieldType}
-      data-cue-index={cueIndex}
-      className={`text-left ${disabled ? 'cursor-default' : 'hover:bg-gray-100 dark:hover:bg-gray-700 px-1 rounded cursor-pointer'}`}
-    >
-      {value}{suffix}
-    </button>
+    <div className="inline-block w-14 min-w-14">
+      {isEditing && !disabled ? (
+        <input
+          ref={inputRef}
+          type="number"
+          step={step}
+          min={min}
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={handleKeyDown}
+          className="w-full px-1 py-0 text-sm border border-blue-500 rounded bg-white dark:bg-gray-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <button
+          ref={buttonRef}
+          onClick={() => !disabled && setIsEditing(true)}
+          onFocus={() => !disabled && setIsEditing(true)}
+          disabled={disabled}
+          data-field-type={fieldType}
+          data-cue-index={cueIndex}
+          className={`text-left w-full ${disabled ? 'cursor-default' : 'hover:bg-gray-100 dark:hover:bg-gray-700 px-1 rounded cursor-pointer'}`}
+        >
+          {value}{suffix}
+        </button>
+      )}
+    </div>
   );
 }
 
