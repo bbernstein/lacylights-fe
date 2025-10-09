@@ -20,7 +20,6 @@ import {
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { Cue, Scene } from '@/types';
 import { convertCueIndexForLocalState } from '@/utils/cueListHelpers';
-import { PLAYER_WINDOW } from '@/constants/playback';
 import BulkFadeUpdateModal from './BulkFadeUpdateModal';
 import SceneEditorModal from './SceneEditorModal';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
@@ -59,19 +58,48 @@ interface EditableCellProps {
   suffix?: string;
   step?: number;
   min?: number;
+  fieldType?: string;
+  cueIndex?: number;
+  autoFocusFieldRef?: React.MutableRefObject<{ fieldType: string; cueIndex: number } | null>;
 }
 
-function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 0.1, min = 0 }: EditableCellProps) {
+function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 0.001, min = 0, fieldType, cueIndex, autoFocusFieldRef }: EditableCellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value.toString());
   const inputRef = useRef<HTMLInputElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Check if this field should auto-focus after render (for arrow navigation)
+  // IMPORTANT: This intentionally runs on every render (no deps array) because:
+  // 1. GraphQL refetch causes complete re-render with fresh data
+  // 2. The ref persists across renders but doesn't trigger re-renders when changed
+  // 3. We need to check on every render if THIS specific field instance should focus
+  // 4. Adding deps would prevent it from running after refetch, breaking navigation
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (autoFocusFieldRef?.current && fieldType && cueIndex !== undefined) {
+      const { fieldType: targetFieldType, cueIndex: targetCueIndex } = autoFocusFieldRef.current;
+      if (targetFieldType === fieldType && targetCueIndex === cueIndex) {
+        setIsEditing(true);
+        // Don't clear the ref here - wait until we actually focus
+      }
+    }
+  });
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
       inputRef.current.select();
+
+      // Clear the ref now that we've actually entered edit mode
+      if (autoFocusFieldRef?.current && fieldType && cueIndex !== undefined) {
+        const { fieldType: targetFieldType, cueIndex: targetCueIndex } = autoFocusFieldRef.current;
+        if (targetFieldType === fieldType && targetCueIndex === cueIndex) {
+          autoFocusFieldRef.current = null;
+        }
+      }
     }
-  }, [isEditing]);
+  }, [isEditing, autoFocusFieldRef, fieldType, cueIndex]);
 
   const handleSave = () => {
     const newValue = parseFloat(editValue);
@@ -88,6 +116,26 @@ function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 
     setIsEditing(false);
   };
 
+  const navigateToField = (direction: 'up' | 'down') => {
+    if (!fieldType || cueIndex === undefined) {
+      return;
+    }
+
+    // Calculate target field
+    const targetIndex = direction === 'down' ? cueIndex + 1 : cueIndex - 1;
+
+    // Store which field should auto-focus after the GraphQL refetch
+    if (autoFocusFieldRef) {
+      autoFocusFieldRef.current = {
+        fieldType,
+        cueIndex: targetIndex
+      };
+    }
+
+    // Save current field (this will trigger GraphQL mutation and refetch)
+    handleSave();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.stopPropagation();
@@ -95,21 +143,163 @@ function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 
     } else if (e.key === 'Escape') {
       e.stopPropagation();
       handleCancel();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      e.stopPropagation();
+      navigateToField('down');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      e.stopPropagation();
+      navigateToField('up');
     }
+    // Tab key: let default behavior happen, onBlur will save
+  };
+
+  return (
+    <div className="inline-block w-14 min-w-14">
+      {isEditing && !disabled ? (
+        <input
+          ref={inputRef}
+          type="number"
+          step={step}
+          min={min}
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={handleKeyDown}
+          className="w-full px-1 py-0 text-sm border border-blue-500 rounded bg-white dark:bg-gray-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <button
+          ref={buttonRef}
+          onClick={() => !disabled && setIsEditing(true)}
+          onFocus={() => !disabled && setIsEditing(true)}
+          disabled={disabled}
+          data-field-type={fieldType}
+          data-cue-index={cueIndex}
+          className={`text-left w-full ${disabled ? 'cursor-default' : 'hover:bg-gray-100 dark:hover:bg-gray-700 px-1 rounded cursor-pointer'}`}
+        >
+          {value}{suffix}
+        </button>
+      )}
+    </div>
+  );
+}
+
+interface EditableTextCellProps {
+  value: string;
+  onUpdate: (value: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  fieldType?: string;
+  cueIndex?: number;
+  autoFocusFieldRef?: React.MutableRefObject<{ fieldType: string; cueIndex: number } | null>;
+}
+
+function EditableTextCell({ value, onUpdate, disabled = false, placeholder = '', fieldType, cueIndex, autoFocusFieldRef }: EditableTextCellProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Check if this field should auto-focus after render (for arrow navigation)
+  // IMPORTANT: This intentionally runs on every render (no deps array) because:
+  // 1. GraphQL refetch causes complete re-render with fresh data
+  // 2. The ref persists across renders but doesn't trigger re-renders when changed
+  // 3. We need to check on every render if THIS specific field instance should focus
+  // 4. Adding deps would prevent it from running after refetch, breaking navigation
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (autoFocusFieldRef?.current && fieldType && cueIndex !== undefined) {
+      const { fieldType: targetFieldType, cueIndex: targetCueIndex } = autoFocusFieldRef.current;
+      if (targetFieldType === fieldType && targetCueIndex === cueIndex) {
+        setIsEditing(true);
+        // Don't clear the ref here - wait until we actually focus
+      }
+    }
+  });
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+
+      // Clear the ref now that we've actually entered edit mode
+      if (autoFocusFieldRef?.current && fieldType && cueIndex !== undefined) {
+        const { fieldType: targetFieldType, cueIndex: targetCueIndex } = autoFocusFieldRef.current;
+        if (targetFieldType === fieldType && targetCueIndex === cueIndex) {
+          autoFocusFieldRef.current = null;
+        }
+      }
+    }
+  }, [isEditing, autoFocusFieldRef, fieldType, cueIndex]);
+
+  const handleSave = () => {
+    const trimmedValue = editValue.trim();
+    if (trimmedValue) {
+      onUpdate(trimmedValue);
+    } else {
+      setEditValue(value);
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditValue(value);
+    setIsEditing(false);
+  };
+
+  const navigateToField = (direction: 'up' | 'down') => {
+    if (!fieldType || cueIndex === undefined) {
+      return;
+    }
+
+    // Calculate target field
+    const targetIndex = direction === 'down' ? cueIndex + 1 : cueIndex - 1;
+
+    // Store which field should auto-focus after the GraphQL refetch
+    if (autoFocusFieldRef) {
+      autoFocusFieldRef.current = {
+        fieldType,
+        cueIndex: targetIndex
+      };
+    }
+
+    // Save current field (this will trigger GraphQL mutation and refetch)
+    handleSave();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.stopPropagation();
+      handleSave();
+    } else if (e.key === 'Escape') {
+      e.stopPropagation();
+      handleCancel();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      e.stopPropagation();
+      navigateToField('down');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      e.stopPropagation();
+      navigateToField('up');
+    }
+    // Tab key: let default behavior happen, onBlur will save
   };
 
   if (isEditing && !disabled) {
     return (
       <input
         ref={inputRef}
-        type="number"
-        step={step}
-        min={min}
+        type="text"
         value={editValue}
         onChange={(e) => setEditValue(e.target.value)}
         onBlur={handleSave}
         onKeyDown={handleKeyDown}
-        className="w-20 px-1 py-0 text-sm border border-blue-500 rounded bg-white dark:bg-gray-700"
+        placeholder={placeholder}
+        className="w-full px-1 py-0 text-sm border border-blue-500 rounded bg-white dark:bg-gray-700"
         onClick={(e) => e.stopPropagation()}
       />
     );
@@ -117,11 +307,15 @@ function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 
 
   return (
     <button
+      ref={buttonRef}
       onClick={() => !disabled && setIsEditing(true)}
+      onFocus={() => !disabled && setIsEditing(true)}
       disabled={disabled}
-      className={`text-left ${disabled ? 'cursor-default' : 'hover:bg-gray-100 dark:hover:bg-gray-700 px-1 rounded cursor-pointer'}`}
+      data-field-type={fieldType}
+      data-cue-index={cueIndex}
+      className={`text-left w-full ${disabled ? 'cursor-default' : 'hover:bg-gray-100 dark:hover:bg-gray-700 px-1 rounded cursor-pointer'}`}
     >
-      {value}{suffix}
+      {value}
     </button>
   );
 }
@@ -141,6 +335,8 @@ interface SortableCueRowProps {
   scenes: Scene[];
   isSelected: boolean;
   onSelect: (cueId: string, selected: boolean) => void;
+  currentCueRef?: React.MutableRefObject<HTMLTableRowElement | HTMLDivElement | null>;
+  autoFocusFieldRef?: React.MutableRefObject<{ fieldType: string; cueIndex: number } | null>;
 }
 
 function SortableCueRow(props: SortableCueRowProps) {
@@ -159,10 +355,19 @@ function SortableCueRow(props: SortableCueRowProps) {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Combine sortable ref and scroll ref
+  const combinedRef = useCallback((node: HTMLTableRowElement | null) => {
+    setNodeRef(node);
+    // Only set ref if element is active AND visible (not hidden by CSS)
+    if (props.currentCueRef && props.isActive && node && node.offsetParent !== null) {
+      props.currentCueRef.current = node;
+    }
+  }, [setNodeRef, props.currentCueRef, props.isActive]);
+
   return (
     <CueRow
       {...props}
-      ref={setNodeRef}
+      ref={combinedRef}
       style={style}
       dragAttributes={attributes}
       dragListeners={listeners}
@@ -194,7 +399,8 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
   style,
   dragAttributes,
   dragListeners,
-  isDragging
+  isDragging,
+  autoFocusFieldRef
 }, ref) => {
   const [showSceneSelect, setShowSceneSelect] = useState(false);
   const [selectedSceneId, setSelectedSceneId] = useState(cue.scene.id);
@@ -273,8 +479,15 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
         </span>
       </td>
 
-      <td className={`px-3 py-3 text-sm font-medium ${textColorClass}`}>
-        {cue.name}
+      <td className={`px-3 py-3 text-sm font-medium ${textColorClass}`} onClick={(e) => e.stopPropagation()}>
+        <EditableTextCell
+          value={cue.name}
+          onUpdate={(value) => onUpdateCue({ ...cue, name: value })}
+          disabled={!editMode}
+          fieldType="name"
+          cueIndex={index}
+          autoFocusFieldRef={autoFocusFieldRef}
+        />
       </td>
 
       <td className={`px-3 py-3 text-sm ${textColorClass}`} onClick={(e) => e.stopPropagation()}>
@@ -345,6 +558,9 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
           value={cue.fadeInTime}
           onUpdate={(value) => onUpdateCue({ ...cue, fadeInTime: value })}
           disabled={!editMode}
+          fieldType="fadeIn"
+          cueIndex={index}
+          autoFocusFieldRef={autoFocusFieldRef}
         />
       </td>
 
@@ -353,14 +569,20 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
           value={cue.fadeOutTime}
           onUpdate={(value) => onUpdateCue({ ...cue, fadeOutTime: value })}
           disabled={!editMode}
+          fieldType="fadeOut"
+          cueIndex={index}
+          autoFocusFieldRef={autoFocusFieldRef}
         />
       </td>
 
       <td className={`px-3 py-3 text-sm ${textColorClass}`} onClick={(e) => e.stopPropagation()}>
         <EditableCell
-          value={cue.followTime || 0}
+          value={cue.followTime ?? 0}
           onUpdate={(value) => onUpdateCue({ ...cue, followTime: value > 0 ? value : undefined })}
           disabled={!editMode}
+          fieldType="follow"
+          cueIndex={index}
+          autoFocusFieldRef={autoFocusFieldRef}
         />
       </td>
 
@@ -425,10 +647,19 @@ function SortableCueCard(props: SortableCueRowProps) {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Combine sortable ref and scroll ref
+  const combinedRef = useCallback((node: HTMLDivElement | null) => {
+    setNodeRef(node);
+    // Only set ref if element is active AND visible (not hidden by CSS)
+    if (props.currentCueRef && props.isActive && node && node.offsetParent !== null) {
+      props.currentCueRef.current = node;
+    }
+  }, [setNodeRef, props.currentCueRef, props.isActive]);
+
   return (
     <CueCard
       {...props}
-      ref={setNodeRef}
+      ref={combinedRef}
       style={style}
       dragAttributes={attributes}
       dragListeners={listeners}
@@ -462,6 +693,7 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
     dragAttributes,
     dragListeners,
     isDragging,
+    autoFocusFieldRef,
   } = props;
 
   const [showSceneSelect, setShowSceneSelect] = useState(false);
@@ -532,7 +764,16 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
             </button>
           )}
           <span className="font-bold text-sm">{cue.cueNumber}</span>
-          <span className="font-medium flex-1">{cue.name}</span>
+          <div className="font-medium flex-1" onClick={(e) => e.stopPropagation()}>
+            <EditableTextCell
+              value={cue.name}
+              onUpdate={(value) => onUpdateCue({ ...cue, name: value })}
+              disabled={!editMode}
+              fieldType="name"
+              cueIndex={index}
+              autoFocusFieldRef={autoFocusFieldRef}
+            />
+          </div>
         </div>
         <div className="flex items-center space-x-3" onClick={(e) => e.stopPropagation()}>
           <div className="text-sm text-right">
@@ -541,6 +782,9 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
               value={cue.fadeInTime}
               onUpdate={(value) => onUpdateCue({ ...cue, fadeInTime: value })}
               disabled={!editMode}
+              fieldType="fadeIn"
+              cueIndex={index}
+              autoFocusFieldRef={autoFocusFieldRef}
             />
           </div>
           {isActive && <span className="text-green-600 dark:text-green-400 font-bold text-xs">LIVE</span>}
@@ -617,6 +861,9 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
             value={cue.fadeOutTime}
             onUpdate={(value) => onUpdateCue({ ...cue, fadeOutTime: value })}
             disabled={!editMode}
+            fieldType="fadeOut"
+            cueIndex={index}
+            autoFocusFieldRef={autoFocusFieldRef}
           />
         </div>
       </div>
@@ -643,9 +890,12 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
           <div className="text-sm text-right">
             <span className="text-gray-500 dark:text-gray-400">follow: </span>
             <EditableCell
-              value={cue.followTime || 0}
+              value={cue.followTime ?? 0}
               onUpdate={(value) => onUpdateCue({ ...cue, followTime: value > 0 ? value : undefined })}
               disabled={!editMode}
+              fieldType="follow"
+              cueIndex={index}
+              autoFocusFieldRef={autoFocusFieldRef}
             />
           </div>
           {!editMode && (
@@ -689,6 +939,8 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
 
   const followTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentCueRef = useRef<HTMLDivElement | HTMLTableRowElement | null>(null);
+  const autoFocusFieldRef = useRef<{ fieldType: string; cueIndex: number } | null>(null);
 
   const [newCue, setNewCue] = useState({
     name: '',
@@ -839,6 +1091,29 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       if (followTimeoutRef.current) clearTimeout(followTimeoutRef.current);
     };
   }, []);
+
+  // Auto-scroll to current cue when it changes (only in play mode, not edit mode)
+  useEffect(() => {
+    if (!editMode && currentCueIndex >= 0) {
+      // Use setTimeout to ensure DOM is ready, especially for mobile layout
+      const scrollTimer = setTimeout(() => {
+        if (currentCueRef.current && currentCueRef.current.isConnected && currentCueRef.current.offsetParent !== null) {
+          // Request animation frame for smoother scrolling, especially on mobile
+          requestAnimationFrame(() => {
+            currentCueRef.current?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+              inline: 'nearest'
+            });
+          });
+        }
+      }, 250); // Increased delay for mobile layouts
+
+      return () => {
+        clearTimeout(scrollTimer);
+      };
+    }
+  }, [currentCueIndex, editMode]);
 
 
   const handleJumpToCue = useCallback(async (cue: Cue, index: number) => {
@@ -1109,7 +1384,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-gray-900 flex flex-col">
+    <div className="absolute inset-0 bg-gray-900 flex flex-col">
       {/* Header */}
       <div className="bg-gray-800 border-b border-gray-700 px-3 py-3 md:px-6 md:py-4">
         <div className="flex items-start justify-between gap-2">
@@ -1135,24 +1410,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                   title={editMode ? 'Exit edit mode' : 'Enter edit mode'}
                 >
                   {editMode ? 'EDITING' : 'EDIT MODE'}
-                </button>
-                <button
-                  onClick={() => {
-                    const left = (window.screen.width - PLAYER_WINDOW.width) / 2;
-                    const top = (window.screen.height - PLAYER_WINDOW.height) / 2;
-                    window.open(
-                      `/player/${cueListId}`,
-                      PLAYER_WINDOW.name,
-                      `width=${PLAYER_WINDOW.width},height=${PLAYER_WINDOW.height},left=${left},top=${top},${PLAYER_WINDOW.features}`
-                    );
-                  }}
-                  className="px-3 py-1 rounded text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white flex items-center space-x-1 whitespace-nowrap"
-                  title="Open player in new window"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                  <span>Pop Out Player</span>
                 </button>
               </div>
             </div>
@@ -1246,7 +1503,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                   placeholder="Cue #"
                   value={newCue.cueNumber}
                   onChange={(e) => setNewCue({ ...newCue, cueNumber: e.target.value })}
-                  className="rounded border-gray-600 bg-gray-700 text-white text-sm"
+                  className="rounded border-gray-600 bg-gray-700 text-white text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
                 <input
                   type="text"
@@ -1268,19 +1525,19 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                 <div className="flex items-center space-x-1">
                   <input
                     type="number"
-                    step="0.1"
+                    step="0.001"
                     placeholder="In"
                     value={newCue.fadeInTime}
                     onChange={(e) => setNewCue({ ...newCue, fadeInTime: e.target.value })}
-                    className="rounded border-gray-600 bg-gray-700 text-white text-sm w-16"
+                    className="rounded border-gray-600 bg-gray-700 text-white text-sm w-16 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                   <input
                     type="number"
-                    step="0.1"
+                    step="0.001"
                     placeholder="Out"
                     value={newCue.fadeOutTime}
                     onChange={(e) => setNewCue({ ...newCue, fadeOutTime: e.target.value })}
-                    className="rounded border-gray-600 bg-gray-700 text-white text-sm w-16"
+                    className="rounded border-gray-600 bg-gray-700 text-white text-sm w-16 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
                 <button
@@ -1320,16 +1577,17 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                   // Calculate isNext with loop support
                   const isLoopingToFirst = cueList?.loop && currentCueIndex === cues.length - 1 && index === 0;
                   const isNext = index === currentCueIndex + 1 || isLoopingToFirst;
+                  const isActive = index === currentCueIndex;
 
                   return (
                     <SortableCueCard
                       key={cue.id}
                       cue={cue}
                       index={index}
-                      isActive={index === currentCueIndex}
+                      isActive={isActive}
                       isNext={isNext}
                       isPrevious={index < currentCueIndex && !(isLoopingToFirst && index === 0)}
-                      fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
+                      fadeProgress={isActive ? fadeProgress : undefined}
                       onJumpToCue={handleJumpToCue}
                       onUpdateCue={handleUpdateCue}
                       onDeleteCue={handleDeleteCue}
@@ -1338,6 +1596,8 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                       scenes={scenes}
                       isSelected={selectedCueIds.has(cue.id)}
                       onSelect={handleSelectCue}
+                      currentCueRef={currentCueRef}
+                      autoFocusFieldRef={autoFocusFieldRef}
                     />
                   );
                 })}
@@ -1408,16 +1668,17 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                       // Calculate isNext with loop support
                       const isLoopingToFirst = cueList?.loop && currentCueIndex === cues.length - 1 && index === 0;
                       const isNext = index === currentCueIndex + 1 || isLoopingToFirst;
+                      const isActive = index === currentCueIndex;
 
                       return (
                         <SortableCueRow
                           key={cue.id}
                           cue={cue}
                           index={index}
-                          isActive={index === currentCueIndex}
+                          isActive={isActive}
                           isNext={isNext}
                           isPrevious={index < currentCueIndex && !(isLoopingToFirst && index === 0)}
-                          fadeProgress={index === currentCueIndex ? fadeProgress : undefined}
+                          fadeProgress={isActive ? fadeProgress : undefined}
                           onJumpToCue={handleJumpToCue}
                           onUpdateCue={handleUpdateCue}
                           onDeleteCue={handleDeleteCue}
@@ -1426,6 +1687,8 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                           scenes={scenes}
                           isSelected={selectedCueIds.has(cue.id)}
                           onSelect={handleSelectCue}
+                          currentCueRef={currentCueRef}
+                          autoFocusFieldRef={autoFocusFieldRef}
                         />
                       );
                     })
@@ -1438,66 +1701,103 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       </div>
 
       {/* Control Panel */}
-      <div className="bg-gray-800 border-t border-gray-700 p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={handlePrevious}
-              disabled={currentCueIndex <= 0 || editMode}
-              className="inline-flex items-center px-4 py-3 border border-gray-600 rounded-md text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Previous
-            </button>
+      <div className="bg-gray-800 border-t border-gray-700 p-4">
+        {/* Mobile/Compact Controls (always shown) */}
+        <div className="flex items-center justify-center space-x-4">
+          {/* Loop toggle button */}
+          <button
+            onClick={() => {
+              const newLoopValue = !cueList.loop;
+              setCueListLoop(newLoopValue);
+              handleUpdateCueList({ loop: newLoopValue });
+            }}
+            className={`p-3 rounded-lg transition-colors ${
+              cueList.loop
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            }`}
+            title={cueList.loop ? 'Loop enabled - Click to disable' : 'Loop disabled - Click to enable'}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
 
-            <button
-              onClick={handleGo}
-              disabled={isPlaying || (!cueList?.loop && currentCueIndex >= cues.length - 1) || editMode}
-              className="inline-flex items-center px-8 py-4 border border-transparent rounded-md text-lg font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {currentCueIndex === -1 ? 'START' : 'GO'}
-              <span className="ml-2 text-sm font-normal">
-                {nextCue ? `(${nextCue.cueNumber})` : ''}
-              </span>
-            </button>
+          <button
+            onClick={handlePrevious}
+            disabled={currentCueIndex <= 0 || editMode}
+            className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Previous (←)"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
 
-            <button
-              onClick={handleNext}
-              disabled={!nextCue || editMode}
-              className="inline-flex items-center px-4 py-3 border border-gray-600 rounded-md text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-              <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+          <button
+            onClick={handleGo}
+            disabled={isPlaying || (!cueList?.loop && currentCueIndex >= cues.length - 1) || editMode}
+            className="px-8 py-3 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-lg transition-colors"
+            title="GO (Space/Enter)"
+          >
+            {currentCueIndex === -1 ? 'START' : 'GO'}
+          </button>
 
+          <button
+            onClick={handleNext}
+            disabled={isPlaying || (!cueList?.loop && currentCueIndex >= cues.length - 1) || editMode}
+            className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Next (→)"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          <button
+            onClick={handleStop}
+            disabled={editMode}
+            className="p-3 rounded-lg bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Stop (Esc)"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10h6v4H9z" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Cue List Progress */}
+        <div className="mt-4 flex items-center justify-center space-x-2 flex-wrap">
+          {cues.map((cue: Cue, index: number) => (
             <button
-              onClick={handleStop}
-              disabled={editMode}
-              className="inline-flex items-center px-6 py-3 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10h6v4H9z" />
-              </svg>
-              STOP
-            </button>
+              key={cue.id}
+              onClick={() => handleJumpToCue(cue, index)}
+              className={`w-2 h-2 rounded-full transition-all ${
+                index === currentCueIndex
+                  ? 'bg-green-500 w-3 h-3'
+                  : index < currentCueIndex
+                  ? 'bg-gray-600'
+                  : 'bg-gray-700 hover:bg-gray-600'
+              }`}
+              title={`${cue.cueNumber}: ${cue.name}`}
+            />
+          ))}
+        </div>
+
+        {/* Status text */}
+        <div className="mt-3 text-center text-xs text-gray-500">
+          {!editMode && 'Space/Enter = GO | ← → = Navigate | Esc = Stop'}
+          {editMode && 'Edit mode active - Click values to edit'}
+        </div>
+
+        {/* Additional info on larger screens */}
+        <div className="hidden md:flex justify-between items-center mt-3 text-sm text-gray-400">
+          <div>
+            Current: {currentCue ? `Cue ${currentCue.cueNumber} - ${currentCue.name}` : 'None'}
           </div>
-
-          <div className="text-right">
-            <div className="text-sm text-gray-400">
-              Current: {currentCue ? `Cue ${currentCue.cueNumber} - ${currentCue.name}` : 'None'}
-            </div>
-            <div className="text-sm text-gray-400 mt-1">
-              Next: {nextCue ? `Cue ${nextCue.cueNumber} - ${nextCue.name}` : 'End of list'}
-            </div>
-            <div className="text-xs text-gray-500 mt-2">
-              {!editMode && 'Keyboard: Space/Enter = GO | ← → = Navigate | Esc = Stop'}
-              {editMode && 'Edit mode active - Click values to edit'}
-            </div>
+          <div>
+            Next: {nextCue ? `Cue ${nextCue.cueNumber} - ${nextCue.name}` : 'End of list'}
           </div>
         </div>
       </div>

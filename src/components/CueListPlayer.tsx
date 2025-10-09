@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   GET_CUE_LIST,
@@ -35,6 +35,8 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   }
 
   const [actualCueListId, setActualCueListId] = useState<string>(() => extractCueListId(cueListIdProp));
+  const containerRef = useRef<HTMLDivElement>(null);
+  const currentCueRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setActualCueListId(extractCueListId(cueListIdProp));
@@ -89,29 +91,38 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
     return null;
   }, [currentCueIndex, cues, cueList?.loop]);
 
-  // Get cues for the 5-cue display (2 previous + current + 2 next)
+  // Display all cues with proper state indicators
   const displayCues = useMemo(() => {
-    const cuesForDisplay = [];
-
     // Determine if first cue should be marked as "next" due to loop
     const isLoopingToFirst = cueList?.loop && currentCueIndex === cues.length - 1;
 
-    for (let i = currentCueIndex - 2; i <= currentCueIndex + 2; i++) {
-      if (i >= 0 && i < cues.length) {
-        const isNext = i > currentCueIndex || (isLoopingToFirst && i === 0);
+    return cues.map((cue: Cue, i: number) => {
+      // Only mark immediate previous (one before current)
+      const isPrevious = i === currentCueIndex - 1;
 
-        cuesForDisplay.push({
-          cue: cues[i],
-          index: i,
-          isCurrent: i === currentCueIndex,
-          isPrevious: i < currentCueIndex && !(isLoopingToFirst && i === 0),
-          isNext: isNext && i !== currentCueIndex
-        });
-      }
-    }
+      // Only mark immediate next (one after current, or first if looping from last)
+      const isNext = i === currentCueIndex + 1 || (isLoopingToFirst && i === 0);
 
-    return cuesForDisplay;
+      return {
+        cue,
+        index: i,
+        isCurrent: i === currentCueIndex,
+        isPrevious,
+        isNext
+      };
+    });
   }, [currentCueIndex, cues, cueList?.loop]);
+
+  // Auto-scroll to current cue when it changes
+  useEffect(() => {
+    if (currentCueRef.current && currentCueIndex >= 0) {
+      currentCueRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest'
+      });
+    }
+  }, [currentCueIndex]);
 
   // Memoize the disable condition to avoid repetition
   // When loop is enabled, GO button should always work (even at last cue)
@@ -244,7 +255,7 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   }
 
   return (
-    <div className="bg-gray-900 text-white h-screen flex flex-col">
+    <div className="absolute inset-0 bg-gray-900 text-white flex flex-col">
       {/* Header */}
       <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
         <h1 className="text-lg font-bold">{cueList.name}</h1>
@@ -253,13 +264,14 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
         )}
       </div>
 
-      {/* Cue Display with 2 Previous + Current + 2 Next */}
-      <div className="flex-1 flex flex-col justify-center items-center p-6 overflow-y-auto">
+      {/* Cue Display - shows all cues with auto-scroll to current */}
+      <div ref={containerRef} className="flex-1 flex flex-col items-center p-6 overflow-y-auto">
         {displayCues.length > 0 ? (
           <div className="w-full max-w-2xl space-y-3">
-            {displayCues.map(({ cue, index, isCurrent, isPrevious, isNext }) => (
+            {displayCues.map(({ cue, index, isCurrent, isPrevious, isNext }: { cue: Cue; index: number; isCurrent: boolean; isPrevious: boolean; isNext: boolean }) => (
               <div
                 key={cue.id}
+                ref={isCurrent ? currentCueRef : null}
                 className={`relative rounded-lg p-4 border transition-all duration-200 ${
                   isCurrent
                     ? 'bg-gray-700 border-green-500 border-2 scale-105 shadow-lg'

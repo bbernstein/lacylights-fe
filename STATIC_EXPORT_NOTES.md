@@ -1,8 +1,18 @@
 # Next.js Static Export Notes
 
-## Current Issue: Dynamic Player Route
+## Current Configuration
 
-**Problem**: The `/player/[cueListId]` route uses dynamic parameters that cannot be fully static at build time.
+**Strategy**: Conditional static export based on environment:
+- **Dev Mode**: `output: undefined` - Full Next.js dev server with dynamic routing
+- **Production**: `output: 'export'` - Static export for Raspberry Pi deployment
+
+This allows:
+- Dynamic routes in dev mode (cue lists can change without rebuild)
+- Static build for production deployment with nginx routing
+
+## Previous Issue: Dynamic Routes with Static Export
+
+**Problem**: The main app routes like `/cue-lists/[id]` use dynamic parameters that change at runtime.
 
 **Next.js Limitation**: Static export (`output: 'export'`) requires all dynamic routes to have `generateStaticParams()` that returns all possible parameter values at build time.
 

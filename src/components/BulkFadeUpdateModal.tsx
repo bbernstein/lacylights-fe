@@ -134,12 +134,12 @@ export default function BulkFadeUpdateModal({
             </label>
             <input
               type="number"
-              step="0.1"
+              step="0.001"
               min="0"
               value={fadeInTime}
               onChange={(e) => setFadeInTime(e.target.value)}
               disabled={!applyFadeIn}
-              className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
+              className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               placeholder="3.0"
             />
           </div>
@@ -158,12 +158,12 @@ export default function BulkFadeUpdateModal({
             </label>
             <input
               type="number"
-              step="0.1"
+              step="0.001"
               min="0"
               value={fadeOutTime}
               onChange={(e) => setFadeOutTime(e.target.value)}
               disabled={!applyFadeOut}
-              className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
+              className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               placeholder="3.0"
             />
           </div>
@@ -182,12 +182,12 @@ export default function BulkFadeUpdateModal({
             </label>
             <input
               type="number"
-              step="0.1"
+              step="0.001"
               min="0"
               value={followTime}
               onChange={(e) => setFollowTime(e.target.value)}
               disabled={!applyFollow}
-              className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
+              className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               placeholder="0.0"
             />
           </div>
