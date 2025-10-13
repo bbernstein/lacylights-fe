@@ -8,6 +8,8 @@
     "build:export": "next build",
     "start": "next start",
     "serve:export": "npx serve out",
+    "serve:static": "node scripts/serve-static.js",
+    "dev:static": "npm run build && npm run serve:static",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "lint:ci": "next lint --max-warnings=0",
