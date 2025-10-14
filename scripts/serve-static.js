@@ -111,6 +111,18 @@ function routeRequest(req, res) {
     }
   }
 
+  // Handle /scenes/[sceneId]/edit dynamic routes (serves /scenes/__dynamic__/edit/index.html)
+  // Match /scenes/123/edit but NOT /scenes/ or /scenes/123 or files with extensions
+  const sceneEditMatch = decodedUrl.match(/^\/scenes\/([^\/\.]+)\/edit$/);
+  if (sceneEditMatch) {
+    const filePath = path.join(OUT_DIR, 'scenes', '__dynamic__', 'edit', 'index.html');
+    if (fs.existsSync(filePath)) {
+      console.log(`  → Serving scene editor dynamic route: ${filePath} (for ID: ${sceneEditMatch[1]})`);
+      serveFile(res, filePath);
+      return;
+    }
+  }
+
   // Try exact file path first (use decoded URL for filesystem access)
   let filePath = path.join(OUT_DIR, decodedUrl);
   if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
