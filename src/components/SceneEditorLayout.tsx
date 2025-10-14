@@ -1,10 +1,12 @@
 'use client';
 
-import { useQuery } from '@apollo/client';
-import { GET_SCENE } from '@/graphql/scenes';
-import { FixtureValue } from '@/types';
+import { useState, useCallback } from 'react';
+import { useQuery, useMutation } from '@apollo/client';
+import { GET_SCENE, UPDATE_SCENE } from '@/graphql/scenes';
+import { FixtureValue, FixtureInstance } from '@/types';
 import ChannelListEditor from './ChannelListEditor';
 import LayoutCanvas from './LayoutCanvas';
+import MultiSelectControls from './MultiSelectControls';
 
 interface SceneEditorLayoutProps {
   sceneId: string;
@@ -14,10 +16,18 @@ interface SceneEditorLayoutProps {
 }
 
 export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode }: SceneEditorLayoutProps) {
+  // Selection state for layout mode
+  const [selectedFixtureIds, setSelectedFixtureIds] = useState<Set<string>>(new Set());
+
   // Fetch scene data for 2D layout mode
   const { data: sceneData } = useQuery(GET_SCENE, {
     variables: { id: sceneId },
     skip: mode !== 'layout',
+  });
+
+  // Mutation for updating scene
+  const [updateScene] = useMutation(UPDATE_SCENE, {
+    refetchQueries: [{ query: GET_SCENE, variables: { id: sceneId } }],
   });
 
   const scene = sceneData?.scene;
@@ -29,6 +39,64 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       fixtureValues.set(fv.fixture.id, fv.channelValues || []);
     });
   }
+
+  // Get selected fixtures
+  const selectedFixtures: FixtureInstance[] = [];
+  if (scene) {
+    scene.fixtureValues.forEach((fv: FixtureValue) => {
+      if (selectedFixtureIds.has(fv.fixture.id)) {
+        selectedFixtures.push(fv.fixture);
+      }
+    });
+  }
+
+  // Handle channel value change from MultiSelectControls
+  const handleChannelChange = useCallback(async (fixtureId: string, channelIndex: number, value: number) => {
+    if (!scene) return;
+
+    // Build updated fixture values array
+    const updatedFixtureValues = scene.fixtureValues.map((fv: FixtureValue) => {
+      if (fv.fixture.id === fixtureId) {
+        // Update this fixture's channel value
+        const newChannelValues = [...(fv.channelValues || [])];
+        newChannelValues[channelIndex] = value;
+        return {
+          fixtureId: fv.fixture.id,
+          channelValues: newChannelValues,
+        };
+      }
+      // Keep existing values
+      return {
+        fixtureId: fv.fixture.id,
+        channelValues: fv.channelValues || [],
+      };
+    });
+
+    // Update scene via GraphQL mutation
+    try {
+      await updateScene({
+        variables: {
+          id: sceneId,
+          input: {
+            fixtureValues: updatedFixtureValues,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Failed to update scene:', error);
+      // TODO: Show error toast
+    }
+  }, [scene, sceneId, updateScene]);
+
+  // Handle selection change
+  const handleSelectionChange = useCallback((newSelection: Set<string>) => {
+    setSelectedFixtureIds(newSelection);
+  }, []);
+
+  // Handle deselect all
+  const handleDeselectAll = useCallback(() => {
+    setSelectedFixtureIds(new Set());
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-gray-900 flex flex-col">
@@ -80,14 +148,26 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       </div>
 
       {/* Editor content area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         {mode === 'channels' ? (
           <ChannelListEditor sceneId={sceneId} onClose={onClose} />
         ) : scene ? (
-          <LayoutCanvas
-            fixtures={scene.fixtureValues.map((fv: FixtureValue) => fv.fixture)}
-            fixtureValues={fixtureValues}
-          />
+          <>
+            <LayoutCanvas
+              fixtures={scene.fixtureValues.map((fv: FixtureValue) => fv.fixture)}
+              fixtureValues={fixtureValues}
+              selectedFixtureIds={selectedFixtureIds}
+              onSelectionChange={handleSelectionChange}
+            />
+            {selectedFixtures.length > 0 && (
+              <MultiSelectControls
+                selectedFixtures={selectedFixtures}
+                fixtureValues={fixtureValues}
+                onChannelChange={handleChannelChange}
+                onDeselectAll={handleDeselectAll}
+              />
+            )}
+          </>
         ) : (
           <div className="h-full flex items-center justify-center text-gray-400">
             Loading scene...
