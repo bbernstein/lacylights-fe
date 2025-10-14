@@ -59,7 +59,7 @@ export default function MultiSelectControls({
     });
   }, [onChannelChange]);
 
-  // Handle color picker change (real-time preview while dragging)
+  // Handle color picker change (real-time preview while dragging - local state only)
   const handleColorPickerChange = useCallback((color: { r: number; g: number; b: number }) => {
     // Find RGB channels
     const redChannel = mergedChannels.find(ch => ch.type === ChannelType.RED);
@@ -67,21 +67,43 @@ export default function MultiSelectControls({
     const blueChannel = mergedChannels.find(ch => ch.type === ChannelType.BLUE);
     const intensityChannel = mergedChannels.find(ch => ch.type === ChannelType.INTENSITY);
 
-    // Update each channel in real-time
+    // Update local state only (no server calls during drag)
+    setLocalSliderValues(prev => {
+      const newMap = new Map(prev);
+      if (redChannel) newMap.set(getChannelKey(redChannel), color.r);
+      if (greenChannel) newMap.set(getChannelKey(greenChannel), color.g);
+      if (blueChannel) newMap.set(getChannelKey(blueChannel), color.b);
+      if (intensityChannel) newMap.set(getChannelKey(intensityChannel), 255);
+      return newMap;
+    });
+  }, [mergedChannels]);
+
+  // Handle color picker selection (when Apply button is clicked - send to server)
+  const handleColorPickerSelect = useCallback((color: { r: number; g: number; b: number }) => {
+    // Find RGB channels
+    const redChannel = mergedChannels.find(ch => ch.type === ChannelType.RED);
+    const greenChannel = mergedChannels.find(ch => ch.type === ChannelType.GREEN);
+    const blueChannel = mergedChannels.find(ch => ch.type === ChannelType.BLUE);
+    const intensityChannel = mergedChannels.find(ch => ch.type === ChannelType.INTENSITY);
+
+    // Update local state
+    setLocalSliderValues(prev => {
+      const newMap = new Map(prev);
+      if (redChannel) newMap.set(getChannelKey(redChannel), color.r);
+      if (greenChannel) newMap.set(getChannelKey(greenChannel), color.g);
+      if (blueChannel) newMap.set(getChannelKey(blueChannel), color.b);
+      if (intensityChannel) newMap.set(getChannelKey(intensityChannel), 255);
+      return newMap;
+    });
+
+    // Send to server
     if (redChannel) handleChannelChange(redChannel, color.r);
     if (greenChannel) handleChannelChange(greenChannel, color.g);
     if (blueChannel) handleChannelChange(blueChannel, color.b);
-
-    // Also set intensity to full (255) so colors appear correctly
-    // This ensures all fixtures show the same visible color
     if (intensityChannel) handleChannelChange(intensityChannel, 255);
-  }, [mergedChannels, handleChannelChange]);
 
-  // Handle color picker selection (when Apply button is clicked)
-  const handleColorPickerSelect = useCallback((color: { r: number; g: number; b: number }) => {
-    handleColorPickerChange(color);
     setIsColorPickerOpen(false);
-  }, [handleColorPickerChange]);
+  }, [mergedChannels, handleChannelChange]);
 
   // Generate unique key for each channel
   const getChannelKey = (channel: MergedChannel) => channel.type;
