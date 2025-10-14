@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { FixtureInstance, ChannelType } from '@/types';
 import {
   mergeFixtureChannels,
@@ -27,6 +27,10 @@ export default function MultiSelectControls({
   const [mergedChannels, setMergedChannels] = useState<MergedChannel[]>([]);
   const [rgbColor, setRgbColor] = useState<{ r: number; g: number; b: number } | null>(null);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+
+  // Local state for responsive slider updates during drag
+  const [localSliderValues, setLocalSliderValues] = useState<Map<string, number>>(new Map());
+  const debounceTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // Merge channels whenever selection or values change
   useEffect(() => {
@@ -71,6 +75,66 @@ export default function MultiSelectControls({
     handleColorPickerChange(color);
     setIsColorPickerOpen(false);
   }, [handleColorPickerChange]);
+
+  // Generate unique key for each channel
+  const getChannelKey = (channel: MergedChannel) => channel.type;
+
+  // Get the current slider value (local state if dragging, otherwise server value)
+  const getSliderValue = useCallback((channel: MergedChannel): number => {
+    const key = getChannelKey(channel);
+    return localSliderValues.get(key) ?? channel.averageValue;
+  }, [localSliderValues]);
+
+  // Handle slider input during drag (immediate visual feedback)
+  const handleSliderInput = useCallback((channel: MergedChannel, newValue: number) => {
+    const key = getChannelKey(channel);
+
+    // Update local state immediately for responsive UI
+    setLocalSliderValues(prev => new Map(prev).set(key, newValue));
+
+    // Clear existing debounce timer for this channel
+    const existingTimer = debounceTimersRef.current.get(key);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    // Set new debounce timer (150ms)
+    const timer = setTimeout(() => {
+      // Update server after delay
+      handleChannelChange(channel, newValue);
+      // Clear local state after server update
+      setLocalSliderValues(prev => {
+        const next = new Map(prev);
+        next.delete(key);
+        return next;
+      });
+      debounceTimersRef.current.delete(key);
+    }, 150);
+
+    debounceTimersRef.current.set(key, timer);
+  }, [handleChannelChange]);
+
+  // Handle slider mouse up (flush immediately)
+  const handleSliderChange = useCallback((channel: MergedChannel, newValue: number) => {
+    const key = getChannelKey(channel);
+
+    // Cancel pending debounce
+    const timer = debounceTimersRef.current.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      debounceTimersRef.current.delete(key);
+    }
+
+    // Update server immediately
+    handleChannelChange(channel, newValue);
+
+    // Clear local state
+    setLocalSliderValues(prev => {
+      const next = new Map(prev);
+      next.delete(key);
+      return next;
+    });
+  }, [handleChannelChange]);
 
   // Get channel display name
   const getChannelDisplayName = (channel: MergedChannel): string => {
@@ -151,7 +215,7 @@ export default function MultiSelectControls({
                   </span>
                 )}
                 <span className="text-gray-400 text-sm font-mono min-w-[3ch] text-right">
-                  {Math.round(channel.averageValue)}
+                  {Math.round(getSliderValue(channel))}
                 </span>
               </div>
             </div>
@@ -159,15 +223,15 @@ export default function MultiSelectControls({
               type="range"
               min={channel.minValue}
               max={channel.maxValue}
-              value={channel.averageValue}
-              onInput={(e) => handleChannelChange(channel, Number((e.target as HTMLInputElement).value))}
-              onChange={(e) => handleChannelChange(channel, Number(e.target.value))}
+              value={getSliderValue(channel)}
+              onInput={(e) => handleSliderInput(channel, Number((e.target as HTMLInputElement).value))}
+              onChange={(e) => handleSliderChange(channel, Number(e.target.value))}
               className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
               style={{
                 WebkitAppearance: 'none',
                 appearance: 'none',
               }}
-              title={`${channel.name}: ${Math.round(channel.averageValue)} - drag to adjust`}
+              title={`${channel.name}: ${Math.round(getSliderValue(channel))} - drag to adjust`}
             />
           </div>
         ))}
