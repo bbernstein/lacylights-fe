@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { FixtureInstance, ChannelType } from '@/types';
 import {
   mergeFixtureChannels,
@@ -49,6 +49,23 @@ export default function MultiSelectControls({
     });
     setLocalSliderValues(newLocalValues);
   }, [selectedFixtures, fixtureValues]);
+
+  // Calculate display RGB color from local slider values (updates during drag)
+  const displayRgbColor = useMemo(() => {
+    // Check if we have RGB channels
+    const hasRgb = mergedChannels.some(ch => ch.type === ChannelType.RED) &&
+                   mergedChannels.some(ch => ch.type === ChannelType.GREEN) &&
+                   mergedChannels.some(ch => ch.type === ChannelType.BLUE);
+
+    if (!hasRgb) return null;
+
+    // Use local values if available (during drag), otherwise use server values
+    const r = localSliderValues.get(ChannelType.RED) ?? rgbColor?.r ?? 0;
+    const g = localSliderValues.get(ChannelType.GREEN) ?? rgbColor?.g ?? 0;
+    const b = localSliderValues.get(ChannelType.BLUE) ?? rgbColor?.b ?? 0;
+
+    return { r, g, b };
+  }, [localSliderValues, rgbColor, mergedChannels]);
 
   // Handle channel slider change
   const handleChannelChange = useCallback((channel: MergedChannel, newValue: number) => {
@@ -193,7 +210,7 @@ export default function MultiSelectControls({
       </div>
 
       {/* RGB Color Picker */}
-      {rgbColor && (
+      {displayRgbColor && (
         <>
           <div className="mb-4 pb-4 border-b border-gray-700">
             <label className="block text-gray-300 text-sm font-medium mb-2">
@@ -203,11 +220,11 @@ export default function MultiSelectControls({
               <button
                 onClick={() => setIsColorPickerOpen(true)}
                 className="w-16 h-10 rounded border-2 border-gray-600 hover:border-blue-500 transition-colors cursor-pointer"
-                style={{ backgroundColor: `rgb(${rgbColor.r}, ${rgbColor.g}, ${rgbColor.b})` }}
+                style={{ backgroundColor: `rgb(${displayRgbColor.r}, ${displayRgbColor.g}, ${displayRgbColor.b})` }}
                 title="Click to open color picker"
               />
               <span className="text-gray-400 text-sm font-mono">
-                {rgbToHex(rgbColor.r, rgbColor.g, rgbColor.b).toUpperCase()}
+                {rgbToHex(displayRgbColor.r, displayRgbColor.g, displayRgbColor.b).toUpperCase()}
               </span>
             </div>
           </div>
@@ -216,7 +233,7 @@ export default function MultiSelectControls({
           <ColorPickerModal
             isOpen={isColorPickerOpen}
             onClose={() => setIsColorPickerOpen(false)}
-            currentColor={rgbColor}
+            currentColor={displayRgbColor}
             onColorChange={handleColorPickerChange}
             onColorSelect={handleColorPickerSelect}
           />
