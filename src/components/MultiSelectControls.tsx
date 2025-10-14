@@ -28,7 +28,7 @@ export default function MultiSelectControls({
   const [rgbColor, setRgbColor] = useState<{ r: number; g: number; b: number } | null>(null);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
 
-  // Local state for responsive slider updates during drag (no server calls until mouse up)
+  // Local state for responsive slider updates (synced with server values)
   const [localSliderValues, setLocalSliderValues] = useState<Map<string, number>>(new Map());
 
   // Merge channels whenever selection or values change
@@ -40,6 +40,14 @@ export default function MultiSelectControls({
     // Update RGB color if available
     const rgb = getMergedRGBColor(channelMap);
     setRgbColor(rgb);
+
+    // Sync local state with server values
+    const newLocalValues = new Map<string, number>();
+    channels.forEach((channel) => {
+      const key = getChannelKey(channel);
+      newLocalValues.set(key, channel.averageValue);
+    });
+    setLocalSliderValues(newLocalValues);
   }, [selectedFixtures, fixtureValues]);
 
   // Handle channel slider change
@@ -78,38 +86,54 @@ export default function MultiSelectControls({
   // Generate unique key for each channel
   const getChannelKey = (channel: MergedChannel) => channel.type;
 
-  // Get the current slider value (local state if dragging, otherwise server value)
+  // Get the current slider value (local state)
   const getSliderValue = useCallback((channel: MergedChannel): number => {
     const key = getChannelKey(channel);
     return localSliderValues.get(key) ?? channel.averageValue;
   }, [localSliderValues]);
 
-  // Handle slider input during drag (ONLY local state update, NO server call)
-  const handleSliderInput = useCallback((channel: MergedChannel, newValue: number) => {
-    const key = getChannelKey(channel);
-    // Update local state immediately for responsive UI
-    setLocalSliderValues(prev => new Map(prev).set(key, newValue));
-  }, []);
-
-  // Handle slider mouse up (update server with final value)
+  // Handle slider change (simple pattern like ChannelListEditor)
   const handleSliderChange = useCallback((channel: MergedChannel, newValue: number) => {
     const key = getChannelKey(channel);
 
-    // Update local state
+    // Update local state immediately for responsive UI
     setLocalSliderValues(prev => new Map(prev).set(key, newValue));
 
-    // Update server with final value
+    // Update server immediately (parent's optimistic state keeps UI responsive)
     handleChannelChange(channel, newValue);
-
-    // Clear local state after a brief delay to prevent flicker
-    setTimeout(() => {
-      setLocalSliderValues(prev => {
-        const next = new Map(prev);
-        next.delete(key);
-        return next;
-      });
-    }, 100);
   }, [handleChannelChange]);
+
+  // Handle number input change
+  const handleNumberInputChange = useCallback((channel: MergedChannel, newValue: number) => {
+    const key = getChannelKey(channel);
+    const clampedValue = Math.max(channel.minValue, Math.min(channel.maxValue, newValue || 0));
+
+    // Update local state
+    setLocalSliderValues(prev => new Map(prev).set(key, clampedValue));
+
+    // Update server
+    handleChannelChange(channel, clampedValue);
+  }, [handleChannelChange]);
+
+  // Handle keyboard navigation
+  const handleKeyDown = useCallback((channel: MergedChannel, e: React.KeyboardEvent<HTMLInputElement>) => {
+    const currentValue = getSliderValue(channel);
+    let newValue = currentValue;
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      newValue = Math.min(channel.maxValue, currentValue + (e.shiftKey ? 10 : 1));
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      newValue = Math.max(channel.minValue, currentValue - (e.shiftKey ? 10 : 1));
+    }
+
+    if (newValue !== currentValue) {
+      const key = getChannelKey(channel);
+      setLocalSliderValues(prev => new Map(prev).set(key, newValue));
+      handleChannelChange(channel, newValue);
+    }
+  }, [getSliderValue, handleChannelChange]);
 
   // Get channel display name
   const getChannelDisplayName = (channel: MergedChannel): string => {
@@ -189,25 +213,33 @@ export default function MultiSelectControls({
                     ≈
                   </span>
                 )}
-                <span className="text-gray-400 text-sm font-mono min-w-[3ch] text-right">
-                  {Math.round(getSliderValue(channel))}
-                </span>
               </div>
             </div>
-            <input
-              type="range"
-              min={channel.minValue}
-              max={channel.maxValue}
-              value={getSliderValue(channel)}
-              onInput={(e) => handleSliderInput(channel, Number((e.target as HTMLInputElement).value))}
-              onChange={(e) => handleSliderChange(channel, Number(e.target.value))}
-              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-              style={{
-                WebkitAppearance: 'none',
-                appearance: 'none',
-              }}
-              title={`${channel.name}: ${Math.round(getSliderValue(channel))} - drag to adjust`}
-            />
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={channel.minValue}
+                max={channel.maxValue}
+                value={getSliderValue(channel)}
+                onChange={(e) => handleSliderChange(channel, Number(e.target.value))}
+                className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                style={{
+                  WebkitAppearance: 'none',
+                  appearance: 'none',
+                }}
+                title={`${channel.name}: ${Math.round(getSliderValue(channel))} - drag to adjust`}
+              />
+              <input
+                type="number"
+                min={channel.minValue}
+                max={channel.maxValue}
+                value={Math.round(getSliderValue(channel))}
+                onChange={(e) => handleNumberInputChange(channel, Number(e.target.value))}
+                onKeyDown={(e) => handleKeyDown(channel, e)}
+                className="w-14 text-sm text-center font-mono bg-gray-700 text-gray-300 border border-gray-600 rounded px-2 py-1 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                title="Use arrow keys to adjust. Hold Shift for ±10"
+              />
+            </div>
           </div>
         ))}
       </div>
