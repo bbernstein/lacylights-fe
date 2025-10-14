@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   GET_SCENE,
@@ -33,6 +33,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   const [previewMode, setPreviewMode] = useState(false);
   const [previewSessionId, setPreviewSessionId] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch scene data for 2D layout mode
   const { data: sceneData } = useQuery(GET_SCENE, {
@@ -105,14 +106,47 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       if (previewMode && previewSessionId) {
         cancelPreviewSession({ variables: { sessionId: previewSessionId } });
       }
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
     };
   }, [previewMode, previewSessionId, cancelPreviewSession]);
 
-  // Batched preview update for channel changes
+  // Debounced preview update for real-time drag updates (50ms debounce)
+  const debouncedPreviewUpdate = useCallback((changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => {
+    if (!previewMode || !previewSessionId || changes.length === 0) return;
+
+    // Clear previous timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    // Set new timeout for debounced update
+    debounceTimeoutRef.current = setTimeout(() => {
+      Promise.all(
+        changes.map(({ fixtureId, channelIndex, value }) =>
+          updatePreviewChannel({
+            variables: { sessionId: previewSessionId, fixtureId, channelIndex, value },
+          })
+        )
+      ).catch(error => {
+        console.error('Failed to update preview channels:', error);
+        setPreviewError(error.message);
+      });
+    }, 50);
+  }, [previewMode, previewSessionId, updatePreviewChannel]);
+
+  // Batched preview update for mouse-up (no debounce)
   const batchedPreviewUpdate = useCallback((changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => {
     if (!previewMode || !previewSessionId || changes.length === 0) return;
 
-    // Send all changes in parallel
+    // Clear any pending debounced update
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
+    }
+
+    // Send all changes in parallel immediately
     Promise.all(
       changes.map(({ fixtureId, channelIndex, value }) =>
         updatePreviewChannel({
@@ -345,6 +379,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
                 fixtureValues={fixtureValues}
                 onChannelChange={handleChannelChange}
                 onBatchedChannelChanges={handleBatchedChannelChanges}
+                onDebouncedPreviewUpdate={debouncedPreviewUpdate}
                 onDeselectAll={handleDeselectAll}
               />
             )}

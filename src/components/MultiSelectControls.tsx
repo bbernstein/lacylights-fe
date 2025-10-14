@@ -16,6 +16,7 @@ interface MultiSelectControlsProps {
   fixtureValues: Map<string, number[]>;
   onChannelChange: (fixtureId: string, channelIndex: number, value: number) => void;
   onBatchedChannelChanges: (changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => void;
+  onDebouncedPreviewUpdate: (changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => void;
   onDeselectAll: () => void;
 }
 
@@ -24,6 +25,7 @@ export default function MultiSelectControls({
   fixtureValues,
   onChannelChange,
   onBatchedChannelChanges,
+  onDebouncedPreviewUpdate,
   onDeselectAll,
 }: MultiSelectControlsProps) {
   const [mergedChannels, setMergedChannels] = useState<MergedChannel[]>([]);
@@ -78,7 +80,7 @@ export default function MultiSelectControls({
     });
   }, [onChannelChange]);
 
-  // Handle color picker change (real-time preview while dragging - local state only)
+  // Handle color picker change (real-time preview while dragging - local state + debounced preview)
   const handleColorPickerChange = useCallback((color: { r: number; g: number; b: number }) => {
     // Find RGB channels
     const redChannel = mergedChannels.find(ch => ch.type === ChannelType.RED);
@@ -86,7 +88,7 @@ export default function MultiSelectControls({
     const blueChannel = mergedChannels.find(ch => ch.type === ChannelType.BLUE);
     const intensityChannel = mergedChannels.find(ch => ch.type === ChannelType.INTENSITY);
 
-    // Update local state only (no server calls during drag)
+    // Update local state immediately for responsive UI
     setLocalSliderValues(prev => {
       const newMap = new Map(prev);
       if (redChannel) newMap.set(getChannelKey(redChannel), color.r);
@@ -95,7 +97,40 @@ export default function MultiSelectControls({
       if (intensityChannel) newMap.set(getChannelKey(intensityChannel), 255);
       return newMap;
     });
-  }, [mergedChannels]);
+
+    // Send debounced preview update (only in preview mode)
+    const changes: Array<{fixtureId: string, channelIndex: number, value: number}> = [];
+
+    if (redChannel) {
+      redChannel.fixtureIds.forEach((fixtureId, index) => {
+        const channelIndex = redChannel.channelIndices[index];
+        changes.push({fixtureId, channelIndex, value: color.r});
+      });
+    }
+
+    if (greenChannel) {
+      greenChannel.fixtureIds.forEach((fixtureId, index) => {
+        const channelIndex = greenChannel.channelIndices[index];
+        changes.push({fixtureId, channelIndex, value: color.g});
+      });
+    }
+
+    if (blueChannel) {
+      blueChannel.fixtureIds.forEach((fixtureId, index) => {
+        const channelIndex = blueChannel.channelIndices[index];
+        changes.push({fixtureId, channelIndex, value: color.b});
+      });
+    }
+
+    if (intensityChannel) {
+      intensityChannel.fixtureIds.forEach((fixtureId, index) => {
+        const channelIndex = intensityChannel.channelIndices[index];
+        changes.push({fixtureId, channelIndex, value: 255});
+      });
+    }
+
+    onDebouncedPreviewUpdate(changes);
+  }, [mergedChannels, onDebouncedPreviewUpdate]);
 
   // Handle color picker selection (when Apply button is clicked - send to server)
   const handleColorPickerSelect = useCallback((color: { r: number; g: number; b: number }) => {
@@ -165,12 +200,20 @@ export default function MultiSelectControls({
     return localSliderValues.get(key) ?? channel.averageValue;
   }, [localSliderValues]);
 
-  // Handle slider input during drag (local state only, no server call)
+  // Handle slider input during drag (local state + debounced preview update)
   const handleSliderInput = useCallback((channel: MergedChannel, newValue: number) => {
     const key = getChannelKey(channel);
     // Update local state immediately for responsive UI
     setLocalSliderValues(prev => new Map(prev).set(key, newValue));
-  }, []);
+
+    // Send debounced preview update (only in preview mode)
+    const changes: Array<{fixtureId: string, channelIndex: number, value: number}> = [];
+    channel.fixtureIds.forEach((fixtureId, index) => {
+      const channelIndex = channel.channelIndices[index];
+      changes.push({fixtureId, channelIndex, value: newValue});
+    });
+    onDebouncedPreviewUpdate(changes);
+  }, [onDebouncedPreviewUpdate]);
 
   // Handle slider mouse up (send final value to server)
   const handleSliderMouseUp = useCallback((channel: MergedChannel, newValue: number) => {
