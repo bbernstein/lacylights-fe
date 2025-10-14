@@ -201,10 +201,14 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     if (!scene || changes.length === 0) return;
 
     // Update local state immediately for responsive UI
+    // Use state updater to avoid dependency on fixtureValues
     setLocalFixtureValues(prev => {
       const newMap = new Map(prev);
       changes.forEach(({fixtureId, channelIndex, value}) => {
-        const currentValues = newMap.get(fixtureId) || fixtureValues.get(fixtureId) || [];
+        // Get current values from previous state, or fall back to scene data
+        const currentValues = newMap.get(fixtureId) ||
+          scene.fixtureValues.find((fv: FixtureValue) => fv.fixture.id === fixtureId)?.channelValues ||
+          [];
         const newValues = [...currentValues];
         newValues[channelIndex] = value;
         newMap.set(fixtureId, newValues);
@@ -228,13 +232,13 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     });
 
     // Build updated fixture values array for server
+    // Use the changes map and scene data directly, not localFixtureValues
     const updatedFixtureValues = scene.fixtureValues.map((fv: FixtureValue) => {
       const fixtureChanges = changesByFixture.get(fv.fixture.id);
 
       if (fixtureChanges) {
         // Apply all changes to this fixture
-        const currentValues = localFixtureValues.get(fv.fixture.id) || fv.channelValues || [];
-        const newChannelValues = [...currentValues];
+        const newChannelValues = [...(fv.channelValues || [])];
         fixtureChanges.forEach((value, channelIndex) => {
           newChannelValues[channelIndex] = value;
         });
@@ -244,10 +248,10 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         };
       }
 
-      // Keep existing values (use local if available, otherwise server)
+      // Keep existing values from scene
       return {
         fixtureId: fv.fixture.id,
-        channelValues: localFixtureValues.get(fv.fixture.id) || fv.channelValues || [],
+        channelValues: fv.channelValues || [],
       };
     });
 
@@ -265,7 +269,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       console.error('Failed to update scene:', error);
       // TODO: Show error toast and revert local state
     }
-  }, [scene, sceneId, updateScene, localFixtureValues, fixtureValues, previewMode, previewSessionId, batchedPreviewUpdate]);
+  }, [scene, sceneId, updateScene, previewMode, previewSessionId, batchedPreviewUpdate]);
 
   // Handle single channel value change from MultiSelectControls
   const handleChannelChange = useCallback(async (fixtureId: string, channelIndex: number, value: number) => {
