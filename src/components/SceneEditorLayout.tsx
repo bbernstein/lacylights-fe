@@ -112,9 +112,32 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     };
   }, [previewMode, previewSessionId, cancelPreviewSession]);
 
+  // Update local state during drag (immediate, no server call)
+  const handleLocalChannelChanges = useCallback((changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => {
+    if (!scene || changes.length === 0) return;
+
+    // Update local state immediately for responsive UI
+    setLocalFixtureValues(prev => {
+      const newMap = new Map(prev);
+      changes.forEach(({fixtureId, channelIndex, value}) => {
+        // Get current values from previous state, or fall back to scene data
+        const currentValues = newMap.get(fixtureId) ||
+          scene.fixtureValues.find((fv: FixtureValue) => fv.fixture.id === fixtureId)?.channelValues ||
+          [];
+        const newValues = [...currentValues];
+        newValues[channelIndex] = value;
+        newMap.set(fixtureId, newValues);
+      });
+      return newMap;
+    });
+  }, [scene]);
+
   // Debounced preview update for real-time drag updates (50ms debounce)
   const debouncedPreviewUpdate = useCallback((changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => {
     if (!previewMode || !previewSessionId || changes.length === 0) return;
+
+    // Update local state immediately
+    handleLocalChannelChanges(changes);
 
     // Clear previous timeout
     if (debounceTimeoutRef.current) {
@@ -134,7 +157,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         setPreviewError(error.message);
       });
     }, 50);
-  }, [previewMode, previewSessionId, updatePreviewChannel]);
+  }, [previewMode, previewSessionId, updatePreviewChannel, handleLocalChannelChanges]);
 
   // Batched preview update for mouse-up (no debounce)
   const batchedPreviewUpdate = useCallback((changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => {
