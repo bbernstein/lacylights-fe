@@ -51,7 +51,11 @@ export default function LayoutCanvas({
 
   // Interaction state
   const [isPanning, setIsPanning] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [draggedFixtures, setDraggedFixtures] = useState<Set<string>>(new Set());
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  const [dragOffset, setDragOffset] = useState<Map<string, { x: number; y: number }>>(new Map());
   const [hoveredFixtureId, setHoveredFixtureId] = useState<string | null>(null);
 
   // Save state tracking
@@ -113,8 +117,8 @@ export default function LayoutCanvas({
     };
   }, [viewport]);
 
-  // Convert canvas coordinates to normalized position (reserved for future drag-and-drop)
-  const _canvasToNormalized = useCallback((cx: number, cy: number): { x: number; y: number } => {
+  // Convert canvas coordinates to normalized position
+  const canvasToNormalized = useCallback((cx: number, cy: number): { x: number; y: number } => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const canvas = canvasRef.current;
 
@@ -123,6 +127,27 @@ export default function LayoutCanvas({
       y: (cy - viewport.y) / (canvas.height * viewport.scale),
     };
   }, [viewport]);
+
+  // Find fixture under mouse cursor
+  const getFixtureAtPosition = useCallback((x: number, y: number): string | null => {
+    for (const fixture of fixtures) {
+      const position = fixturePositions.get(fixture.id);
+      if (!position) continue;
+
+      const canvasPos = normalizedToCanvas(position.x, position.y);
+      const size = FIXTURE_SIZE * viewport.scale;
+
+      if (
+        x >= canvasPos.x - size / 2 &&
+        x <= canvasPos.x + size / 2 &&
+        y >= canvasPos.y - size / 2 &&
+        y <= canvasPos.y + size / 2
+      ) {
+        return fixture.id;
+      }
+    }
+    return null;
+  }, [fixtures, fixturePositions, normalizedToCanvas, viewport.scale]);
 
   // Get fixture color from channel values
   const getFixtureColor = useCallback((fixture: FixtureInstance): string => {
@@ -236,12 +261,17 @@ export default function LayoutCanvas({
       // Draw fixture rectangle
       const isSelected = selectedFixtureIds.has(fixture.id);
       const isHovered = hoveredFixtureId === fixture.id;
+      const isBeingDragged = draggedFixtures.has(fixture.id);
 
       ctx.save();
       ctx.translate(canvasPos.x, canvasPos.y);
 
-      // Draw shadow if selected or hovered
-      if (isSelected || isHovered) {
+      // Draw shadow if selected, hovered, or being dragged
+      if (isBeingDragged) {
+        ctx.shadowColor = '#10b981';
+        ctx.shadowBlur = 15;
+        ctx.globalAlpha = 0.8;
+      } else if (isSelected || isHovered) {
         ctx.shadowColor = isSelected ? '#3b82f6' : '#60a5fa';
         ctx.shadowBlur = 10;
       }
@@ -251,8 +281,13 @@ export default function LayoutCanvas({
       ctx.fillRect(-size / 2, -size / 2, size, size);
 
       // Draw border
-      ctx.strokeStyle = isSelected ? '#3b82f6' : isHovered ? '#60a5fa' : '#4a5568';
-      ctx.lineWidth = isSelected ? 3 : isHovered ? 2 : 1;
+      if (isBeingDragged) {
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 3;
+      } else {
+        ctx.strokeStyle = isSelected ? '#3b82f6' : isHovered ? '#60a5fa' : '#4a5568';
+        ctx.lineWidth = isSelected ? 3 : isHovered ? 2 : 1;
+      }
       ctx.strokeRect(-size / 2, -size / 2, size, size);
 
       ctx.restore();
@@ -266,9 +301,9 @@ export default function LayoutCanvas({
         ctx.fillText(fixture.name, canvasPos.x, canvasPos.y);
       }
     });
-  }, [fixtures, fixturePositions, viewport, selectedFixtureIds, hoveredFixtureId, normalizedToCanvas, getFixtureColor]);
+  }, [fixtures, fixturePositions, viewport, selectedFixtureIds, hoveredFixtureId, draggedFixtures, normalizedToCanvas, getFixtureColor]);
 
-  // Handle mouse down (start panning)
+  // Handle mouse down (start panning or dragging)
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -278,27 +313,55 @@ export default function LayoutCanvas({
     const y = e.clientY - rect.top;
 
     // Check if clicking on a fixture
-    let clickedFixture: string | null = null;
+    const clickedFixture = getFixtureAtPosition(x, y);
 
-    fixtures.forEach(fixture => {
-      const position = fixturePositions.get(fixture.id);
-      if (!position) return;
+    if (clickedFixture) {
+      // Determine which fixtures to drag
+      let fixturesToDrag: Set<string>;
 
-      const canvasPos = normalizedToCanvas(position.x, position.y);
-      const size = FIXTURE_SIZE * viewport.scale;
-
-      if (
-        x >= canvasPos.x - size / 2 &&
-        x <= canvasPos.x + size / 2 &&
-        y >= canvasPos.y - size / 2 &&
-        y <= canvasPos.y + size / 2
-      ) {
-        clickedFixture = fixture.id;
+      if (e.shiftKey) {
+        // Shift+click: toggle selection
+        const newSelection = new Set(selectedFixtureIds);
+        if (newSelection.has(clickedFixture)) {
+          newSelection.delete(clickedFixture);
+        } else {
+          newSelection.add(clickedFixture);
+        }
+        if (onFixtureClick) {
+          // We'll need to update this to handle multi-select properly
+          // For now, just call with the clicked fixture
+          onFixtureClick(clickedFixture);
+        }
+        fixturesToDrag = newSelection;
+      } else if (selectedFixtureIds.has(clickedFixture)) {
+        // Clicking on already selected fixture: drag all selected
+        fixturesToDrag = new Set(selectedFixtureIds);
+      } else {
+        // Clicking on unselected fixture: select and drag only this one
+        if (onFixtureClick) {
+          onFixtureClick(clickedFixture);
+        }
+        fixturesToDrag = new Set([clickedFixture]);
       }
-    });
 
-    if (clickedFixture && onFixtureClick) {
-      onFixtureClick(clickedFixture);
+      // Start dragging
+      setIsDragging(true);
+      setDraggedFixtures(fixturesToDrag);
+      setDragStart({ x, y });
+
+      // Store initial offsets for each dragged fixture
+      const offsets = new Map<string, { x: number; y: number }>();
+      fixturesToDrag.forEach(fixtureId => {
+        const position = fixturePositions.get(fixtureId);
+        if (position) {
+          const canvasPos = normalizedToCanvas(position.x, position.y);
+          offsets.set(fixtureId, {
+            x: canvasPos.x - x,
+            y: canvasPos.y - y,
+          });
+        }
+      });
+      setDragOffset(offsets);
     } else {
       // Start panning
       setIsPanning(true);
@@ -306,7 +369,7 @@ export default function LayoutCanvas({
     }
   };
 
-  // Handle mouse move (pan viewport or update hover)
+  // Handle mouse move (pan viewport, drag fixtures, or update hover)
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -316,39 +379,57 @@ export default function LayoutCanvas({
     const y = e.clientY - rect.top;
 
     if (isPanning) {
+      // Pan the viewport
       setViewport(prev => ({
         ...prev,
         x: e.clientX - panStart.x,
         y: e.clientY - panStart.y,
       }));
-    } else {
-      // Update hovered fixture
-      let hoveredId: string | null = null;
+    } else if (isDragging && dragStart) {
+      // Drag fixtures
+      const newPositions = new Map(fixturePositions);
 
-      fixtures.forEach(fixture => {
-        const position = fixturePositions.get(fixture.id);
-        if (!position) return;
+      draggedFixtures.forEach(fixtureId => {
+        const offset = dragOffset.get(fixtureId);
+        if (!offset) return;
 
-        const canvasPos = normalizedToCanvas(position.x, position.y);
-        const size = FIXTURE_SIZE * viewport.scale;
+        // Calculate new canvas position
+        const newCanvasX = x + offset.x;
+        const newCanvasY = y + offset.y;
 
-        if (
-          x >= canvasPos.x - size / 2 &&
-          x <= canvasPos.x + size / 2 &&
-          y >= canvasPos.y - size / 2 &&
-          y <= canvasPos.y + size / 2
-        ) {
-          hoveredId = fixture.id;
+        // Convert to normalized coordinates
+        const normalized = canvasToNormalized(newCanvasX, newCanvasY);
+
+        // Clamp to 0-1 range
+        const clampedX = Math.max(0, Math.min(1, normalized.x));
+        const clampedY = Math.max(0, Math.min(1, normalized.y));
+
+        const existingPos = newPositions.get(fixtureId);
+        if (existingPos) {
+          newPositions.set(fixtureId, {
+            ...existingPos,
+            x: clampedX,
+            y: clampedY,
+          });
         }
       });
 
+      setFixturePositions(newPositions);
+      setHasUnsavedChanges(true);
+    } else {
+      // Update hovered fixture
+      const hoveredId = getFixtureAtPosition(x, y);
       setHoveredFixtureId(hoveredId);
     }
   };
 
-  // Handle mouse up (stop panning)
+  // Handle mouse up (stop panning or dragging)
   const handleMouseUp = () => {
     setIsPanning(false);
+    setIsDragging(false);
+    setDraggedFixtures(new Set());
+    setDragStart(null);
+    setDragOffset(new Map());
   };
 
   // Handle mouse wheel (zoom)
@@ -449,6 +530,14 @@ export default function LayoutCanvas({
     }
   };
 
+  // Determine cursor style based on interaction state
+  const getCursorStyle = () => {
+    if (isDragging) return 'grabbing';
+    if (isPanning) return 'grabbing';
+    if (hoveredFixtureId) return 'grab';
+    return 'default';
+  };
+
   return (
     <div ref={containerRef} className="relative w-full h-full">
       <canvas
@@ -458,7 +547,8 @@ export default function LayoutCanvas({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
-        className="cursor-move"
+        style={{ cursor: getCursorStyle() }}
+        className="w-full h-full"
       />
 
       {/* Control panel */}
