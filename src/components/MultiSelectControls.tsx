@@ -6,10 +6,10 @@ import {
   mergeFixtureChannels,
   getMergedRGBColor,
   rgbToHex,
-  hexToRgb,
   sortMergedChannels,
   MergedChannel,
 } from '@/utils/channelMerging';
+import ColorPickerModal from './ColorPickerModal';
 
 interface MultiSelectControlsProps {
   selectedFixtures: FixtureInstance[];
@@ -26,6 +26,7 @@ export default function MultiSelectControls({
 }: MultiSelectControlsProps) {
   const [mergedChannels, setMergedChannels] = useState<MergedChannel[]>([]);
   const [rgbColor, setRgbColor] = useState<{ r: number; g: number; b: number } | null>(null);
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
 
   // Merge channels whenever selection or values change
   useEffect(() => {
@@ -47,26 +48,29 @@ export default function MultiSelectControls({
     });
   }, [onChannelChange]);
 
-  // Handle color picker change
-  const handleColorChange = useCallback((hexColor: string) => {
-    const rgb = hexToRgb(hexColor);
-    if (!rgb) return;
-
+  // Handle color picker change (real-time preview while dragging)
+  const handleColorPickerChange = useCallback((color: { r: number; g: number; b: number }) => {
     // Find RGB channels
     const redChannel = mergedChannels.find(ch => ch.type === ChannelType.RED);
     const greenChannel = mergedChannels.find(ch => ch.type === ChannelType.GREEN);
     const blueChannel = mergedChannels.find(ch => ch.type === ChannelType.BLUE);
     const intensityChannel = mergedChannels.find(ch => ch.type === ChannelType.INTENSITY);
 
-    // Update each channel
-    if (redChannel) handleChannelChange(redChannel, rgb.r);
-    if (greenChannel) handleChannelChange(greenChannel, rgb.g);
-    if (blueChannel) handleChannelChange(blueChannel, rgb.b);
+    // Update each channel in real-time
+    if (redChannel) handleChannelChange(redChannel, color.r);
+    if (greenChannel) handleChannelChange(greenChannel, color.g);
+    if (blueChannel) handleChannelChange(blueChannel, color.b);
 
     // Also set intensity to full (255) so colors appear correctly
     // This ensures all fixtures show the same visible color
     if (intensityChannel) handleChannelChange(intensityChannel, 255);
   }, [mergedChannels, handleChannelChange]);
+
+  // Handle color picker selection (when Apply button is clicked)
+  const handleColorPickerSelect = useCallback((color: { r: number; g: number; b: number }) => {
+    handleColorPickerChange(color);
+    setIsColorPickerOpen(false);
+  }, [handleColorPickerChange]);
 
   // Get channel display name
   const getChannelDisplayName = (channel: MergedChannel): string => {
@@ -100,24 +104,33 @@ export default function MultiSelectControls({
 
       {/* RGB Color Picker */}
       {rgbColor && (
-        <div className="mb-4 pb-4 border-b border-gray-700">
-          <label className="block text-gray-300 text-sm font-medium mb-2">
-            Color
-          </label>
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              value={rgbToHex(rgbColor.r, rgbColor.g, rgbColor.b)}
-              onInput={(e) => handleColorChange((e.target as HTMLInputElement).value)}
-              onChange={(e) => handleColorChange(e.target.value)}
-              className="w-16 h-10 rounded cursor-pointer"
-              title="RGB Color - drag to select color"
-            />
-            <span className="text-gray-400 text-sm font-mono">
-              {rgbToHex(rgbColor.r, rgbColor.g, rgbColor.b).toUpperCase()}
-            </span>
+        <>
+          <div className="mb-4 pb-4 border-b border-gray-700">
+            <label className="block text-gray-300 text-sm font-medium mb-2">
+              Color
+            </label>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsColorPickerOpen(true)}
+                className="w-16 h-10 rounded border-2 border-gray-600 hover:border-blue-500 transition-colors cursor-pointer"
+                style={{ backgroundColor: `rgb(${rgbColor.r}, ${rgbColor.g}, ${rgbColor.b})` }}
+                title="Click to open color picker"
+              />
+              <span className="text-gray-400 text-sm font-mono">
+                {rgbToHex(rgbColor.r, rgbColor.g, rgbColor.b).toUpperCase()}
+              </span>
+            </div>
           </div>
-        </div>
+
+          {/* Color Picker Modal */}
+          <ColorPickerModal
+            isOpen={isColorPickerOpen}
+            onClose={() => setIsColorPickerOpen(false)}
+            currentColor={rgbColor}
+            onColorChange={handleColorPickerChange}
+            onColorSelect={handleColorPickerSelect}
+          />
+        </>
       )}
 
       {/* Channel Sliders */}
