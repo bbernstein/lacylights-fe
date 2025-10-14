@@ -92,14 +92,19 @@ export default function MultiSelectControls({
     return localSliderValues.get(key) ?? channel.averageValue;
   }, [localSliderValues]);
 
-  // Handle slider change (simple pattern like ChannelListEditor)
-  const handleSliderChange = useCallback((channel: MergedChannel, newValue: number) => {
+  // Handle slider input during drag (local state only, no server call)
+  const handleSliderInput = useCallback((channel: MergedChannel, newValue: number) => {
     const key = getChannelKey(channel);
-
     // Update local state immediately for responsive UI
     setLocalSliderValues(prev => new Map(prev).set(key, newValue));
+  }, []);
 
-    // Update server immediately (parent's optimistic state keeps UI responsive)
+  // Handle slider mouse up (send final value to server)
+  const handleSliderMouseUp = useCallback((channel: MergedChannel, newValue: number) => {
+    const key = getChannelKey(channel);
+    // Ensure local state is updated
+    setLocalSliderValues(prev => new Map(prev).set(key, newValue));
+    // Send to server only on mouse up
     handleChannelChange(channel, newValue);
   }, [handleChannelChange]);
 
@@ -221,7 +226,9 @@ export default function MultiSelectControls({
                 min={channel.minValue}
                 max={channel.maxValue}
                 value={getSliderValue(channel)}
-                onChange={(e) => handleSliderChange(channel, Number(e.target.value))}
+                onChange={(e) => handleSliderInput(channel, Number(e.target.value))}
+                onMouseUp={(e) => handleSliderMouseUp(channel, Number((e.target as HTMLInputElement).value))}
+                onTouchEnd={(e) => handleSliderMouseUp(channel, Number((e.target as HTMLInputElement).value))}
                 className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 style={{
                   WebkitAppearance: 'none',
