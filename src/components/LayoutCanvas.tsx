@@ -169,7 +169,7 @@ export default function LayoutCanvas({
   }, [fixtures, fixturePositions, normalizedToCanvas, viewport.scale]);
 
   // Get fixture color from channel values
-  const getFixtureColor = useCallback((fixture: FixtureInstance): string => {
+  const getFixtureColor = useCallback((fixture: FixtureInstance): { color: string; r: number; g: number; b: number } => {
     const channelVals = fixtureValues.get(fixture.id) || [];
     const channels = fixture.channels || [];
 
@@ -223,11 +223,25 @@ export default function LayoutCanvas({
 
     // If no color, show dark gray
     if (r === 0 && g === 0 && b === 0) {
-      return '#2d3748';
+      // Dark gray color
+      return { color: '#2d3748', r: 0.176, g: 0.216, b: 0.282 };
     }
 
-    return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+    return {
+      color: `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`,
+      r,
+      g,
+      b,
+    };
   }, [fixtureValues]);
+
+  // Calculate text color based on background luminance
+  // Uses relative luminance formula: L = 0.2126*R + 0.7152*G + 0.0722*B
+  const getTextColor = useCallback((r: number, g: number, b: number): string => {
+    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    // Use white text for dark backgrounds, black text for light backgrounds
+    return luminance > 0.5 ? '#000' : '#fff';
+  }, []);
 
   // Render the canvas
   useEffect(() => {
@@ -274,8 +288,8 @@ export default function LayoutCanvas({
       const canvasPos = normalizedToCanvas(position.x, position.y);
       const size = FIXTURE_SIZE * viewport.scale;
 
-      // Get fixture color
-      const color = getFixtureColor(fixture);
+      // Get fixture color and RGB components
+      const { color, r, g, b } = getFixtureColor(fixture);
 
       // Draw fixture rectangle
       const isSelected = selectedFixtureIds.has(fixture.id);
@@ -311,9 +325,10 @@ export default function LayoutCanvas({
 
       ctx.restore();
 
-      // Draw label
+      // Draw label with contrast-aware text color
       if (viewport.scale > 0.5) {
-        ctx.fillStyle = '#fff';
+        const textColor = getTextColor(r, g, b);
+        ctx.fillStyle = textColor;
         ctx.font = `${Math.max(10, 12 * viewport.scale)}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -337,7 +352,7 @@ export default function LayoutCanvas({
       ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
       ctx.setLineDash([]);
     }
-  }, [fixtures, fixturePositions, viewport, selectedFixtureIds, hoveredFixtureId, draggedFixtures, isMarqueeSelecting, marqueeStart, marqueeCurrent, normalizedToCanvas, getFixtureColor]);
+  }, [fixtures, fixturePositions, viewport, selectedFixtureIds, hoveredFixtureId, draggedFixtures, isMarqueeSelecting, marqueeStart, marqueeCurrent, normalizedToCanvas, getFixtureColor, getTextColor]);
 
   // Handle mouse down (start panning, dragging, or marquee selection)
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
