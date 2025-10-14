@@ -1,6 +1,10 @@
 'use client';
 
+import { useQuery } from '@apollo/client';
+import { GET_SCENE } from '@/graphql/scenes';
+import { FixtureValue } from '@/types';
 import ChannelListEditor from './ChannelListEditor';
+import LayoutCanvas from './LayoutCanvas';
 
 interface SceneEditorLayoutProps {
   sceneId: string;
@@ -10,6 +14,22 @@ interface SceneEditorLayoutProps {
 }
 
 export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode }: SceneEditorLayoutProps) {
+  // Fetch scene data for 2D layout mode
+  const { data: sceneData } = useQuery(GET_SCENE, {
+    variables: { id: sceneId },
+    skip: mode !== 'layout',
+  });
+
+  const scene = sceneData?.scene;
+
+  // Build channel values map for layout canvas
+  const fixtureValues = new Map<string, number[]>();
+  if (scene) {
+    scene.fixtureValues.forEach((fv: { fixture: { id: string }; channelValues: number[] }) => {
+      fixtureValues.set(fv.fixture.id, fv.channelValues || []);
+    });
+  }
+
   return (
     <div className="fixed inset-0 bg-gray-900 flex flex-col">
       {/* Top bar with mode switcher and controls */}
@@ -63,9 +83,14 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       <div className="flex-1 overflow-hidden">
         {mode === 'channels' ? (
           <ChannelListEditor sceneId={sceneId} onClose={onClose} />
+        ) : scene ? (
+          <LayoutCanvas
+            fixtures={scene.fixtureValues.map((fv: FixtureValue) => fv.fixture)}
+            fixtureValues={fixtureValues}
+          />
         ) : (
           <div className="h-full flex items-center justify-center text-gray-400">
-            2D Layout Editor (coming in Phase 2)
+            Loading scene...
           </div>
         )}
       </div>
