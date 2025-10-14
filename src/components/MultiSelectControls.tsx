@@ -15,6 +15,7 @@ interface MultiSelectControlsProps {
   selectedFixtures: FixtureInstance[];
   fixtureValues: Map<string, number[]>;
   onChannelChange: (fixtureId: string, channelIndex: number, value: number) => void;
+  onBatchedChannelChanges: (changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => void;
   onDeselectAll: () => void;
 }
 
@@ -22,6 +23,7 @@ export default function MultiSelectControls({
   selectedFixtures,
   fixtureValues,
   onChannelChange,
+  onBatchedChannelChanges,
   onDeselectAll,
 }: MultiSelectControlsProps) {
   const [mergedChannels, setMergedChannels] = useState<MergedChannel[]>([]);
@@ -113,14 +115,46 @@ export default function MultiSelectControls({
       return newMap;
     });
 
-    // Send to server
-    if (redChannel) handleChannelChange(redChannel, color.r);
-    if (greenChannel) handleChannelChange(greenChannel, color.g);
-    if (blueChannel) handleChannelChange(blueChannel, color.b);
-    if (intensityChannel) handleChannelChange(intensityChannel, 255);
+    // Batch all channel changes into a single server call
+    const changes: Array<{fixtureId: string, channelIndex: number, value: number}> = [];
+
+    // Red channel
+    if (redChannel) {
+      redChannel.fixtureIds.forEach((fixtureId, index) => {
+        const channelIndex = redChannel.channelIndices[index];
+        changes.push({fixtureId, channelIndex, value: color.r});
+      });
+    }
+
+    // Green channel
+    if (greenChannel) {
+      greenChannel.fixtureIds.forEach((fixtureId, index) => {
+        const channelIndex = greenChannel.channelIndices[index];
+        changes.push({fixtureId, channelIndex, value: color.g});
+      });
+    }
+
+    // Blue channel
+    if (blueChannel) {
+      blueChannel.fixtureIds.forEach((fixtureId, index) => {
+        const channelIndex = blueChannel.channelIndices[index];
+        changes.push({fixtureId, channelIndex, value: color.b});
+      });
+    }
+
+    // Intensity channel
+    if (intensityChannel) {
+      intensityChannel.fixtureIds.forEach((fixtureId, index) => {
+        const channelIndex = intensityChannel.channelIndices[index];
+        changes.push({fixtureId, channelIndex, value: 255});
+      });
+    }
+
+    // Send all changes in a single batched call
+    onBatchedChannelChanges(changes);
 
     setIsColorPickerOpen(false);
-  }, [mergedChannels, handleChannelChange]);
+  }, [mergedChannels, onBatchedChannelChanges]);
 
   // Generate unique key for each channel
   const getChannelKey = (channel: MergedChannel) => channel.type;

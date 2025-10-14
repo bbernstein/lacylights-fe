@@ -59,32 +59,49 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     });
   }
 
-  // Handle channel value change from MultiSelectControls
-  const handleChannelChange = useCallback(async (fixtureId: string, channelIndex: number, value: number) => {
-    if (!scene) return;
+  // Handle batched channel value changes from MultiSelectControls
+  // changes is an array of {fixtureId, channelIndex, value}
+  const handleBatchedChannelChanges = useCallback(async (changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => {
+    if (!scene || changes.length === 0) return;
 
     // Update local state immediately for responsive UI
     setLocalFixtureValues(prev => {
       const newMap = new Map(prev);
-      const currentValues = prev.get(fixtureId) || fixtureValues.get(fixtureId) || [];
-      const newValues = [...currentValues];
-      newValues[channelIndex] = value;
-      newMap.set(fixtureId, newValues);
+      changes.forEach(({fixtureId, channelIndex, value}) => {
+        const currentValues = newMap.get(fixtureId) || fixtureValues.get(fixtureId) || [];
+        const newValues = [...currentValues];
+        newValues[channelIndex] = value;
+        newMap.set(fixtureId, newValues);
+      });
       return newMap;
+    });
+
+    // Build a map of fixture changes for efficient lookup
+    const changesByFixture = new Map<string, Map<number, number>>();
+    changes.forEach(({fixtureId, channelIndex, value}) => {
+      if (!changesByFixture.has(fixtureId)) {
+        changesByFixture.set(fixtureId, new Map());
+      }
+      changesByFixture.get(fixtureId)!.set(channelIndex, value);
     });
 
     // Build updated fixture values array for server
     const updatedFixtureValues = scene.fixtureValues.map((fv: FixtureValue) => {
-      if (fv.fixture.id === fixtureId) {
-        // Update this fixture's channel value
-        const currentValues = localFixtureValues.get(fixtureId) || fv.channelValues || [];
+      const fixtureChanges = changesByFixture.get(fv.fixture.id);
+
+      if (fixtureChanges) {
+        // Apply all changes to this fixture
+        const currentValues = localFixtureValues.get(fv.fixture.id) || fv.channelValues || [];
         const newChannelValues = [...currentValues];
-        newChannelValues[channelIndex] = value;
+        fixtureChanges.forEach((value, channelIndex) => {
+          newChannelValues[channelIndex] = value;
+        });
         return {
           fixtureId: fv.fixture.id,
           channelValues: newChannelValues,
         };
       }
+
       // Keep existing values (use local if available, otherwise server)
       return {
         fixtureId: fv.fixture.id,
@@ -107,6 +124,12 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       // TODO: Show error toast and revert local state
     }
   }, [scene, sceneId, updateScene, localFixtureValues, fixtureValues]);
+
+  // Handle single channel value change from MultiSelectControls
+  const handleChannelChange = useCallback(async (fixtureId: string, channelIndex: number, value: number) => {
+    // Delegate to batched handler with single change
+    return handleBatchedChannelChanges([{fixtureId, channelIndex, value}]);
+  }, [handleBatchedChannelChanges]);
 
   // Handle selection change
   const handleSelectionChange = useCallback((newSelection: Set<string>) => {
@@ -184,6 +207,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
                 selectedFixtures={selectedFixtures}
                 fixtureValues={fixtureValues}
                 onChannelChange={handleChannelChange}
+                onBatchedChannelChanges={handleBatchedChannelChanges}
                 onDeselectAll={handleDeselectAll}
               />
             )}
