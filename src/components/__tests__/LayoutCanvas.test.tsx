@@ -1,8 +1,10 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MockedProvider } from '@apollo/client/testing';
 import LayoutCanvas from '../LayoutCanvas';
 import { ChannelType, FixtureType, FixtureInstance } from '../../types';
+import { UPDATE_FIXTURE_POSITIONS } from '../../graphql/fixtures';
 
 // Mock canvas context
 const mockGetContext = jest.fn();
@@ -113,16 +115,42 @@ const defaultProps = {
   fixtureValues: defaultFixtureValues,
 };
 
+// Apollo Client mocks
+const mocks = [
+  {
+    request: {
+      query: UPDATE_FIXTURE_POSITIONS,
+      variables: {
+        positions: expect.any(Array),
+      },
+    },
+    result: {
+      data: {
+        updateFixturePositions: true,
+      },
+    },
+  },
+];
+
+// Helper to render with Apollo Client
+const renderWithApollo = (ui: React.ReactElement) => {
+  return render(
+    <MockedProvider mocks={mocks} addTypename={false}>
+      {ui}
+    </MockedProvider>
+  );
+};
+
 describe('LayoutCanvas', () => {
   describe('rendering', () => {
     it('renders canvas element', () => {
-      render(<LayoutCanvas {...defaultProps} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
       const canvas = document.querySelector('canvas');
       expect(canvas).toBeInTheDocument();
     });
 
     it('renders zoom controls', () => {
-      render(<LayoutCanvas {...defaultProps} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
 
       expect(screen.getByTitle('Zoom In')).toBeInTheDocument();
       expect(screen.getByTitle('Zoom Out')).toBeInTheDocument();
@@ -130,7 +158,7 @@ describe('LayoutCanvas', () => {
     });
 
     it('initializes canvas with proper dimensions', () => {
-      render(<LayoutCanvas {...defaultProps} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
 
       const canvas = document.querySelector('canvas');
       expect(canvas).toBeInTheDocument();
@@ -139,7 +167,7 @@ describe('LayoutCanvas', () => {
 
   describe('fixture visualization', () => {
     it('renders fixtures on canvas', async () => {
-      render(<LayoutCanvas {...defaultProps} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
 
       await waitFor(() => {
         expect(mockContext.fillRect).toHaveBeenCalled();
@@ -147,7 +175,7 @@ describe('LayoutCanvas', () => {
     });
 
     it('shows fixture tooltip on hover', async () => {
-      render(<LayoutCanvas {...defaultProps} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
 
       const canvas = document.querySelector('canvas');
       expect(canvas).toBeInTheDocument();
@@ -171,7 +199,7 @@ describe('LayoutCanvas', () => {
     });
 
     it('renders fixtures with different colors based on channel values', async () => {
-      render(<LayoutCanvas {...defaultProps} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
 
       await waitFor(() => {
         // Should call fillStyle with RGB colors
@@ -185,7 +213,7 @@ describe('LayoutCanvas', () => {
         ['fixture-2', [0, 0, 0]],
       ]);
 
-      render(<LayoutCanvas {...defaultProps} fixtureValues={darkFixtureValues} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} fixtureValues={darkFixtureValues} />);
 
       await waitFor(() => {
         expect(mockContext.fillRect).toHaveBeenCalled();
@@ -197,7 +225,7 @@ describe('LayoutCanvas', () => {
   describe('interaction', () => {
     it('handles fixture click', async () => {
       const onFixtureClick = jest.fn();
-      render(<LayoutCanvas {...defaultProps} onFixtureClick={onFixtureClick} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} onFixtureClick={onFixtureClick} />);
 
       const canvas = document.querySelector('canvas');
       expect(canvas).toBeInTheDocument();
@@ -217,7 +245,7 @@ describe('LayoutCanvas', () => {
 
     it('shows selected fixture with blue border', async () => {
       const selectedIds = new Set(['fixture-1']);
-      render(<LayoutCanvas {...defaultProps} selectedFixtureIds={selectedIds} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} selectedFixtureIds={selectedIds} />);
 
       await waitFor(() => {
         expect(mockContext.strokeRect).toHaveBeenCalled();
@@ -225,7 +253,7 @@ describe('LayoutCanvas', () => {
     });
 
     it('handles pan gesture', async () => {
-      render(<LayoutCanvas {...defaultProps} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
 
       const canvas = document.querySelector('canvas');
       expect(canvas).toBeInTheDocument();
@@ -253,7 +281,7 @@ describe('LayoutCanvas', () => {
 
   describe('zoom controls', () => {
     it('zooms in when zoom in button is clicked', async () => {
-      render(<LayoutCanvas {...defaultProps} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
 
       const zoomInButton = screen.getByTitle('Zoom In');
       await userEvent.click(zoomInButton);
@@ -265,7 +293,7 @@ describe('LayoutCanvas', () => {
     });
 
     it('zooms out when zoom out button is clicked', async () => {
-      render(<LayoutCanvas {...defaultProps} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
 
       const zoomOutButton = screen.getByTitle('Zoom Out');
       await userEvent.click(zoomOutButton);
@@ -276,7 +304,7 @@ describe('LayoutCanvas', () => {
     });
 
     it('fits all fixtures to view when fit button is clicked', async () => {
-      render(<LayoutCanvas {...defaultProps} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
 
       const fitButton = screen.getByTitle('Fit to View');
       await userEvent.click(fitButton);
@@ -287,7 +315,7 @@ describe('LayoutCanvas', () => {
     });
 
     it('handles mouse wheel zoom', async () => {
-      render(<LayoutCanvas {...defaultProps} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
 
       const canvas = document.querySelector('canvas');
       expect(canvas).toBeInTheDocument();
@@ -306,14 +334,14 @@ describe('LayoutCanvas', () => {
 
   describe('edge cases', () => {
     it('handles empty fixture list', () => {
-      render(<LayoutCanvas fixtures={[]} fixtureValues={new Map()} />);
+      renderWithApollo(<LayoutCanvas fixtures={[]} fixtureValues={new Map()} />);
 
       const canvas = document.querySelector('canvas');
       expect(canvas).toBeInTheDocument();
     });
 
     it('handles fixtures without channel values', () => {
-      render(<LayoutCanvas fixtures={mockFixtures} fixtureValues={new Map()} />);
+      renderWithApollo(<LayoutCanvas fixtures={mockFixtures} fixtureValues={new Map()} />);
 
       const canvas = document.querySelector('canvas');
       expect(canvas).toBeInTheDocument();
@@ -324,7 +352,7 @@ describe('LayoutCanvas', () => {
         ['fixture-1', [255, 0, 0, 128]], // Red with 50% intensity
       ]);
 
-      render(<LayoutCanvas {...defaultProps} fixtureValues={fixtureWithIntensity} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} fixtureValues={fixtureWithIntensity} />);
 
       await waitFor(() => {
         expect(mockContext.fillRect).toHaveBeenCalled();
@@ -347,7 +375,7 @@ describe('LayoutCanvas', () => {
         ['fixture-1', [255, 128, 64, 32, 16]],
       ]);
 
-      render(<LayoutCanvas fixtures={[rgbawFixture]} fixtureValues={rgbawValues} />);
+      renderWithApollo(<LayoutCanvas fixtures={[rgbawFixture]} fixtureValues={rgbawValues} />);
 
       await waitFor(() => {
         expect(mockContext.fillRect).toHaveBeenCalled();
@@ -369,7 +397,7 @@ describe('LayoutCanvas', () => {
         ['fixture-1', [0, 0, 0, 255]],
       ]);
 
-      render(<LayoutCanvas fixtures={[uvFixture]} fixtureValues={uvValues} />);
+      renderWithApollo(<LayoutCanvas fixtures={[uvFixture]} fixtureValues={uvValues} />);
 
       await waitFor(() => {
         expect(mockContext.fillRect).toHaveBeenCalled();
@@ -379,7 +407,7 @@ describe('LayoutCanvas', () => {
 
   describe('grid rendering', () => {
     it('renders grid background', () => {
-      render(<LayoutCanvas {...defaultProps} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
 
       // Grid rendering happens in useEffect after canvas dimensions are set
       // In test environment, canvas may have zero dimensions
@@ -392,7 +420,7 @@ describe('LayoutCanvas', () => {
 
   describe('accessibility', () => {
     it('has accessible zoom control buttons', () => {
-      render(<LayoutCanvas {...defaultProps} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
 
       expect(screen.getByTitle('Zoom In')).toBeInTheDocument();
       expect(screen.getByTitle('Zoom Out')).toBeInTheDocument();
@@ -400,16 +428,32 @@ describe('LayoutCanvas', () => {
     });
 
     it('uses cursor-move for pan interaction', () => {
-      render(<LayoutCanvas {...defaultProps} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
 
       const canvas = document.querySelector('canvas');
       expect(canvas).toHaveClass('cursor-move');
     });
   });
 
+  describe('save layout', () => {
+    it('renders save layout button', () => {
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
+
+      const saveButton = screen.getByRole('button', { name: /Save Layout/i });
+      expect(saveButton).toBeInTheDocument();
+    });
+
+    it('save button is initially disabled when no changes', () => {
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
+
+      const saveButton = screen.getByRole('button', { name: /Save Layout/i });
+      expect(saveButton).toBeDisabled();
+    });
+  });
+
   describe('auto-layout', () => {
     it('auto-lays out fixtures in a grid on initial render', () => {
-      render(<LayoutCanvas {...defaultProps} />);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
 
       // Fixtures should be positioned automatically
       expect(mockContext.fillRect).toHaveBeenCalled();
@@ -418,7 +462,7 @@ describe('LayoutCanvas', () => {
     });
 
     it('updates layout when fixtures change', async () => {
-      const { rerender } = render(<LayoutCanvas {...defaultProps} />);
+      const { rerender } = renderWithApollo(<LayoutCanvas {...defaultProps} />);
 
       await waitFor(() => {
         expect(mockContext.fillRect).toHaveBeenCalled();
@@ -433,7 +477,11 @@ describe('LayoutCanvas', () => {
         name: 'Light 3',
       }];
 
-      rerender(<LayoutCanvas {...defaultProps} fixtures={newFixtures} />);
+      rerender(
+        <MockedProvider mocks={mocks} addTypename={false}>
+          <LayoutCanvas {...defaultProps} fixtures={newFixtures} />
+        </MockedProvider>
+      );
 
       await waitFor(() => {
         expect(mockContext.fillRect.mock.calls.length).toBeGreaterThan(callCountBefore);
