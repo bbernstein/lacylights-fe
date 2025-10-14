@@ -1,8 +1,15 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_SCENE, UPDATE_SCENE } from '@/graphql/scenes';
+import {
+  GET_SCENE,
+  UPDATE_SCENE,
+  START_PREVIEW_SESSION,
+  CANCEL_PREVIEW_SESSION,
+  UPDATE_PREVIEW_CHANNEL,
+  INITIALIZE_PREVIEW_WITH_SCENE,
+} from '@/graphql/scenes';
 import { FixtureValue, FixtureInstance } from '@/types';
 import ChannelListEditor from './ChannelListEditor';
 import LayoutCanvas from './LayoutCanvas';
@@ -22,6 +29,11 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   // Local optimistic state for fixture channel values (prevents slider jumping)
   const [localFixtureValues, setLocalFixtureValues] = useState<Map<string, number[]>>(new Map());
 
+  // Preview mode state
+  const [previewMode, setPreviewMode] = useState(false);
+  const [previewSessionId, setPreviewSessionId] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
   // Fetch scene data for 2D layout mode
   const { data: sceneData } = useQuery(GET_SCENE, {
     variables: { id: sceneId },
@@ -30,6 +42,34 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
 
   // Mutation for updating scene (no refetch - we use optimistic local state)
   const [updateScene] = useMutation(UPDATE_SCENE);
+
+  // Preview mutations
+  const [startPreviewSession] = useMutation(START_PREVIEW_SESSION, {
+    onCompleted: (data) => {
+      setPreviewSessionId(data.startPreviewSession.id);
+      setPreviewMode(true);
+      setPreviewError(null);
+    },
+    onError: (error) => {
+      setPreviewError(error.message);
+      console.error('Failed to start preview session:', error);
+    },
+  });
+
+  const [cancelPreviewSession] = useMutation(CANCEL_PREVIEW_SESSION, {
+    onCompleted: () => {
+      setPreviewSessionId(null);
+      setPreviewMode(false);
+      setPreviewError(null);
+    },
+    onError: (error) => {
+      setPreviewError(error.message);
+      console.error('Failed to cancel preview session:', error);
+    },
+  });
+
+  const [updatePreviewChannel] = useMutation(UPDATE_PREVIEW_CHANNEL);
+  const [initializePreviewWithScene] = useMutation(INITIALIZE_PREVIEW_WITH_SCENE);
 
   const scene = sceneData?.scene;
 
@@ -59,6 +99,68 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     });
   }
 
+  // Cleanup preview on unmount or mode switch
+  useEffect(() => {
+    return () => {
+      if (previewMode && previewSessionId) {
+        cancelPreviewSession({ variables: { sessionId: previewSessionId } });
+      }
+    };
+  }, [previewMode, previewSessionId, cancelPreviewSession]);
+
+  // Batched preview update for channel changes
+  const batchedPreviewUpdate = useCallback((changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => {
+    if (!previewMode || !previewSessionId || changes.length === 0) return;
+
+    // Send all changes in parallel
+    Promise.all(
+      changes.map(({ fixtureId, channelIndex, value }) =>
+        updatePreviewChannel({
+          variables: { sessionId: previewSessionId, fixtureId, channelIndex, value },
+        })
+      )
+    ).catch(error => {
+      console.error('Failed to batch update preview channels:', error);
+      setPreviewError(error.message);
+    });
+  }, [previewMode, previewSessionId, updatePreviewChannel]);
+
+  // Initialize preview with all current scene values
+  const initializePreviewWithSceneValues = useCallback(async (sessionId: string) => {
+    if (!scene) return;
+
+    try {
+      await initializePreviewWithScene({
+        variables: { sessionId, sceneId },
+      });
+    } catch (error) {
+      console.error('Failed to initialize preview with scene:', error);
+      setPreviewError((error as Error).message);
+    }
+  }, [scene, sceneId, initializePreviewWithScene]);
+
+  // Toggle preview mode
+  const handleTogglePreview = useCallback(async () => {
+    if (previewMode && previewSessionId) {
+      // Cancel preview
+      await cancelPreviewSession({ variables: { sessionId: previewSessionId } });
+    } else if (scene?.project?.id) {
+      // Start preview
+      try {
+        const result = await startPreviewSession({
+          variables: { projectId: scene.project.id },
+        });
+
+        if (result.data?.startPreviewSession?.id) {
+          await initializePreviewWithSceneValues(result.data.startPreviewSession.id);
+        }
+      } catch (error) {
+        console.error('Failed to start preview:', error);
+        setPreviewError((error as Error).message);
+      }
+    }
+  }, [previewMode, previewSessionId, scene, cancelPreviewSession, startPreviewSession, initializePreviewWithSceneValues]);
+
   // Handle batched channel value changes from MultiSelectControls
   // changes is an array of {fixtureId, channelIndex, value}
   const handleBatchedChannelChanges = useCallback(async (changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => {
@@ -75,6 +177,12 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       });
       return newMap;
     });
+
+    // In preview mode, send to preview session instead of updating scene
+    if (previewMode && previewSessionId) {
+      batchedPreviewUpdate(changes);
+      return;
+    }
 
     // Build a map of fixture changes for efficient lookup
     const changesByFixture = new Map<string, Map<number, number>>();
@@ -123,7 +231,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       console.error('Failed to update scene:', error);
       // TODO: Show error toast and revert local state
     }
-  }, [scene, sceneId, updateScene, localFixtureValues, fixtureValues]);
+  }, [scene, sceneId, updateScene, localFixtureValues, fixtureValues, previewMode, previewSessionId, batchedPreviewUpdate]);
 
   // Handle single channel value change from MultiSelectControls
   const handleChannelChange = useCallback(async (fixtureId: string, channelIndex: number, value: number) => {
@@ -158,31 +266,60 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
           </button>
 
           {/* Mode switcher tabs */}
-          <div className="flex items-center space-x-1 bg-gray-700 rounded-lg p-1">
-            <button
-              onClick={() => {
-                if (mode !== 'channels') onToggleMode();
-              }}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                mode === 'channels'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-300 hover:text-white hover:bg-gray-600'
-              }`}
-            >
-              Channel List
-            </button>
-            <button
-              onClick={() => {
-                if (mode !== 'layout') onToggleMode();
-              }}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                mode === 'layout'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-300 hover:text-white hover:bg-gray-600'
-              }`}
-            >
-              2D Layout
-            </button>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-1 bg-gray-700 rounded-lg p-1">
+              <button
+                onClick={() => {
+                  if (mode !== 'channels') onToggleMode();
+                }}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  mode === 'channels'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-300 hover:text-white hover:bg-gray-600'
+                }`}
+              >
+                Channel List
+              </button>
+              <button
+                onClick={() => {
+                  if (mode !== 'layout') onToggleMode();
+                }}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  mode === 'layout'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-300 hover:text-white hover:bg-gray-600'
+                }`}
+              >
+                2D Layout
+              </button>
+            </div>
+
+            {/* Preview mode toggle - only show in layout mode */}
+            {mode === 'layout' && (
+              <div className="flex items-center space-x-3 bg-gray-700/50 rounded-lg px-4 py-2 border border-gray-600">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${previewMode ? 'bg-blue-400 animate-pulse' : 'bg-gray-400'}`} />
+                  <div className="text-sm">
+                    <span className="text-white font-medium">Preview</span>
+                    {previewError && (
+                      <span className="text-red-400 text-xs ml-2" title={previewError}>Error</span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleTogglePreview}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800 ${
+                    previewMode ? 'bg-blue-600' : 'bg-gray-600'
+                  }`}
+                  title={previewMode ? 'Preview mode: Changes sent to DMX for testing' : 'Enable preview mode'}
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    previewMode ? 'translate-x-4' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Spacer for layout balance */}
