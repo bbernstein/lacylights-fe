@@ -5,11 +5,12 @@ import {
   hexToRgb,
   sortMergedChannels,
   getPriorityChannelTypes,
+  MergedChannel,
 } from '../channelMerging';
 import { FixtureInstance, ChannelType, FixtureType } from '@/types';
 
 describe('channelMerging', () => {
-  const createMockFixture = (id: string, channels: any[]): FixtureInstance => ({
+  const createMockFixture = (id: string, channels: unknown[]): FixtureInstance => ({
     id,
     name: `Fixture ${id}`,
     definitionId: 'def1',
@@ -18,8 +19,8 @@ describe('channelMerging', () => {
     type: FixtureType.LED_PAR,
     modeName: 'Test Mode',
     channelCount: channels.length,
-    channels,
-    project: {} as any,
+    channels: channels as FixtureInstance['channels'],
+    project: {} as FixtureInstance['project'],
     universe: 1,
     startChannel: 1,
     tags: [],
@@ -110,9 +111,9 @@ describe('channelMerging', () => {
   describe('getMergedRGBColor', () => {
     it('should return RGB color when all channels are present', () => {
       const mergedChannels = new Map([
-        [ChannelType.RED, { averageValue: 255, type: ChannelType.RED } as any],
-        [ChannelType.GREEN, { averageValue: 128, type: ChannelType.GREEN } as any],
-        [ChannelType.BLUE, { averageValue: 64, type: ChannelType.BLUE } as any],
+        [ChannelType.RED, { averageValue: 255, type: ChannelType.RED } as MergedChannel],
+        [ChannelType.GREEN, { averageValue: 128, type: ChannelType.GREEN } as MergedChannel],
+        [ChannelType.BLUE, { averageValue: 64, type: ChannelType.BLUE } as MergedChannel],
       ]);
 
       const color = getMergedRGBColor(mergedChannels);
@@ -121,8 +122,8 @@ describe('channelMerging', () => {
 
     it('should return null when RGB channels are missing', () => {
       const mergedChannels = new Map([
-        [ChannelType.RED, { averageValue: 255, type: ChannelType.RED } as any],
-        [ChannelType.GREEN, { averageValue: 128, type: ChannelType.GREEN } as any],
+        [ChannelType.RED, { averageValue: 255, type: ChannelType.RED } as MergedChannel],
+        [ChannelType.GREEN, { averageValue: 128, type: ChannelType.GREEN } as MergedChannel],
       ]);
 
       const color = getMergedRGBColor(mergedChannels);
@@ -175,12 +176,12 @@ describe('channelMerging', () => {
 
   describe('sortMergedChannels', () => {
     it('should sort channels by priority', () => {
-      const channels = [
-        { name: 'Pan', type: ChannelType.PAN } as any,
-        { name: 'Intensity', type: ChannelType.INTENSITY } as any,
-        { name: 'Red', type: ChannelType.RED } as any,
-        { name: 'Blue', type: ChannelType.BLUE } as any,
-        { name: 'Green', type: ChannelType.GREEN } as any,
+      const channels: MergedChannel[] = [
+        { name: 'Pan', type: ChannelType.PAN } as MergedChannel,
+        { name: 'Intensity', type: ChannelType.INTENSITY } as MergedChannel,
+        { name: 'Red', type: ChannelType.RED } as MergedChannel,
+        { name: 'Blue', type: ChannelType.BLUE } as MergedChannel,
+        { name: 'Green', type: ChannelType.GREEN } as MergedChannel,
       ];
 
       const sorted = sortMergedChannels(channels);
@@ -198,9 +199,9 @@ describe('channelMerging', () => {
     });
 
     it('should not mutate original array', () => {
-      const channels = [
-        { name: 'Pan', type: ChannelType.PAN } as any,
-        { name: 'Intensity', type: ChannelType.INTENSITY } as any,
+      const channels: MergedChannel[] = [
+        { name: 'Pan', type: ChannelType.PAN } as MergedChannel,
+        { name: 'Intensity', type: ChannelType.INTENSITY } as MergedChannel,
       ];
 
       const originalOrder = [...channels];

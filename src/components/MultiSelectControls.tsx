@@ -56,11 +56,16 @@ export default function MultiSelectControls({
     const redChannel = mergedChannels.find(ch => ch.type === ChannelType.RED);
     const greenChannel = mergedChannels.find(ch => ch.type === ChannelType.GREEN);
     const blueChannel = mergedChannels.find(ch => ch.type === ChannelType.BLUE);
+    const intensityChannel = mergedChannels.find(ch => ch.type === ChannelType.INTENSITY);
 
     // Update each channel
     if (redChannel) handleChannelChange(redChannel, rgb.r);
     if (greenChannel) handleChannelChange(greenChannel, rgb.g);
     if (blueChannel) handleChannelChange(blueChannel, rgb.b);
+
+    // Also set intensity to full (255) so colors appear correctly
+    // This ensures all fixtures show the same visible color
+    if (intensityChannel) handleChannelChange(intensityChannel, 255);
   }, [mergedChannels, handleChannelChange]);
 
   // Get channel display name
@@ -103,9 +108,10 @@ export default function MultiSelectControls({
             <input
               type="color"
               value={rgbToHex(rgbColor.r, rgbColor.g, rgbColor.b)}
+              onInput={(e) => handleColorChange((e.target as HTMLInputElement).value)}
               onChange={(e) => handleColorChange(e.target.value)}
               className="w-16 h-10 rounded cursor-pointer"
-              title="RGB Color"
+              title="RGB Color - drag to select color"
             />
             <span className="text-gray-400 text-sm font-mono">
               {rgbToHex(rgbColor.r, rgbColor.g, rgbColor.b).toUpperCase()}
@@ -141,9 +147,14 @@ export default function MultiSelectControls({
               min={channel.minValue}
               max={channel.maxValue}
               value={channel.averageValue}
+              onInput={(e) => handleChannelChange(channel, Number((e.target as HTMLInputElement).value))}
               onChange={(e) => handleChannelChange(channel, Number(e.target.value))}
               className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-              title={`${channel.name}: ${Math.round(channel.averageValue)}`}
+              style={{
+                WebkitAppearance: 'none',
+                appearance: 'none',
+              }}
+              title={`${channel.name}: ${Math.round(channel.averageValue)} - drag to adjust`}
             />
           </div>
         ))}
