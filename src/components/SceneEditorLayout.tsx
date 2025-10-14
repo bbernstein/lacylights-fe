@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_SCENE, UPDATE_SCENE } from '@/graphql/scenes';
 import { FixtureValue, FixtureInstance } from '@/types';
@@ -19,26 +19,35 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   // Selection state for layout mode
   const [selectedFixtureIds, setSelectedFixtureIds] = useState<Set<string>>(new Set());
 
+  // Local optimistic state for fixture channel values (prevents slider jumping)
+  const [localFixtureValues, setLocalFixtureValues] = useState<Map<string, number[]>>(new Map());
+
   // Fetch scene data for 2D layout mode
   const { data: sceneData } = useQuery(GET_SCENE, {
     variables: { id: sceneId },
     skip: mode !== 'layout',
   });
 
-  // Mutation for updating scene
-  const [updateScene] = useMutation(UPDATE_SCENE, {
-    refetchQueries: [{ query: GET_SCENE, variables: { id: sceneId } }],
-  });
+  // Mutation for updating scene (no refetch - we use optimistic local state)
+  const [updateScene] = useMutation(UPDATE_SCENE);
 
   const scene = sceneData?.scene;
 
-  // Build channel values map for layout canvas
-  const fixtureValues = new Map<string, number[]>();
-  if (scene) {
-    scene.fixtureValues.forEach((fv: { fixture: { id: string }; channelValues: number[] }) => {
-      fixtureValues.set(fv.fixture.id, fv.channelValues || []);
-    });
-  }
+  // Build channel values map for layout canvas (merge server + local state)
+  const fixtureValues = useMemo(() => {
+    const values = new Map<string, number[]>();
+    if (scene) {
+      scene.fixtureValues.forEach((fv: { fixture: { id: string }; channelValues: number[] }) => {
+        const fixtureId = fv.fixture.id;
+        // Use local value if available, otherwise use server value
+        const channelValues = localFixtureValues.has(fixtureId)
+          ? localFixtureValues.get(fixtureId)!
+          : (fv.channelValues || []);
+        values.set(fixtureId, channelValues);
+      });
+    }
+    return values;
+  }, [scene, localFixtureValues]);
 
   // Get selected fixtures
   const selectedFixtures: FixtureInstance[] = [];
@@ -54,25 +63,36 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   const handleChannelChange = useCallback(async (fixtureId: string, channelIndex: number, value: number) => {
     if (!scene) return;
 
-    // Build updated fixture values array
+    // Update local state immediately for responsive UI
+    setLocalFixtureValues(prev => {
+      const newMap = new Map(prev);
+      const currentValues = prev.get(fixtureId) || fixtureValues.get(fixtureId) || [];
+      const newValues = [...currentValues];
+      newValues[channelIndex] = value;
+      newMap.set(fixtureId, newValues);
+      return newMap;
+    });
+
+    // Build updated fixture values array for server
     const updatedFixtureValues = scene.fixtureValues.map((fv: FixtureValue) => {
       if (fv.fixture.id === fixtureId) {
         // Update this fixture's channel value
-        const newChannelValues = [...(fv.channelValues || [])];
+        const currentValues = localFixtureValues.get(fixtureId) || fv.channelValues || [];
+        const newChannelValues = [...currentValues];
         newChannelValues[channelIndex] = value;
         return {
           fixtureId: fv.fixture.id,
           channelValues: newChannelValues,
         };
       }
-      // Keep existing values
+      // Keep existing values (use local if available, otherwise server)
       return {
         fixtureId: fv.fixture.id,
-        channelValues: fv.channelValues || [],
+        channelValues: localFixtureValues.get(fv.fixture.id) || fv.channelValues || [],
       };
     });
 
-    // Update scene via GraphQL mutation
+    // Update scene via GraphQL mutation (async, no refetch)
     try {
       await updateScene({
         variables: {
@@ -84,9 +104,9 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       });
     } catch (error) {
       console.error('Failed to update scene:', error);
-      // TODO: Show error toast
+      // TODO: Show error toast and revert local state
     }
-  }, [scene, sceneId, updateScene]);
+  }, [scene, sceneId, updateScene, localFixtureValues, fixtureValues]);
 
   // Handle selection change
   const handleSelectionChange = useCallback((newSelection: Set<string>) => {
