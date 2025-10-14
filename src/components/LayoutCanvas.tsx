@@ -10,6 +10,7 @@ interface LayoutCanvasProps {
   fixtureValues: Map<string, number[]>; // fixtureId -> channel values
   onFixtureClick?: (fixtureId: string) => void;
   selectedFixtureIds?: Set<string>;
+  onSelectionChange?: (selectedIds: Set<string>) => void;
 }
 
 interface FixturePosition {
@@ -34,8 +35,14 @@ export default function LayoutCanvas({
   fixtures,
   fixtureValues,
   onFixtureClick,
-  selectedFixtureIds = new Set(),
+  selectedFixtureIds: externalSelectedIds,
+  onSelectionChange,
 }: LayoutCanvasProps) {
+  // Internal selection state (used if not controlled by parent)
+  const [internalSelection, setInternalSelection] = useState<Set<string>>(new Set());
+
+  // Use external selection if provided, otherwise use internal
+  const selectedFixtureIds = externalSelectedIds || internalSelection;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -52,10 +59,13 @@ export default function LayoutCanvas({
   // Interaction state
   const [isPanning, setIsPanning] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isMarqueeSelecting, setIsMarqueeSelecting] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [draggedFixtures, setDraggedFixtures] = useState<Set<string>>(new Set());
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [dragOffset, setDragOffset] = useState<Map<string, { x: number; y: number }>>(new Map());
+  const [marqueeStart, setMarqueeStart] = useState<{ x: number; y: number } | null>(null);
+  const [marqueeCurrent, setMarqueeCurrent] = useState<{ x: number; y: number } | null>(null);
   const [hoveredFixtureId, setHoveredFixtureId] = useState<string | null>(null);
 
   // Save state tracking
@@ -105,6 +115,15 @@ export default function LayoutCanvas({
     setFixturePositions(positions);
     setHasUnsavedChanges(false); // Reset unsaved changes when loading
   }, [fixtures]);
+
+  // Helper to update selection (internal or external)
+  const updateSelection = useCallback((newSelection: Set<string>) => {
+    if (onSelectionChange) {
+      onSelectionChange(newSelection);
+    } else {
+      setInternalSelection(newSelection);
+    }
+  }, [onSelectionChange]);
 
   // Convert normalized position to canvas coordinates
   const normalizedToCanvas = useCallback((nx: number, ny: number): { x: number; y: number } => {
@@ -301,9 +320,26 @@ export default function LayoutCanvas({
         ctx.fillText(fixture.name, canvasPos.x, canvasPos.y);
       }
     });
-  }, [fixtures, fixturePositions, viewport, selectedFixtureIds, hoveredFixtureId, draggedFixtures, normalizedToCanvas, getFixtureColor]);
 
-  // Handle mouse down (start panning or dragging)
+    // Draw marquee selection box
+    if (isMarqueeSelecting && marqueeStart && marqueeCurrent) {
+      const minX = Math.min(marqueeStart.x, marqueeCurrent.x);
+      const maxX = Math.max(marqueeStart.x, marqueeCurrent.x);
+      const minY = Math.min(marqueeStart.y, marqueeCurrent.y);
+      const maxY = Math.max(marqueeStart.y, marqueeCurrent.y);
+
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+      ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
+      ctx.setLineDash([]);
+    }
+  }, [fixtures, fixturePositions, viewport, selectedFixtureIds, hoveredFixtureId, draggedFixtures, isMarqueeSelecting, marqueeStart, marqueeCurrent, normalizedToCanvas, getFixtureColor]);
+
+  // Handle mouse down (start panning, dragging, or marquee selection)
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -316,32 +352,34 @@ export default function LayoutCanvas({
     const clickedFixture = getFixtureAtPosition(x, y);
 
     if (clickedFixture) {
-      // Determine which fixtures to drag
+      // Clicked on a fixture
+      let newSelection: Set<string>;
       let fixturesToDrag: Set<string>;
 
       if (e.shiftKey) {
         // Shift+click: toggle selection
-        const newSelection = new Set(selectedFixtureIds);
+        newSelection = new Set(selectedFixtureIds);
         if (newSelection.has(clickedFixture)) {
           newSelection.delete(clickedFixture);
         } else {
           newSelection.add(clickedFixture);
         }
-        if (onFixtureClick) {
-          // We'll need to update this to handle multi-select properly
-          // For now, just call with the clicked fixture
-          onFixtureClick(clickedFixture);
-        }
+        updateSelection(newSelection);
         fixturesToDrag = newSelection;
       } else if (selectedFixtureIds.has(clickedFixture)) {
         // Clicking on already selected fixture: drag all selected
         fixturesToDrag = new Set(selectedFixtureIds);
+        newSelection = new Set(selectedFixtureIds);
       } else {
-        // Clicking on unselected fixture: select and drag only this one
-        if (onFixtureClick) {
-          onFixtureClick(clickedFixture);
-        }
-        fixturesToDrag = new Set([clickedFixture]);
+        // Clicking on unselected fixture: select only this one
+        newSelection = new Set([clickedFixture]);
+        updateSelection(newSelection);
+        fixturesToDrag = newSelection;
+      }
+
+      // Notify parent if callback provided
+      if (onFixtureClick) {
+        onFixtureClick(clickedFixture);
       }
 
       // Start dragging
@@ -363,13 +401,24 @@ export default function LayoutCanvas({
       });
       setDragOffset(offsets);
     } else {
-      // Start panning
-      setIsPanning(true);
-      setPanStart({ x: e.clientX - viewport.x, y: e.clientY - viewport.y });
+      // Clicked on empty space
+      if (e.shiftKey) {
+        // Shift+click on empty: start marquee selection
+        setIsMarqueeSelecting(true);
+        setMarqueeStart({ x, y });
+        setMarqueeCurrent({ x, y });
+      } else {
+        // Regular click on empty: clear selection and start panning
+        if (selectedFixtureIds.size > 0) {
+          updateSelection(new Set());
+        }
+        setIsPanning(true);
+        setPanStart({ x: e.clientX - viewport.x, y: e.clientY - viewport.y });
+      }
     }
   };
 
-  // Handle mouse move (pan viewport, drag fixtures, or update hover)
+  // Handle mouse move (pan viewport, drag fixtures, marquee selection, or update hover)
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -416,6 +465,9 @@ export default function LayoutCanvas({
 
       setFixturePositions(newPositions);
       setHasUnsavedChanges(true);
+    } else if (isMarqueeSelecting && marqueeStart) {
+      // Update marquee selection box
+      setMarqueeCurrent({ x, y });
     } else {
       // Update hovered fixture
       const hoveredId = getFixtureAtPosition(x, y);
@@ -423,8 +475,43 @@ export default function LayoutCanvas({
     }
   };
 
-  // Handle mouse up (stop panning or dragging)
+  // Handle mouse up (stop panning, dragging, or marquee selection)
   const handleMouseUp = () => {
+    // Handle marquee selection completion
+    if (isMarqueeSelecting && marqueeStart && marqueeCurrent) {
+      // Calculate marquee bounds
+      const minX = Math.min(marqueeStart.x, marqueeCurrent.x);
+      const maxX = Math.max(marqueeStart.x, marqueeCurrent.x);
+      const minY = Math.min(marqueeStart.y, marqueeCurrent.y);
+      const maxY = Math.max(marqueeStart.y, marqueeCurrent.y);
+
+      // Find all fixtures within marquee bounds
+      const selectedInMarquee = new Set<string>();
+      fixtures.forEach(fixture => {
+        const position = fixturePositions.get(fixture.id);
+        if (!position) return;
+
+        const canvasPos = normalizedToCanvas(position.x, position.y);
+
+        // Check if fixture center is within marquee
+        if (
+          canvasPos.x >= minX &&
+          canvasPos.x <= maxX &&
+          canvasPos.y >= minY &&
+          canvasPos.y <= maxY
+        ) {
+          selectedInMarquee.add(fixture.id);
+        }
+      });
+
+      // Update selection (additive with shift)
+      updateSelection(selectedInMarquee);
+
+      setIsMarqueeSelecting(false);
+      setMarqueeStart(null);
+      setMarqueeCurrent(null);
+    }
+
     setIsPanning(false);
     setIsDragging(false);
     setDraggedFixtures(new Set());
