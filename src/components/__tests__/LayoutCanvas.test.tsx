@@ -6,7 +6,7 @@ import { ChannelType, FixtureType, FixtureInstance } from '../../types';
 
 // Mock canvas context
 const mockGetContext = jest.fn();
-const mockCanvas = {
+const _mockCanvas = {
   getContext: mockGetContext,
   width: 800,
   height: 600,
@@ -35,7 +35,7 @@ const mockContext = {
 };
 
 beforeAll(() => {
-  HTMLCanvasElement.prototype.getContext = jest.fn(() => mockContext) as any;
+  HTMLCanvasElement.prototype.getContext = jest.fn(() => mockContext) as jest.Mock;
 });
 
 beforeEach(() => {
@@ -46,6 +46,12 @@ beforeEach(() => {
 const mockProject = {
   id: 'project-1',
   name: 'Test Project',
+  createdAt: '2023-01-01T00:00:00Z',
+  updatedAt: '2023-01-01T00:00:00Z',
+  fixtures: [],
+  scenes: [],
+  cueLists: [],
+  users: [],
   __typename: 'Project',
 };
 
@@ -72,7 +78,6 @@ const mockFixtures: FixtureInstance[] = [
       { id: 'ch-3', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0 },
       { id: 'ch-4', offset: 3, name: 'Intensity', type: ChannelType.INTENSITY, minValue: 0, maxValue: 255, defaultValue: 255 },
     ],
-    __typename: 'FixtureInstance',
   },
   {
     id: 'fixture-2',
@@ -95,7 +100,6 @@ const mockFixtures: FixtureInstance[] = [
       { id: 'ch-6', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
       { id: 'ch-7', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0 },
     ],
-    __typename: 'FixtureInstance',
   },
 ];
 

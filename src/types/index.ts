@@ -68,9 +68,14 @@ export interface FixtureInstance {
   startChannel: number;
   tags: string[];
   createdAt: string;
-  
+
   // Ordering
   projectOrder?: number;
+
+  // 2D Layout Position (normalized 0-1 coordinates)
+  layoutX?: number;
+  layoutY?: number;
+  layoutRotation?: number;
 }
 
 export interface InstanceChannel {

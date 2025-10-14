@@ -61,7 +61,7 @@ export const GET_SCENE = gql`
           name
           universe
           startChannel
-          
+
           # Flattened fields
           manufacturer
           model
@@ -77,7 +77,11 @@ export const GET_SCENE = gql`
             maxValue
             defaultValue
           }
-          
+
+          # 2D Layout Position
+          layoutX
+          layoutY
+          layoutRotation
         }
         channelValues
       }
