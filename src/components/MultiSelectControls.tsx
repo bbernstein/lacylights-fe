@@ -269,10 +269,10 @@ export default function MultiSelectControls({
   }
 
   return (
-    <div className="absolute bottom-4 left-4 bg-gray-800 rounded-lg shadow-xl p-4 min-w-[320px] max-w-[400px] max-h-[60vh] overflow-y-auto">
+    <div className="absolute bottom-4 left-4 bg-gray-800 rounded-lg shadow-xl p-3 min-w-[320px] max-w-[400px] max-h-[70vh] overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-white font-semibold">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-white font-semibold text-sm">
           Selected: {selectedFixtures.length} fixture{selectedFixtures.length > 1 ? 's' : ''}
         </h3>
         <button
@@ -280,7 +280,7 @@ export default function MultiSelectControls({
           className="text-gray-400 hover:text-white transition-colors text-sm"
           title="Deselect all fixtures"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
@@ -289,18 +289,18 @@ export default function MultiSelectControls({
       {/* RGB Color Picker */}
       {displayRgbColor && (
         <>
-          <div className="mb-4 pb-4 border-b border-gray-700">
-            <label className="block text-gray-300 text-sm font-medium mb-2">
+          <div className="mb-2 pb-2 border-b border-gray-700">
+            <label className="block text-gray-300 text-xs font-medium mb-1">
               Color
             </label>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsColorPickerOpen(true)}
-                className="w-16 h-10 rounded border-2 border-gray-600 hover:border-blue-500 transition-colors cursor-pointer"
+                className="w-12 h-8 rounded border-2 border-gray-600 hover:border-blue-500 transition-colors cursor-pointer"
                 style={{ backgroundColor: `rgb(${displayRgbColor.r}, ${displayRgbColor.g}, ${displayRgbColor.b})` }}
                 title="Click to open color picker"
               />
-              <span className="text-gray-400 text-sm font-mono">
+              <span className="text-gray-400 text-xs font-mono">
                 {rgbToHex(displayRgbColor.r, displayRgbColor.g, displayRgbColor.b).toUpperCase()}
               </span>
             </div>
@@ -318,14 +318,14 @@ export default function MultiSelectControls({
       )}
 
       {/* Channel Sliders */}
-      <div className="space-y-4">
+      <div className="space-y-1.5">
         {mergedChannels.map((channel, index) => (
-          <div key={`${channel.type}-${index}`} className="space-y-2">
+          <div key={`${channel.type}-${index}`} className="space-y-0.5">
             <div className="flex items-center justify-between">
-              <label className="text-gray-300 text-sm font-medium">
+              <label className="text-gray-300 text-xs font-medium">
                 {getChannelDisplayName(channel)}
               </label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 {channel.hasVariation && (
                   <span
                     className="text-yellow-500 text-xs"
@@ -336,7 +336,7 @@ export default function MultiSelectControls({
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <input
                 type="range"
                 min={channel.minValue}
@@ -345,7 +345,7 @@ export default function MultiSelectControls({
                 onChange={(e) => handleSliderInput(channel, Number(e.target.value))}
                 onMouseUp={(e) => handleSliderMouseUp(channel, Number((e.target as HTMLInputElement).value))}
                 onTouchEnd={(e) => handleSliderMouseUp(channel, Number((e.target as HTMLInputElement).value))}
-                className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 style={{
                   WebkitAppearance: 'none',
                   appearance: 'none',
@@ -359,7 +359,7 @@ export default function MultiSelectControls({
                 value={Math.round(getSliderValue(channel))}
                 onChange={(e) => handleNumberInputChange(channel, Number(e.target.value))}
                 onKeyDown={(e) => handleKeyDown(channel, e)}
-                className="w-14 text-sm text-center font-mono bg-gray-700 text-gray-300 border border-gray-600 rounded px-2 py-1 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-12 text-xs text-center font-mono bg-gray-700 text-gray-300 border border-gray-600 rounded px-1 py-0.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 title="Use arrow keys to adjust. Hold Shift for ±10"
               />
             </div>
@@ -369,7 +369,7 @@ export default function MultiSelectControls({
 
       {/* Info text */}
       {mergedChannels.length === 0 && (
-        <div className="text-gray-400 text-sm text-center py-4">
+        <div className="text-gray-400 text-xs text-center py-2">
           Selected fixtures have no controllable channels
         </div>
       )}
