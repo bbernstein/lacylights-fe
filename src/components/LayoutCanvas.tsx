@@ -72,6 +72,11 @@ export default function LayoutCanvas({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Canvas settings
+  const [snapToGrid, setSnapToGrid] = useState(false);
+  const [showLabels, setShowLabels] = useState(true);
+  const GRID_SIZE = 0.05; // 5% of canvas (normalized)
+
   // GraphQL mutation for saving positions
   const [updateFixturePositions] = useMutation(UPDATE_FIXTURE_POSITIONS);
 
@@ -124,6 +129,16 @@ export default function LayoutCanvas({
       setInternalSelection(newSelection);
     }
   }, [onSelectionChange]);
+
+  // Snap position to grid
+  const snapPositionToGrid = useCallback((x: number, y: number): { x: number; y: number } => {
+    if (!snapToGrid) return { x, y };
+
+    return {
+      x: Math.round(x / GRID_SIZE) * GRID_SIZE,
+      y: Math.round(y / GRID_SIZE) * GRID_SIZE,
+    };
+  }, [snapToGrid]);
 
   // Convert normalized position to canvas coordinates
   const normalizedToCanvas = useCallback((nx: number, ny: number): { x: number; y: number } => {
@@ -326,7 +341,7 @@ export default function LayoutCanvas({
       ctx.restore();
 
       // Draw label with contrast-aware text color
-      if (viewport.scale > 0.5) {
+      if (showLabels && viewport.scale > 0.5) {
         const textColor = getTextColor(r, g, b);
         ctx.fillStyle = textColor;
         ctx.font = `${Math.max(10, 12 * viewport.scale)}px sans-serif`;
@@ -352,7 +367,7 @@ export default function LayoutCanvas({
       ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
       ctx.setLineDash([]);
     }
-  }, [fixtures, fixturePositions, viewport, selectedFixtureIds, hoveredFixtureId, draggedFixtures, isMarqueeSelecting, marqueeStart, marqueeCurrent, normalizedToCanvas, getFixtureColor, getTextColor]);
+  }, [fixtures, fixturePositions, viewport, selectedFixtureIds, hoveredFixtureId, draggedFixtures, isMarqueeSelecting, marqueeStart, marqueeCurrent, normalizedToCanvas, getFixtureColor, getTextColor, showLabels]);
 
   // Handle mouse down (start panning, dragging, or marquee selection)
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -464,9 +479,12 @@ export default function LayoutCanvas({
         // Convert to normalized coordinates
         const normalized = canvasToNormalized(newCanvasX, newCanvasY);
 
+        // Apply snap-to-grid
+        const snapped = snapPositionToGrid(normalized.x, normalized.y);
+
         // Clamp to 0-1 range
-        const clampedX = Math.max(0, Math.min(1, normalized.x));
-        const clampedY = Math.max(0, Math.min(1, normalized.y));
+        const clampedX = Math.max(0, Math.min(1, snapped.x));
+        const clampedY = Math.max(0, Math.min(1, snapped.y));
 
         const existingPos = newPositions.get(fixtureId);
         if (existingPos) {
@@ -632,6 +650,27 @@ export default function LayoutCanvas({
     }
   };
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+A or Ctrl+A: Select all
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        e.preventDefault();
+        const allIds = new Set(fixtures.map(f => f.id));
+        updateSelection(allIds);
+      }
+
+      // Escape: Deselect all
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        updateSelection(new Set());
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [fixtures, updateSelection]);
+
   // Determine cursor style based on interaction state
   const getCursorStyle = () => {
     if (isDragging) return 'grabbing';
@@ -683,6 +722,45 @@ export default function LayoutCanvas({
                 Save Layout
               </span>
             )}
+          </button>
+        </div>
+
+        {/* View Settings */}
+        <div className="bg-gray-800 rounded-lg p-2 shadow-lg space-y-2">
+          {/* Snap to Grid Toggle */}
+          <button
+            onClick={() => setSnapToGrid(!snapToGrid)}
+            className={`w-full px-3 py-2 rounded transition-colors text-sm ${
+              snapToGrid
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            }`}
+            title={snapToGrid ? 'Snap to grid enabled' : 'Snap to grid disabled'}
+          >
+            <span className="flex items-center justify-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5h4m-4 6h4m-4 6h4m12-12h-4m4 6h-4m4 6h-4M4 5v14m16-14v14" />
+              </svg>
+              {snapToGrid ? 'Snap: ON' : 'Snap: OFF'}
+            </span>
+          </button>
+
+          {/* Show Labels Toggle */}
+          <button
+            onClick={() => setShowLabels(!showLabels)}
+            className={`w-full px-3 py-2 rounded transition-colors text-sm ${
+              showLabels
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            }`}
+            title={showLabels ? 'Labels visible' : 'Labels hidden'}
+          >
+            <span className="flex items-center justify-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+              {showLabels ? 'Labels: ON' : 'Labels: OFF'}
+            </span>
           </button>
         </div>
 
