@@ -211,11 +211,11 @@ function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange 
   const channelColor = getChannelColor();
 
   return (
-    <div className="flex items-center space-x-3 py-1.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded">
-      <label className="text-sm text-gray-700 dark:text-gray-300 w-20 flex-shrink-0 flex items-center space-x-1" title={`Type: ${channel.type}`}>
+    <div className="flex items-center space-x-2 py-0.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded">
+      <label className="text-xs text-gray-700 dark:text-gray-300 w-16 flex-shrink-0 flex items-center space-x-1" title={`Type: ${channel.type}`}>
         {channelColor && (
           <div
-            className="w-3 h-3 rounded-full border border-gray-300 dark:border-gray-600"
+            className="w-2.5 h-2.5 rounded-full border border-gray-300 dark:border-gray-600"
             style={{ backgroundColor: channelColor }}
           />
         )}
@@ -227,11 +227,11 @@ function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange 
         max={channel.maxValue || 255}
         value={localValue}
         onChange={handleChange}
-        className="flex-1 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-600
-                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
+        className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-600
+                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5
                    [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer
                    [&::-webkit-slider-thumb]:hover:bg-blue-700 [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-all
-                   [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:bg-blue-600
+                   [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:bg-blue-600
                    [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer
                    [&::-moz-range-thumb]:hover:bg-blue-700 [&::-moz-range-thumb]:hover:scale-125 [&::-moz-range-thumb]:transition-all"
       />
@@ -242,7 +242,7 @@ function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange 
         value={localValue}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
-        className="w-14 text-sm text-center font-mono bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-12 text-xs text-center font-mono bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0 focus:outline-none focus:ring-1 focus:ring-blue-500"
         title="Use arrow keys to adjust. Hold Shift for ±10"
       />
     </div>
@@ -372,7 +372,7 @@ function SortableFixtureRow({
 
       {/* Expanded view: show full channel sliders */}
       {isExpanded && (
-        <div className="space-y-0.5">
+        <div className="space-y-0">
           {channels.map((channel: InstanceChannel, channelIndex: number) => (
             <ChannelSlider
               key={`${fixtureValue.id}-${channel.id}-${channelIndex}`}
