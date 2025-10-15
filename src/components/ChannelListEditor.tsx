@@ -358,10 +358,10 @@ function SortableFixtureRow({
       {/* Compact view: show channel values as a list of numbers */}
       {!isExpanded && (
         <div className="px-2 py-2 bg-gray-50 dark:bg-gray-700/30 rounded">
-          <div className="text-xs font-mono text-gray-700 dark:text-gray-300 space-x-2">
+          <div className="text-xs font-mono space-x-2">
             <span className="text-gray-500 dark:text-gray-400">Values:</span>
             {channels.map((_channel: InstanceChannel, channelIndex: number) => (
-              <span key={channelIndex} className="inline-block">
+              <span key={channelIndex} className="inline-block text-gray-900 dark:text-gray-100">
                 {getChannelValue(channelIndex)}
                 {channelIndex < channels.length - 1 && ','}
               </span>
