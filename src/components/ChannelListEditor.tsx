@@ -242,7 +242,7 @@ function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange 
         value={localValue}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
-        className="w-12 text-xs text-center font-mono bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-12 text-xs text-center font-mono text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0 focus:outline-none focus:ring-1 focus:ring-blue-500"
         title="Use arrow keys to adjust. Hold Shift for ±10"
       />
     </div>
