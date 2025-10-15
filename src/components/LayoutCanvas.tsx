@@ -276,19 +276,21 @@ export default function LayoutCanvas({
     ctx.fillStyle = '#1a202c';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw grid
+    // Draw grid - aligned with snap-to-grid
+    // Convert normalized GRID_SIZE to pixels based on canvas dimensions
     ctx.strokeStyle = '#2d3748';
     ctx.lineWidth = 1;
-    const gridSize = 50 * viewport.scale;
+    const gridSizeX = GRID_SIZE * canvas.width * viewport.scale;
+    const gridSizeY = GRID_SIZE * canvas.height * viewport.scale;
 
-    for (let x = viewport.x % gridSize; x < canvas.width; x += gridSize) {
+    for (let x = viewport.x % gridSizeX; x < canvas.width; x += gridSizeX) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, canvas.height);
       ctx.stroke();
     }
 
-    for (let y = viewport.y % gridSize; y < canvas.height; y += gridSize) {
+    for (let y = viewport.y % gridSizeY; y < canvas.height; y += gridSizeY) {
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(canvas.width, y);
