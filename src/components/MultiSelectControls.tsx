@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { FixtureInstance, ChannelType } from "@/types";
 import {
   mergeFixtureChannels,
@@ -9,17 +9,12 @@ import {
   sortMergedChannels,
   MergedChannel,
 } from "@/utils/channelMerging";
-import { UV_COLOR_HEX } from "@/utils/colorConversion";
+import ChannelSlider from "./ChannelSlider";
 import ColorPickerModal from "./ColorPickerModal";
 
 interface MultiSelectControlsProps {
   selectedFixtures: FixtureInstance[];
   fixtureValues: Map<string, number[]>;
-  onChannelChange: (
-    fixtureId: string,
-    channelIndex: number,
-    value: number,
-  ) => void;
   onBatchedChannelChanges: (
     changes: Array<{ fixtureId: string; channelIndex: number; value: number }>,
   ) => void;
@@ -32,7 +27,6 @@ interface MultiSelectControlsProps {
 export default function MultiSelectControls({
   selectedFixtures,
   fixtureValues,
-  onChannelChange,
   onBatchedChannelChanges,
   onDebouncedPreviewUpdate,
   onDeselectAll,
@@ -49,6 +43,9 @@ export default function MultiSelectControls({
   const [localSliderValues, setLocalSliderValues] = useState<
     Map<string, number>
   >(new Map());
+
+  // Track which channel is currently being dragged (for handling mouse leave)
+  const draggingChannelRef = useRef<MergedChannel | null>(null);
 
   // Merge channels whenever selection or values change
   useEffect(() => {
@@ -87,16 +84,25 @@ export default function MultiSelectControls({
     return { r, g, b };
   }, [localSliderValues, rgbColor, mergedChannels]);
 
-  // Handle channel slider change
+  // Handle channel slider change (batch all fixture changes into single server call)
   const handleChannelChange = useCallback(
     (channel: MergedChannel, newValue: number) => {
-      // Update all fixtures that have this channel
+      // Batch all channel changes into a single server call to avoid race conditions
+      const changes: Array<{
+        fixtureId: string;
+        channelIndex: number;
+        value: number;
+      }> = [];
+
       channel.fixtureIds.forEach((fixtureId, index) => {
         const channelIndex = channel.channelIndices[index];
-        onChannelChange(fixtureId, channelIndex, newValue);
+        changes.push({ fixtureId, channelIndex, value: newValue });
       });
+
+      // Send all changes in a single batched call
+      onBatchedChannelChanges(changes);
     },
-    [onChannelChange],
+    [onBatchedChannelChanges],
   );
 
   // Handle color picker change (real-time preview while dragging - local state + debounced preview)
@@ -259,6 +265,9 @@ export default function MultiSelectControls({
       // Update local state immediately for responsive UI
       setLocalSliderValues((prev) => new Map(prev).set(key, newValue));
 
+      // Track that this channel is being dragged (for mouse leave handling)
+      draggingChannelRef.current = channel;
+
       // Send debounced preview update (only in preview mode)
       const changes: Array<{
         fixtureId: string;
@@ -282,84 +291,33 @@ export default function MultiSelectControls({
       setLocalSliderValues((prev) => new Map(prev).set(key, newValue));
       // Send to server only on mouse up
       handleChannelChange(channel, newValue);
+      // Clear dragging state
+      draggingChannelRef.current = null;
     },
     [handleChannelChange],
   );
 
-  // Handle number input change
-  const handleNumberInputChange = useCallback(
-    (channel: MergedChannel, newValue: number) => {
+  // Handle mouse leaving component during drag (send final value to server)
+  const handleMouseLeave = useCallback(() => {
+    if (draggingChannelRef.current) {
+      const channel = draggingChannelRef.current;
       const key = getChannelKey(channel);
-      const clampedValue = Math.max(
-        channel.minValue,
-        Math.min(channel.maxValue, newValue || 0),
-      );
+      const currentValue = localSliderValues.get(key) ?? channel.averageValue;
 
-      // Update local state
-      setLocalSliderValues((prev) => new Map(prev).set(key, clampedValue));
+      // Send the current value to server
+      handleChannelChange(channel, currentValue);
 
-      // Update server
-      handleChannelChange(channel, clampedValue);
-    },
-    [handleChannelChange],
-  );
+      // Clear dragging state
+      draggingChannelRef.current = null;
+    }
+  }, [localSliderValues, handleChannelChange]);
 
-  // Handle keyboard navigation
-  const handleKeyDown = useCallback(
-    (channel: MergedChannel, e: React.KeyboardEvent<HTMLInputElement>) => {
-      const currentValue = getSliderValue(channel);
-      let newValue = currentValue;
-
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        newValue = Math.min(
-          channel.maxValue,
-          currentValue + (e.shiftKey ? 10 : 1),
-        );
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault();
-        newValue = Math.max(
-          channel.minValue,
-          currentValue - (e.shiftKey ? 10 : 1),
-        );
-      }
-
-      if (newValue !== currentValue) {
-        const key = getChannelKey(channel);
-        setLocalSliderValues((prev) => new Map(prev).set(key, newValue));
-        handleChannelChange(channel, newValue);
-      }
-    },
-    [getSliderValue, handleChannelChange],
-  );
-
-  // Get channel display name
-  const getChannelDisplayName = (channel: MergedChannel): string => {
+  // Get channel tooltip (full name with type and fixture count)
+  const getChannelTooltip = (channel: MergedChannel): string => {
     const affectedCount = channel.fixtureIds.length;
     const totalCount = selectedFixtures.length;
-    const suffix =
-      affectedCount < totalCount ? ` (${affectedCount}/${totalCount})` : "";
-    return `${channel.name}${suffix}`;
-  };
-
-  // Get color for color channels
-  const getChannelColor = (channelType: ChannelType): string | null => {
-    switch (channelType) {
-      case ChannelType.RED:
-        return "#ff0000";
-      case ChannelType.GREEN:
-        return "#00ff00";
-      case ChannelType.BLUE:
-        return "#0080ff";
-      case ChannelType.AMBER:
-        return "#ffbf00";
-      case ChannelType.WHITE:
-        return "#ffffff";
-      case ChannelType.UV:
-        return UV_COLOR_HEX;
-      default:
-        return null;
-    }
+    const countInfo = affectedCount < totalCount ? ` (affects ${affectedCount}/${totalCount} fixtures)` : "";
+    return `${channel.name} (${channel.type})${countInfo}`;
   };
 
   if (selectedFixtures.length === 0) {
@@ -367,7 +325,10 @@ export default function MultiSelectControls({
   }
 
   return (
-    <div className="absolute bottom-4 left-4 bg-gray-800 rounded-lg shadow-xl p-2 min-w-[280px] max-w-[360px] max-h-[70vh] overflow-y-auto">
+    <div
+      className="absolute bottom-4 left-4 bg-gray-800 rounded-lg shadow-xl p-2 min-w-[280px] max-w-[360px] max-h-[70vh] overflow-y-auto"
+      onMouseLeave={handleMouseLeave}
+    >
       {/* Header */}
       <div className="flex items-center justify-between mb-1.5">
         <h3 className="text-white font-semibold text-sm">
@@ -434,75 +395,25 @@ export default function MultiSelectControls({
 
       {/* Channel Sliders */}
       <div className="space-y-0">
-        {mergedChannels.map((channel, index) => {
-          const channelColor = getChannelColor(channel.type);
-          return (
-            <div key={`${channel.type}-${index}`} className="py-0.5">
-              <div className="flex items-center justify-between mb-0.5">
-                <label className="text-gray-300 text-xs font-medium flex items-center space-x-1">
-                  {channelColor && (
-                    <div
-                      className="w-2.5 h-2.5 rounded-full border border-gray-600"
-                      style={{ backgroundColor: channelColor }}
-                    />
-                  )}
-                  <span>{getChannelDisplayName(channel)}</span>
-                </label>
-                <div className="flex items-center gap-1">
-                  {channel.hasVariation && (
-                    <span
-                      className="text-yellow-500 text-xs"
-                      title="Values differ across selected fixtures"
-                    >
-                      ≈
-                    </span>
-                  )}
-                </div>
+        {mergedChannels.map((channel, index) => (
+          <div key={`${channel.type}-${index}`} className="relative">
+            <ChannelSlider
+              channel={channel}
+              value={getSliderValue(channel)}
+              onChange={(value) => handleSliderInput(channel, value)}
+              onChangeComplete={(value) => handleSliderMouseUp(channel, value)}
+              tooltip={getChannelTooltip(channel)}
+            />
+            {channel.hasVariation && (
+              <div
+                className="absolute right-14 top-1/2 -translate-y-1/2 text-yellow-500 text-xs pointer-events-none"
+                title="Values differ across selected fixtures"
+              >
+                ≈
               </div>
-            <div className="flex items-center gap-1.5">
-              <input
-                type="range"
-                min={channel.minValue}
-                max={channel.maxValue}
-                value={getSliderValue(channel)}
-                onChange={(e) =>
-                  handleSliderInput(channel, Number(e.target.value))
-                }
-                onMouseUp={(e) =>
-                  handleSliderMouseUp(
-                    channel,
-                    Number((e.target as HTMLInputElement).value),
-                  )
-                }
-                onTouchEnd={(e) =>
-                  handleSliderMouseUp(
-                    channel,
-                    Number((e.target as HTMLInputElement).value),
-                  )
-                }
-                className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                style={{
-                  WebkitAppearance: "none",
-                  appearance: "none",
-                }}
-                title={`${channel.name}: ${Math.round(getSliderValue(channel))} - drag to adjust`}
-              />
-              <input
-                type="number"
-                min={channel.minValue}
-                max={channel.maxValue}
-                value={Math.round(getSliderValue(channel))}
-                onChange={(e) =>
-                  handleNumberInputChange(channel, Number(e.target.value))
-                }
-                onKeyDown={(e) => handleKeyDown(channel, e)}
-                className="w-12 text-xs text-center font-mono text-gray-100 bg-gray-700 border border-gray-600 rounded px-1 py-0 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                title="Use arrow keys to adjust. Hold Shift for ±10"
-              />
-            </div>
+            )}
           </div>
-          );
-        })}
+        ))}
       </div>
 
       {/* Info text */}

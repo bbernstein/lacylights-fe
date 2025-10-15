@@ -40,6 +40,11 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const saveStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Copy/paste state
+  const [copiedChannelValues, setCopiedChannelValues] = useState<number[] | null>(null);
+  const [showCopiedFeedback, setShowCopiedFeedback] = useState(false);
+  const copyFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Fetch scene data for 2D layout mode
   const { data: sceneData } = useQuery(GET_SCENE, {
     variables: { id: sceneId },
@@ -116,6 +121,9 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       }
       if (saveStatusTimeoutRef.current) {
         clearTimeout(saveStatusTimeoutRef.current);
+      }
+      if (copyFeedbackTimeoutRef.current) {
+        clearTimeout(copyFeedbackTimeoutRef.current);
       }
     };
   }, [previewMode, previewSessionId, cancelPreviewSession]);
@@ -274,7 +282,10 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
 
     // Build updated fixture values array for server
     // Use the changes map and scene data directly, not localFixtureValues
-    const updatedFixtureValues = scene.fixtureValues.map((fv: FixtureValue) => {
+    // Use a Map to deduplicate fixtures (in case scene data has duplicates)
+    const fixtureValuesMap = new Map<string, {fixtureId: string, channelValues: number[]}>();
+
+    scene.fixtureValues.forEach((fv: FixtureValue) => {
       const fixtureChanges = changesByFixture.get(fv.fixture.id);
 
       if (fixtureChanges) {
@@ -283,18 +294,23 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         fixtureChanges.forEach((value, channelIndex) => {
           newChannelValues[channelIndex] = value;
         });
-        return {
+        fixtureValuesMap.set(fv.fixture.id, {
           fixtureId: fv.fixture.id,
           channelValues: newChannelValues,
-        };
+        });
+      } else {
+        // Keep existing values from scene (only if not already in map)
+        if (!fixtureValuesMap.has(fv.fixture.id)) {
+          fixtureValuesMap.set(fv.fixture.id, {
+            fixtureId: fv.fixture.id,
+            channelValues: fv.channelValues || [],
+          });
+        }
       }
-
-      // Keep existing values from scene
-      return {
-        fixtureId: fv.fixture.id,
-        channelValues: fv.channelValues || [],
-      };
     });
+
+    // Convert Map to array
+    const updatedFixtureValues = Array.from(fixtureValuesMap.values());
 
     // Update scene via GraphQL mutation (async, no refetch)
     try {
@@ -321,12 +337,6 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     }
   }, [scene, sceneId, updateScene, previewMode, previewSessionId, batchedPreviewUpdate]);
 
-  // Handle single channel value change from MultiSelectControls
-  const handleChannelChange = useCallback(async (fixtureId: string, channelIndex: number, value: number) => {
-    // Delegate to batched handler with single change
-    return handleBatchedChannelChanges([{fixtureId, channelIndex, value}]);
-  }, [handleBatchedChannelChanges]);
-
   // Handle selection change
   const handleSelectionChange = useCallback((newSelection: Set<string>) => {
     setSelectedFixtureIds(newSelection);
@@ -336,6 +346,86 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   const handleDeselectAll = useCallback(() => {
     setSelectedFixtureIds(new Set());
   }, []);
+
+  // Handle copy fixture values (Cmd/Ctrl+C)
+  const handleCopyFixtureValues = useCallback(() => {
+    if (mode !== 'layout' || selectedFixtureIds.size === 0) return;
+
+    // Get the first selected fixture's channel values
+    const firstSelectedId = Array.from(selectedFixtureIds)[0];
+    const channelValues = fixtureValues.get(firstSelectedId);
+
+    if (channelValues) {
+      setCopiedChannelValues([...channelValues]);
+
+      // Show visual feedback
+      setShowCopiedFeedback(true);
+      if (copyFeedbackTimeoutRef.current) {
+        clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+      copyFeedbackTimeoutRef.current = setTimeout(() => {
+        setShowCopiedFeedback(false);
+      }, 1500); // Hide after 1.5 seconds
+    }
+  }, [mode, selectedFixtureIds, fixtureValues]);
+
+  // Handle paste fixture values (Cmd/Ctrl+V)
+  const handlePasteFixtureValues = useCallback(() => {
+    if (mode !== 'layout' || selectedFixtureIds.size === 0 || !copiedChannelValues) return;
+
+    // Build changes array for all selected fixtures
+    const changes: Array<{ fixtureId: string; channelIndex: number; value: number }> = [];
+
+    selectedFixtureIds.forEach((fixtureId) => {
+      // Get the fixture to determine how many channels it has
+      const currentValues = fixtureValues.get(fixtureId);
+      if (!currentValues) return;
+
+      // Paste values for each channel (up to the length of the copied values or current fixture channels)
+      const channelCount = Math.min(copiedChannelValues.length, currentValues.length);
+      for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
+        changes.push({
+          fixtureId,
+          channelIndex,
+          value: copiedChannelValues[channelIndex],
+        });
+      }
+    });
+
+    // Apply all changes using the existing batched handler
+    if (changes.length > 0) {
+      handleBatchedChannelChanges(changes);
+    }
+  }, [mode, selectedFixtureIds, copiedChannelValues, fixtureValues, handleBatchedChannelChanges]);
+
+  // Keyboard event handler for copy/paste in layout mode
+  useEffect(() => {
+    if (mode !== 'layout') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Cmd (Mac) or Ctrl (Windows/Linux)
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+
+      // Ignore if user is typing in an input field
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      if (isCmdOrCtrl && e.key === 'c') {
+        e.preventDefault();
+        handleCopyFixtureValues();
+      } else if (isCmdOrCtrl && e.key === 'v') {
+        e.preventDefault();
+        handlePasteFixtureValues();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mode, handleCopyFixtureValues, handlePasteFixtureValues]);
 
   // Apply preview changes to scene
   const handleApplyToScene = useCallback(async () => {
@@ -348,14 +438,19 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
 
     try {
       // Build updated fixture values from current local state
-      const updatedFixtureValues = scene.fixtureValues.map((fv: FixtureValue) => {
+      // Use a Map to deduplicate fixtures (in case scene data has duplicates)
+      const fixtureValuesMap = new Map<string, {fixtureId: string, channelValues: number[]}>();
+
+      scene.fixtureValues.forEach((fv: FixtureValue) => {
         const localValues = localFixtureValues.get(fv.fixture.id);
 
-        return {
+        fixtureValuesMap.set(fv.fixture.id, {
           fixtureId: fv.fixture.id,
           channelValues: localValues || fv.channelValues || [],
-        };
+        });
       });
+
+      const updatedFixtureValues = Array.from(fixtureValuesMap.values());
 
       await updateScene({
         variables: {
@@ -533,11 +628,21 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
               <MultiSelectControls
                 selectedFixtures={selectedFixtures}
                 fixtureValues={fixtureValues}
-                onChannelChange={handleChannelChange}
                 onBatchedChannelChanges={handleBatchedChannelChanges}
                 onDebouncedPreviewUpdate={debouncedPreviewUpdate}
                 onDeselectAll={handleDeselectAll}
               />
+            )}
+
+            {/* Copy feedback toast */}
+            {showCopiedFeedback && (
+              <div className="absolute top-4 right-4 bg-gray-800 border border-gray-600 rounded-lg shadow-xl px-4 py-2 flex items-center space-x-2 transition-all duration-200 animate-in fade-in slide-in-from-right-5">
+                <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="text-white font-medium">Copied!</span>
+                <span className="text-gray-400 text-sm">({selectedFixtures.length} fixture{selectedFixtures.length > 1 ? 's' : ''})</span>
+              </div>
             )}
           </>
         ) : (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { useCurrentActiveScene } from '@/hooks/useCurrentActiveScene';
 import { GET_SCENE, UPDATE_SCENE, START_PREVIEW_SESSION, CANCEL_PREVIEW_SESSION, UPDATE_PREVIEW_CHANNEL, INITIALIZE_PREVIEW_WITH_SCENE } from '@/graphql/scenes';
@@ -24,7 +24,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ChannelType, InstanceChannel, FixtureInstance, FixtureValue } from '@/types';
 import ColorPickerModal from './ColorPickerModal';
-import { rgbToChannelValues, channelValuesToRgb, COLOR_CHANNEL_TYPES, UV_COLOR_HEX } from '@/utils/colorConversion';
+import { rgbToChannelValues, channelValuesToRgb, COLOR_CHANNEL_TYPES } from '@/utils/colorConversion';
+import ChannelSlider from './ChannelSlider';
 
 interface ChannelListEditorProps {
   sceneId: string;
@@ -34,14 +35,6 @@ interface ChannelListEditorProps {
 // Extended FixtureValue interface with sceneOrder for sorting
 interface SceneFixtureValue extends FixtureValue {
   sceneOrder?: number;
-}
-
-interface ChannelSliderProps {
-  channel: InstanceChannel;
-  value: number;
-  fixtureId: string;
-  channelIndex: number;
-  onValueChange: (fixtureId: string, channelIndex: number, value: number) => void;
 }
 
 interface ColorSwatchProps {
@@ -154,97 +147,6 @@ function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchPro
         />
       </button>
       <span className="text-xs font-mono text-gray-500 dark:text-gray-400">{color}</span>
-    </div>
-  );
-}
-
-function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange }: ChannelSliderProps) {
-  const [localValue, setLocalValue] = useState(value);
-
-  useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = parseInt(e.target.value);
-    setLocalValue(newValue);
-    onValueChange(fixtureId, channelIndex, newValue);
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = parseInt(e.target.value) || 0;
-    const clampedValue = Math.max(channel.minValue || 0, Math.min(channel.maxValue || 255, newValue));
-    setLocalValue(clampedValue);
-    onValueChange(fixtureId, channelIndex, clampedValue);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    let newValue = localValue;
-
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      newValue = Math.min((channel.maxValue || 255), localValue + (e.shiftKey ? 10 : 1));
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      newValue = Math.max((channel.minValue || 0), localValue - (e.shiftKey ? 10 : 1));
-    }
-
-    if (newValue !== localValue) {
-      setLocalValue(newValue);
-      onValueChange(fixtureId, channelIndex, newValue);
-    }
-  };
-
-  // Get color for color channels
-  const getChannelColor = () => {
-    switch (channel.type) {
-      case ChannelType.RED: return '#ff0000';
-      case ChannelType.GREEN: return '#00ff00';
-      case ChannelType.BLUE: return '#0080ff';
-      case ChannelType.AMBER: return '#ffbf00';
-      case ChannelType.WHITE: return '#ffffff';
-      case ChannelType.UV: return UV_COLOR_HEX;
-      default: return null;
-    }
-  };
-
-  const channelColor = getChannelColor();
-
-  return (
-    <div className="flex items-center space-x-2 py-0.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded">
-      <label className="text-xs text-gray-700 dark:text-gray-300 w-16 flex-shrink-0 flex items-center space-x-1" title={`Type: ${channel.type}`}>
-        {channelColor && (
-          <div
-            className="w-2.5 h-2.5 rounded-full border border-gray-300 dark:border-gray-600"
-            style={{ backgroundColor: channelColor }}
-          />
-        )}
-        <span>{channel.name}</span>
-      </label>
-      <input
-        type="range"
-        min={channel.minValue || 0}
-        max={channel.maxValue || 255}
-        value={localValue}
-        onChange={handleChange}
-        className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-600
-                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5
-                   [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer
-                   [&::-webkit-slider-thumb]:hover:bg-blue-700 [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-all
-                   [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:bg-blue-600
-                   [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer
-                   [&::-moz-range-thumb]:hover:bg-blue-700 [&::-moz-range-thumb]:hover:scale-125 [&::-moz-range-thumb]:transition-all"
-      />
-      <input
-        type="number"
-        min={channel.minValue || 0}
-        max={channel.maxValue || 255}
-        value={localValue}
-        onChange={handleInputChange}
-        onKeyDown={handleKeyDown}
-        className="w-12 text-xs text-center font-mono text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        title="Use arrow keys to adjust. Hold Shift for ±10"
-      />
     </div>
   );
 }
@@ -378,9 +280,7 @@ function SortableFixtureRow({
               key={`${fixtureValue.id}-${channel.id}-${channelIndex}`}
               channel={channel}
               value={getChannelValue(channelIndex)}
-              fixtureId={fixtureValue.fixture.id}
-              channelIndex={channelIndex}
-              onValueChange={handleChannelValueChange}
+              onChange={(value) => handleChannelValueChange(fixtureValue.fixture.id, channelIndex, value)}
             />
           ))}
         </div>
