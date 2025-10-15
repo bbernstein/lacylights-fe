@@ -1,22 +1,31 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { FixtureInstance, ChannelType } from '@/types';
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { FixtureInstance, ChannelType } from "@/types";
 import {
   mergeFixtureChannels,
   getMergedRGBColor,
   rgbToHex,
   sortMergedChannels,
   MergedChannel,
-} from '@/utils/channelMerging';
-import ColorPickerModal from './ColorPickerModal';
+} from "@/utils/channelMerging";
+import { UV_COLOR_HEX } from "@/utils/colorConversion";
+import ColorPickerModal from "./ColorPickerModal";
 
 interface MultiSelectControlsProps {
   selectedFixtures: FixtureInstance[];
   fixtureValues: Map<string, number[]>;
-  onChannelChange: (fixtureId: string, channelIndex: number, value: number) => void;
-  onBatchedChannelChanges: (changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => void;
-  onDebouncedPreviewUpdate: (changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => void;
+  onChannelChange: (
+    fixtureId: string,
+    channelIndex: number,
+    value: number,
+  ) => void;
+  onBatchedChannelChanges: (
+    changes: Array<{ fixtureId: string; channelIndex: number; value: number }>,
+  ) => void;
+  onDebouncedPreviewUpdate: (
+    changes: Array<{ fixtureId: string; channelIndex: number; value: number }>,
+  ) => void;
   onDeselectAll: () => void;
 }
 
@@ -29,11 +38,17 @@ export default function MultiSelectControls({
   onDeselectAll,
 }: MultiSelectControlsProps) {
   const [mergedChannels, setMergedChannels] = useState<MergedChannel[]>([]);
-  const [rgbColor, setRgbColor] = useState<{ r: number; g: number; b: number } | null>(null);
+  const [rgbColor, setRgbColor] = useState<{
+    r: number;
+    g: number;
+    b: number;
+  } | null>(null);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
 
   // Local state for responsive slider updates (synced with server values)
-  const [localSliderValues, setLocalSliderValues] = useState<Map<string, number>>(new Map());
+  const [localSliderValues, setLocalSliderValues] = useState<
+    Map<string, number>
+  >(new Map());
 
   // Merge channels whenever selection or values change
   useEffect(() => {
@@ -57,9 +72,10 @@ export default function MultiSelectControls({
   // Calculate display RGB color from local slider values (updates during drag)
   const displayRgbColor = useMemo(() => {
     // Check if we have RGB channels
-    const hasRgb = mergedChannels.some(ch => ch.type === ChannelType.RED) &&
-                   mergedChannels.some(ch => ch.type === ChannelType.GREEN) &&
-                   mergedChannels.some(ch => ch.type === ChannelType.BLUE);
+    const hasRgb =
+      mergedChannels.some((ch) => ch.type === ChannelType.RED) &&
+      mergedChannels.some((ch) => ch.type === ChannelType.GREEN) &&
+      mergedChannels.some((ch) => ch.type === ChannelType.BLUE);
 
     if (!hasRgb) return null;
 
@@ -72,196 +88,278 @@ export default function MultiSelectControls({
   }, [localSliderValues, rgbColor, mergedChannels]);
 
   // Handle channel slider change
-  const handleChannelChange = useCallback((channel: MergedChannel, newValue: number) => {
-    // Update all fixtures that have this channel
-    channel.fixtureIds.forEach((fixtureId, index) => {
-      const channelIndex = channel.channelIndices[index];
-      onChannelChange(fixtureId, channelIndex, newValue);
-    });
-  }, [onChannelChange]);
+  const handleChannelChange = useCallback(
+    (channel: MergedChannel, newValue: number) => {
+      // Update all fixtures that have this channel
+      channel.fixtureIds.forEach((fixtureId, index) => {
+        const channelIndex = channel.channelIndices[index];
+        onChannelChange(fixtureId, channelIndex, newValue);
+      });
+    },
+    [onChannelChange],
+  );
 
   // Handle color picker change (real-time preview while dragging - local state + debounced preview)
-  const handleColorPickerChange = useCallback((color: { r: number; g: number; b: number }) => {
-    // Find RGB channels
-    const redChannel = mergedChannels.find(ch => ch.type === ChannelType.RED);
-    const greenChannel = mergedChannels.find(ch => ch.type === ChannelType.GREEN);
-    const blueChannel = mergedChannels.find(ch => ch.type === ChannelType.BLUE);
-    const intensityChannel = mergedChannels.find(ch => ch.type === ChannelType.INTENSITY);
+  const handleColorPickerChange = useCallback(
+    (color: { r: number; g: number; b: number }) => {
+      // Find RGB channels
+      const redChannel = mergedChannels.find(
+        (ch) => ch.type === ChannelType.RED,
+      );
+      const greenChannel = mergedChannels.find(
+        (ch) => ch.type === ChannelType.GREEN,
+      );
+      const blueChannel = mergedChannels.find(
+        (ch) => ch.type === ChannelType.BLUE,
+      );
+      const intensityChannel = mergedChannels.find(
+        (ch) => ch.type === ChannelType.INTENSITY,
+      );
 
-    // Update local state immediately for responsive UI
-    setLocalSliderValues(prev => {
-      const newMap = new Map(prev);
-      if (redChannel) newMap.set(getChannelKey(redChannel), color.r);
-      if (greenChannel) newMap.set(getChannelKey(greenChannel), color.g);
-      if (blueChannel) newMap.set(getChannelKey(blueChannel), color.b);
-      if (intensityChannel) newMap.set(getChannelKey(intensityChannel), 255);
-      return newMap;
-    });
-
-    // Send debounced preview update (only in preview mode)
-    const changes: Array<{fixtureId: string, channelIndex: number, value: number}> = [];
-
-    if (redChannel) {
-      redChannel.fixtureIds.forEach((fixtureId, index) => {
-        const channelIndex = redChannel.channelIndices[index];
-        changes.push({fixtureId, channelIndex, value: color.r});
+      // Update local state immediately for responsive UI
+      setLocalSliderValues((prev) => {
+        const newMap = new Map(prev);
+        if (redChannel) newMap.set(getChannelKey(redChannel), color.r);
+        if (greenChannel) newMap.set(getChannelKey(greenChannel), color.g);
+        if (blueChannel) newMap.set(getChannelKey(blueChannel), color.b);
+        if (intensityChannel) newMap.set(getChannelKey(intensityChannel), 255);
+        return newMap;
       });
-    }
 
-    if (greenChannel) {
-      greenChannel.fixtureIds.forEach((fixtureId, index) => {
-        const channelIndex = greenChannel.channelIndices[index];
-        changes.push({fixtureId, channelIndex, value: color.g});
-      });
-    }
+      // Send debounced preview update (only in preview mode)
+      const changes: Array<{
+        fixtureId: string;
+        channelIndex: number;
+        value: number;
+      }> = [];
 
-    if (blueChannel) {
-      blueChannel.fixtureIds.forEach((fixtureId, index) => {
-        const channelIndex = blueChannel.channelIndices[index];
-        changes.push({fixtureId, channelIndex, value: color.b});
-      });
-    }
+      if (redChannel) {
+        redChannel.fixtureIds.forEach((fixtureId, index) => {
+          const channelIndex = redChannel.channelIndices[index];
+          changes.push({ fixtureId, channelIndex, value: color.r });
+        });
+      }
 
-    if (intensityChannel) {
-      intensityChannel.fixtureIds.forEach((fixtureId, index) => {
-        const channelIndex = intensityChannel.channelIndices[index];
-        changes.push({fixtureId, channelIndex, value: 255});
-      });
-    }
+      if (greenChannel) {
+        greenChannel.fixtureIds.forEach((fixtureId, index) => {
+          const channelIndex = greenChannel.channelIndices[index];
+          changes.push({ fixtureId, channelIndex, value: color.g });
+        });
+      }
 
-    onDebouncedPreviewUpdate(changes);
-  }, [mergedChannels, onDebouncedPreviewUpdate]);
+      if (blueChannel) {
+        blueChannel.fixtureIds.forEach((fixtureId, index) => {
+          const channelIndex = blueChannel.channelIndices[index];
+          changes.push({ fixtureId, channelIndex, value: color.b });
+        });
+      }
+
+      if (intensityChannel) {
+        intensityChannel.fixtureIds.forEach((fixtureId, index) => {
+          const channelIndex = intensityChannel.channelIndices[index];
+          changes.push({ fixtureId, channelIndex, value: 255 });
+        });
+      }
+
+      onDebouncedPreviewUpdate(changes);
+    },
+    [mergedChannels, onDebouncedPreviewUpdate],
+  );
 
   // Handle color picker selection (when Apply button is clicked - send to server)
-  const handleColorPickerSelect = useCallback((color: { r: number; g: number; b: number }) => {
-    // Find RGB channels
-    const redChannel = mergedChannels.find(ch => ch.type === ChannelType.RED);
-    const greenChannel = mergedChannels.find(ch => ch.type === ChannelType.GREEN);
-    const blueChannel = mergedChannels.find(ch => ch.type === ChannelType.BLUE);
-    const intensityChannel = mergedChannels.find(ch => ch.type === ChannelType.INTENSITY);
+  const handleColorPickerSelect = useCallback(
+    (color: { r: number; g: number; b: number }) => {
+      // Find RGB channels
+      const redChannel = mergedChannels.find(
+        (ch) => ch.type === ChannelType.RED,
+      );
+      const greenChannel = mergedChannels.find(
+        (ch) => ch.type === ChannelType.GREEN,
+      );
+      const blueChannel = mergedChannels.find(
+        (ch) => ch.type === ChannelType.BLUE,
+      );
+      const intensityChannel = mergedChannels.find(
+        (ch) => ch.type === ChannelType.INTENSITY,
+      );
 
-    // Update local state
-    setLocalSliderValues(prev => {
-      const newMap = new Map(prev);
-      if (redChannel) newMap.set(getChannelKey(redChannel), color.r);
-      if (greenChannel) newMap.set(getChannelKey(greenChannel), color.g);
-      if (blueChannel) newMap.set(getChannelKey(blueChannel), color.b);
-      if (intensityChannel) newMap.set(getChannelKey(intensityChannel), 255);
-      return newMap;
-    });
-
-    // Batch all channel changes into a single server call
-    const changes: Array<{fixtureId: string, channelIndex: number, value: number}> = [];
-
-    // Red channel
-    if (redChannel) {
-      redChannel.fixtureIds.forEach((fixtureId, index) => {
-        const channelIndex = redChannel.channelIndices[index];
-        changes.push({fixtureId, channelIndex, value: color.r});
+      // Update local state
+      setLocalSliderValues((prev) => {
+        const newMap = new Map(prev);
+        if (redChannel) newMap.set(getChannelKey(redChannel), color.r);
+        if (greenChannel) newMap.set(getChannelKey(greenChannel), color.g);
+        if (blueChannel) newMap.set(getChannelKey(blueChannel), color.b);
+        if (intensityChannel) newMap.set(getChannelKey(intensityChannel), 255);
+        return newMap;
       });
-    }
 
-    // Green channel
-    if (greenChannel) {
-      greenChannel.fixtureIds.forEach((fixtureId, index) => {
-        const channelIndex = greenChannel.channelIndices[index];
-        changes.push({fixtureId, channelIndex, value: color.g});
-      });
-    }
+      // Batch all channel changes into a single server call
+      const changes: Array<{
+        fixtureId: string;
+        channelIndex: number;
+        value: number;
+      }> = [];
 
-    // Blue channel
-    if (blueChannel) {
-      blueChannel.fixtureIds.forEach((fixtureId, index) => {
-        const channelIndex = blueChannel.channelIndices[index];
-        changes.push({fixtureId, channelIndex, value: color.b});
-      });
-    }
+      // Red channel
+      if (redChannel) {
+        redChannel.fixtureIds.forEach((fixtureId, index) => {
+          const channelIndex = redChannel.channelIndices[index];
+          changes.push({ fixtureId, channelIndex, value: color.r });
+        });
+      }
 
-    // Intensity channel
-    if (intensityChannel) {
-      intensityChannel.fixtureIds.forEach((fixtureId, index) => {
-        const channelIndex = intensityChannel.channelIndices[index];
-        changes.push({fixtureId, channelIndex, value: 255});
-      });
-    }
+      // Green channel
+      if (greenChannel) {
+        greenChannel.fixtureIds.forEach((fixtureId, index) => {
+          const channelIndex = greenChannel.channelIndices[index];
+          changes.push({ fixtureId, channelIndex, value: color.g });
+        });
+      }
 
-    // Send all changes in a single batched call
-    onBatchedChannelChanges(changes);
+      // Blue channel
+      if (blueChannel) {
+        blueChannel.fixtureIds.forEach((fixtureId, index) => {
+          const channelIndex = blueChannel.channelIndices[index];
+          changes.push({ fixtureId, channelIndex, value: color.b });
+        });
+      }
 
-    setIsColorPickerOpen(false);
-  }, [mergedChannels, onBatchedChannelChanges]);
+      // Intensity channel
+      if (intensityChannel) {
+        intensityChannel.fixtureIds.forEach((fixtureId, index) => {
+          const channelIndex = intensityChannel.channelIndices[index];
+          changes.push({ fixtureId, channelIndex, value: 255 });
+        });
+      }
+
+      // Send all changes in a single batched call
+      onBatchedChannelChanges(changes);
+
+      setIsColorPickerOpen(false);
+    },
+    [mergedChannels, onBatchedChannelChanges],
+  );
 
   // Generate unique key for each channel
   const getChannelKey = (channel: MergedChannel) => channel.type;
 
   // Get the current slider value (local state)
-  const getSliderValue = useCallback((channel: MergedChannel): number => {
-    const key = getChannelKey(channel);
-    return localSliderValues.get(key) ?? channel.averageValue;
-  }, [localSliderValues]);
+  const getSliderValue = useCallback(
+    (channel: MergedChannel): number => {
+      const key = getChannelKey(channel);
+      return localSliderValues.get(key) ?? channel.averageValue;
+    },
+    [localSliderValues],
+  );
 
   // Handle slider input during drag (local state + debounced preview update)
-  const handleSliderInput = useCallback((channel: MergedChannel, newValue: number) => {
-    const key = getChannelKey(channel);
-    // Update local state immediately for responsive UI
-    setLocalSliderValues(prev => new Map(prev).set(key, newValue));
+  const handleSliderInput = useCallback(
+    (channel: MergedChannel, newValue: number) => {
+      const key = getChannelKey(channel);
+      // Update local state immediately for responsive UI
+      setLocalSliderValues((prev) => new Map(prev).set(key, newValue));
 
-    // Send debounced preview update (only in preview mode)
-    const changes: Array<{fixtureId: string, channelIndex: number, value: number}> = [];
-    channel.fixtureIds.forEach((fixtureId, index) => {
-      const channelIndex = channel.channelIndices[index];
-      changes.push({fixtureId, channelIndex, value: newValue});
-    });
-    onDebouncedPreviewUpdate(changes);
-  }, [onDebouncedPreviewUpdate]);
+      // Send debounced preview update (only in preview mode)
+      const changes: Array<{
+        fixtureId: string;
+        channelIndex: number;
+        value: number;
+      }> = [];
+      channel.fixtureIds.forEach((fixtureId, index) => {
+        const channelIndex = channel.channelIndices[index];
+        changes.push({ fixtureId, channelIndex, value: newValue });
+      });
+      onDebouncedPreviewUpdate(changes);
+    },
+    [onDebouncedPreviewUpdate],
+  );
 
   // Handle slider mouse up (send final value to server)
-  const handleSliderMouseUp = useCallback((channel: MergedChannel, newValue: number) => {
-    const key = getChannelKey(channel);
-    // Ensure local state is updated
-    setLocalSliderValues(prev => new Map(prev).set(key, newValue));
-    // Send to server only on mouse up
-    handleChannelChange(channel, newValue);
-  }, [handleChannelChange]);
+  const handleSliderMouseUp = useCallback(
+    (channel: MergedChannel, newValue: number) => {
+      const key = getChannelKey(channel);
+      // Ensure local state is updated
+      setLocalSliderValues((prev) => new Map(prev).set(key, newValue));
+      // Send to server only on mouse up
+      handleChannelChange(channel, newValue);
+    },
+    [handleChannelChange],
+  );
 
   // Handle number input change
-  const handleNumberInputChange = useCallback((channel: MergedChannel, newValue: number) => {
-    const key = getChannelKey(channel);
-    const clampedValue = Math.max(channel.minValue, Math.min(channel.maxValue, newValue || 0));
+  const handleNumberInputChange = useCallback(
+    (channel: MergedChannel, newValue: number) => {
+      const key = getChannelKey(channel);
+      const clampedValue = Math.max(
+        channel.minValue,
+        Math.min(channel.maxValue, newValue || 0),
+      );
 
-    // Update local state
-    setLocalSliderValues(prev => new Map(prev).set(key, clampedValue));
+      // Update local state
+      setLocalSliderValues((prev) => new Map(prev).set(key, clampedValue));
 
-    // Update server
-    handleChannelChange(channel, clampedValue);
-  }, [handleChannelChange]);
+      // Update server
+      handleChannelChange(channel, clampedValue);
+    },
+    [handleChannelChange],
+  );
 
   // Handle keyboard navigation
-  const handleKeyDown = useCallback((channel: MergedChannel, e: React.KeyboardEvent<HTMLInputElement>) => {
-    const currentValue = getSliderValue(channel);
-    let newValue = currentValue;
+  const handleKeyDown = useCallback(
+    (channel: MergedChannel, e: React.KeyboardEvent<HTMLInputElement>) => {
+      const currentValue = getSliderValue(channel);
+      let newValue = currentValue;
 
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      newValue = Math.min(channel.maxValue, currentValue + (e.shiftKey ? 10 : 1));
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      newValue = Math.max(channel.minValue, currentValue - (e.shiftKey ? 10 : 1));
-    }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        newValue = Math.min(
+          channel.maxValue,
+          currentValue + (e.shiftKey ? 10 : 1),
+        );
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        newValue = Math.max(
+          channel.minValue,
+          currentValue - (e.shiftKey ? 10 : 1),
+        );
+      }
 
-    if (newValue !== currentValue) {
-      const key = getChannelKey(channel);
-      setLocalSliderValues(prev => new Map(prev).set(key, newValue));
-      handleChannelChange(channel, newValue);
-    }
-  }, [getSliderValue, handleChannelChange]);
+      if (newValue !== currentValue) {
+        const key = getChannelKey(channel);
+        setLocalSliderValues((prev) => new Map(prev).set(key, newValue));
+        handleChannelChange(channel, newValue);
+      }
+    },
+    [getSliderValue, handleChannelChange],
+  );
 
   // Get channel display name
   const getChannelDisplayName = (channel: MergedChannel): string => {
     const affectedCount = channel.fixtureIds.length;
     const totalCount = selectedFixtures.length;
-    const suffix = affectedCount < totalCount ? ` (${affectedCount}/${totalCount})` : '';
+    const suffix =
+      affectedCount < totalCount ? ` (${affectedCount}/${totalCount})` : "";
     return `${channel.name}${suffix}`;
+  };
+
+  // Get color for color channels
+  const getChannelColor = (channelType: ChannelType): string | null => {
+    switch (channelType) {
+      case ChannelType.RED:
+        return "#ff0000";
+      case ChannelType.GREEN:
+        return "#00ff00";
+      case ChannelType.BLUE:
+        return "#0080ff";
+      case ChannelType.AMBER:
+        return "#ffbf00";
+      case ChannelType.WHITE:
+        return "#ffffff";
+      case ChannelType.UV:
+        return UV_COLOR_HEX;
+      default:
+        return null;
+    }
   };
 
   if (selectedFixtures.length === 0) {
@@ -273,15 +371,26 @@ export default function MultiSelectControls({
       {/* Header */}
       <div className="flex items-center justify-between mb-1.5">
         <h3 className="text-white font-semibold text-sm">
-          Selected: {selectedFixtures.length} fixture{selectedFixtures.length > 1 ? 's' : ''}
+          Selected: {selectedFixtures.length} fixture
+          {selectedFixtures.length > 1 ? "s" : ""}
         </h3>
         <button
           onClick={onDeselectAll}
           className="text-gray-400 hover:text-white transition-colors text-sm"
           title="Deselect all fixtures"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
       </div>
@@ -297,11 +406,17 @@ export default function MultiSelectControls({
               <button
                 onClick={() => setIsColorPickerOpen(true)}
                 className="w-12 h-8 rounded border-2 border-gray-600 hover:border-blue-500 transition-colors cursor-pointer"
-                style={{ backgroundColor: `rgb(${displayRgbColor.r}, ${displayRgbColor.g}, ${displayRgbColor.b})` }}
+                style={{
+                  backgroundColor: `rgb(${displayRgbColor.r}, ${displayRgbColor.g}, ${displayRgbColor.b})`,
+                }}
                 title="Click to open color picker"
               />
               <span className="text-gray-400 text-xs font-mono">
-                {rgbToHex(displayRgbColor.r, displayRgbColor.g, displayRgbColor.b).toUpperCase()}
+                {rgbToHex(
+                  displayRgbColor.r,
+                  displayRgbColor.g,
+                  displayRgbColor.b,
+                ).toUpperCase()}
               </span>
             </div>
           </div>
@@ -319,36 +434,56 @@ export default function MultiSelectControls({
 
       {/* Channel Sliders */}
       <div className="space-y-0">
-        {mergedChannels.map((channel, index) => (
-          <div key={`${channel.type}-${index}`} className="py-0.5">
-            <div className="flex items-center justify-between mb-0.5">
-              <label className="text-gray-300 text-xs font-medium">
-                {getChannelDisplayName(channel)}
-              </label>
-              <div className="flex items-center gap-1">
-                {channel.hasVariation && (
-                  <span
-                    className="text-yellow-500 text-xs"
-                    title="Values differ across selected fixtures"
-                  >
-                    ≈
-                  </span>
-                )}
+        {mergedChannels.map((channel, index) => {
+          const channelColor = getChannelColor(channel.type);
+          return (
+            <div key={`${channel.type}-${index}`} className="py-0.5">
+              <div className="flex items-center justify-between mb-0.5">
+                <label className="text-gray-300 text-xs font-medium flex items-center space-x-1">
+                  {channelColor && (
+                    <div
+                      className="w-2.5 h-2.5 rounded-full border border-gray-600"
+                      style={{ backgroundColor: channelColor }}
+                    />
+                  )}
+                  <span>{getChannelDisplayName(channel)}</span>
+                </label>
+                <div className="flex items-center gap-1">
+                  {channel.hasVariation && (
+                    <span
+                      className="text-yellow-500 text-xs"
+                      title="Values differ across selected fixtures"
+                    >
+                      ≈
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
             <div className="flex items-center gap-1.5">
               <input
                 type="range"
                 min={channel.minValue}
                 max={channel.maxValue}
                 value={getSliderValue(channel)}
-                onChange={(e) => handleSliderInput(channel, Number(e.target.value))}
-                onMouseUp={(e) => handleSliderMouseUp(channel, Number((e.target as HTMLInputElement).value))}
-                onTouchEnd={(e) => handleSliderMouseUp(channel, Number((e.target as HTMLInputElement).value))}
+                onChange={(e) =>
+                  handleSliderInput(channel, Number(e.target.value))
+                }
+                onMouseUp={(e) =>
+                  handleSliderMouseUp(
+                    channel,
+                    Number((e.target as HTMLInputElement).value),
+                  )
+                }
+                onTouchEnd={(e) =>
+                  handleSliderMouseUp(
+                    channel,
+                    Number((e.target as HTMLInputElement).value),
+                  )
+                }
                 className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 style={{
-                  WebkitAppearance: 'none',
-                  appearance: 'none',
+                  WebkitAppearance: "none",
+                  appearance: "none",
                 }}
                 title={`${channel.name}: ${Math.round(getSliderValue(channel))} - drag to adjust`}
               />
@@ -357,14 +492,17 @@ export default function MultiSelectControls({
                 min={channel.minValue}
                 max={channel.maxValue}
                 value={Math.round(getSliderValue(channel))}
-                onChange={(e) => handleNumberInputChange(channel, Number(e.target.value))}
+                onChange={(e) =>
+                  handleNumberInputChange(channel, Number(e.target.value))
+                }
                 onKeyDown={(e) => handleKeyDown(channel, e)}
                 className="w-12 text-xs text-center font-mono text-gray-100 bg-gray-700 border border-gray-600 rounded px-1 py-0 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 title="Use arrow keys to adjust. Hold Shift for ±10"
               />
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Info text */}
