@@ -147,6 +147,9 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     // Update local state immediately
     handleLocalChannelChanges(changes);
 
+    // Mark as having unsaved changes
+    setHasUnsavedPreviewChanges(true);
+
     // Clear previous timeout
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
