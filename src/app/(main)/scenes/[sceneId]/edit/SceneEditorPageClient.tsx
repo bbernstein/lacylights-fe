@@ -2,21 +2,10 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import SceneEditorLayout from '@/components/SceneEditorLayout';
+import { extractSceneId } from '@/utils/routeUtils';
 
 interface SceneEditorPageClientProps {
   sceneId: string;
-}
-
-/**
- * Helper to extract sceneId from URL if needed (for static export)
- */
-function extractSceneId(sceneIdProp: string): string {
-  if (sceneIdProp === '__dynamic__' && typeof window !== 'undefined') {
-    const pathname = window.location.pathname;
-    const match = pathname.match(/\/scenes\/([^\/\?]+)/);
-    return match?.[1] || sceneIdProp;
-  }
-  return sceneIdProp;
 }
 
 export default function SceneEditorPageClient({ sceneId: sceneIdProp }: SceneEditorPageClientProps) {

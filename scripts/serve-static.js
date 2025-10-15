@@ -88,8 +88,8 @@ function routeRequest(req, res) {
 
   // Handle /cue-lists/[id] dynamic routes (serves /cue-lists/__dynamic__/index.html)
   // Match /cue-lists/123 but NOT /cue-lists/ or /cue-lists/123/something or files with extensions
-  // Only match if it looks like a cue list ID (no file extension like .txt, .js, etc.)
-  const cueListMatch = decodedUrl.match(/^\/cue-lists\/([^\/\.]+)$/);
+  // Only match URL-safe characters: alphanumeric, underscore, and hyphen
+  const cueListMatch = decodedUrl.match(/^\/cue-lists\/([\w\-]+)$/);
   if (cueListMatch) {
     const filePath = path.join(OUT_DIR, 'cue-lists', '__dynamic__', 'index.html');
     if (fs.existsSync(filePath)) {
@@ -100,8 +100,8 @@ function routeRequest(req, res) {
   }
 
   // Handle /player/[cueListId] dynamic routes (serves /player/__dynamic__/index.html)
-  // Only match if it looks like a cue list ID (no file extension)
-  const playerMatch = decodedUrl.match(/^\/player\/([^\/\.]+)$/);
+  // Only match URL-safe characters: alphanumeric, underscore, and hyphen
+  const playerMatch = decodedUrl.match(/^\/player\/([\w\-]+)$/);
   if (playerMatch) {
     const filePath = path.join(OUT_DIR, 'player', '__dynamic__', 'index.html');
     if (fs.existsSync(filePath)) {
@@ -113,7 +113,8 @@ function routeRequest(req, res) {
 
   // Handle /scenes/[sceneId]/edit dynamic routes (serves /scenes/__dynamic__/edit/index.html)
   // Match /scenes/123/edit but NOT /scenes/ or /scenes/123 or files with extensions
-  const sceneEditMatch = decodedUrl.match(/^\/scenes\/([^\/\.]+)\/edit$/);
+  // Only match URL-safe characters: alphanumeric, underscore, and hyphen
+  const sceneEditMatch = decodedUrl.match(/^\/scenes\/([\w\-]+)\/edit$/);
   if (sceneEditMatch) {
     const filePath = path.join(OUT_DIR, 'scenes', '__dynamic__', 'edit', 'index.html');
     if (fs.existsSync(filePath)) {
