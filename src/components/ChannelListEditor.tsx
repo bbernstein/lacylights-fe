@@ -257,6 +257,8 @@ interface SortableFixtureRowProps {
   handleChannelValueChange: (fixtureId: string, channelIndex: number, value: number) => void;
   handleColorSwatchClick: (fixtureId: string) => void;
   handleRemoveFixture: (fixtureId: string) => void;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
 }
 
 function SortableFixtureRow({
@@ -266,7 +268,9 @@ function SortableFixtureRow({
   formatFixtureInfo,
   handleChannelValueChange,
   handleColorSwatchClick,
-  handleRemoveFixture
+  handleRemoveFixture,
+  isExpanded,
+  onToggleExpand
 }: SortableFixtureRowProps) {
   const {
     attributes,
@@ -309,7 +313,7 @@ function SortableFixtureRow({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
             </svg>
           </button>
-          <div>
+          <div className="flex-1">
             <h4 className="text-sm font-medium text-gray-900 dark:text-white">
               {fixtureValue.fixture.name}
               <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
@@ -319,6 +323,20 @@ function SortableFixtureRow({
           </div>
         </div>
         <div className="flex items-center space-x-2">
+          <button
+            type="button"
+            onClick={onToggleExpand}
+            className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            title={isExpanded ? "Collapse channel sliders" : "Expand channel sliders"}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {isExpanded ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              )}
+            </svg>
+          </button>
           <ColorSwatch
             channels={channels}
             getChannelValue={getChannelValue}
@@ -336,18 +354,37 @@ function SortableFixtureRow({
           </button>
         </div>
       </div>
-      <div className="space-y-0.5">
-        {channels.map((channel: InstanceChannel, channelIndex: number) => (
-          <ChannelSlider
-            key={`${fixtureValue.id}-${channel.id}-${channelIndex}`}
-            channel={channel}
-            value={getChannelValue(channelIndex)}
-            fixtureId={fixtureValue.fixture.id}
-            channelIndex={channelIndex}
-            onValueChange={handleChannelValueChange}
-          />
-        ))}
-      </div>
+
+      {/* Compact view: show channel values as a list of numbers */}
+      {!isExpanded && (
+        <div className="px-2 py-2 bg-gray-50 dark:bg-gray-700/30 rounded">
+          <div className="text-xs font-mono text-gray-700 dark:text-gray-300 space-x-2">
+            <span className="text-gray-500 dark:text-gray-400">Values:</span>
+            {channels.map((_channel: InstanceChannel, channelIndex: number) => (
+              <span key={channelIndex} className="inline-block">
+                {getChannelValue(channelIndex)}
+                {channelIndex < channels.length - 1 && ','}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Expanded view: show full channel sliders */}
+      {isExpanded && (
+        <div className="space-y-0.5">
+          {channels.map((channel: InstanceChannel, channelIndex: number) => (
+            <ChannelSlider
+              key={`${fixtureValue.id}-${channel.id}-${channelIndex}`}
+              channel={channel}
+              value={getChannelValue(channelIndex)}
+              fixtureId={fixtureValue.fixture.id}
+              channelIndex={channelIndex}
+              onValueChange={handleChannelValueChange}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -375,6 +412,9 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
   const [removedFixtures, setRemovedFixtures] = useState<Set<string>>(new Set());
   const [tempIdCounter, setTempIdCounter] = useState(0);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+
+  // Expand/collapse state for fixtures - track which fixtures are expanded
+  const [expandedFixtures, setExpandedFixtures] = useState<Set<string>>(new Set());
 
   // Helper function to format fixture information display
   const formatFixtureInfo = (fixture: FixtureInstance): string => {
@@ -1218,6 +1258,18 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                       handleChannelValueChange={handleChannelValueChange}
                       handleColorSwatchClick={handleColorSwatchClick}
                       handleRemoveFixture={handleRemoveFixture}
+                      isExpanded={expandedFixtures.has(fixtureValue.fixture.id)}
+                      onToggleExpand={() => {
+                        setExpandedFixtures(prev => {
+                          const newSet = new Set(prev);
+                          if (newSet.has(fixtureValue.fixture.id)) {
+                            newSet.delete(fixtureValue.fixture.id);
+                          } else {
+                            newSet.add(fixtureValue.fixture.id);
+                          }
+                          return newSet;
+                        });
+                      }}
                     />
                   ))}
                 </div>
