@@ -883,27 +883,27 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-900">
-        <p className="text-gray-400">Loading scene...</p>
+      <div className="h-full flex items-center justify-center bg-white dark:bg-gray-900">
+        <p className="text-gray-600 dark:text-gray-400">Loading scene...</p>
       </div>
     );
   }
 
   if (!scene) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-900">
-        <p className="text-red-400">Scene not found</p>
+      <div className="h-full flex items-center justify-center bg-white dark:bg-gray-900">
+        <p className="text-red-600 dark:text-red-400">Scene not found</p>
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-gray-900">
+    <div className="h-full overflow-y-auto bg-white dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <form onSubmit={handleSubmit}>
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-white">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                 Edit Scene
               </h3>
               {isSceneCurrentlyActive && (
@@ -918,7 +918,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="scene-name" className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="scene-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Scene Name *
                 </label>
                 <input
@@ -928,12 +928,12 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                   onChange={(e) => setSceneName(e.target.value)}
                   placeholder="Enter scene name..."
                   required
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-gray-700 border-gray-600 text-white"
+                  className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
 
               <div>
-                <label htmlFor="scene-description" className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="scene-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Description
                 </label>
                 <textarea
@@ -942,19 +942,19 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                   onChange={(e) => setSceneDescription(e.target.value)}
                   placeholder="Optional description..."
                   rows={2}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-gray-700 border-gray-600 text-white"
+                  className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
 
               {/* Preview Mode Toggle */}
-              <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+              <div className="flex items-center justify-between p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg border border-gray-300 dark:border-gray-600">
                 <div className="flex items-center space-x-3">
                   <div className={`w-3 h-3 rounded-full ${previewMode ? 'bg-blue-400 animate-pulse' : 'bg-gray-400'}`} />
                   <div>
-                    <h4 className="text-sm font-medium text-white">
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-white">
                       Preview Mode
                     </h4>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
                       {isSceneCurrentlyActive
                         ? (previewMode
                             ? 'Preview mode active (scene is also LIVE - saved changes apply immediately)'
@@ -1024,7 +1024,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
           )}
 
           <div className="mb-4 flex items-center justify-between">
-            <div className="text-sm text-gray-400">
+            <div className="text-sm text-gray-700 dark:text-gray-400">
               Total fixtures in scene: {activeFixtureValues.length}
             </div>
             <div className="flex items-center gap-2">
@@ -1033,7 +1033,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                 <button
                   type="button"
                   onClick={() => setShowSortDropdown(!showSortDropdown)}
-                  className="inline-flex items-center px-2 py-1 text-xs font-medium rounded text-gray-300 bg-gray-700 hover:bg-gray-600 transition-colors"
+                  className="inline-flex items-center px-2 py-1 text-xs font-medium rounded text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                   title="Sort fixtures"
                 >
                   <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1046,13 +1046,13 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                 </button>
 
                 {showSortDropdown && (
-                  <div className="absolute right-0 z-10 mt-2 w-48 bg-gray-800 rounded-md shadow-lg ring-1 ring-gray-600">
+                  <div className="absolute right-0 z-10 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-gray-300 dark:ring-gray-600">
                     <div className="py-1" role="menu">
                       {/* Sort by Name */}
                       <button
                         type="button"
                         onClick={() => { handleSortFixtures('name', 'asc'); setShowSortDropdown(false); }}
-                        className="flex items-center w-full px-4 py-2 text-xs text-gray-300 hover:bg-gray-700"
+                        className="flex items-center w-full px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                       >
                         <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m0 0l4-4m0 4l4 4M3 16h6m-6 4h6" />
@@ -1062,7 +1062,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                       <button
                         type="button"
                         onClick={() => { handleSortFixtures('name', 'desc'); setShowSortDropdown(false); }}
-                        className="flex items-center w-full px-4 py-2 text-xs text-gray-300 hover:bg-gray-700"
+                        className="flex items-center w-full px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                       >
                         <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h6m0 0V2m0 2v2m0-2h9M3 8h9m-9 4h9m0 0l4-4m0 4l4 4M3 16h13M3 20h9" />
@@ -1074,7 +1074,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                       <button
                         type="button"
                         onClick={() => { handleSortFixtures('manufacturer', 'asc'); setShowSortDropdown(false); }}
-                        className="flex items-center w-full px-4 py-2 text-xs text-gray-300 hover:bg-gray-700"
+                        className="flex items-center w-full px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                       >
                         <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
@@ -1084,7 +1084,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                       <button
                         type="button"
                         onClick={() => { handleSortFixtures('manufacturer', 'desc'); setShowSortDropdown(false); }}
-                        className="flex items-center w-full px-4 py-2 text-xs text-gray-300 hover:bg-gray-700"
+                        className="flex items-center w-full px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                       >
                         <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
@@ -1096,7 +1096,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                       <button
                         type="button"
                         onClick={() => { handleSortFixtures('channel', 'asc'); setShowSortDropdown(false); }}
-                        className="flex items-center w-full px-4 py-2 text-xs text-gray-300 hover:bg-gray-700"
+                        className="flex items-center w-full px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                       >
                         <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
@@ -1106,7 +1106,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                       <button
                         type="button"
                         onClick={() => { handleSortFixtures('channel', 'desc'); setShowSortDropdown(false); }}
-                        className="flex items-center w-full px-4 py-2 text-xs text-gray-300 hover:bg-gray-700"
+                        className="flex items-center w-full px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                       >
                         <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8V20m0 0l4-4m-4 4l-4-4m-6-8v12m0 0L3 16m4 4l4-4" />
@@ -1133,8 +1133,8 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
 
           {/* Add Fixtures Panel */}
           {showAddFixtures && (
-            <div className="mb-4 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
-              <h4 className="text-sm font-medium text-white mb-3">Available Fixtures</h4>
+            <div className="mb-4 p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg border border-gray-300 dark:border-gray-600">
+              <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Available Fixtures</h4>
               {availableFixtures.length === 0 ? (
                 <p className="text-sm text-gray-400">All project fixtures are already in this scene</p>
               ) : (
@@ -1162,7 +1162,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                           className="mr-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                         <div className="flex-1">
-                          <div className="text-sm font-medium text-white">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {fixture.name}
                           </div>
                           <div className="text-xs text-gray-400">
@@ -1179,7 +1179,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                         setShowAddFixtures(false);
                         setSelectedFixturesToAdd(new Set());
                       }}
-                      className="px-3 py-1.5 text-sm font-medium text-gray-300 bg-gray-700 border border-gray-600 rounded-md hover:bg-gray-600"
+                      className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
                     >
                       Cancel
                     </button>
@@ -1197,7 +1197,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
             </div>
           )}
 
-          <div className="max-h-[60vh] overflow-y-auto mb-6 border border-gray-700 rounded-lg">
+          <div className="max-h-[60vh] overflow-y-auto mb-6 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg">
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
