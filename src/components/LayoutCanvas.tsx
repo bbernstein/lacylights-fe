@@ -73,9 +73,7 @@ export default function LayoutCanvas({
   const [isSaving, setIsSaving] = useState(false);
 
   // Canvas settings
-  const [snapToGrid, setSnapToGrid] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
-  const GRID_SIZE = 0.05; // 5% of canvas (normalized)
 
   // GraphQL mutation for saving positions
   const [updateFixturePositions] = useMutation(UPDATE_FIXTURE_POSITIONS);
@@ -129,16 +127,6 @@ export default function LayoutCanvas({
       setInternalSelection(newSelection);
     }
   }, [onSelectionChange]);
-
-  // Snap position to grid
-  const snapPositionToGrid = useCallback((x: number, y: number): { x: number; y: number } => {
-    if (!snapToGrid) return { x, y };
-
-    return {
-      x: Math.round(x / GRID_SIZE) * GRID_SIZE,
-      y: Math.round(y / GRID_SIZE) * GRID_SIZE,
-    };
-  }, [snapToGrid]);
 
   // Convert normalized position to canvas coordinates
   const normalizedToCanvas = useCallback((nx: number, ny: number): { x: number; y: number } => {
@@ -276,21 +264,19 @@ export default function LayoutCanvas({
     ctx.fillStyle = '#1a202c';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw grid - aligned with snap-to-grid
-    // Convert normalized GRID_SIZE to pixels based on canvas dimensions
+    // Draw grid (fixed pixel size)
     ctx.strokeStyle = '#2d3748';
     ctx.lineWidth = 1;
-    const gridSizeX = GRID_SIZE * canvas.width * viewport.scale;
-    const gridSizeY = GRID_SIZE * canvas.height * viewport.scale;
+    const gridSize = 50 * viewport.scale;
 
-    for (let x = viewport.x % gridSizeX; x < canvas.width; x += gridSizeX) {
+    for (let x = viewport.x % gridSize; x < canvas.width; x += gridSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, canvas.height);
       ctx.stroke();
     }
 
-    for (let y = viewport.y % gridSizeY; y < canvas.height; y += gridSizeY) {
+    for (let y = viewport.y % gridSize; y < canvas.height; y += gridSize) {
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(canvas.width, y);
@@ -481,12 +467,9 @@ export default function LayoutCanvas({
         // Convert to normalized coordinates
         const normalized = canvasToNormalized(newCanvasX, newCanvasY);
 
-        // Apply snap-to-grid
-        const snapped = snapPositionToGrid(normalized.x, normalized.y);
-
         // Clamp to 0-1 range
-        const clampedX = Math.max(0, Math.min(1, snapped.x));
-        const clampedY = Math.max(0, Math.min(1, snapped.y));
+        const clampedX = Math.max(0, Math.min(1, normalized.x));
+        const clampedY = Math.max(0, Math.min(1, normalized.y));
 
         const existingPos = newPositions.get(fixtureId);
         if (existingPos) {
@@ -728,25 +711,7 @@ export default function LayoutCanvas({
         </div>
 
         {/* View Settings */}
-        <div className="bg-gray-800 rounded-lg p-2 shadow-lg space-y-2">
-          {/* Snap to Grid Toggle */}
-          <button
-            onClick={() => setSnapToGrid(!snapToGrid)}
-            className={`w-full px-3 py-2 rounded transition-colors text-sm ${
-              snapToGrid
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-            }`}
-            title={snapToGrid ? 'Snap to grid enabled' : 'Snap to grid disabled'}
-          >
-            <span className="flex items-center justify-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5h4m-4 6h4m-4 6h4m12-12h-4m4 6h-4m4 6h-4M4 5v14m16-14v14" />
-              </svg>
-              {snapToGrid ? 'Snap: ON' : 'Snap: OFF'}
-            </span>
-          </button>
-
+        <div className="bg-gray-800 rounded-lg p-2 shadow-lg">
           {/* Show Labels Toggle */}
           <button
             onClick={() => setShowLabels(!showLabels)}
