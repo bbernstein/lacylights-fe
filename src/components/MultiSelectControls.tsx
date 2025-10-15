@@ -269,9 +269,9 @@ export default function MultiSelectControls({
   }
 
   return (
-    <div className="absolute bottom-4 left-4 bg-gray-800 rounded-lg shadow-xl p-3 min-w-[320px] max-w-[400px] max-h-[70vh] overflow-y-auto">
+    <div className="absolute bottom-4 left-4 bg-gray-800 rounded-lg shadow-xl p-2 min-w-[280px] max-w-[360px] max-h-[70vh] overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-1.5">
         <h3 className="text-white font-semibold text-sm">
           Selected: {selectedFixtures.length} fixture{selectedFixtures.length > 1 ? 's' : ''}
         </h3>
@@ -289,8 +289,8 @@ export default function MultiSelectControls({
       {/* RGB Color Picker */}
       {displayRgbColor && (
         <>
-          <div className="mb-2 pb-2 border-b border-gray-700">
-            <label className="block text-gray-300 text-xs font-medium mb-1">
+          <div className="mb-1.5 pb-1.5 border-b border-gray-700">
+            <label className="block text-gray-300 text-xs font-medium mb-0.5">
               Color
             </label>
             <div className="flex items-center gap-2">
@@ -318,10 +318,10 @@ export default function MultiSelectControls({
       )}
 
       {/* Channel Sliders */}
-      <div className="space-y-1.5">
+      <div className="space-y-0">
         {mergedChannels.map((channel, index) => (
-          <div key={`${channel.type}-${index}`} className="space-y-0.5">
-            <div className="flex items-center justify-between">
+          <div key={`${channel.type}-${index}`} className="py-0.5">
+            <div className="flex items-center justify-between mb-0.5">
               <label className="text-gray-300 text-xs font-medium">
                 {getChannelDisplayName(channel)}
               </label>
@@ -336,7 +336,7 @@ export default function MultiSelectControls({
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <input
                 type="range"
                 min={channel.minValue}
@@ -345,7 +345,7 @@ export default function MultiSelectControls({
                 onChange={(e) => handleSliderInput(channel, Number(e.target.value))}
                 onMouseUp={(e) => handleSliderMouseUp(channel, Number((e.target as HTMLInputElement).value))}
                 onTouchEnd={(e) => handleSliderMouseUp(channel, Number((e.target as HTMLInputElement).value))}
-                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 style={{
                   WebkitAppearance: 'none',
                   appearance: 'none',
@@ -359,7 +359,7 @@ export default function MultiSelectControls({
                 value={Math.round(getSliderValue(channel))}
                 onChange={(e) => handleNumberInputChange(channel, Number(e.target.value))}
                 onKeyDown={(e) => handleKeyDown(channel, e)}
-                className="w-12 text-xs text-center font-mono bg-gray-700 text-gray-300 border border-gray-600 rounded px-1 py-0.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-12 text-xs text-center font-mono text-gray-100 bg-gray-700 border border-gray-600 rounded px-1 py-0 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 title="Use arrow keys to adjust. Hold Shift for ±10"
               />
             </div>
