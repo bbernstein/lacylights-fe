@@ -128,7 +128,8 @@ export default function MultiSelectControls({
         if (redChannel) newMap.set(getChannelKey(redChannel), color.r);
         if (greenChannel) newMap.set(getChannelKey(greenChannel), color.g);
         if (blueChannel) newMap.set(getChannelKey(blueChannel), color.b);
-        if (intensityChannel) newMap.set(getChannelKey(intensityChannel), 255);
+        // Preserve current intensity value instead of hardcoding to 255
+        if (intensityChannel) newMap.set(getChannelKey(intensityChannel), intensityChannel.averageValue);
         return newMap;
       });
 
@@ -160,10 +161,11 @@ export default function MultiSelectControls({
         });
       }
 
+      // Preserve current intensity value instead of hardcoding to 255
       if (intensityChannel) {
         intensityChannel.fixtureIds.forEach((fixtureId, index) => {
           const channelIndex = intensityChannel.channelIndices[index];
-          changes.push({ fixtureId, channelIndex, value: 255 });
+          changes.push({ fixtureId, channelIndex, value: intensityChannel.averageValue });
         });
       }
 
@@ -195,7 +197,8 @@ export default function MultiSelectControls({
         if (redChannel) newMap.set(getChannelKey(redChannel), color.r);
         if (greenChannel) newMap.set(getChannelKey(greenChannel), color.g);
         if (blueChannel) newMap.set(getChannelKey(blueChannel), color.b);
-        if (intensityChannel) newMap.set(getChannelKey(intensityChannel), 255);
+        // Preserve current intensity value instead of hardcoding to 255
+        if (intensityChannel) newMap.set(getChannelKey(intensityChannel), intensityChannel.averageValue);
         return newMap;
       });
 
@@ -230,11 +233,11 @@ export default function MultiSelectControls({
         });
       }
 
-      // Intensity channel
+      // Intensity channel - preserve current value instead of hardcoding to 255
       if (intensityChannel) {
         intensityChannel.fixtureIds.forEach((fixtureId, index) => {
           const channelIndex = intensityChannel.channelIndices[index];
-          changes.push({ fixtureId, channelIndex, value: 255 });
+          changes.push({ fixtureId, channelIndex, value: intensityChannel.averageValue });
         });
       }
 

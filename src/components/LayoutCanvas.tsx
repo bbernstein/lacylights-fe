@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { useMutation } from '@apollo/client';
 import { FixtureInstance, InstanceChannel, ChannelType } from '@/types';
 import { UPDATE_FIXTURE_POSITIONS } from '@/graphql/fixtures';
@@ -78,6 +78,14 @@ export default function LayoutCanvas({
   // GraphQL mutation for saving positions
   const [updateFixturePositions] = useMutation(UPDATE_FIXTURE_POSITIONS);
 
+  // Create a stable dependency key that only changes when fixtures actually change
+  // This prevents unnecessary recalculation when the fixtures array reference changes
+  const fixturesKey = useMemo(() => {
+    return fixtures
+      .map(f => `${f.id}:${f.layoutX ?? ''}:${f.layoutY ?? ''}:${f.layoutRotation ?? ''}`)
+      .join('|');
+  }, [fixtures]);
+
   // Initialize fixture positions (load from database or use auto-layout)
   useEffect(() => {
     if (fixtures.length === 0) return;
@@ -117,7 +125,7 @@ export default function LayoutCanvas({
 
     setFixturePositions(positions);
     setHasUnsavedChanges(false); // Reset unsaved changes when loading
-  }, [fixtures]);
+  }, [fixturesKey, fixtures]);
 
   // Helper to update selection (internal or external)
   const updateSelection = useCallback((newSelection: Set<string>) => {
@@ -224,10 +232,10 @@ export default function LayoutCanvas({
       b *= intensity;
     }
 
-    // If no color, show dark gray
+    // If no color, show dark gray (#2d3748 = rgb(45, 55, 72) = normalized (0.176, 0.216, 0.282))
     if (r === 0 && g === 0 && b === 0) {
-      // Dark gray color
-      return { color: '#2d3748', r: 0.176, g: 0.216, b: 0.282 };
+      // Dark gray color - matches Tailwind gray-700
+      return { color: '#2d3748', r: 45 / 255, g: 55 / 255, b: 72 / 255 };
     }
 
     return {
