@@ -33,7 +33,12 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   const [previewMode, setPreviewMode] = useState(false);
   const [previewSessionId, setPreviewSessionId] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [hasUnsavedPreviewChanges, setHasUnsavedPreviewChanges] = useState(false);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Save status state
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const saveStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch scene data for 2D layout mode
   const { data: sceneData } = useQuery(GET_SCENE, {
@@ -108,6 +113,9 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       }
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
+      }
+      if (saveStatusTimeoutRef.current) {
+        clearTimeout(saveStatusTimeoutRef.current);
       }
     };
   }, [previewMode, previewSessionId, cancelPreviewSession]);
@@ -242,7 +250,14 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     // In preview mode, send to preview session instead of updating scene
     if (previewMode && previewSessionId) {
       batchedPreviewUpdate(changes);
+      setHasUnsavedPreviewChanges(true);
       return;
+    }
+
+    // Show saving indicator
+    setSaveStatus('saving');
+    if (saveStatusTimeoutRef.current) {
+      clearTimeout(saveStatusTimeoutRef.current);
     }
 
     // Build a map of fixture changes for efficient lookup
@@ -288,9 +303,18 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
           },
         },
       });
+
+      // Show saved indicator
+      setSaveStatus('saved');
+      saveStatusTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, 2000); // Hide after 2 seconds
     } catch (error) {
       console.error('Failed to update scene:', error);
-      // TODO: Show error toast and revert local state
+      setSaveStatus('error');
+      saveStatusTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, 3000); // Hide error after 3 seconds
     }
   }, [scene, sceneId, updateScene, previewMode, previewSessionId, batchedPreviewUpdate]);
 
@@ -310,6 +334,60 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     setSelectedFixtureIds(new Set());
   }, []);
 
+  // Apply preview changes to scene
+  const handleApplyToScene = useCallback(async () => {
+    if (!scene || !previewMode) return;
+
+    setSaveStatus('saving');
+    if (saveStatusTimeoutRef.current) {
+      clearTimeout(saveStatusTimeoutRef.current);
+    }
+
+    try {
+      // Build updated fixture values from current local state
+      const updatedFixtureValues = scene.fixtureValues.map((fv: FixtureValue) => {
+        const localValues = localFixtureValues.get(fv.fixture.id);
+
+        return {
+          fixtureId: fv.fixture.id,
+          channelValues: localValues || fv.channelValues || [],
+        };
+      });
+
+      await updateScene({
+        variables: {
+          id: sceneId,
+          input: {
+            fixtureValues: updatedFixtureValues,
+          },
+        },
+      });
+
+      setHasUnsavedPreviewChanges(false);
+      setSaveStatus('saved');
+      saveStatusTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to apply preview to scene:', error);
+      setSaveStatus('error');
+      saveStatusTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, 3000);
+    }
+  }, [scene, previewMode, localFixtureValues, sceneId, updateScene]);
+
+  // Handle close with warning for unsaved preview changes
+  const handleClose = useCallback(() => {
+    if (hasUnsavedPreviewChanges) {
+      const confirmed = window.confirm(
+        'You have unsaved preview changes. These changes will be lost if you close without applying them to the scene. Do you want to close anyway?'
+      );
+      if (!confirmed) return;
+    }
+    onClose();
+  }, [hasUnsavedPreviewChanges, onClose]);
+
   return (
     <div className="fixed inset-0 bg-gray-900 flex flex-col">
       {/* Top bar with mode switcher and controls */}
@@ -317,7 +395,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         <div className="flex items-center justify-between">
           {/* Back button */}
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 rounded-md transition-colors"
           >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -355,31 +433,79 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
               </button>
             </div>
 
-            {/* Preview mode toggle - only show in layout mode */}
+            {/* Preview mode toggle and controls - only show in layout mode */}
             {mode === 'layout' && (
-              <div className="flex items-center space-x-3 bg-gray-700/50 rounded-lg px-4 py-2 border border-gray-600">
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${previewMode ? 'bg-blue-400 animate-pulse' : 'bg-gray-400'}`} />
-                  <div className="text-sm">
-                    <span className="text-white font-medium">Preview</span>
-                    {previewError && (
-                      <span className="text-red-400 text-xs ml-2" title={previewError}>Error</span>
+              <>
+                <div className="flex items-center space-x-3 bg-gray-700/50 rounded-lg px-4 py-2 border border-gray-600">
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-2 h-2 rounded-full ${previewMode ? 'bg-blue-400 animate-pulse' : 'bg-gray-400'}`} />
+                    <div className="text-sm">
+                      <span className="text-white font-medium">Preview</span>
+                      {previewError && (
+                        <span className="text-red-400 text-xs ml-2" title={previewError}>Error</span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleTogglePreview}
+                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800 ${
+                      previewMode ? 'bg-blue-600' : 'bg-gray-600'
+                    }`}
+                    title={previewMode ? 'Preview mode: Changes sent to DMX for testing' : 'Enable preview mode'}
+                  >
+                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      previewMode ? 'translate-x-4' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
+
+                {/* Apply to Scene button - show when in preview mode with unsaved changes */}
+                {previewMode && hasUnsavedPreviewChanges && (
+                  <button
+                    onClick={handleApplyToScene}
+                    disabled={saveStatus === 'saving'}
+                    className="inline-flex items-center px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Save current preview values to the scene"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Apply to Scene
+                  </button>
+                )}
+
+                {/* Save status indicator */}
+                {saveStatus !== 'idle' && (
+                  <div className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-700/50 border border-gray-600">
+                    {saveStatus === 'saving' && (
+                      <>
+                        <svg className="animate-spin h-4 w-4 text-blue-400" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span className="text-sm text-gray-300">Saving...</span>
+                      </>
+                    )}
+                    {saveStatus === 'saved' && (
+                      <>
+                        <svg className="h-4 w-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-green-400">Saved</span>
+                      </>
+                    )}
+                    {saveStatus === 'error' && (
+                      <>
+                        <svg className="h-4 w-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        <span className="text-sm text-red-400">Error</span>
+                      </>
                     )}
                   </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleTogglePreview}
-                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800 ${
-                    previewMode ? 'bg-blue-600' : 'bg-gray-600'
-                  }`}
-                  title={previewMode ? 'Preview mode: Changes sent to DMX for testing' : 'Enable preview mode'}
-                >
-                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    previewMode ? 'translate-x-4' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
+                )}
+              </>
             )}
           </div>
 
