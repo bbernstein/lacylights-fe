@@ -158,7 +158,10 @@ interface SortableFixtureRowProps {
   formatFixtureInfo: (fixture: FixtureInstance) => string;
   handleChannelValueChange: (fixtureId: string, channelIndex: number, value: number) => void;
   handleColorSwatchClick: (fixtureId: string) => void;
+  handleCopyFixture: (fixtureId: string) => void;
+  handlePasteFixture: (fixtureId: string) => void;
   handleRemoveFixture: (fixtureId: string) => void;
+  hasCopiedValues: boolean;
   isExpanded: boolean;
   onToggleExpand: () => void;
 }
@@ -170,7 +173,10 @@ function SortableFixtureRow({
   formatFixtureInfo,
   handleChannelValueChange,
   handleColorSwatchClick,
+  handleCopyFixture,
+  handlePasteFixture,
   handleRemoveFixture,
+  hasCopiedValues,
   isExpanded,
   onToggleExpand
 }: SortableFixtureRowProps) {
@@ -246,6 +252,28 @@ function SortableFixtureRow({
           />
           <button
             type="button"
+            onClick={() => handleCopyFixture(fixtureValue.fixture.id)}
+            className="p-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+            title="Copy channel values"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
+          {hasCopiedValues && (
+            <button
+              type="button"
+              onClick={() => handlePasteFixture(fixtureValue.fixture.id)}
+              className="p-1 text-gray-500 hover:text-green-600 dark:text-gray-400 dark:hover:text-green-400 transition-colors"
+              title="Paste channel values"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </button>
+          )}
+          <button
+            type="button"
             onClick={() => handleRemoveFixture(fixtureValue.fixture.id)}
             className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
             title="Remove from scene"
@@ -315,6 +343,11 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
 
   // Expand/collapse state for fixtures - track which fixtures are expanded
   const [expandedFixtures, setExpandedFixtures] = useState<Set<string>>(new Set());
+
+  // Copy/paste state
+  const [copiedChannelValues, setCopiedChannelValues] = useState<number[] | null>(null);
+  const [showCopiedFeedback, setShowCopiedFeedback] = useState(false);
+  const copyFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper function to format fixture information display
   const formatFixtureInfo = (fixture: FixtureInstance): string => {
@@ -564,6 +597,59 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
     }
   };
 
+  // Copy/paste handlers
+  const handleCopyFixture = useCallback((fixtureId: string) => {
+    const values = channelValues.get(fixtureId);
+    if (values) {
+      setCopiedChannelValues([...values]);
+
+      // Show visual feedback
+      setShowCopiedFeedback(true);
+      if (copyFeedbackTimeoutRef.current) {
+        clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+      copyFeedbackTimeoutRef.current = setTimeout(() => {
+        setShowCopiedFeedback(false);
+      }, 1500); // Hide after 1.5 seconds
+    }
+  }, [channelValues]);
+
+  const handlePasteFixture = useCallback((fixtureId: string) => {
+    if (!copiedChannelValues) return;
+
+    const currentValues = channelValues.get(fixtureId);
+    if (!currentValues) return;
+
+    // Paste values for each channel (up to the minimum of copied values or current fixture channels)
+    const channelCount = Math.min(copiedChannelValues.length, currentValues.length);
+    const newValues = [...currentValues];
+
+    for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
+      newValues[channelIndex] = copiedChannelValues[channelIndex];
+    }
+
+    // Update local state
+    setChannelValues(prev => {
+      const newMap = new Map(prev);
+      newMap.set(fixtureId, newValues);
+      return newMap;
+    });
+
+    // Send preview updates if in preview mode
+    if (previewMode && previewSessionId) {
+      for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
+        updatePreviewChannel({
+          variables: {
+            sessionId: previewSessionId,
+            fixtureId,
+            channelIndex,
+            value: copiedChannelValues[channelIndex],
+          },
+        });
+      }
+    }
+  }, [copiedChannelValues, channelValues, previewMode, previewSessionId, updatePreviewChannel]);
+
   // Helper to get available fixtures that aren't already in the scene
   const availableFixtures = useMemo(() => {
     if (!projectFixturesData?.project?.fixtures || !scene) return [];
@@ -803,6 +889,11 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
       await cancelPreviewSession({
         variables: { sessionId: previewSessionId },
       });
+    }
+
+    // Clean up copy feedback timeout
+    if (copyFeedbackTimeoutRef.current) {
+      clearTimeout(copyFeedbackTimeoutRef.current);
     }
 
     setChannelValues(new Map());
@@ -1157,7 +1248,10 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                       formatFixtureInfo={formatFixtureInfo}
                       handleChannelValueChange={handleChannelValueChange}
                       handleColorSwatchClick={handleColorSwatchClick}
+                      handleCopyFixture={handleCopyFixture}
+                      handlePasteFixture={handlePasteFixture}
                       handleRemoveFixture={handleRemoveFixture}
+                      hasCopiedValues={copiedChannelValues !== null}
                       isExpanded={expandedFixtures.has(fixtureValue.fixture.id)}
                       onToggleExpand={() => {
                         setExpandedFixtures(prev => {
@@ -1188,6 +1282,19 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
           </div>
         </form>
       </div>
+
+      {/* Copy feedback toast */}
+      {showCopiedFeedback && (
+        <div className="fixed top-4 right-4 z-50 bg-gray-800 border border-gray-600 rounded-lg shadow-xl px-4 py-2 flex items-center space-x-2 transition-all duration-200 animate-in fade-in slide-in-from-right-5">
+          <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <span className="text-white font-medium">Copied!</span>
+          <span className="text-gray-400 text-sm">
+            ({copiedChannelValues?.length || 0} channel{copiedChannelValues && copiedChannelValues.length > 1 ? 's' : ''})
+          </span>
+        </div>
+      )}
 
       {/* Color Picker Modal */}
       <ColorPickerModal
