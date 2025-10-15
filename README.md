@@ -42,6 +42,18 @@ npm run dev
 
 5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### Testing Static Export Locally
+
+To test the production static export behavior locally (recommended before deploying to Raspberry Pi):
+
+```bash
+npm run dev:static
+```
+
+This builds the static export and serves it with a server that mimics the nginx routing used in production. This is crucial for testing routing behavior since `npm run dev` uses the Next.js dev server which handles routes differently than the static export.
+
+📖 **See [STATIC_TESTING.md](./STATIC_TESTING.md) for complete documentation.**
+
 ## Development
 
 ### Tech Stack
@@ -83,6 +95,21 @@ Key GraphQL operations:
 - Subscribe to real-time DMX output changes
 
 ## Building for Production
+
+### Static Export (for Raspberry Pi)
+
+LacyLights frontend is deployed as a static export on Raspberry Pi:
+
+```bash
+npm run build
+```
+
+This generates a static site in the `out/` directory optimized for nginx deployment.
+
+For complete Raspberry Pi deployment instructions, see:
+📖 **[Raspberry Pi Deployment Guide](https://github.com/bbernstein/lacylights-node/blob/main/deploy/DEPLOYMENT.md)**
+
+### Development Production Server
 
 ```bash
 npm run build
