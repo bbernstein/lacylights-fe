@@ -104,7 +104,7 @@ export default function LayoutCanvas({
   const [updateFixturePositions] = useMutation(UPDATE_FIXTURE_POSITIONS);
 
   // Initialize fixture positions (load from database or use auto-layout)
-  // Only initializes NEW fixtures, preserves positions for existing fixtures
+  // Only initializes NEW fixtures; preserves existing positions in component state (including unsaved changes), not just database positions
   useEffect(() => {
     if (fixtures.length === 0) {
       setFixturePositions(new Map());

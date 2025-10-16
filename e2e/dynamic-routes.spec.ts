@@ -26,7 +26,8 @@ test.describe('Dynamic Route Navigation', () => {
 
       // Verify the page title or heading suggests scene editor
       // (This will fail gracefully if backend is not running, which is okay for static export tests)
-      const heading = await page.textContent('h1,h2').catch(() => '');
+      // Use more specific selector to avoid false positives
+      const heading = await page.textContent('main h1, main h2, main h3').catch(() => '');
       console.log(`Scene editor heading: ${heading}`);
     });
 
