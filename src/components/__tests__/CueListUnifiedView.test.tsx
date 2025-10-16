@@ -440,7 +440,6 @@ describe('CueListUnifiedView', () => {
       await waitFor(() => {
         expect(screen.getByDisplayValue('Test Cue List')).toBeInTheDocument();
         expect(screen.getByText('EDIT MODE')).toBeInTheDocument();
-        expect(screen.getByText('Pop Out Player')).toBeInTheDocument();
       });
     });
 
@@ -460,10 +459,10 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        expect(screen.getByText('Previous')).toBeInTheDocument();
+        expect(screen.getByTitle('Previous (←)')).toBeInTheDocument();
         expect(screen.getByText('START')).toBeInTheDocument();
-        expect(screen.getByText('Next')).toBeInTheDocument();
-        expect(screen.getByText('STOP')).toBeInTheDocument();
+        expect(screen.getByTitle('Next (→)')).toBeInTheDocument();
+        expect(screen.getByTitle('Stop (Esc)')).toBeInTheDocument();
       });
     });
 
@@ -547,11 +546,11 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        const nextButton = screen.getByText('Next');
+        const nextButton = screen.getByTitle('Next (→)');
         expect(nextButton).toBeInTheDocument();
       });
 
-      const nextButton = screen.getByText('Next');
+      const nextButton = screen.getByTitle('Next (→)');
       await userEvent.click(nextButton);
     });
 
@@ -559,11 +558,11 @@ describe('CueListUnifiedView', () => {
       renderWithProvider(createMocks(), {}, { currentCueIndex: 1 });
 
       await waitFor(() => {
-        const prevButton = screen.getByText('Previous');
+        const prevButton = screen.getByTitle('Previous (←)');
         expect(prevButton).toBeInTheDocument();
       });
 
-      const prevButton = screen.getByText('Previous');
+      const prevButton = screen.getByTitle('Previous (←)');
       expect(prevButton).not.toBeDisabled();
       await userEvent.click(prevButton);
     });
@@ -572,11 +571,11 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        const stopButton = screen.getByText('STOP');
+        const stopButton = screen.getByTitle('Stop (Esc)');
         expect(stopButton).toBeInTheDocument();
       });
 
-      const stopButton = screen.getByText('STOP');
+      const stopButton = screen.getByTitle('Stop (Esc)');
       await userEvent.click(stopButton);
     });
   });
@@ -596,7 +595,7 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        expect(screen.getByText('STOP')).toBeInTheDocument();
+        expect(screen.getByTitle('Stop (Esc)')).toBeInTheDocument();
       });
 
       fireEvent.keyDown(window, { key: 'Escape' });
@@ -606,7 +605,7 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        expect(screen.getByText('Previous')).toBeInTheDocument();
+        expect(screen.getByTitle('Previous (←)')).toBeInTheDocument();
       });
 
       fireEvent.keyDown(window, { key: 'ArrowLeft' });
@@ -681,24 +680,6 @@ describe('CueListUnifiedView', () => {
   });
 
   describe('modal management', () => {
-    it('opens player window', async () => {
-      renderWithProvider();
-
-      await waitFor(() => {
-        const playerButton = screen.getByText('Pop Out Player');
-        expect(playerButton).toBeInTheDocument();
-      });
-
-      const playerButton = screen.getByText('Pop Out Player');
-      await userEvent.click(playerButton);
-
-      expect(window.open).toHaveBeenCalledWith(
-        '/player/cuelist-1',
-        expect.any(String),
-        expect.any(String)
-      );
-    });
-
     it('handles close button', async () => {
       renderWithProvider();
 

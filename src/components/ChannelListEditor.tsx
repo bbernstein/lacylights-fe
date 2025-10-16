@@ -26,6 +26,7 @@ import { ChannelType, InstanceChannel, FixtureInstance, FixtureValue } from '@/t
 import ColorPickerModal from './ColorPickerModal';
 import { rgbToChannelValues, channelValuesToRgb, COLOR_CHANNEL_TYPES } from '@/utils/colorConversion';
 import ChannelSlider from './ChannelSlider';
+import { generateUUID } from '@/utils/uuid';
 
 interface ChannelListEditorProps {
   sceneId: string;
@@ -339,6 +340,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
   const [selectedFixturesToAdd, setSelectedFixturesToAdd] = useState<Set<string>>(new Set());
   const [removedFixtures, setRemovedFixtures] = useState<Set<string>>(new Set());
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [lastClickedFixtureIndex, setLastClickedFixtureIndex] = useState<number | null>(null);
 
   // Expand/collapse state for fixtures - track which fixtures are expanded
   const [expandedFixtures, setExpandedFixtures] = useState<Set<string>>(new Set());
@@ -682,7 +684,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
           // Create a new fixture value with default channel values
           const defaultValues = fixture.channels.map((ch: InstanceChannel) => ch.defaultValue || 0);
           fixtures.push({
-            id: `temp-${crypto.randomUUID()}-${fixtureId}`, // Temporary ID for new fixtures using crypto.randomUUID()
+            id: `temp-${generateUUID()}-${fixtureId}`, // Temporary ID for new fixtures using browser-compatible UUID generator
             fixture: fixture,
             channelValues: defaultValues,
             sceneOrder: nextSceneOrder++, // Use unique incrementing order values
@@ -1160,13 +1162,42 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
           {/* Add Fixtures Panel */}
           {showAddFixtures && (
             <div className="mb-4 p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg border border-gray-300 dark:border-gray-600">
-              <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Available Fixtures</h4>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                  Available Fixtures
+                  {selectedFixturesToAdd.size > 0 && (
+                    <span className="ml-2 text-xs font-normal text-blue-400">
+                      ({selectedFixturesToAdd.size} selected)
+                    </span>
+                  )}
+                </h4>
+                {availableFixtures.length > 0 && (
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedFixturesToAdd.size === availableFixtures.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          // Select all
+                          setSelectedFixturesToAdd(new Set(availableFixtures.map((f: FixtureInstance) => f.id)));
+                        } else {
+                          // Deselect all
+                          setSelectedFixturesToAdd(new Set());
+                        }
+                        setLastClickedFixtureIndex(null);
+                      }}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-xs text-gray-700 dark:text-gray-300">Select All</span>
+                  </label>
+                )}
+              </div>
               {availableFixtures.length === 0 ? (
                 <p className="text-sm text-gray-400">All project fixtures are already in this scene</p>
               ) : (
                 <>
                   <div className="max-h-48 overflow-y-auto mb-3 space-y-2">
-                    {availableFixtures.map((fixture: FixtureInstance) => (
+                    {availableFixtures.map((fixture: FixtureInstance, index: number) => (
                       <label
                         key={fixture.id}
                         className="flex items-center p-2 hover:bg-gray-600/50 rounded cursor-pointer"
@@ -1175,15 +1206,39 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                           type="checkbox"
                           checked={selectedFixturesToAdd.has(fixture.id)}
                           onChange={(e) => {
+                            const isChecked = e.target.checked;
+                            const isShiftClick = (e.nativeEvent as MouseEvent).shiftKey;
+
                             setSelectedFixturesToAdd(prev => {
                               const newSet = new Set(prev);
-                              if (e.target.checked) {
-                                newSet.add(fixture.id);
+
+                              // Handle shift-click for range selection
+                              if (isShiftClick && lastClickedFixtureIndex !== null && lastClickedFixtureIndex !== index) {
+                                const start = Math.min(lastClickedFixtureIndex, index);
+                                const end = Math.max(lastClickedFixtureIndex, index);
+
+                                // Select/deselect all fixtures in range
+                                for (let i = start; i <= end; i++) {
+                                  if (isChecked) {
+                                    newSet.add(availableFixtures[i].id);
+                                  } else {
+                                    newSet.delete(availableFixtures[i].id);
+                                  }
+                                }
                               } else {
-                                newSet.delete(fixture.id);
+                                // Normal click - toggle single fixture
+                                if (isChecked) {
+                                  newSet.add(fixture.id);
+                                } else {
+                                  newSet.delete(fixture.id);
+                                }
                               }
+
                               return newSet;
                             });
+
+                            // Update last clicked index
+                            setLastClickedFixtureIndex(index);
                           }}
                           className="mr-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
