@@ -124,12 +124,6 @@ export default function LayoutCanvas({
         }
       }
 
-      // Count fixtures that need auto-layout (new fixtures without saved positions)
-      const newFixturesNeedingLayout = fixtures.filter(f =>
-        !initializedFixtureIds.current.has(f.id) &&
-        (f.layoutX === null || f.layoutX === undefined || f.layoutY === null || f.layoutY === undefined)
-      );
-
       const gridCols = Math.ceil(Math.sqrt(fixtures.length));
       let autoLayoutIndex = 0;
 
