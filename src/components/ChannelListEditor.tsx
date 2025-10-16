@@ -27,6 +27,22 @@ import ColorPickerModal from './ColorPickerModal';
 import { rgbToChannelValues, channelValuesToRgb, COLOR_CHANNEL_TYPES } from '@/utils/colorConversion';
 import ChannelSlider from './ChannelSlider';
 
+// Browser-compatible UUID generator as fallback for crypto.randomUUID()
+// This ensures compatibility with older browsers and environments
+function generateUUID(): string {
+  // Try native crypto.randomUUID() first
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  // Fallback: Generate a RFC4122 version 4 UUID using Math.random()
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 interface ChannelListEditorProps {
   sceneId: string;
   onClose?: () => void;
@@ -682,7 +698,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
           // Create a new fixture value with default channel values
           const defaultValues = fixture.channels.map((ch: InstanceChannel) => ch.defaultValue || 0);
           fixtures.push({
-            id: `temp-${crypto.randomUUID()}-${fixtureId}`, // Temporary ID for new fixtures using crypto.randomUUID()
+            id: `temp-${generateUUID()}-${fixtureId}`, // Temporary ID for new fixtures using browser-compatible UUID generator
             fixture: fixture,
             channelValues: defaultValues,
             sceneOrder: nextSceneOrder++, // Use unique incrementing order values
