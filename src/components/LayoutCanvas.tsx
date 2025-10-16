@@ -626,11 +626,8 @@ export default function LayoutCanvas({
     const centerX = minX + width / 2;
     const centerY = minY + height / 2;
 
-    // Guard against division by zero if width or height are zero
+    // Guard against division by zero if fixture bounds width or height are zero
     if (width <= 0 || height <= 0) return;
-
-    // Additional guard: ensure canvas dimensions are still valid before division
-    if (canvas.width <= 0 || canvas.height <= 0) return;
 
     // Calculate scale to fit
     // Convert fixture size padding from pixels to normalized coordinates, then calculate scale

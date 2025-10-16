@@ -7,9 +7,10 @@ import { FixtureInstance, InstanceChannel, ChannelType } from '@/types';
 
 /**
  * Threshold for detecting value variation across fixtures
- * Channel values are in the 0-255 range, values within this threshold are considered the same
+ * Channel values are in the 0-255 range. Values differing by less than this threshold
+ * are considered the same (allows for rounding/precision tolerance).
  */
-const VARIATION_THRESHOLD = 0.1;
+const VARIATION_THRESHOLD = 1;
 
 /**
  * Represents a merged channel across multiple fixtures

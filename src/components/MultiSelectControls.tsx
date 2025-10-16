@@ -257,8 +257,9 @@ export default function MultiSelectControls({
     [mergedChannels, onBatchedChannelChanges, addIntensityChanges, preserveIntensityIfPresent],
   );
 
-  // Generate unique key for each channel (composite key to handle multiple channels of same type)
-  const getChannelKey = (channel: MergedChannel) => `${channel.type}-${channel.name}`;
+  // Generate unique key for each channel (composite key including fixture IDs to guarantee uniqueness)
+  const getChannelKey = (channel: MergedChannel) =>
+    `${channel.type}-${channel.name}-${channel.fixtureIds.join(",")}`;
 
   // Get the current slider value (local state)
   const getSliderValue = useCallback(
