@@ -3,6 +3,10 @@ import { ChannelType } from '@/types';
 import { UV_COLOR_HEX } from '@/utils/colorConversion';
 import { abbreviateChannelName } from '@/utils/channelAbbreviation';
 
+// Default min/max values for DMX channels (standard range: 0-255)
+const DEFAULT_MIN_VALUE = 0;
+const DEFAULT_MAX_VALUE = 255;
+
 /**
  * Base interface for any channel that can be displayed in a slider
  */
@@ -59,8 +63,8 @@ export default function ChannelSlider({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = parseInt(e.target.value) || 0;
-    const clampedValue = Math.max(channel.minValue || 0, Math.min(channel.maxValue || 255, newValue));
+    const newValue = parseInt(e.target.value) || DEFAULT_MIN_VALUE;
+    const clampedValue = Math.max(channel.minValue || DEFAULT_MIN_VALUE, Math.min(channel.maxValue || DEFAULT_MAX_VALUE, newValue));
     setLocalValue(clampedValue);
     onChange(clampedValue);
     if (onChangeComplete) {
@@ -73,10 +77,10 @@ export default function ChannelSlider({
 
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      newValue = Math.min((channel.maxValue || 255), localValue + (e.shiftKey ? 10 : 1));
+      newValue = Math.min((channel.maxValue || DEFAULT_MAX_VALUE), localValue + (e.shiftKey ? 10 : 1));
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      newValue = Math.max((channel.minValue || 0), localValue - (e.shiftKey ? 10 : 1));
+      newValue = Math.max((channel.minValue || DEFAULT_MIN_VALUE), localValue - (e.shiftKey ? 10 : 1));
     }
 
     if (newValue !== localValue) {
@@ -120,8 +124,8 @@ export default function ChannelSlider({
       </label>
       <input
         type="range"
-        min={channel.minValue || 0}
-        max={channel.maxValue || 255}
+        min={channel.minValue || DEFAULT_MIN_VALUE}
+        max={channel.maxValue || DEFAULT_MAX_VALUE}
         value={localValue}
         onChange={handleSliderChange}
         onMouseUp={handleSliderMouseUp}
@@ -136,8 +140,8 @@ export default function ChannelSlider({
       />
       <input
         type="number"
-        min={channel.minValue || 0}
-        max={channel.maxValue || 255}
+        min={channel.minValue || DEFAULT_MIN_VALUE}
+        max={channel.maxValue || DEFAULT_MAX_VALUE}
         value={localValue}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}

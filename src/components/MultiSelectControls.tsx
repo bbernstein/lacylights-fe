@@ -68,18 +68,17 @@ export default function MultiSelectControls({
 
   // Calculate display RGB color from local slider values (updates during drag)
   const displayRgbColor = useMemo(() => {
-    // Check if we have RGB channels
-    const hasRgb =
-      mergedChannels.some((ch) => ch.type === ChannelType.RED) &&
-      mergedChannels.some((ch) => ch.type === ChannelType.GREEN) &&
-      mergedChannels.some((ch) => ch.type === ChannelType.BLUE);
+    // Find RGB channels
+    const redChannel = mergedChannels.find((ch) => ch.type === ChannelType.RED);
+    const greenChannel = mergedChannels.find((ch) => ch.type === ChannelType.GREEN);
+    const blueChannel = mergedChannels.find((ch) => ch.type === ChannelType.BLUE);
 
-    if (!hasRgb) return null;
+    if (!redChannel || !greenChannel || !blueChannel) return null;
 
     // Use local values if available (during drag), otherwise use server values
-    const r = localSliderValues.get(ChannelType.RED) ?? rgbColor?.r ?? 0;
-    const g = localSliderValues.get(ChannelType.GREEN) ?? rgbColor?.g ?? 0;
-    const b = localSliderValues.get(ChannelType.BLUE) ?? rgbColor?.b ?? 0;
+    const r = localSliderValues.get(getChannelKey(redChannel)) ?? rgbColor?.r ?? 0;
+    const g = localSliderValues.get(getChannelKey(greenChannel)) ?? rgbColor?.g ?? 0;
+    const b = localSliderValues.get(getChannelKey(blueChannel)) ?? rgbColor?.b ?? 0;
 
     return { r, g, b };
   }, [localSliderValues, rgbColor, mergedChannels]);
@@ -258,8 +257,8 @@ export default function MultiSelectControls({
     [mergedChannels, onBatchedChannelChanges, addIntensityChanges, preserveIntensityIfPresent],
   );
 
-  // Generate unique key for each channel
-  const getChannelKey = (channel: MergedChannel) => channel.type;
+  // Generate unique key for each channel (composite key to handle multiple channels of same type)
+  const getChannelKey = (channel: MergedChannel) => `${channel.type}-${channel.name}`;
 
   // Get the current slider value (local state)
   const getSliderValue = useCallback(

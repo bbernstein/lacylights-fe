@@ -31,6 +31,20 @@ const MIME_TYPES = {
   '.txt': 'text/plain',
 };
 
+/**
+ * Creates a regex pattern for matching dynamic routes
+ * @param {string} basePath - The base path (e.g., '/cue-lists')
+ * @param {string} [suffix=''] - Optional suffix after the ID (e.g., '/edit')
+ * @returns {RegExp} Regex pattern matching: /basePath/[id][suffix]
+ */
+function createDynamicRouteRegex(basePath, suffix = '') {
+  // Escape special regex characters in basePath and suffix
+  const escapedPath = basePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Match URL-safe characters: alphanumeric, underscore, and hyphen
+  return new RegExp(`^${escapedPath}/([\\w\\-]+)${escapedSuffix}$`);
+}
+
 function getMimeType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   return MIME_TYPES[ext] || 'application/octet-stream';
@@ -88,8 +102,7 @@ function routeRequest(req, res) {
 
   // Handle /cue-lists/[id] dynamic routes (serves /cue-lists/__dynamic__/index.html)
   // Match /cue-lists/123 but NOT /cue-lists/ or /cue-lists/123/something or files with extensions
-  // Only match URL-safe characters: alphanumeric, underscore, and hyphen
-  const cueListMatch = decodedUrl.match(/^\/cue-lists\/([\w\-]+)$/);
+  const cueListMatch = decodedUrl.match(createDynamicRouteRegex('/cue-lists'));
   if (cueListMatch) {
     const filePath = path.join(OUT_DIR, 'cue-lists', '__dynamic__', 'index.html');
     if (fs.existsSync(filePath)) {
@@ -100,8 +113,7 @@ function routeRequest(req, res) {
   }
 
   // Handle /player/[cueListId] dynamic routes (serves /player/__dynamic__/index.html)
-  // Only match URL-safe characters: alphanumeric, underscore, and hyphen
-  const playerMatch = decodedUrl.match(/^\/player\/([\w\-]+)$/);
+  const playerMatch = decodedUrl.match(createDynamicRouteRegex('/player'));
   if (playerMatch) {
     const filePath = path.join(OUT_DIR, 'player', '__dynamic__', 'index.html');
     if (fs.existsSync(filePath)) {
@@ -113,8 +125,7 @@ function routeRequest(req, res) {
 
   // Handle /scenes/[sceneId]/edit dynamic routes (serves /scenes/__dynamic__/edit/index.html)
   // Match /scenes/123/edit but NOT /scenes/ or /scenes/123 or files with extensions
-  // Only match URL-safe characters: alphanumeric, underscore, and hyphen
-  const sceneEditMatch = decodedUrl.match(/^\/scenes\/([\w\-]+)\/edit$/);
+  const sceneEditMatch = decodedUrl.match(createDynamicRouteRegex('/scenes', '/edit'));
   if (sceneEditMatch) {
     const filePath = path.join(OUT_DIR, 'scenes', '__dynamic__', 'edit', 'index.html');
     if (fs.existsSync(filePath)) {

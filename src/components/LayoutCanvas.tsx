@@ -608,6 +608,9 @@ export default function LayoutCanvas({
     if (!canvasRef.current) return;
     const canvas = canvasRef.current;
 
+    // Guard against division by zero during initial render
+    if (canvas.width <= 0 || canvas.height <= 0) return;
+
     // Calculate bounds of all fixtures
     let minX = 1, minY = 1, maxX = 0, maxY = 0;
 
@@ -656,7 +659,8 @@ export default function LayoutCanvas({
       setHasUnsavedChanges(false);
     } catch (error) {
       console.error('Failed to save layout:', error);
-      // TODO: Show error toast/notification to user
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to save layout: ${errorMessage}`);
     } finally {
       setIsSaving(false);
     }

@@ -1,6 +1,11 @@
 import { ChannelType, InstanceChannel } from "@/types";
 
 /**
+ * Common short words to skip when extracting abbreviation letters
+ */
+const COMMON_WORDS_TO_SKIP = ['the', 'and', 'of', 'for'] as const;
+
+/**
  * Minimum interface required for channel abbreviation
  */
 export interface AbbreviableChannel {
@@ -119,7 +124,7 @@ function getSmartAbbreviation(name: string): string {
   // Extract first letters of significant words (skip common short words)
   const words = name.split(/[\s/\-_]+/)
     .filter(w => w.length > 2) // Skip short words
-    .filter(w => !['the', 'and', 'of', 'for'].includes(w.toLowerCase()));
+    .filter(w => !COMMON_WORDS_TO_SKIP.includes(w.toLowerCase() as typeof COMMON_WORDS_TO_SKIP[number]));
 
   if (words.length >= 2) {
     return (words[0][0] + words[1][0]).toUpperCase();
