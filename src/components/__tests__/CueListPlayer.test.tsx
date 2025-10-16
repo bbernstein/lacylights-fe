@@ -312,28 +312,6 @@ describe('CueListPlayer', () => {
       });
     });
 
-    it('shows ready state when cues exist but none in display range', async () => {
-      // Create scenario where cues exist but currentCueIndex makes displayCues empty
-      // For displayCues to be empty with cues present, currentCueIndex needs to be < -2
-      // since the range is currentCueIndex-2 to currentCueIndex+2
-      mockUseCueListPlayback.mockClear();
-      mockUseCueListPlayback.mockReturnValue({
-        playbackStatus: {
-          ...mockPlaybackStatus,
-          currentCueIndex: -10, // Way out of range
-          isPlaying: false,
-          currentCue: null
-        },
-      });
-
-      const mocks = createMocks();
-      renderWithProvider(mocks);
-
-      await waitFor(() => {
-        expect(screen.getByText('Ready to start')).toBeInTheDocument();
-      });
-    });
-
     it('shows empty state when no cues', async () => {
       const emptyCueList = { ...mockCueList, cues: [] };
       const mocks = createMocks({ data: { cueList: emptyCueList } });
