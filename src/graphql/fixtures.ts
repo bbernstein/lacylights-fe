@@ -125,3 +125,9 @@ export const REORDER_SCENE_FIXTURES = gql`
     reorderSceneFixtures(sceneId: $sceneId, fixtureOrders: $fixtureOrders)
   }
 `;
+
+export const UPDATE_FIXTURE_POSITIONS = gql`
+  mutation UpdateFixturePositions($positions: [FixturePositionInput!]!) {
+    updateFixturePositions(positions: $positions)
+  }
+`;

@@ -1,17 +1,16 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECT_SCENES, DELETE_SCENE, ACTIVATE_SCENE, DUPLICATE_SCENE } from '@/graphql/scenes';
 import { useProject } from '@/contexts/ProjectContext';
 import CreateSceneModal from '@/components/CreateSceneModal';
-import SceneEditorModal from '@/components/SceneEditorModal';
 import { Scene } from '@/types';
 
 export default function ScenesPage() {
+  const router = useRouter();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
   const [sortAlphabetically, setSortAlphabetically] = useState(false);
   const { currentProject, loading: projectLoading } = useProject();
   
@@ -62,17 +61,7 @@ export default function ScenesPage() {
   };
 
   const handleEditScene = (scene: Scene) => {
-    setEditingSceneId(scene.id);
-    setIsEditModalOpen(true);
-  };
-
-  const handleSceneUpdated = () => {
-    refetch();
-  };
-
-  const handleCloseEditModal = () => {
-    setIsEditModalOpen(false);
-    setEditingSceneId(null);
+    router.push(`/scenes/${scene.id}/edit`);
   };
 
   const handleDeleteScene = (scene: Scene) => {
@@ -314,13 +303,6 @@ export default function ScenesPage() {
           onSceneCreated={handleSceneCreated}
         />
       )}
-
-      <SceneEditorModal
-        isOpen={isEditModalOpen}
-        onClose={handleCloseEditModal}
-        sceneId={editingSceneId}
-        onSceneUpdated={handleSceneUpdated}
-      />
     </div>
   );
 }

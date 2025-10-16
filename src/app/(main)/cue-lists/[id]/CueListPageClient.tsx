@@ -3,19 +3,10 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import CueListPlayer from '@/components/CueListPlayer';
 import CueListUnifiedView from '@/components/CueListUnifiedView';
+import { extractCueListId } from '@/utils/routeUtils';
 
 interface CueListPageClientProps {
   cueListId: string;
-}
-
-// Helper to extract cueListId from URL if needed (for static export)
-function extractCueListId(cueListIdProp: string): string {
-  if (cueListIdProp === '__dynamic__' && typeof window !== 'undefined') {
-    const pathname = window.location.pathname;
-    const match = pathname.match(/\/cue-lists\/([^\/\?]+)/);
-    return match?.[1] || cueListIdProp;
-  }
-  return cueListIdProp;
 }
 
 export default function CueListPageClient({ cueListId: cueListIdProp }: CueListPageClientProps) {

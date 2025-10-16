@@ -42,10 +42,12 @@ The static file server (`scripts/serve-static.js`) replicates the nginx configur
 1. **Exact matches for list pages**
    - `/cue-lists/` → serves `/cue-lists/index.html`
    - `/player/` → serves `/player/index.html`
+   - `/scenes/` → serves `/scenes/index.html`
 
 2. **Dynamic route handling**
    - `/cue-lists/[id]` → serves `/cue-lists/__dynamic__/index.html`
    - `/player/[id]` → serves `/player/__dynamic__/index.html`
+   - `/scenes/[sceneId]/edit` → serves `/scenes/__dynamic__/edit/index.html`
 
 3. **Static file caching**
    - `/_next/static/*` files served with cache headers
