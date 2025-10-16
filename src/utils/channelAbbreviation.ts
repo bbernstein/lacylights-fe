@@ -121,10 +121,11 @@ function getSmartAbbreviation(name: string): string {
   if (/gobo\s+rotation/i.test(name)) return 'GR';
   if (/pan.*tilt\s+speed/i.test(name)) return 'PT';
 
-  // Extract first letters of significant words (skip common short words)
+  // Extract first letters of significant words
+  // Filter by length first (skip 1-2 character words), then filter common words
   const words = name.split(/[\s/\-_]+/)
-    .filter(w => w.length > 2) // Skip short words
-    .filter(w => !COMMON_WORDS_TO_SKIP.has(w.toLowerCase()));
+    .filter(w => w.length > 2) // Skip very short words (1-2 characters)
+    .filter(w => !COMMON_WORDS_TO_SKIP.has(w.toLowerCase())); // Skip common words like 'the', 'and'
 
   if (words.length >= 2) {
     return (words[0][0] + words[1][0]).toUpperCase();

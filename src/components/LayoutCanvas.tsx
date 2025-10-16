@@ -629,6 +629,9 @@ export default function LayoutCanvas({
     // Guard against division by zero if width or height are zero
     if (width <= 0 || height <= 0) return;
 
+    // Additional guard: ensure canvas dimensions are still valid before division
+    if (canvas.width <= 0 || canvas.height <= 0) return;
+
     // Calculate scale to fit
     // Convert fixture size padding from pixels to normalized coordinates, then calculate scale
     const scaleX = 1 / (width + (FIXTURE_SIZE * 2) / canvas.width);

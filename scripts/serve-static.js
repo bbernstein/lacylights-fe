@@ -41,7 +41,7 @@ function createDynamicRouteRegex(basePath, suffix = '') {
   // Escape special regex characters in basePath and suffix
   const escapedPath = basePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // Match URL-safe characters: alphanumeric, underscore, and hyphen
+  // Match URL-safe characters: \w (word chars: letters, digits, underscore) and hyphen
   return new RegExp(`^${escapedPath}/([\\w\\-]+)${escapedSuffix}$`);
 }
 
