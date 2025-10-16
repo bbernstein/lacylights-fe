@@ -38,9 +38,13 @@ export default function ChannelSlider({
 }: ChannelSliderProps) {
   const [localValue, setLocalValue] = useState(value);
 
+  // Sync local value with prop value only if it actually changed
+  // This prevents infinite loops when parent updates rapidly (e.g., color picker dragging)
   useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
+    if (value !== localValue) {
+      setLocalValue(value);
+    }
+  }, [value, localValue]);
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = parseInt(e.target.value);
