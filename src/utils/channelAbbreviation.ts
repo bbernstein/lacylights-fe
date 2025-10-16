@@ -125,10 +125,10 @@ function getSmartAbbreviation(name: string): string {
     return (words[0][0] + words[1][0]).toUpperCase();
   }
 
-  // Fallback: first 2-3 characters
+  // Fallback: first 2 characters
   const cleanName = name.replace(/[^a-zA-Z0-9]/g, '');
   if (cleanName.length === 0) {
     return 'CH'; // Default abbreviation if nothing is left after cleaning
   }
-  return cleanName.substring(0, Math.min(2, cleanName.length)).toUpperCase();
+  return cleanName.substring(0, 2).toUpperCase();
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useMutation } from '@apollo/client';
 import { FixtureInstance, InstanceChannel, ChannelType } from '@/types';
 import { UPDATE_FIXTURE_POSITIONS } from '@/graphql/fixtures';
@@ -31,14 +31,27 @@ const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 5;
 const ZOOM_SPEED = 0.1;
 
+// Helper to convert hex color to normalized RGB values
+function hexToNormalizedRGB(hex: string) {
+  // Remove leading '#' if present
+  hex = hex.replace(/^#/, '');
+  // Support short hex (e.g. #abc)
+  if (hex.length === 3) {
+    hex = hex.split('').map(c => c + c).join('');
+  }
+  const num = parseInt(hex, 16);
+  const r = ((num >> 16) & 0xFF) / 255;
+  const g = ((num >> 8) & 0xFF) / 255;
+  const b = (num & 0xFF) / 255;
+  return { r, g, b };
+}
+
 // Default fixture color when no channels are active (Tailwind gray-700: #2d3748)
-const DEFAULT_FIXTURE_COLOR = {
-  hex: '#2d3748',
-  // RGB values: rgb(45, 55, 72)
-  r: 45 / 255,  // 0.176
-  g: 55 / 255,  // 0.216
-  b: 72 / 255,  // 0.282
-} as const;
+const DEFAULT_FIXTURE_COLOR = (() => {
+  const hex = '#2d3748';
+  const { r, g, b } = hexToNormalizedRGB(hex);
+  return { hex, r, g, b } as const;
+})();
 
 export default function LayoutCanvas({
   fixtures,
@@ -87,14 +100,6 @@ export default function LayoutCanvas({
   // GraphQL mutation for saving positions
   const [updateFixturePositions] = useMutation(UPDATE_FIXTURE_POSITIONS);
 
-  // Create a stable dependency key that only changes when fixtures actually change
-  // This prevents unnecessary recalculation when the fixtures array reference changes
-  const fixturesKey = useMemo(() => {
-    return fixtures
-      .map(f => `${f.id}:${f.layoutX ?? ''}:${f.layoutY ?? ''}:${f.layoutRotation ?? ''}`)
-      .join('|');
-  }, [fixtures]);
-
   // Initialize fixture positions (load from database or use auto-layout)
   useEffect(() => {
     if (fixtures.length === 0) return;
@@ -134,7 +139,7 @@ export default function LayoutCanvas({
 
     setFixturePositions(positions);
     setHasUnsavedChanges(false); // Reset unsaved changes when loading
-  }, [fixturesKey, fixtures]);
+  }, [fixtures]); // Only re-run when fixtures array reference changes
 
   // Helper to update selection (internal or external)
   const updateSelection = useCallback((newSelection: Set<string>) => {
