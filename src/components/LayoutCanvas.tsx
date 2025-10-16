@@ -31,6 +31,15 @@ const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 5;
 const ZOOM_SPEED = 0.1;
 
+// Default fixture color when no channels are active (Tailwind gray-700: #2d3748)
+const DEFAULT_FIXTURE_COLOR = {
+  hex: '#2d3748',
+  // RGB values: rgb(45, 55, 72)
+  r: 45 / 255,  // 0.176
+  g: 55 / 255,  // 0.216
+  b: 72 / 255,  // 0.282
+} as const;
+
 export default function LayoutCanvas({
   fixtures,
   fixtureValues,
@@ -232,10 +241,14 @@ export default function LayoutCanvas({
       b *= intensity;
     }
 
-    // If no color, show dark gray (#2d3748 = rgb(45, 55, 72) = normalized (0.176, 0.216, 0.282))
+    // If no color, use default fixture color (dark gray)
     if (r === 0 && g === 0 && b === 0) {
-      // Dark gray color - matches Tailwind gray-700
-      return { color: '#2d3748', r: 45 / 255, g: 55 / 255, b: 72 / 255 };
+      return {
+        color: DEFAULT_FIXTURE_COLOR.hex,
+        r: DEFAULT_FIXTURE_COLOR.r,
+        g: DEFAULT_FIXTURE_COLOR.g,
+        b: DEFAULT_FIXTURE_COLOR.b,
+      };
     }
 
     return {
@@ -606,8 +619,9 @@ export default function LayoutCanvas({
     const centerY = minY + height / 2;
 
     // Calculate scale to fit
-    const scaleX = canvas.width / (width * canvas.width + FIXTURE_SIZE * 2);
-    const scaleY = canvas.height / (height * canvas.height + FIXTURE_SIZE * 2);
+    // Convert fixture size padding from pixels to normalized coordinates, then calculate scale
+    const scaleX = 1 / (width + (FIXTURE_SIZE * 2) / canvas.width);
+    const scaleY = 1 / (height + (FIXTURE_SIZE * 2) / canvas.height);
     const scale = Math.min(scaleX, scaleY, MAX_ZOOM);
 
     setViewport({

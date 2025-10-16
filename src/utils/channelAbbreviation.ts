@@ -127,5 +127,8 @@ function getSmartAbbreviation(name: string): string {
 
   // Fallback: first 2-3 characters
   const cleanName = name.replace(/[^a-zA-Z0-9]/g, '');
+  if (cleanName.length === 0) {
+    return 'CH'; // Default abbreviation if nothing is left after cleaning
+  }
   return cleanName.substring(0, Math.min(2, cleanName.length)).toUpperCase();
 }

@@ -84,6 +84,29 @@ export default function MultiSelectControls({
     return { r, g, b };
   }, [localSliderValues, rgbColor, mergedChannels]);
 
+  // Helper to preserve intensity value when updating channel values
+  const preserveIntensityIfPresent = useCallback((
+    newMap: Map<string, number>,
+    intensityChannel: MergedChannel | undefined
+  ) => {
+    if (intensityChannel) {
+      newMap.set(getChannelKey(intensityChannel), intensityChannel.averageValue);
+    }
+  }, []);
+
+  // Helper to add intensity change to changes array
+  const addIntensityChanges = useCallback((
+    changes: Array<{ fixtureId: string; channelIndex: number; value: number }>,
+    intensityChannel: MergedChannel | undefined
+  ) => {
+    if (intensityChannel) {
+      intensityChannel.fixtureIds.forEach((fixtureId, index) => {
+        const channelIndex = intensityChannel.channelIndices[index];
+        changes.push({ fixtureId, channelIndex, value: intensityChannel.averageValue });
+      });
+    }
+  }, []);
+
   // Handle channel slider change (batch all fixture changes into single server call)
   const handleChannelChange = useCallback(
     (channel: MergedChannel, newValue: number) => {
@@ -128,8 +151,7 @@ export default function MultiSelectControls({
         if (redChannel) newMap.set(getChannelKey(redChannel), color.r);
         if (greenChannel) newMap.set(getChannelKey(greenChannel), color.g);
         if (blueChannel) newMap.set(getChannelKey(blueChannel), color.b);
-        // Preserve current intensity value instead of hardcoding to 255
-        if (intensityChannel) newMap.set(getChannelKey(intensityChannel), intensityChannel.averageValue);
+        preserveIntensityIfPresent(newMap, intensityChannel);
         return newMap;
       });
 
@@ -161,17 +183,11 @@ export default function MultiSelectControls({
         });
       }
 
-      // Preserve current intensity value instead of hardcoding to 255
-      if (intensityChannel) {
-        intensityChannel.fixtureIds.forEach((fixtureId, index) => {
-          const channelIndex = intensityChannel.channelIndices[index];
-          changes.push({ fixtureId, channelIndex, value: intensityChannel.averageValue });
-        });
-      }
+      addIntensityChanges(changes, intensityChannel);
 
       onDebouncedPreviewUpdate(changes);
     },
-    [mergedChannels, onDebouncedPreviewUpdate],
+    [mergedChannels, onDebouncedPreviewUpdate, addIntensityChanges, preserveIntensityIfPresent],
   );
 
   // Handle color picker selection (when Apply button is clicked - send to server)
@@ -197,8 +213,7 @@ export default function MultiSelectControls({
         if (redChannel) newMap.set(getChannelKey(redChannel), color.r);
         if (greenChannel) newMap.set(getChannelKey(greenChannel), color.g);
         if (blueChannel) newMap.set(getChannelKey(blueChannel), color.b);
-        // Preserve current intensity value instead of hardcoding to 255
-        if (intensityChannel) newMap.set(getChannelKey(intensityChannel), intensityChannel.averageValue);
+        preserveIntensityIfPresent(newMap, intensityChannel);
         return newMap;
       });
 
@@ -233,20 +248,14 @@ export default function MultiSelectControls({
         });
       }
 
-      // Intensity channel - preserve current value instead of hardcoding to 255
-      if (intensityChannel) {
-        intensityChannel.fixtureIds.forEach((fixtureId, index) => {
-          const channelIndex = intensityChannel.channelIndices[index];
-          changes.push({ fixtureId, channelIndex, value: intensityChannel.averageValue });
-        });
-      }
+      addIntensityChanges(changes, intensityChannel);
 
       // Send all changes in a single batched call
       onBatchedChannelChanges(changes);
 
       setIsColorPickerOpen(false);
     },
-    [mergedChannels, onBatchedChannelChanges],
+    [mergedChannels, onBatchedChannelChanges, addIntensityChanges, preserveIntensityIfPresent],
   );
 
   // Generate unique key for each channel
