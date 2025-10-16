@@ -338,7 +338,6 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
   const [showAddFixtures, setShowAddFixtures] = useState(false);
   const [selectedFixturesToAdd, setSelectedFixturesToAdd] = useState<Set<string>>(new Set());
   const [removedFixtures, setRemovedFixtures] = useState<Set<string>>(new Set());
-  const [tempIdCounter, setTempIdCounter] = useState(0);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   // Expand/collapse state for fixtures - track which fixtures are expanded
@@ -676,7 +675,6 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
 
     // Add newly selected fixtures
     if (selectedFixturesToAdd.size > 0 && projectFixturesData?.project?.fixtures) {
-      let counter = tempIdCounter;
       let nextSceneOrder = fixtures.length + 1; // Start from the next available position
       selectedFixturesToAdd.forEach(fixtureId => {
         const fixture = projectFixturesData.project.fixtures.find((f: FixtureInstance) => f.id === fixtureId);
@@ -684,7 +682,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
           // Create a new fixture value with default channel values
           const defaultValues = fixture.channels.map((ch: InstanceChannel) => ch.defaultValue || 0);
           fixtures.push({
-            id: `temp-${counter++}-${fixtureId}`, // Temporary ID for new fixtures using counter
+            id: `temp-${crypto.randomUUID()}-${fixtureId}`, // Temporary ID for new fixtures using crypto.randomUUID()
             fixture: fixture,
             channelValues: defaultValues,
             sceneOrder: nextSceneOrder++, // Use unique incrementing order values
@@ -694,7 +692,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
     }
 
     return fixtures;
-  }, [scene, removedFixtures, selectedFixturesToAdd, projectFixturesData, tempIdCounter]);
+  }, [scene, removedFixtures, selectedFixturesToAdd, projectFixturesData]);
 
   const handleRemoveFixture = (fixtureId: string) => {
     setRemovedFixtures(prev => new Set([...prev, fixtureId]));
@@ -722,8 +720,6 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
         });
         return newMap;
       });
-      // Increment counter to ensure unique IDs for next batch
-      setTempIdCounter(prev => prev + selectedFixturesToAdd.size);
     }
     // The fixtures are already being shown via activeFixtureValues
     // Just close the add fixtures panel
@@ -904,7 +900,6 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
     setShowAddFixtures(false);
     setSelectedFixturesToAdd(new Set());
     setRemovedFixtures(new Set());
-    setTempIdCounter(0);
     setShowSortDropdown(false);
 
     if (onClose) {

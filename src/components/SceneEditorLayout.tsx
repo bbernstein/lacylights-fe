@@ -22,6 +22,14 @@ interface SceneEditorLayoutProps {
   onToggleMode: () => void;
 }
 
+/**
+ * Type for fixture channel values used in scene updates
+ */
+type FixtureChannelValues = {
+  fixtureId: string;
+  channelValues: number[];
+};
+
 export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode }: SceneEditorLayoutProps) {
   // Selection state for layout mode
   const [selectedFixtureIds, setSelectedFixtureIds] = useState<Set<string>>(new Set());
@@ -283,7 +291,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     // Build updated fixture values array for server
     // Use the changes map and scene data directly, not localFixtureValues
     // Use a Map to deduplicate fixtures (in case scene data has duplicates)
-    const fixtureValuesMap = new Map<string, {fixtureId: string, channelValues: number[]}>();
+    const fixtureValuesMap = new Map<string, FixtureChannelValues>();
 
     scene.fixtureValues.forEach((fv: FixtureValue) => {
       const fixtureChanges = changesByFixture.get(fv.fixture.id);
@@ -439,7 +447,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     try {
       // Build updated fixture values from current local state
       // Use a Map to deduplicate fixtures (in case scene data has duplicates)
-      const fixtureValuesMap = new Map<string, {fixtureId: string, channelValues: number[]}>();
+      const fixtureValuesMap = new Map<string, FixtureChannelValues>();
 
       scene.fixtureValues.forEach((fv: FixtureValue) => {
         const localValues = localFixtureValues.get(fv.fixture.id);

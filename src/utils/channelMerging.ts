@@ -6,6 +6,12 @@
 import { FixtureInstance, InstanceChannel, ChannelType } from '@/types';
 
 /**
+ * Threshold for detecting value variation across fixtures (0.1 out of 255)
+ * Values within this threshold are considered the same
+ */
+const VARIATION_THRESHOLD = 0.1;
+
+/**
  * Represents a merged channel across multiple fixtures
  */
 export interface MergedChannel {
@@ -67,7 +73,7 @@ export function mergeFixtureChannels(
 
       // Check if all values are the same
       const firstValue = channel.values[0];
-      channel.hasVariation = !channel.values.every(v => Math.abs(v - firstValue) < 0.1);
+      channel.hasVariation = !channel.values.every(v => Math.abs(v - firstValue) < VARIATION_THRESHOLD);
     }
   });
 
