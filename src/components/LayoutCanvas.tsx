@@ -78,6 +78,9 @@ export default function LayoutCanvas({
   // Fixture positions (normalized 0-1 coordinates)
   const [fixturePositions, setFixturePositions] = useState<Map<string, FixturePosition>>(new Map());
 
+  // Track initialized fixture IDs to preserve positions across re-renders
+  const initializedFixtureIds = useRef<Set<string>>(new Set());
+
   // Interaction state
   const [isPanning, setIsPanning] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -101,45 +104,73 @@ export default function LayoutCanvas({
   const [updateFixturePositions] = useMutation(UPDATE_FIXTURE_POSITIONS);
 
   // Initialize fixture positions (load from database or use auto-layout)
+  // Only initializes NEW fixtures, preserves positions for existing fixtures
   useEffect(() => {
-    if (fixtures.length === 0) return;
+    if (fixtures.length === 0) {
+      setFixturePositions(new Map());
+      initializedFixtureIds.current = new Set();
+      return;
+    }
 
-    const positions = new Map<string, FixturePosition>();
-    const gridCols = Math.ceil(Math.sqrt(fixtures.length));
+    setFixturePositions(prevPositions => {
+      const positions = new Map(prevPositions); // Start with existing positions
+      const currentFixtureIds = new Set(fixtures.map(f => f.id));
 
-    // Track fixtures that need auto-layout
-    let autoLayoutIndex = 0;
-
-    fixtures.forEach((fixture) => {
-      // Check if fixture has saved position in database
-      if (fixture.layoutX !== null && fixture.layoutX !== undefined &&
-          fixture.layoutY !== null && fixture.layoutY !== undefined) {
-        // Use saved position
-        positions.set(fixture.id, {
-          fixtureId: fixture.id,
-          x: fixture.layoutX,
-          y: fixture.layoutY,
-          rotation: fixture.layoutRotation ?? 0,
-        });
-      } else {
-        // Use auto-layout for fixtures without saved positions
-        const col = autoLayoutIndex % gridCols;
-        const row = Math.floor(autoLayoutIndex / gridCols);
-
-        positions.set(fixture.id, {
-          fixtureId: fixture.id,
-          x: (col + 0.5) / gridCols, // Center in cell
-          y: (row + 0.5) / Math.ceil(fixtures.length / gridCols),
-          rotation: 0,
-        });
-
-        autoLayoutIndex++;
+      // Remove positions for fixtures that no longer exist
+      for (const [fixtureId] of positions) {
+        if (!currentFixtureIds.has(fixtureId)) {
+          positions.delete(fixtureId);
+          initializedFixtureIds.current.delete(fixtureId);
+        }
       }
-    });
 
-    setFixturePositions(positions);
-    setHasUnsavedChanges(false); // Reset unsaved changes when loading
-  }, [fixtures]); // Only re-run when fixtures array reference changes
+      // Count fixtures that need auto-layout (new fixtures without saved positions)
+      const newFixturesNeedingLayout = fixtures.filter(f =>
+        !initializedFixtureIds.current.has(f.id) &&
+        (f.layoutX === null || f.layoutX === undefined || f.layoutY === null || f.layoutY === undefined)
+      );
+
+      const gridCols = Math.ceil(Math.sqrt(fixtures.length));
+      let autoLayoutIndex = 0;
+
+      fixtures.forEach((fixture) => {
+        // Skip if already initialized (preserve existing position in state)
+        if (initializedFixtureIds.current.has(fixture.id)) {
+          return;
+        }
+
+        // Check if fixture has saved position in database
+        if (fixture.layoutX !== null && fixture.layoutX !== undefined &&
+            fixture.layoutY !== null && fixture.layoutY !== undefined) {
+          // Use saved position from database
+          positions.set(fixture.id, {
+            fixtureId: fixture.id,
+            x: fixture.layoutX,
+            y: fixture.layoutY,
+            rotation: fixture.layoutRotation ?? 0,
+          });
+        } else {
+          // Use auto-layout for new fixtures without saved positions
+          const col = autoLayoutIndex % gridCols;
+          const row = Math.floor(autoLayoutIndex / gridCols);
+
+          positions.set(fixture.id, {
+            fixtureId: fixture.id,
+            x: (col + 0.5) / gridCols, // Center in cell
+            y: (row + 0.5) / Math.ceil(fixtures.length / gridCols),
+            rotation: 0,
+          });
+
+          autoLayoutIndex++;
+        }
+
+        // Mark this fixture as initialized
+        initializedFixtureIds.current.add(fixture.id);
+      });
+
+      return positions;
+    });
+  }, [fixtures]); // Re-run when fixtures change to handle added/removed fixtures
 
   // Helper to update selection (internal or external)
   const updateSelection = useCallback((newSelection: Set<string>) => {
