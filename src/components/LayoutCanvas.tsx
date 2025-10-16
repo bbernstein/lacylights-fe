@@ -521,6 +521,9 @@ export default function LayoutCanvas({
 
   // Handle mouse up (stop panning, dragging, or marquee selection)
   const handleMouseUp = () => {
+    // Track if we were dragging to auto-save positions
+    const wasDragging = isDragging && draggedFixtures.size > 0;
+
     // Handle marquee selection completion
     if (isMarqueeSelecting && marqueeStart && marqueeCurrent) {
       // Calculate marquee bounds
@@ -561,6 +564,11 @@ export default function LayoutCanvas({
     setDraggedFixtures(new Set());
     setDragStart(null);
     setDragOffset(new Map());
+
+    // Auto-save positions after dragging
+    if (wasDragging && hasUnsavedChanges) {
+      handleSaveLayout();
+    }
   };
 
   // Handle mouse wheel (zoom)
