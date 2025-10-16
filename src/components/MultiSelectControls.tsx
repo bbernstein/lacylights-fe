@@ -47,6 +47,10 @@ export default function MultiSelectControls({
   // Track which channel is currently being dragged (for handling mouse leave)
   const draggingChannelRef = useRef<MergedChannel | null>(null);
 
+  // Generate unique key for each channel (composite key including fixture IDs to guarantee uniqueness)
+  const getChannelKey = (channel: MergedChannel) =>
+    `${channel.type}-${channel.name}-${channel.fixtureIds.join(",")}`;
+
   // Merge channels whenever selection or values change
   useEffect(() => {
     const channelMap = mergeFixtureChannels(selectedFixtures, fixtureValues);
@@ -256,10 +260,6 @@ export default function MultiSelectControls({
     },
     [mergedChannels, onBatchedChannelChanges, addIntensityChanges, preserveIntensityIfPresent],
   );
-
-  // Generate unique key for each channel (composite key including fixture IDs to guarantee uniqueness)
-  const getChannelKey = (channel: MergedChannel) =>
-    `${channel.type}-${channel.name}-${channel.fixtureIds.join(",")}`;
 
   // Get the current slider value (local state)
   const getSliderValue = useCallback(
