@@ -5,9 +5,12 @@ interface PageProps {
   params: Promise<{ sceneId: string }>;
 }
 
-export const dynamicParams = false;
+// Only disable dynamic params for production static export
+// In dev mode, allow all dynamic routes
+export const dynamicParams = process.env.NODE_ENV === 'production' ? false : true;
 
 export async function generateStaticParams() {
+  // Only used for static export in production
   return [{ sceneId: '__dynamic__' }];
 }
 
