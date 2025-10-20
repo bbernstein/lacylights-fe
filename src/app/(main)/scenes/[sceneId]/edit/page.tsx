@@ -5,12 +5,10 @@ interface PageProps {
   params: Promise<{ sceneId: string }>;
 }
 
-// Only disable dynamic params for production static export
-// In dev mode, allow all dynamic routes
-export const dynamicParams = process.env.NODE_ENV === 'production' ? false : true;
-
+// Generate static params for static export
+// The '__dynamic__' placeholder is used, and client-side code extracts the real ID from the URL
+// via extractSceneId() in routeUtils.ts
 export async function generateStaticParams() {
-  // Only used for static export in production
   return [{ sceneId: '__dynamic__' }];
 }
 
