@@ -5,8 +5,9 @@ interface PageProps {
   params: Promise<{ sceneId: string }>;
 }
 
-export const dynamicParams = false;
-
+// Generate static params for static export
+// The '__dynamic__' placeholder is used, and client-side code extracts the real ID from the URL
+// via extractSceneId() in routeUtils.ts
 export async function generateStaticParams() {
   return [{ sceneId: '__dynamic__' }];
 }

@@ -5,14 +5,10 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-// Must be false for static export (actual cue list ID handled client-side from URL)
-export const dynamicParams = false;
-
 // Generate static params for static export
-// We must return at least one param for static export to work
-// The actual cue list ID will be handled client-side from the URL
+// The '__dynamic__' placeholder is used, and client-side code extracts the real ID from the URL
+// via extractCueListId() in routeUtils.ts
 export async function generateStaticParams() {
-  // Return a placeholder - the actual ID will be read from window.location on client
   return [{ id: '__dynamic__' }];
 }
 
