@@ -908,6 +908,24 @@ export default function LayoutCanvas({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [fixtures, updateSelection]);
 
+  // Prevent browser zoom on trackpad pinch (ctrl+wheel)
+  // This must be added as a non-passive event listener to prevent default browser zoom
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheelCapture = (e: WheelEvent) => {
+      // Only prevent default for pinch gestures (ctrl+wheel on trackpad)
+      if (e.ctrlKey) {
+        e.preventDefault();
+      }
+    };
+
+    // Add with { passive: false } to allow preventDefault
+    container.addEventListener("wheel", handleWheelCapture, { passive: false });
+    return () => container.removeEventListener("wheel", handleWheelCapture);
+  }, []);
+
   // Determine cursor style based on interaction state
   const getCursorStyle = () => {
     if (isDragging) return "grabbing";
