@@ -56,3 +56,12 @@ export const GET_NETWORK_INTERFACE_OPTIONS = gql`
     }
   }
 `;
+
+export const SYSTEM_INFO_UPDATED = gql`
+  subscription SystemInfoUpdated {
+    systemInfoUpdated {
+      artnetBroadcastAddress
+      artnetEnabled
+    }
+  }
+`;
