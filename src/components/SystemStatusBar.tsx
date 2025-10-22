@@ -1,13 +1,18 @@
 'use client';
 
-import { useQuery } from '@apollo/client';
-import { GET_SYSTEM_INFO } from '@/graphql/settings';
+import { useQuery, useSubscription } from '@apollo/client';
+import { GET_SYSTEM_INFO, SYSTEM_INFO_UPDATED } from '@/graphql/settings';
 import { SystemInfo } from '@/types';
 
 export default function SystemStatusBar() {
-  const { data, loading, error } = useQuery(GET_SYSTEM_INFO, {
-    pollInterval: 5000, // Refresh every 5 seconds
-  });
+  // Initial query to get current system info
+  const { data, loading, error } = useQuery(GET_SYSTEM_INFO);
+
+  // Subscribe to real-time updates
+  const { data: subscriptionData } = useSubscription(SYSTEM_INFO_UPDATED);
+
+  // Use subscription data if available, otherwise fall back to query data
+  const systemInfo: SystemInfo | undefined = subscriptionData?.systemInfoUpdated || data?.systemInfo;
 
   if (loading && !data) {
     return (
@@ -28,8 +33,6 @@ export default function SystemStatusBar() {
       </div>
     );
   }
-
-  const systemInfo: SystemInfo | undefined = data?.systemInfo;
 
   if (!systemInfo) {
     return null;
