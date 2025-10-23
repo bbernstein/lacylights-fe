@@ -696,7 +696,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fade In (sec)</label>
                       <input
