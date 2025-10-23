@@ -1496,33 +1496,33 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
           {showAddCue && (
             <div className="mt-3 p-3 bg-gray-700/50 rounded-lg">
-              <div className="grid grid-cols-6 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-2 w-full">
                 <input
                   type="number"
                   step="0.1"
                   placeholder="Cue #"
                   value={newCue.cueNumber}
                   onChange={(e) => setNewCue({ ...newCue, cueNumber: e.target.value })}
-                  className="rounded border-gray-600 bg-gray-700 text-white text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="rounded border-gray-600 bg-gray-700 text-white text-sm min-w-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
                 <input
                   type="text"
                   placeholder="Cue name"
                   value={newCue.name}
                   onChange={(e) => setNewCue({ ...newCue, name: e.target.value })}
-                  className="rounded border-gray-600 bg-gray-700 text-white text-sm col-span-2"
+                  className="rounded border-gray-600 bg-gray-700 text-white text-sm md:col-span-2 min-w-0"
                 />
                 <select
                   value={newCue.sceneId}
                   onChange={(e) => setNewCue({ ...newCue, sceneId: e.target.value })}
-                  className="rounded border-gray-600 bg-gray-700 text-white text-sm"
+                  className="rounded border-gray-600 bg-gray-700 text-white text-sm min-w-0"
                 >
                   <option value="">Select scene...</option>
                   {scenes.map((scene: Scene) => (
                     <option key={scene.id} value={scene.id}>{scene.name}</option>
                   ))}
                 </select>
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center space-x-1 min-w-0">
                   <input
                     type="number"
                     step="0.001"
@@ -1543,7 +1543,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                 <button
                   onClick={handleAddCue}
                   disabled={!newCue.name || !newCue.sceneId}
-                  className="px-3 py-1 text-sm font-medium rounded text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                  className="px-3 py-1 text-sm font-medium rounded text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 min-w-0"
                 >
                   Add
                 </button>

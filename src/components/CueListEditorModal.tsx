@@ -547,7 +547,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
       <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={handleClose} />
 
-        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full sm:p-6">
+        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl w-full sm:p-6">
           {loading ? (
             <div className="text-center py-8">
               <p className="text-gray-500 dark:text-gray-400">Loading cue list...</p>
@@ -647,10 +647,10 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
               </div>
 
               {showAddCue && (
-                <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg w-full max-w-full">
                   <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Add New Cue</h5>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                    <div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 w-full">
+                    <div className="min-w-0">
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Cue #</label>
                       <input
                         type="number"
@@ -661,7 +661,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                         className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
                       />
                     </div>
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-2 min-w-0">
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
                       <input
                         type="text"
@@ -671,8 +671,8 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                    <div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3 w-full">
+                    <div className="min-w-0">
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Scene</label>
                       <select
                         value={newCue.sceneId}
@@ -685,7 +685,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                         ))}
                       </select>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional)</label>
                       <input
                         type="text"
@@ -696,8 +696,8 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3 mb-3">
-                    <div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 w-full">
+                    <div className="min-w-0">
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fade In (sec)</label>
                       <input
                         type="number"
@@ -708,7 +708,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                         className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
                       />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fade Out (sec)</label>
                       <input
                         type="number"
@@ -719,7 +719,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                         className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
                       />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Follow (sec)</label>
                       <input
                         type="number"
