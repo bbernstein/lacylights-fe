@@ -29,7 +29,8 @@ describe('generateUUID', () => {
       const originalCrypto = global.crypto;
       global.crypto = {
         ...originalCrypto,
-        randomUUID: undefined as unknown as () => string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        randomUUID: undefined as any,
       };
     });
 
