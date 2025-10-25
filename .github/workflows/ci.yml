@@ -100,21 +100,15 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
-    - name: Run tests
-      run: |
-        if npm run test 2>/dev/null; then
-          echo "✅ Tests passed"
-        else
-          echo "ℹ️  No tests configured or tests failed"
-        fi
-    
-    - name: Check test coverage
-      run: |
-        if npm run test:coverage 2>/dev/null; then
-          echo "✅ Test coverage generated"
-        else
-          echo "ℹ️  No test coverage configured"
-        fi
+    - name: Run tests with coverage
+      run: npm run test:coverage
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v5
+      if: matrix.node-version == '24.x'
+      with:
+        file: ./coverage/lcov.info
+        fail_ci_if_error: false
 
   security-audit:
     runs-on: ubuntu-latest
