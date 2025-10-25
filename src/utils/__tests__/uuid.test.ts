@@ -29,7 +29,7 @@ describe('generateUUID', () => {
       const originalCrypto = global.crypto;
       global.crypto = {
         ...originalCrypto,
-        randomUUID: undefined as any,
+        randomUUID: undefined as unknown as () => string,
       };
     });
 
@@ -82,7 +82,7 @@ describe('generateUUID', () => {
   describe('when crypto is undefined', () => {
     it('should use fallback when crypto is not defined', () => {
       const originalCrypto = global.crypto;
-      (global as any).crypto = undefined;
+      (global as { crypto: Crypto | undefined }).crypto = undefined;
 
       const uuid = generateUUID();
 

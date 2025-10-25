@@ -8,6 +8,15 @@ import {
   SYSTEM_INFO_UPDATED,
 } from '../settings';
 
+// Helper type for accessing GraphQL AST properties
+type GraphQLQuery = DocumentNode & {
+  loc?: {
+    source: {
+      body: string;
+    };
+  };
+};
+
 describe('settings GraphQL', () => {
   describe('GET_SETTINGS', () => {
     it('should be a valid GraphQL query', () => {
@@ -16,7 +25,7 @@ describe('settings GraphQL', () => {
     });
 
     it('should query for settings', () => {
-      const queryString = (GET_SETTINGS as any).loc.source.body;
+      const queryString = (GET_SETTINGS as GraphQLQuery).loc?.source.body;
       expect(queryString).toContain('query GetSettings');
       expect(queryString).toContain('settings');
       expect(queryString).toContain('id');
@@ -32,7 +41,7 @@ describe('settings GraphQL', () => {
     });
 
     it('should query for a single setting with key parameter', () => {
-      const queryString = (GET_SETTING as any).loc.source.body;
+      const queryString = (GET_SETTING as GraphQLQuery).loc?.source.body;
       expect(queryString).toContain('query GetSetting');
       expect(queryString).toContain('$key: String!');
       expect(queryString).toContain('setting(key: $key)');
@@ -46,7 +55,7 @@ describe('settings GraphQL', () => {
     });
 
     it('should mutate setting with input parameter', () => {
-      const mutationString = (UPDATE_SETTING as any).loc.source.body;
+      const mutationString = (UPDATE_SETTING as GraphQLQuery).loc?.source.body;
       expect(mutationString).toContain('mutation UpdateSetting');
       expect(mutationString).toContain('$input: UpdateSettingInput!');
       expect(mutationString).toContain('updateSetting(input: $input)');
@@ -60,7 +69,7 @@ describe('settings GraphQL', () => {
     });
 
     it('should query for system info', () => {
-      const queryString = (GET_SYSTEM_INFO as any).loc.source.body;
+      const queryString = (GET_SYSTEM_INFO as GraphQLQuery).loc?.source.body;
       expect(queryString).toContain('query GetSystemInfo');
       expect(queryString).toContain('systemInfo');
       expect(queryString).toContain('artnetBroadcastAddress');
@@ -75,7 +84,7 @@ describe('settings GraphQL', () => {
     });
 
     it('should query for network interface options', () => {
-      const queryString = (GET_NETWORK_INTERFACE_OPTIONS as any).loc.source.body;
+      const queryString = (GET_NETWORK_INTERFACE_OPTIONS as GraphQLQuery).loc?.source.body;
       expect(queryString).toContain('query GetNetworkInterfaceOptions');
       expect(queryString).toContain('networkInterfaceOptions');
       expect(queryString).toContain('name');
@@ -93,7 +102,7 @@ describe('settings GraphQL', () => {
     });
 
     it('should subscribe to system info updates', () => {
-      const subscriptionString = (SYSTEM_INFO_UPDATED as any).loc.source.body;
+      const subscriptionString = (SYSTEM_INFO_UPDATED as GraphQLQuery).loc?.source.body;
       expect(subscriptionString).toContain('subscription SystemInfoUpdated');
       expect(subscriptionString).toContain('systemInfoUpdated');
       expect(subscriptionString).toContain('artnetBroadcastAddress');
