@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_SETTINGS, UPDATE_SETTING, GET_NETWORK_INTERFACE_OPTIONS, GET_SYSTEM_INFO } from '@/graphql/settings';
 import { Setting, UpdateSettingInput, NetworkInterfaceOption, SystemInfo } from '@/types';
+import WiFiSettings from './WiFiSettings';
 
 interface SettingDefinition {
   key: string;
@@ -96,14 +97,20 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
       </div>
 
-      {allSettings.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+      {/* WiFi Configuration Section - Only show on systems with WiFi support */}
+      <WiFiSettings />
+
+      {/* Art-Net Configuration Section */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Art-Net Configuration</h2>
+        {allSettings.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -232,7 +239,8 @@ export default function SettingsPage() {
             </tbody>
           </table>
         </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
