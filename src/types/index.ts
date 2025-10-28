@@ -168,6 +168,43 @@ export interface NetworkInterfaceOption {
   interfaceType: string;
 }
 
+// WiFi Configuration Types
+export interface WiFiNetwork {
+  ssid: string;
+  signalStrength: number;
+  frequency: string;
+  security: WiFiSecurityType;
+  inUse: boolean;
+  saved: boolean;
+}
+
+export enum WiFiSecurityType {
+  OPEN = 'OPEN',
+  WEP = 'WEP',
+  WPA_PSK = 'WPA_PSK',
+  WPA_EAP = 'WPA_EAP',
+  WPA3_PSK = 'WPA3_PSK',
+  WPA3_EAP = 'WPA3_EAP',
+  OWE = 'OWE',
+}
+
+export interface WiFiStatus {
+  available: boolean;
+  enabled: boolean;
+  connected: boolean;
+  ssid?: string;
+  signalStrength?: number;
+  ipAddress?: string;
+  macAddress?: string;
+  frequency?: string;
+}
+
+export interface WiFiConnectionResult {
+  success: boolean;
+  message?: string;
+  connected: boolean;
+}
+
 export interface User {
   id: string;
   email: string;

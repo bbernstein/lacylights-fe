@@ -30,7 +30,7 @@ const customJestConfig = {
       branches: 48,
       functions: 46,
       lines: 55,
-      statements: 54,
+      statements: 55,
     },
   },
   maxWorkers: 16,
