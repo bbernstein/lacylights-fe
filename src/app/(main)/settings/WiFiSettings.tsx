@@ -31,6 +31,7 @@ export default function WiFiSettings() {
   const [connectingSSID, setConnectingSSID] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
   const [forgettingSSID, setForgettingSSID] = useState<string | null>(null);
+  const [showNetworkList, setShowNetworkList] = useState(false);
 
   // Queries
   const {
@@ -70,6 +71,17 @@ export default function WiFiSettings() {
   const status: WiFiStatus | undefined = statusData?.wifiStatus;
 
   /**
+   * Sort networks: remembered networks first, then by signal strength
+   */
+  const sortedNetworks = [...networks].sort((a, b) => {
+    // Remembered networks go first
+    if (a.saved && !b.saved) return -1;
+    if (!a.saved && b.saved) return 1;
+    // Within each group, sort by signal strength
+    return b.signalStrength - a.signalStrength;
+  });
+
+  /**
    * Handle WiFi radio enable/disable toggle
    */
   const handleToggleWiFi = async () => {
@@ -94,6 +106,7 @@ export default function WiFiSettings() {
    */
   const handleScan = async () => {
     setScanning(true);
+    setShowNetworkList(true); // Show network list when scanning
     try {
       await refetchNetworks({ rescan: true });
     } catch (error) {
@@ -101,6 +114,15 @@ export default function WiFiSettings() {
     } finally {
       setScanning(false);
     }
+  };
+
+  /**
+   * Handle "Connect to a network" button click
+   */
+  const handleShowNetworks = () => {
+    setShowNetworkList(true);
+    // Trigger a scan to get fresh network list
+    handleScan();
   };
 
   /**
@@ -129,6 +151,7 @@ export default function WiFiSettings() {
       if (connectionResult.success) {
         setShowConnectionDialog(false);
         setSelectedNetwork(null);
+        setShowNetworkList(false); // Hide network list after successful connection
         await refetchStatus();
         await refetchNetworks();
       } else {
@@ -151,6 +174,7 @@ export default function WiFiSettings() {
       await disconnectWiFi();
       await refetchStatus();
       await refetchNetworks();
+      setShowNetworkList(true); // Show network list after disconnecting
     } catch (error) {
       console.error('Error disconnecting from WiFi:', error);
     } finally {
@@ -175,13 +199,14 @@ export default function WiFiSettings() {
     }
   };
 
-  // Auto-scan when component mounts if WiFi is enabled
+  // Auto-scan when component mounts if WiFi is enabled and not connected
   useEffect(() => {
-    if (status?.enabled && networks.length === 0) {
-      handleScan();
+    if (status?.enabled && !status?.connected && networks.length === 0) {
+      // Silently fetch networks without showing the list
+      refetchNetworks({ rescan: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status?.enabled]);
+  }, [status?.enabled, status?.connected]);
 
   const isLoading = statusLoading || networksLoading;
 
@@ -231,15 +256,64 @@ export default function WiFiSettings() {
         </div>
       </div>
 
-      {/* Current Status Card */}
+      {/* WiFi Network Connection Section */}
       {status?.enabled && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Current Status</h3>
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Network Connection</h3>
+          </div>
 
-          {status.connected ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {/* Connected Network - Compact View */}
+          {status.connected && !showNetworkList && (
+            <div className="px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                  <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"
+                    />
+                  </svg>
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900 dark:text-white">Connected to {status.ssid}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      {status.ipAddress && <span>IP: {status.ipAddress}</span>}
+                      {status.signalStrength && (
+                        <span className="ml-3">Signal: {status.signalStrength}%</span>
+                      )}
+                      {status.frequency && <span className="ml-3">{status.frequency}</span>}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={handleDisconnect}
+                  disabled={disconnecting}
+                  className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Disconnect from network"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Not Connected - Show Connect Button */}
+          {!status.connected && !showNetworkList && (
+            <div className="px-6 py-4">
+              <button
+                onClick={handleShowNetworks}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -247,88 +321,82 @@ export default function WiFiSettings() {
                     d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"
                   />
                 </svg>
-                <div className="flex-1">
-                  <div className="font-medium text-gray-900 dark:text-white">Connected to {status.ssid}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {status.ipAddress && <span>IP: {status.ipAddress}</span>}
-                    {status.signalStrength && (
-                      <span className="ml-3">Signal: {status.signalStrength}%</span>
-                    )}
-                    {status.frequency && <span className="ml-3">{status.frequency}</span>}
+                <span>Connect to a network</span>
+              </button>
+            </div>
+          )}
+
+          {/* Network List - Expanded View */}
+          {showNetworkList && (
+            <>
+              <div className="px-6 py-3 bg-gray-50 dark:bg-gray-700/50 border-y border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {scanning ? 'Scanning for networks...' : `${sortedNetworks.length} network${sortedNetworks.length !== 1 ? 's' : ''} found`}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleScan}
+                      disabled={scanning}
+                      className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Scan for networks"
+                    >
+                      <svg
+                        className={`w-4 h-4 mr-1.5 ${scanning ? 'animate-spin' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
+                      </svg>
+                      Scan
+                    </button>
+                    <button
+                      onClick={() => setShowNetworkList(false)}
+                      className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors"
+                      title="Hide network list"
+                    >
+                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                      Hide
+                    </button>
                   </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <svg
-                className="w-6 h-6 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3"
-                />
-              </svg>
-              <div className="font-medium text-gray-600 dark:text-gray-400">Not connected</div>
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* Network List */}
-      {status?.enabled && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Available Networks</h3>
-              <button
-                onClick={handleScan}
-                disabled={scanning}
-                className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <svg
-                  className={`w-4 h-4 mr-2 ${scanning ? 'animate-spin' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-                {scanning ? 'Scanning...' : 'Scan Networks'}
-              </button>
-            </div>
-          </div>
-
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {networks.length === 0 ? (
-              <div className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                {scanning ? 'Scanning for networks...' : 'No networks found. Try scanning again.'}
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                {sortedNetworks.length === 0 ? (
+                  <div className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                    {scanning ? 'Scanning for networks...' : 'No networks found. Try scanning again.'}
+                  </div>
+                ) : (
+                  sortedNetworks.map((network) => (
+                    <WiFiNetworkItem
+                      key={network.ssid}
+                      network={network}
+                      onConnect={() => handleConnectClick(network)}
+                      onDisconnect={handleDisconnect}
+                      onForget={() => handleForget(network.ssid)}
+                      connecting={connectingSSID === network.ssid}
+                      disconnecting={disconnecting && network.inUse}
+                      forgetting={forgettingSSID === network.ssid}
+                    />
+                  ))
+                )}
               </div>
-            ) : (
-              networks.map((network) => (
-                <WiFiNetworkItem
-                  key={network.ssid}
-                  network={network}
-                  onConnect={() => handleConnectClick(network)}
-                  onDisconnect={handleDisconnect}
-                  onForget={() => handleForget(network.ssid)}
-                  connecting={connectingSSID === network.ssid}
-                  disconnecting={disconnecting && network.inUse}
-                  forgetting={forgettingSSID === network.ssid}
-                />
-              ))
-            )}
-          </div>
+            </>
+          )}
         </div>
       )}
 
