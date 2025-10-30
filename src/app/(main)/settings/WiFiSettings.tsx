@@ -206,8 +206,7 @@ export default function WiFiSettings() {
   // Auto-scan when component mounts if WiFi is enabled and not connected
   // Only runs once on mount to avoid unnecessary rescans
   useEffect(() => {
-    const networksLength = networksData?.wifiNetworks?.length || 0;
-    if (!hasScannedOnMount.current && status?.enabled && !status?.connected && networksLength === 0) {
+    if (!hasScannedOnMount.current && status?.enabled && !status?.connected && (networksData?.wifiNetworks?.length || 0) === 0) {
       // Silently fetch networks without showing the list
       refetchNetworks({ rescan: true });
       hasScannedOnMount.current = true;
