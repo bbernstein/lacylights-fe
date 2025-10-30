@@ -5,10 +5,6 @@ import WiFiSettings from '../WiFiSettings';
 import {
   WIFI_NETWORKS,
   WIFI_STATUS,
-  CONNECT_WIFI,
-  DISCONNECT_WIFI,
-  SET_WIFI_ENABLED,
-  FORGET_WIFI_NETWORK,
   WIFI_STATUS_UPDATED,
 } from '@/graphql/wifi';
 
