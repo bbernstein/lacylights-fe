@@ -36,6 +36,7 @@ export default function AddFixtureModal({
   const [numFixtures, setNumFixtures] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [autoSelectChannel, setAutoSelectChannel] = useState(false);
+  const [isManualName, setIsManualName] = useState(false);
 
   const [manufacturers, setManufacturers] = useState<string[]>([]);
   const [models, setModels] = useState<
@@ -133,19 +134,30 @@ export default function AddFixtureModal({
       setSelectedDefinitionId(selectedModel.id);
       setSelectedModelData(selectedModel);
       setSelectedModeId(""); // Reset mode selection
-      // Auto-generate fixture name
+      // Auto-generate fixture name (unless user has manually entered one)
       updateFixtureName(
         manufacturer,
         modelName,
         universe,
         startChannel,
         numFixtures,
+        isManualName,
       );
     }
   };
 
   const handleModeSelect = (modeId: string) => {
     setSelectedModeId(modeId);
+  };
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    // Mark as manual name if user has entered any text
+    if (value.trim().length > 0) {
+      setIsManualName(true);
+    } else {
+      setIsManualName(false);
+    }
   };
 
   const getSelectedModeChannelCount = useCallback(() => {
@@ -160,7 +172,13 @@ export default function AddFixtureModal({
     univ: number,
     channel: number,
     count: number,
+    manualOverride: boolean,
   ) => {
+    // Don't update name if user has manually entered one
+    if (manualOverride) {
+      return;
+    }
+
     if (count === 1) {
       setName(`${mfg} ${mdl} - U${univ}:${channel}`);
     } else {
@@ -231,6 +249,7 @@ export default function AddFixtureModal({
         universe,
         startChannel,
         numFixtures,
+        isManualName,
       );
     }
   }, [
@@ -240,6 +259,7 @@ export default function AddFixtureModal({
     startChannel,
     numFixtures,
     selectedModeId,
+    isManualName,
     updateFixtureName,
   ]);
 
@@ -278,11 +298,19 @@ export default function AddFixtureModal({
       // Create fixtures sequentially
       for (let i = 0; i < numFixtures; i++) {
         const currentChannel = startChannel + i * channelCount;
-        const fixtureName =
-          numFixtures === 1
-            ? name ||
-              `${manufacturer} ${model} - U${universe}:${currentChannel}`
-            : `${manufacturer} ${model} ${i + 1} - U${universe}:${currentChannel}`;
+        let fixtureName: string;
+
+        if (numFixtures === 1) {
+          // Single fixture: use provided name or auto-generate
+          fixtureName = name || `${manufacturer} ${model} - U${universe}:${currentChannel}`;
+        } else {
+          // Multiple fixtures: use name as prefix if provided, otherwise use manufacturer/model
+          if (name && name.trim().length > 0) {
+            fixtureName = `${name} ${i + 1}`;
+          } else {
+            fixtureName = `${manufacturer} ${model} ${i + 1} - U${universe}:${currentChannel}`;
+          }
+        }
 
         await createFixture({
           variables: {
@@ -317,6 +345,7 @@ export default function AddFixtureModal({
     setNumFixtures(1);
     setError(null);
     setAutoSelectChannel(false);
+    setIsManualName(false);
     onClose();
   };
 
@@ -378,7 +407,7 @@ export default function AddFixtureModal({
                   id="name"
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => handleNameChange(e.target.value)}
                   placeholder="Auto-generated if empty"
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 />
