@@ -7,6 +7,7 @@ import {
   GET_MODELS,
   CREATE_FIXTURE_INSTANCE,
   GET_PROJECT_FIXTURES,
+  SUGGEST_CHANNEL_ASSIGNMENT,
 } from "@/graphql/fixtures";
 import Autocomplete from "./Autocomplete";
 import { FixtureDefinition } from "@/types";
@@ -82,6 +83,24 @@ export default function AddFixtureModal({
       onCompleted: () => {
         onFixtureAdded();
         handleClose();
+      },
+      onError: (error) => {
+        setError(error.message);
+      },
+    },
+  );
+
+  const [suggestChannelAssignment, { loading: suggestingChannels }] = useLazyQuery(
+    SUGGEST_CHANNEL_ASSIGNMENT,
+    {
+      onCompleted: (data) => {
+        if (data?.suggestChannelAssignment?.assignments?.length > 0) {
+          // Use the first assignment's start channel as the base.
+          // The backend returns assignments for all fixtures in sequential order,
+          // so the first assignment's channel is the starting point for the entire range.
+          const firstAssignment = data.suggestChannelAssignment.assignments[0];
+          setStartChannel(firstAssignment.startChannel);
+        }
       },
       onError: (error) => {
         setError(error.message);
@@ -171,57 +190,37 @@ export default function AddFixtureModal({
     return null;
   };
 
-  // Find next available channel that can fit the fixture(s)
-  const findNextAvailableChannel = useCallback((univ: number, channelCount: number, count: number) => {
-    const totalChannelsNeeded = channelCount * count;
-    const fixturesInUniverse = existingFixtures
-      .filter((f: { universe: number }) => f.universe === univ)
-      .sort((a: { startChannel: number }, b: { startChannel: number }) => a.startChannel - b.startChannel);
-
-    // Check if we can start at channel 1
-    if (fixturesInUniverse.length === 0 || fixturesInUniverse[0].startChannel > totalChannelsNeeded) {
-      return 1;
-    }
-
-    // Check gaps between fixtures
-    for (let i = 0; i < fixturesInUniverse.length; i++) {
-      const currentFixture = fixturesInUniverse[i];
-      const currentEnd = currentFixture.startChannel + (currentFixture.mode?.channelCount || 1) - 1;
-      
-      // Check if there's space after this fixture
-      const nextStart = currentEnd + 1;
-      
-      if (i === fixturesInUniverse.length - 1) {
-        // Last fixture, check if there's room after it
-        if (nextStart + totalChannelsNeeded - 1 <= 512) {
-          return nextStart;
-        }
-      } else {
-        // Check gap to next fixture
-        const nextFixture = fixturesInUniverse[i + 1];
-        if (nextStart + totalChannelsNeeded - 1 < nextFixture.startChannel) {
-          return nextStart;
-        }
-      }
-    }
-
-    // No space found in this universe
-    return -1;
-  }, [existingFixtures]);
 
   // Auto-select next available channel when toggled
   useEffect(() => {
-    if (autoSelectChannel && selectedModeId) {
+    if (autoSelectChannel && selectedModeId && manufacturer && model) {
       const channelCount = getSelectedModeChannelCount();
-      const nextChannel = findNextAvailableChannel(universe, channelCount, numFixtures);
-      
-      if (nextChannel > 0) {
-        setStartChannel(nextChannel);
-      } else {
-        setError(`No space available in universe ${universe} for ${numFixtures} fixture(s) with ${channelCount} channels each`);
-      }
+      const mode = selectedModelData?.modes.find((m) => m.id === selectedModeId);
+
+      // Create fixture specs for the backend API
+      const fixtureSpecs = Array.from({ length: numFixtures }, (_, i) => ({
+        name: `${manufacturer} ${model} ${i + 1}`,
+        manufacturer,
+        model,
+        mode: mode?.name,
+        channelCount,
+      }));
+
+      suggestChannelAssignment({
+        variables: {
+          input: {
+            projectId,
+            universe,
+            startingChannel: 1,
+            fixtureSpecs,
+          },
+        },
+      });
     }
-  }, [autoSelectChannel, universe, selectedModeId, numFixtures, findNextAvailableChannel, getSelectedModeChannelCount]);
+    // Note: getSelectedModeChannelCount is included even though it depends on
+    // selectedModelData and selectedModeId (both already in deps) to satisfy ESLint.
+    // This is redundant but harmless since the callback is memoized.
+  }, [autoSelectChannel, universe, selectedModeId, numFixtures, manufacturer, model, selectedModelData, getSelectedModeChannelCount, projectId, suggestChannelAssignment]);
 
   // Update fixture name when relevant fields change
   useEffect(() => {
@@ -264,7 +263,8 @@ export default function AddFixtureModal({
     const overlap = checkChannelOverlap(universe, startChannel, numFixtures);
     if (overlap) {
       const endChannel = startChannel + channelCount * numFixtures - 1;
-      setError(`Channel overlap detected with fixture "${overlap.name}" (U${overlap.universe}:${overlap.startChannel}-${overlap.startChannel + (overlap.mode?.channelCount || 1) - 1}). Your fixtures would use channels ${startChannel}-${endChannel}.`);
+      const overlapEnd = overlap.startChannel + (overlap.channelCount || 1) - 1;
+      setError(`Channel overlap detected with fixture "${overlap.name}" (U${overlap.universe}:${overlap.startChannel}-${overlapEnd}). Your fixtures would use channels ${startChannel}-${endChannel}.`);
       return;
     }
 
@@ -554,14 +554,14 @@ export default function AddFixtureModal({
                     onClick={() => {
                       setAutoSelectChannel(!autoSelectChannel);
                     }}
-                    disabled={!selectedModeId}
-                    className={`px-3 py-2 text-sm font-medium rounded-md border ${autoSelectChannel 
-                      ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' 
+                    disabled={!selectedModeId || suggestingChannels}
+                    className={`px-3 py-2 text-sm font-medium rounded-md border ${autoSelectChannel
+                      ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
                       : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                     title={selectedModeId ? "Auto-select next available channel" : "Select a mode first"}
                   >
-                    Auto
+                    {suggestingChannels ? "..." : "Auto"}
                   </button>
                 </div>
                 {autoSelectChannel && startChannel > 0 && (
