@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useSubscription } from '@apollo/client';
 import {
   WIFI_NETWORKS,
@@ -32,6 +32,7 @@ export default function WiFiSettings() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [forgettingSSID, setForgettingSSID] = useState<string | null>(null);
   const [showNetworkList, setShowNetworkList] = useState(false);
+  const hasScannedOnMount = useRef(false);
 
   // Queries
   const {
@@ -67,19 +68,22 @@ export default function WiFiSettings() {
   const [setWiFiEnabled, { loading: togglingWiFi }] = useMutation(SET_WIFI_ENABLED);
   const [forgetWiFiNetwork] = useMutation(FORGET_WIFI_NETWORK);
 
-  const networks: WiFiNetwork[] = networksData?.wifiNetworks || [];
   const status: WiFiStatus | undefined = statusData?.wifiStatus;
 
   /**
    * Sort networks: remembered networks first, then by signal strength
+   * Memoized to avoid unnecessary sorting on every render
    */
-  const sortedNetworks = [...networks].sort((a, b) => {
-    // Remembered networks go first
-    if (a.saved && !b.saved) return -1;
-    if (!a.saved && b.saved) return 1;
-    // Within each group, sort by signal strength
-    return b.signalStrength - a.signalStrength;
-  });
+  const sortedNetworks = useMemo(() => {
+    const networks = networksData?.wifiNetworks || [];
+    return [...networks].sort((a, b) => {
+      // Remembered networks go first
+      if (a.saved && !b.saved) return -1;
+      if (!a.saved && b.saved) return 1;
+      // Within each group, sort by signal strength
+      return b.signalStrength - a.signalStrength;
+    });
+  }, [networksData?.wifiNetworks]);
 
   /**
    * Handle WiFi radio enable/disable toggle
@@ -118,10 +122,10 @@ export default function WiFiSettings() {
 
   /**
    * Handle "Connect to a network" button click
+   * Triggers a scan which will also show the network list
    */
   const handleShowNetworks = () => {
-    setShowNetworkList(true);
-    // Trigger a scan to get fresh network list
+    // handleScan() already calls setShowNetworkList(true)
     handleScan();
   };
 
@@ -200,13 +204,15 @@ export default function WiFiSettings() {
   };
 
   // Auto-scan when component mounts if WiFi is enabled and not connected
+  // Only runs once on mount to avoid unnecessary rescans
   useEffect(() => {
-    if (status?.enabled && !status?.connected && networks.length === 0) {
+    const networksLength = networksData?.wifiNetworks?.length || 0;
+    if (!hasScannedOnMount.current && status?.enabled && !status?.connected && networksLength === 0) {
       // Silently fetch networks without showing the list
       refetchNetworks({ rescan: true });
+      hasScannedOnMount.current = true;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status?.enabled, status?.connected]);
+  }, [status?.enabled, status?.connected, networksData?.wifiNetworks?.length, refetchNetworks]);
 
   const isLoading = statusLoading || networksLoading;
 
