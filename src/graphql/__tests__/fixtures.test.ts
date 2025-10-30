@@ -8,6 +8,8 @@ import {
   GET_PROJECT_FIXTURES,
   REORDER_PROJECT_FIXTURES,
   REORDER_SCENE_FIXTURES,
+  SUGGEST_CHANNEL_ASSIGNMENT,
+  GET_CHANNEL_MAP,
 } from '../fixtures';
 
 describe('GraphQL Fixtures', () => {
@@ -30,6 +32,16 @@ describe('GraphQL Fixtures', () => {
     it('exports GET_PROJECT_FIXTURES query', () => {
       expect(GET_PROJECT_FIXTURES).toBeDefined();
       expect(GET_PROJECT_FIXTURES.kind).toBe('Document');
+    });
+
+    it('exports SUGGEST_CHANNEL_ASSIGNMENT query', () => {
+      expect(SUGGEST_CHANNEL_ASSIGNMENT).toBeDefined();
+      expect(SUGGEST_CHANNEL_ASSIGNMENT.kind).toBe('Document');
+    });
+
+    it('exports GET_CHANNEL_MAP query', () => {
+      expect(GET_CHANNEL_MAP).toBeDefined();
+      expect(GET_CHANNEL_MAP.kind).toBe('Document');
     });
   });
 
@@ -67,6 +79,8 @@ describe('GraphQL Fixtures', () => {
         GET_MANUFACTURERS,
         GET_MODELS,
         GET_PROJECT_FIXTURES,
+        SUGGEST_CHANNEL_ASSIGNMENT,
+        GET_CHANNEL_MAP,
       ];
 
       queries.forEach(query => {
@@ -135,6 +149,26 @@ describe('GraphQL Fixtures', () => {
       expect(queryString).toContain('query');
       expect(queryString?.toLowerCase()).toContain('projectfixtures');
       expect(queryString).toContain('$projectId');
+    });
+
+    it('SUGGEST_CHANNEL_ASSIGNMENT contains expected content', () => {
+      const queryString = SUGGEST_CHANNEL_ASSIGNMENT.loc?.source.body;
+      expect(queryString).toContain('query');
+      expect(queryString?.toLowerCase()).toContain('suggestchannelassignment');
+      expect(queryString).toContain('$input');
+      expect(queryString).toContain('assignments');
+      expect(queryString).toContain('startChannel');
+      expect(queryString).toContain('channelCount');
+    });
+
+    it('GET_CHANNEL_MAP contains expected content', () => {
+      const queryString = GET_CHANNEL_MAP.loc?.source.body;
+      expect(queryString).toContain('query');
+      expect(queryString?.toLowerCase()).toContain('channelmap');
+      expect(queryString).toContain('$projectId');
+      expect(queryString).toContain('$universe');
+      expect(queryString).toContain('universes');
+      expect(queryString).toContain('availableChannels');
     });
   });
 
@@ -250,6 +284,36 @@ describe('GraphQL Fixtures', () => {
         expect(hasIdVariable).toBe(true);
       }
     });
+
+    it('SUGGEST_CHANNEL_ASSIGNMENT requires input variable', () => {
+      const operation = SUGGEST_CHANNEL_ASSIGNMENT.definitions[0];
+      if (operation.kind === 'OperationDefinition' && operation.variableDefinitions) {
+        const hasInputVariable = operation.variableDefinitions.some(varDef =>
+          varDef.variable.name.value === 'input'
+        );
+        expect(hasInputVariable).toBe(true);
+      }
+    });
+
+    it('GET_CHANNEL_MAP requires projectId variable', () => {
+      const operation = GET_CHANNEL_MAP.definitions[0];
+      if (operation.kind === 'OperationDefinition' && operation.variableDefinitions) {
+        const hasProjectIdVariable = operation.variableDefinitions.some(varDef =>
+          varDef.variable.name.value === 'projectId'
+        );
+        expect(hasProjectIdVariable).toBe(true);
+      }
+    });
+
+    it('GET_CHANNEL_MAP accepts optional universe variable', () => {
+      const operation = GET_CHANNEL_MAP.definitions[0];
+      if (operation.kind === 'OperationDefinition' && operation.variableDefinitions) {
+        const hasUniverseVariable = operation.variableDefinitions.some(varDef =>
+          varDef.variable.name.value === 'universe'
+        );
+        expect(hasUniverseVariable).toBe(true);
+      }
+    });
   });
 
   describe('Field selections', () => {
@@ -275,11 +339,45 @@ describe('GraphQL Fixtures', () => {
       expect(mutationString).toContain('name');
       expect(mutationString).toContain('channelCount');
     });
+
+    it('SUGGEST_CHANNEL_ASSIGNMENT includes assignment fields', () => {
+      const queryString = SUGGEST_CHANNEL_ASSIGNMENT.loc?.source.body;
+      expect(queryString).toContain('universe');
+      expect(queryString).toContain('assignments');
+      expect(queryString).toContain('fixtureName');
+      expect(queryString).toContain('manufacturer');
+      expect(queryString).toContain('model');
+      expect(queryString).toContain('startChannel');
+      expect(queryString).toContain('endChannel');
+      expect(queryString).toContain('channelCount');
+      expect(queryString).toContain('totalChannelsNeeded');
+      expect(queryString).toContain('availableChannelsRemaining');
+    });
+
+    it('GET_CHANNEL_MAP includes universe and fixture fields', () => {
+      const queryString = GET_CHANNEL_MAP.loc?.source.body;
+      expect(queryString).toContain('projectId');
+      expect(queryString).toContain('universes');
+      expect(queryString).toContain('universe');
+      expect(queryString).toContain('fixtures');
+      expect(queryString).toContain('startChannel');
+      expect(queryString).toContain('endChannel');
+      expect(queryString).toContain('channelCount');
+      expect(queryString).toContain('availableChannels');
+      expect(queryString).toContain('usedChannels');
+    });
   });
 
   describe('Operation types', () => {
     it('queries have correct operation type', () => {
-      const queries = [GET_FIXTURE_DEFINITIONS, GET_MANUFACTURERS, GET_MODELS, GET_PROJECT_FIXTURES];
+      const queries = [
+        GET_FIXTURE_DEFINITIONS,
+        GET_MANUFACTURERS,
+        GET_MODELS,
+        GET_PROJECT_FIXTURES,
+        SUGGEST_CHANNEL_ASSIGNMENT,
+        GET_CHANNEL_MAP,
+      ];
       queries.forEach(query => {
         const operation = query.definitions[0];
         if (operation.kind === 'OperationDefinition') {
