@@ -131,3 +131,44 @@ export const UPDATE_FIXTURE_POSITIONS = gql`
     updateFixturePositions(positions: $positions)
   }
 `;
+
+export const SUGGEST_CHANNEL_ASSIGNMENT = gql`
+  query SuggestChannelAssignment($input: ChannelAssignmentInput!) {
+    suggestChannelAssignment(input: $input) {
+      universe
+      assignments {
+        fixtureName
+        manufacturer
+        model
+        mode
+        startChannel
+        endChannel
+        channelCount
+        channelRange
+      }
+      totalChannelsNeeded
+      availableChannelsRemaining
+    }
+  }
+`;
+
+export const GET_CHANNEL_MAP = gql`
+  query GetChannelMap($projectId: ID!, $universe: Int) {
+    channelMap(projectId: $projectId, universe: $universe) {
+      projectId
+      universes {
+        universe
+        fixtures {
+          id
+          name
+          type
+          startChannel
+          endChannel
+          channelCount
+        }
+        availableChannels
+        usedChannels
+      }
+    }
+  }
+`;
