@@ -95,6 +95,9 @@ export default function AddFixtureModal({
     {
       onCompleted: (data) => {
         if (data?.suggestChannelAssignment?.assignments?.length > 0) {
+          // Use the first assignment's start channel as the base.
+          // The backend returns assignments for all fixtures in sequential order,
+          // so the first assignment's channel is the starting point for the entire range.
           const firstAssignment = data.suggestChannelAssignment.assignments[0];
           setStartChannel(firstAssignment.startChannel);
         }
@@ -214,6 +217,9 @@ export default function AddFixtureModal({
         },
       });
     }
+    // Note: getSelectedModeChannelCount is included even though it depends on
+    // selectedModelData and selectedModeId (both already in deps) to satisfy ESLint.
+    // This is redundant but harmless since the callback is memoized.
   }, [autoSelectChannel, universe, selectedModeId, numFixtures, manufacturer, model, selectedModelData, getSelectedModeChannelCount, projectId, suggestChannelAssignment]);
 
   // Update fixture name when relevant fields change
