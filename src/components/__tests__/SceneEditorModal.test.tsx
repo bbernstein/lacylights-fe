@@ -308,8 +308,10 @@ describe('SceneEditorModal', () => {
         expect(screen.getByRole('heading', { name: /edit scene/i })).toBeInTheDocument();
       });
 
-      expect(screen.getByDisplayValue('Test Scene')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('Test scene description')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByDisplayValue('Test Scene')).toBeInTheDocument();
+        expect(screen.getByDisplayValue('Test scene description')).toBeInTheDocument();
+      });
     });
   });
 
