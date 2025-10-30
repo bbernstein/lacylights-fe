@@ -212,7 +212,8 @@ export default function WiFiSettings() {
       refetchNetworks({ rescan: true });
       hasScannedOnMount.current = true;
     }
-  }, [status?.enabled, status?.connected, networksData?.wifiNetworks?.length, refetchNetworks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status?.enabled, status?.connected, networksData?.wifiNetworks?.length]);
 
   const isLoading = statusLoading || networksLoading;
 
