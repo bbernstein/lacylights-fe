@@ -453,8 +453,8 @@ export default function AddFixtureModal({
           fixtureName = name || `${manufacturer} ${model} - U${universe}:${currentChannel}`;
         } else {
           // Multiple fixtures: use name as prefix if provided, otherwise use manufacturer/model
-          if (name && name.trim().length > 0) {
-            fixtureName = `${name} ${startingNumber + i}`;
+          if (name) {
+            fixtureName = `${name} ${startingNumber + i} - U${universe}:${currentChannel}`;
           } else {
             fixtureName = `${manufacturer} ${model} ${i + 1} - U${universe}:${currentChannel}`;
           }
