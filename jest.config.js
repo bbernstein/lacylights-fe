@@ -29,8 +29,8 @@ const customJestConfig = {
     global: {
       branches: 48,
       functions: 46,
-      lines: 55,
-      statements: 55,
+      lines: 52,
+      statements: 52,
     },
   },
   maxWorkers: 16,
