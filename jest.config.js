@@ -23,7 +23,7 @@ const customJestConfig = {
   ],
   coveragePathIgnorePatterns: ["/node_modules/", "/.next/", "/coverage/"],
   testMatch: ["**/__tests__/**/*.[jt]s?(x)", "**/?(*.)+(spec|test).[jt]s?(x)", "!**/e2e/**", "!**/*.contract.test.ts"],
-  testPathIgnorePatterns: ["/node_modules/", "/.next/", "/e2e/", "e2e", ".*\\.contract\\.test\\.ts$"],
+  testPathIgnorePatterns: ["/node_modules/", "/.next/", "/e2e/", "e2e"],
   moduleDirectories: ["node_modules", "<rootDir>/"],
   coverageThreshold: {
     global: {
