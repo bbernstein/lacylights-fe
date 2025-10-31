@@ -7,6 +7,7 @@ on:
       - 'src/generated/**'
       - 'codegen.yml'
       - 'package.json'
+      - '.github/workflows/contract-tests.yml'
   push:
     branches: [main]
 
