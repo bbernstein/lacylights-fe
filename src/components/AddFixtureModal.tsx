@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLazyQuery, useMutation, useQuery } from "@apollo/client";
 import {
   GET_MANUFACTURERS,
@@ -17,6 +17,12 @@ interface AddFixtureModalProps {
   onClose: () => void;
   projectId: string;
   onFixtureAdded: () => void;
+  // Optional pre-population for duplicate functionality
+  initialName?: string;
+  initialManufacturer?: string;
+  initialModel?: string;
+  initialMode?: string;
+  initialUniverse?: number;
 }
 
 export default function AddFixtureModal({
@@ -24,6 +30,11 @@ export default function AddFixtureModal({
   onClose,
   projectId,
   onFixtureAdded,
+  initialName,
+  initialManufacturer,
+  initialModel,
+  initialMode,
+  initialUniverse,
 }: AddFixtureModalProps) {
   const [manufacturer, setManufacturer] = useState("");
   const [model, setModel] = useState("");
@@ -35,7 +46,17 @@ export default function AddFixtureModal({
   const [description, setDescription] = useState("");
   const [numFixtures, setNumFixtures] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const [autoSelectChannel, setAutoSelectChannel] = useState(false);
+  const [isManualName, setIsManualName] = useState(false);
+  const [channelAssignments, setChannelAssignments] = useState<
+    Array<{
+      startChannel: number;
+      endChannel: number;
+      channelCount: number;
+    }>
+  >([]);
+
+  // Ref for auto-focusing the number of fixtures field when duplicating
+  const numFixturesInputRef = useRef<HTMLInputElement>(null);
 
   const [manufacturers, setManufacturers] = useState<string[]>([]);
   const [models, setModels] = useState<
@@ -93,13 +114,24 @@ export default function AddFixtureModal({
   const [suggestChannelAssignment, { loading: suggestingChannels }] = useLazyQuery(
     SUGGEST_CHANNEL_ASSIGNMENT,
     {
+      fetchPolicy: 'network-only', // Always fetch fresh data, don't use cache
       onCompleted: (data) => {
         if (data?.suggestChannelAssignment?.assignments?.length > 0) {
-          // Use the first assignment's start channel as the base.
-          // The backend returns assignments for all fixtures in sequential order,
-          // so the first assignment's channel is the starting point for the entire range.
-          const firstAssignment = data.suggestChannelAssignment.assignments[0];
-          setStartChannel(firstAssignment.startChannel);
+          const assignments = data.suggestChannelAssignment.assignments;
+
+          // Store all assignments for creating fixtures in non-contiguous gaps
+          setChannelAssignments(assignments.map((a: {
+            startChannel: number;
+            endChannel: number;
+            channelCount: number;
+          }) => ({
+            startChannel: a.startChannel,
+            endChannel: a.endChannel,
+            channelCount: a.channelCount,
+          })));
+
+          // Set the first assignment's start channel for display
+          setStartChannel(assignments[0].startChannel);
         }
       },
       onError: (error) => {
@@ -107,6 +139,57 @@ export default function AddFixtureModal({
       },
     },
   );
+
+  // Populate fields when modal opens with initial data (for duplicate)
+  useEffect(() => {
+    if (isOpen && initialManufacturer) {
+      setManufacturer(initialManufacturer);
+      setIsManualName(true); // Mark as manual since we're setting a specific name
+
+      if (initialName) {
+        setName(initialName);
+      }
+      if (initialUniverse) {
+        setUniverse(initialUniverse);
+      }
+
+      // Fetch models for the manufacturer
+      if (initialManufacturer) {
+        getModels({ variables: { manufacturer: initialManufacturer } });
+      }
+    }
+  }, [isOpen, initialManufacturer, initialName, initialUniverse, getModels]);
+
+  // When models are loaded and we have an initial model, select it
+  useEffect(() => {
+    if (models.length > 0 && initialModel) {
+      const matchingModel = models.find(m => m.model === initialModel);
+      if (matchingModel) {
+        setModel(initialModel);
+        setSelectedDefinitionId(matchingModel.id);
+        setSelectedModelData(matchingModel);
+
+        // If we have an initial mode, select it
+        if (initialMode) {
+          const matchingMode = matchingModel.modes.find(mode => mode.name === initialMode);
+          if (matchingMode) {
+            setSelectedModeId(matchingMode.id);
+          }
+        }
+      }
+    }
+  }, [models, initialModel, initialMode]);
+
+  // Auto-focus and select the numFixtures field when duplicating
+  useEffect(() => {
+    if (isOpen && initialManufacturer && numFixturesInputRef.current) {
+      // Small delay to ensure the modal is fully rendered
+      setTimeout(() => {
+        numFixturesInputRef.current?.focus();
+        numFixturesInputRef.current?.select();
+      }, 100);
+    }
+  }, [isOpen, initialManufacturer]);
 
   useEffect(() => {
     if (manufacturer) {
@@ -133,19 +216,30 @@ export default function AddFixtureModal({
       setSelectedDefinitionId(selectedModel.id);
       setSelectedModelData(selectedModel);
       setSelectedModeId(""); // Reset mode selection
-      // Auto-generate fixture name
+      // Auto-generate fixture name (unless user has manually entered one)
       updateFixtureName(
         manufacturer,
         modelName,
         universe,
         startChannel,
         numFixtures,
+        isManualName,
       );
     }
   };
 
   const handleModeSelect = (modeId: string) => {
     setSelectedModeId(modeId);
+  };
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    // Mark as manual name if user has entered any text
+    if (value.trim().length > 0) {
+      setIsManualName(true);
+    } else {
+      setIsManualName(false);
+    }
   };
 
   const getSelectedModeChannelCount = useCallback(() => {
@@ -160,7 +254,13 @@ export default function AddFixtureModal({
     univ: number,
     channel: number,
     count: number,
+    manualOverride: boolean,
   ) => {
+    // Don't update name if user has manually entered one
+    if (manualOverride) {
+      return;
+    }
+
     if (count === 1) {
       setName(`${mfg} ${mdl} - U${univ}:${channel}`);
     } else {
@@ -180,7 +280,7 @@ export default function AddFixtureModal({
       if (fixture.universe === univ) {
         const fixtureChannelCount = fixture.channelCount || 1;
         const fixtureEnd = fixture.startChannel + fixtureChannelCount - 1;
-        
+
         // Check if ranges overlap
         if (start <= fixtureEnd && end >= fixture.startChannel) {
           return fixture;
@@ -190,10 +290,32 @@ export default function AddFixtureModal({
     return null;
   };
 
+  // Find the highest number suffix for fixtures with the given base name
+  const findHighestFixtureNumber = (baseName: string): number => {
+    let highestNumber = 0;
 
-  // Auto-select next available channel when toggled
+    // Pattern to match: baseName followed by space and number
+    // e.g., "par 1", "par 2", "par 15"
+    const pattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+(\\d+)$`);
+
+    for (const fixture of existingFixtures) {
+      const match = fixture.name.match(pattern);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > highestNumber) {
+          highestNumber = num;
+        }
+      }
+    }
+
+    return highestNumber;
+  };
+
+
+  // Automatically suggest channel assignment when relevant fields change
   useEffect(() => {
-    if (autoSelectChannel && selectedModeId && manufacturer && model) {
+    // Only auto-assign if we have enough info and auto-select is enabled OR it's the first time
+    if (selectedModeId && manufacturer && model) {
       const channelCount = getSelectedModeChannelCount();
       const mode = selectedModelData?.modes.find((m) => m.id === selectedModeId);
 
@@ -220,7 +342,7 @@ export default function AddFixtureModal({
     // Note: getSelectedModeChannelCount is included even though it depends on
     // selectedModelData and selectedModeId (both already in deps) to satisfy ESLint.
     // This is redundant but harmless since the callback is memoized.
-  }, [autoSelectChannel, universe, selectedModeId, numFixtures, manufacturer, model, selectedModelData, getSelectedModeChannelCount, projectId, suggestChannelAssignment]);
+  }, [universe, selectedModeId, numFixtures, manufacturer, model, selectedModelData, getSelectedModeChannelCount, projectId, suggestChannelAssignment]);
 
   // Update fixture name when relevant fields change
   useEffect(() => {
@@ -231,6 +353,7 @@ export default function AddFixtureModal({
         universe,
         startChannel,
         numFixtures,
+        isManualName,
       );
     }
   }, [
@@ -240,8 +363,36 @@ export default function AddFixtureModal({
     startChannel,
     numFixtures,
     selectedModeId,
+    isManualName,
     updateFixtureName,
   ]);
+
+  // Helper to check if channel assignments are contiguous
+  const areAssignmentsContiguous = useMemo(() => {
+    if (channelAssignments.length <= 1) return true;
+
+    for (let i = 1; i < channelAssignments.length; i++) {
+      const prevEnd = channelAssignments[i - 1].endChannel;
+      const currentStart = channelAssignments[i].startChannel;
+      if (currentStart !== prevEnd + 1) {
+        return false;
+      }
+    }
+    return true;
+  }, [channelAssignments]);
+
+  // Format channel assignments for display
+  const formatChannelAssignments = useMemo(() => {
+    if (channelAssignments.length === 0) return null;
+    if (channelAssignments.length === 1) return null;
+    if (areAssignmentsContiguous) return null;
+
+    const channels = channelAssignments.map(a => a.startChannel);
+    if (channels.length <= 4) {
+      return channels.join(', ');
+    }
+    return `${channels.slice(0, 3).join(', ')}, ... (${channels.length} total)`;
+  }, [channelAssignments, areAssignmentsContiguous]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -259,30 +410,55 @@ export default function AddFixtureModal({
 
     const channelCount = getSelectedModeChannelCount();
 
-    // Check for channel overlap
-    const overlap = checkChannelOverlap(universe, startChannel, numFixtures);
-    if (overlap) {
-      const endChannel = startChannel + channelCount * numFixtures - 1;
-      const overlapEnd = overlap.startChannel + (overlap.channelCount || 1) - 1;
-      setError(`Channel overlap detected with fixture "${overlap.name}" (U${overlap.universe}:${overlap.startChannel}-${overlapEnd}). Your fixtures would use channels ${startChannel}-${endChannel}.`);
-      return;
-    }
+    // Use channel assignments from the API if available for multiple fixtures
+    const useAssignments = numFixtures > 1 && channelAssignments.length === numFixtures;
 
-    // Check if channels exceed DMX limit
-    if (startChannel + channelCount * numFixtures - 1 > 512) {
-      setError(`Channels exceed DMX limit of 512. Your fixtures would use channels ${startChannel}-${startChannel + channelCount * numFixtures - 1}.`);
-      return;
+    if (!useAssignments) {
+      // Single fixture or manual channel selection - check for overlaps
+      const overlap = checkChannelOverlap(universe, startChannel, numFixtures);
+      if (overlap) {
+        const endChannel = startChannel + channelCount * numFixtures - 1;
+        const overlapEnd = overlap.startChannel + (overlap.channelCount || 1) - 1;
+        setError(`Channel overlap detected with fixture "${overlap.name}" (U${overlap.universe}:${overlap.startChannel}-${overlapEnd}). Your fixtures would use channels ${startChannel}-${endChannel}.`);
+        return;
+      }
+
+      // Check if channels exceed DMX limit
+      if (startChannel + channelCount * numFixtures - 1 > 512) {
+        setError(`Channels exceed DMX limit of 512. Your fixtures would use channels ${startChannel}-${startChannel + channelCount * numFixtures - 1}.`);
+        return;
+      }
     }
 
     try {
-      // Create fixtures sequentially
+      // Find starting number for fixtures with this base name
+      let startingNumber = 1;
+      if (numFixtures > 1 && name && name.trim().length > 0) {
+        // For multiple fixtures with a manual name, find the highest existing number
+        const highestExisting = findHighestFixtureNumber(name);
+        startingNumber = highestExisting + 1;
+      }
+
+      // Create fixtures
       for (let i = 0; i < numFixtures; i++) {
-        const currentChannel = startChannel + i * channelCount;
-        const fixtureName =
-          numFixtures === 1
-            ? name ||
-              `${manufacturer} ${model} - U${universe}:${currentChannel}`
-            : `${manufacturer} ${model} ${i + 1} - U${universe}:${currentChannel}`;
+        // Use assignment from API if available, otherwise calculate sequentially
+        const currentChannel = useAssignments
+          ? channelAssignments[i].startChannel
+          : startChannel + i * channelCount;
+
+        let fixtureName: string;
+
+        if (numFixtures === 1) {
+          // Single fixture: use provided name or auto-generate
+          fixtureName = name || `${manufacturer} ${model} - U${universe}:${currentChannel}`;
+        } else {
+          // Multiple fixtures: use name as prefix if provided, otherwise use manufacturer/model
+          if (name) {
+            fixtureName = `${name} ${startingNumber + i} - U${universe}:${currentChannel}`;
+          } else {
+            fixtureName = `${manufacturer} ${model} ${i + 1} - U${universe}:${currentChannel}`;
+          }
+        }
 
         await createFixture({
           variables: {
@@ -316,7 +492,8 @@ export default function AddFixtureModal({
     setDescription("");
     setNumFixtures(1);
     setError(null);
-    setAutoSelectChannel(false);
+    setIsManualName(false);
+    setChannelAssignments([]);
     onClose();
   };
 
@@ -378,7 +555,7 @@ export default function AddFixtureModal({
                   id="name"
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => handleNameChange(e.target.value)}
                   placeholder="Auto-generated if empty"
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 />
@@ -458,6 +635,7 @@ export default function AddFixtureModal({
                   Number of Fixtures
                 </label>
                 <input
+                  ref={numFixturesInputRef}
                   id="numFixtures"
                   type="number"
                   min="1"
@@ -540,34 +718,58 @@ export default function AddFixtureModal({
                         const num = parseInt(value);
                         if (!isNaN(num)) {
                           setStartChannel(num);
-                          setAutoSelectChannel(false);
                         }
                       }
                     }}
                     onFocus={(e) => e.target.select()}
                     required
-                    disabled={autoSelectChannel}
-                    className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   />
                   <button
                     type="button"
                     onClick={() => {
-                      setAutoSelectChannel(!autoSelectChannel);
+                      // Manually trigger channel assignment refresh
+                      if (selectedModeId && manufacturer && model) {
+                        const channelCount = getSelectedModeChannelCount();
+                        const mode = selectedModelData?.modes.find((m) => m.id === selectedModeId);
+                        const fixtureSpecs = Array.from({ length: numFixtures }, (_, i) => ({
+                          name: `${manufacturer} ${model} ${i + 1}`,
+                          manufacturer,
+                          model,
+                          mode: mode?.name,
+                          channelCount,
+                        }));
+                        suggestChannelAssignment({
+                          variables: {
+                            input: {
+                              projectId,
+                              universe,
+                              startingChannel: 1,
+                              fixtureSpecs,
+                            },
+                          },
+                        });
+                      }
                     }}
                     disabled={!selectedModeId || suggestingChannels}
-                    className={`px-3 py-2 text-sm font-medium rounded-md border ${autoSelectChannel
-                      ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    title={selectedModeId ? "Auto-select next available channel" : "Select a mode first"}
+                    className="px-3 py-2 text-sm font-medium rounded-md border bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={selectedModeId ? "Refresh channel assignment" : "Select a mode first"}
                   >
                     {suggestingChannels ? "..." : "Auto"}
                   </button>
                 </div>
-                {autoSelectChannel && startChannel > 0 && (
-                  <p className="mt-1 text-xs text-green-600 dark:text-green-400">
-                    Auto-selected channel {startChannel}
-                  </p>
+                {startChannel > 0 && (
+                  <div className="mt-1">
+                    {formatChannelAssignments ? (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        ⚠ Non-contiguous assignments: {formatChannelAssignments}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Suggested channel based on available space
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
