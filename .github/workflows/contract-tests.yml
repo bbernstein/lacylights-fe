@@ -65,6 +65,11 @@ jobs:
       - name: Wait for backend to be ready
         run: |
           echo "Waiting for backend GraphQL endpoint..."
+          echo "Checking if backend process is running..."
+          ps aux | grep "node dist/index.js" | grep -v grep || echo "Backend process not found!"
+          echo "Checking what's listening on port 4000..."
+          netstat -tuln | grep 4000 || ss -tuln | grep 4000 || echo "Nothing listening on port 4000"
+
           for i in {1..30}; do
             if curl -sf http://localhost:4000/graphql > /dev/null 2>&1; then
               echo "Backend is ready!"
@@ -74,6 +79,10 @@ jobs:
             sleep 2
           done
           echo "Backend failed to start within 60 seconds"
+          echo "Final process check:"
+          ps aux | grep node | grep -v grep
+          echo "Final port check:"
+          netstat -tuln | grep 4000 || ss -tuln | grep 4000 || echo "Nothing listening on port 4000"
           echo "Backend log:"
           cat lacylights-node/backend.log || echo "No backend log found"
           exit 1
