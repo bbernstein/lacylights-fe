@@ -249,7 +249,7 @@ export default function AddFixtureModal({
       if (fixture.universe === univ) {
         const fixtureChannelCount = fixture.channelCount || 1;
         const fixtureEnd = fixture.startChannel + fixtureChannelCount - 1;
-        
+
         // Check if ranges overlap
         if (start <= fixtureEnd && end >= fixture.startChannel) {
           return fixture;
@@ -257,6 +257,27 @@ export default function AddFixtureModal({
       }
     }
     return null;
+  };
+
+  // Find the highest number suffix for fixtures with the given base name
+  const findHighestFixtureNumber = (baseName: string): number => {
+    let highestNumber = 0;
+
+    // Pattern to match: baseName followed by space and number
+    // e.g., "par 1", "par 2", "par 15"
+    const pattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+(\\d+)$`);
+
+    for (const fixture of existingFixtures) {
+      const match = fixture.name.match(pattern);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > highestNumber) {
+          highestNumber = num;
+        }
+      }
+    }
+
+    return highestNumber;
   };
 
 
@@ -346,6 +367,14 @@ export default function AddFixtureModal({
     }
 
     try {
+      // Find starting number for fixtures with this base name
+      let startingNumber = 1;
+      if (numFixtures > 1 && name && name.trim().length > 0) {
+        // For multiple fixtures with a manual name, find the highest existing number
+        const highestExisting = findHighestFixtureNumber(name);
+        startingNumber = highestExisting + 1;
+      }
+
       // Create fixtures sequentially
       for (let i = 0; i < numFixtures; i++) {
         const currentChannel = startChannel + i * channelCount;
@@ -357,7 +386,7 @@ export default function AddFixtureModal({
         } else {
           // Multiple fixtures: use name as prefix if provided, otherwise use manufacturer/model
           if (name && name.trim().length > 0) {
-            fixtureName = `${name} ${i + 1}`;
+            fixtureName = `${name} ${startingNumber + i}`;
           } else {
             fixtureName = `${manufacturer} ${model} ${i + 1} - U${universe}:${currentChannel}`;
           }
