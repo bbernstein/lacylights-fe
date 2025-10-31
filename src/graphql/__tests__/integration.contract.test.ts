@@ -19,7 +19,7 @@ import { GET_PROJECTS, GET_PROJECT } from '../projects';
 import { GET_PROJECT_SCENES } from '../scenes';
 
 describe('GraphQL Integration Contract Tests', () => {
-  let client: ApolloClient<any>;
+  let client: ApolloClient<unknown>;
   const GRAPHQL_ENDPOINT = process.env.GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql';
 
   beforeAll(() => {
