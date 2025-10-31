@@ -8,8 +8,6 @@
     "dev": "next dev",
     "build": "next build",
     "build:export": "next build",
-    "prebuild": "npm run codegen",
-    "predev": "npm run codegen",
     "start": "next start",
     "serve:export": "npx serve out",
     "serve:static": "node scripts/serve-static.js",
