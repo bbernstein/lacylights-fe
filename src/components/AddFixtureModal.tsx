@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLazyQuery, useMutation, useQuery } from "@apollo/client";
 import {
   GET_MANUFACTURERS,
@@ -48,6 +48,9 @@ export default function AddFixtureModal({
   const [error, setError] = useState<string | null>(null);
   const [autoSelectChannel, setAutoSelectChannel] = useState(false);
   const [isManualName, setIsManualName] = useState(false);
+
+  // Ref for auto-focusing the number of fixtures field when duplicating
+  const numFixturesInputRef = useRef<HTMLInputElement>(null);
 
   const [manufacturers, setManufacturers] = useState<string[]>([]);
   const [models, setModels] = useState<
@@ -159,6 +162,17 @@ export default function AddFixtureModal({
       }
     }
   }, [models, initialModel, initialMode]);
+
+  // Auto-focus and select the numFixtures field when duplicating
+  useEffect(() => {
+    if (isOpen && initialManufacturer && numFixturesInputRef.current) {
+      // Small delay to ensure the modal is fully rendered
+      setTimeout(() => {
+        numFixturesInputRef.current?.focus();
+        numFixturesInputRef.current?.select();
+      }, 100);
+    }
+  }, [isOpen, initialManufacturer]);
 
   useEffect(() => {
     if (manufacturer) {
@@ -567,6 +581,7 @@ export default function AddFixtureModal({
                   Number of Fixtures
                 </label>
                 <input
+                  ref={numFixturesInputRef}
                   id="numFixtures"
                   type="number"
                   min="1"
