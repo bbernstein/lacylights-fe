@@ -46,7 +46,6 @@ export default function AddFixtureModal({
   const [description, setDescription] = useState("");
   const [numFixtures, setNumFixtures] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const [autoSelectChannel, setAutoSelectChannel] = useState(false);
   const [isManualName, setIsManualName] = useState(false);
 
   // Ref for auto-focusing the number of fixtures field when duplicating
@@ -295,9 +294,10 @@ export default function AddFixtureModal({
   };
 
 
-  // Auto-select next available channel when toggled
+  // Automatically suggest channel assignment when relevant fields change
   useEffect(() => {
-    if (autoSelectChannel && selectedModeId && manufacturer && model) {
+    // Only auto-assign if we have enough info and auto-select is enabled OR it's the first time
+    if (selectedModeId && manufacturer && model) {
       const channelCount = getSelectedModeChannelCount();
       const mode = selectedModelData?.modes.find((m) => m.id === selectedModeId);
 
@@ -324,7 +324,7 @@ export default function AddFixtureModal({
     // Note: getSelectedModeChannelCount is included even though it depends on
     // selectedModelData and selectedModeId (both already in deps) to satisfy ESLint.
     // This is redundant but harmless since the callback is memoized.
-  }, [autoSelectChannel, universe, selectedModeId, numFixtures, manufacturer, model, selectedModelData, getSelectedModeChannelCount, projectId, suggestChannelAssignment]);
+  }, [universe, selectedModeId, numFixtures, manufacturer, model, selectedModelData, getSelectedModeChannelCount, projectId, suggestChannelAssignment]);
 
   // Update fixture name when relevant fields change
   useEffect(() => {
@@ -438,7 +438,6 @@ export default function AddFixtureModal({
     setDescription("");
     setNumFixtures(1);
     setError(null);
-    setAutoSelectChannel(false);
     setIsManualName(false);
     onClose();
   };
@@ -664,33 +663,49 @@ export default function AddFixtureModal({
                         const num = parseInt(value);
                         if (!isNaN(num)) {
                           setStartChannel(num);
-                          setAutoSelectChannel(false);
                         }
                       }
                     }}
                     onFocus={(e) => e.target.select()}
                     required
-                    disabled={autoSelectChannel}
-                    className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   />
                   <button
                     type="button"
                     onClick={() => {
-                      setAutoSelectChannel(!autoSelectChannel);
+                      // Manually trigger channel assignment refresh
+                      if (selectedModeId && manufacturer && model) {
+                        const channelCount = getSelectedModeChannelCount();
+                        const mode = selectedModelData?.modes.find((m) => m.id === selectedModeId);
+                        const fixtureSpecs = Array.from({ length: numFixtures }, (_, i) => ({
+                          name: `${manufacturer} ${model} ${i + 1}`,
+                          manufacturer,
+                          model,
+                          mode: mode?.name,
+                          channelCount,
+                        }));
+                        suggestChannelAssignment({
+                          variables: {
+                            input: {
+                              projectId,
+                              universe,
+                              startingChannel: 1,
+                              fixtureSpecs,
+                            },
+                          },
+                        });
+                      }
                     }}
                     disabled={!selectedModeId || suggestingChannels}
-                    className={`px-3 py-2 text-sm font-medium rounded-md border ${autoSelectChannel
-                      ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    title={selectedModeId ? "Auto-select next available channel" : "Select a mode first"}
+                    className="px-3 py-2 text-sm font-medium rounded-md border bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={selectedModeId ? "Refresh channel assignment" : "Select a mode first"}
                   >
                     {suggestingChannels ? "..." : "Auto"}
                   </button>
                 </div>
-                {autoSelectChannel && startChannel > 0 && (
-                  <p className="mt-1 text-xs text-green-600 dark:text-green-400">
-                    Auto-selected channel {startChannel}
+                {startChannel > 0 && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Suggested channel based on available space
                   </p>
                 )}
               </div>
