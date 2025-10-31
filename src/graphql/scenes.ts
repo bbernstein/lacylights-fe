@@ -251,13 +251,3 @@ export const DMX_OUTPUT_CHANGED = gql`
     }
   }
 `;
-
-// Subscription for real-time updates when the currently active scene changes
-// Emits whenever the active scene changes, providing the updated scene information
-export const CURRENT_ACTIVE_SCENE_UPDATED = gql`
-  subscription CurrentActiveSceneUpdated {
-    currentActiveSceneUpdated {
-      id
-    }
-  }
-`;

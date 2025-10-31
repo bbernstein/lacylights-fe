@@ -1,0 +1,15 @@
+schema: 'http://localhost:4000/graphql'
+documents: './src/graphql/**/*.ts'
+generates:
+  ./src/generated/graphql.ts:
+    plugins:
+      - typescript
+      - typescript-operations
+      - typed-document-node
+    config:
+      strictScalars: true
+      scalars:
+        ID: string
+        DateTime: string
+      avoidOptionals: false
+      immutableTypes: true
