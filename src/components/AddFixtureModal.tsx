@@ -47,6 +47,13 @@ export default function AddFixtureModal({
   const [numFixtures, setNumFixtures] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [isManualName, setIsManualName] = useState(false);
+  const [channelAssignments, setChannelAssignments] = useState<
+    Array<{
+      startChannel: number;
+      endChannel: number;
+      channelCount: number;
+    }>
+  >([]);
 
   // Ref for auto-focusing the number of fixtures field when duplicating
   const numFixturesInputRef = useRef<HTMLInputElement>(null);
@@ -110,11 +117,21 @@ export default function AddFixtureModal({
       fetchPolicy: 'network-only', // Always fetch fresh data, don't use cache
       onCompleted: (data) => {
         if (data?.suggestChannelAssignment?.assignments?.length > 0) {
-          // Use the first assignment's start channel as the base.
-          // The backend returns assignments for all fixtures in sequential order,
-          // so the first assignment's channel is the starting point for the entire range.
-          const firstAssignment = data.suggestChannelAssignment.assignments[0];
-          setStartChannel(firstAssignment.startChannel);
+          const assignments = data.suggestChannelAssignment.assignments;
+
+          // Store all assignments for creating fixtures in non-contiguous gaps
+          setChannelAssignments(assignments.map((a: {
+            startChannel: number;
+            endChannel: number;
+            channelCount: number;
+          }) => ({
+            startChannel: a.startChannel,
+            endChannel: a.endChannel,
+            channelCount: a.channelCount,
+          })));
+
+          // Set the first assignment's start channel for display
+          setStartChannel(assignments[0].startChannel);
         }
       },
       onError: (error) => {
@@ -350,6 +367,33 @@ export default function AddFixtureModal({
     updateFixtureName,
   ]);
 
+  // Helper to check if channel assignments are contiguous
+  const areAssignmentsContiguous = useMemo(() => {
+    if (channelAssignments.length <= 1) return true;
+
+    for (let i = 1; i < channelAssignments.length; i++) {
+      const prevEnd = channelAssignments[i - 1].endChannel;
+      const currentStart = channelAssignments[i].startChannel;
+      if (currentStart !== prevEnd + 1) {
+        return false;
+      }
+    }
+    return true;
+  }, [channelAssignments]);
+
+  // Format channel assignments for display
+  const formatChannelAssignments = useMemo(() => {
+    if (channelAssignments.length === 0) return null;
+    if (channelAssignments.length === 1) return null;
+    if (areAssignmentsContiguous) return null;
+
+    const channels = channelAssignments.map(a => a.startChannel);
+    if (channels.length <= 4) {
+      return channels.join(', ');
+    }
+    return `${channels.slice(0, 3).join(', ')}, ... (${channels.length} total)`;
+  }, [channelAssignments, areAssignmentsContiguous]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -366,19 +410,24 @@ export default function AddFixtureModal({
 
     const channelCount = getSelectedModeChannelCount();
 
-    // Check for channel overlap
-    const overlap = checkChannelOverlap(universe, startChannel, numFixtures);
-    if (overlap) {
-      const endChannel = startChannel + channelCount * numFixtures - 1;
-      const overlapEnd = overlap.startChannel + (overlap.channelCount || 1) - 1;
-      setError(`Channel overlap detected with fixture "${overlap.name}" (U${overlap.universe}:${overlap.startChannel}-${overlapEnd}). Your fixtures would use channels ${startChannel}-${endChannel}.`);
-      return;
-    }
+    // Use channel assignments from the API if available for multiple fixtures
+    const useAssignments = numFixtures > 1 && channelAssignments.length === numFixtures;
 
-    // Check if channels exceed DMX limit
-    if (startChannel + channelCount * numFixtures - 1 > 512) {
-      setError(`Channels exceed DMX limit of 512. Your fixtures would use channels ${startChannel}-${startChannel + channelCount * numFixtures - 1}.`);
-      return;
+    if (!useAssignments) {
+      // Single fixture or manual channel selection - check for overlaps
+      const overlap = checkChannelOverlap(universe, startChannel, numFixtures);
+      if (overlap) {
+        const endChannel = startChannel + channelCount * numFixtures - 1;
+        const overlapEnd = overlap.startChannel + (overlap.channelCount || 1) - 1;
+        setError(`Channel overlap detected with fixture "${overlap.name}" (U${overlap.universe}:${overlap.startChannel}-${overlapEnd}). Your fixtures would use channels ${startChannel}-${endChannel}.`);
+        return;
+      }
+
+      // Check if channels exceed DMX limit
+      if (startChannel + channelCount * numFixtures - 1 > 512) {
+        setError(`Channels exceed DMX limit of 512. Your fixtures would use channels ${startChannel}-${startChannel + channelCount * numFixtures - 1}.`);
+        return;
+      }
     }
 
     try {
@@ -390,9 +439,13 @@ export default function AddFixtureModal({
         startingNumber = highestExisting + 1;
       }
 
-      // Create fixtures sequentially
+      // Create fixtures
       for (let i = 0; i < numFixtures; i++) {
-        const currentChannel = startChannel + i * channelCount;
+        // Use assignment from API if available, otherwise calculate sequentially
+        const currentChannel = useAssignments
+          ? channelAssignments[i].startChannel
+          : startChannel + i * channelCount;
+
         let fixtureName: string;
 
         if (numFixtures === 1) {
@@ -440,6 +493,7 @@ export default function AddFixtureModal({
     setNumFixtures(1);
     setError(null);
     setIsManualName(false);
+    setChannelAssignments([]);
     onClose();
   };
 
@@ -705,9 +759,17 @@ export default function AddFixtureModal({
                   </button>
                 </div>
                 {startChannel > 0 && (
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Suggested channel based on available space
-                  </p>
+                  <div className="mt-1">
+                    {formatChannelAssignments ? (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        ⚠ Non-contiguous assignments: {formatChannelAssignments}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Suggested channel based on available space
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
