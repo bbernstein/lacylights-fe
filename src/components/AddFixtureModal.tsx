@@ -107,6 +107,7 @@ export default function AddFixtureModal({
   const [suggestChannelAssignment, { loading: suggestingChannels }] = useLazyQuery(
     SUGGEST_CHANNEL_ASSIGNMENT,
     {
+      fetchPolicy: 'network-only', // Always fetch fresh data, don't use cache
       onCompleted: (data) => {
         if (data?.suggestChannelAssignment?.assignments?.length > 0) {
           // Use the first assignment's start channel as the base.
