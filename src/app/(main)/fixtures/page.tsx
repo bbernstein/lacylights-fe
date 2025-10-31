@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_PROJECT_FIXTURES, DELETE_FIXTURE_INSTANCE, CREATE_FIXTURE_INSTANCE, REORDER_PROJECT_FIXTURES } from '@/graphql/fixtures';
+import { GET_PROJECT_FIXTURES, DELETE_FIXTURE_INSTANCE, REORDER_PROJECT_FIXTURES } from '@/graphql/fixtures';
 import AddFixtureModal from '@/components/AddFixtureModal';
 import EditFixtureModal from '@/components/EditFixtureModal';
 import { useProject } from '@/contexts/ProjectContext';
@@ -74,10 +74,9 @@ interface SortableRowProps {
   onEdit: (fixture: FixtureInstance) => void;
   onDuplicate: (fixture: FixtureInstance) => void;
   onDelete: (fixture: FixtureInstance) => void;
-  duplicating: boolean;
 }
 
-function SortableRow({ fixture, onEdit, onDuplicate, onDelete, duplicating }: SortableRowProps) {
+function SortableRow({ fixture, onEdit, onDuplicate, onDelete }: SortableRowProps) {
   const {
     attributes,
     listeners,
@@ -136,10 +135,9 @@ function SortableRow({ fixture, onEdit, onDuplicate, onDelete, duplicating }: So
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
           </button>
-          <button 
+          <button
             onClick={() => onDuplicate(fixture)}
-            disabled={duplicating}
-            className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 p-1 rounded hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 p-1 rounded hover:bg-green-50 dark:hover:bg-green-900/20"
             title="Duplicate fixture"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -167,6 +165,13 @@ export default function FixturesPage() {
   const [selectedFixture, setSelectedFixture] = useState<FixtureInstance | null>(null);
   const [sortField, setSortField] = useState<SortField>('original');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [duplicateData, setDuplicateData] = useState<{
+    name: string;
+    manufacturer: string;
+    model: string;
+    mode?: string;
+    universe: number;
+  } | null>(null);
   const { currentProject, loading: projectLoading } = useProject();
   
   const { data, loading, error, refetch } = useQuery(GET_PROJECT_FIXTURES, {
@@ -190,14 +195,6 @@ export default function FixturesPage() {
     },
   });
 
-  const [duplicateFixture, { loading: duplicating }] = useMutation(CREATE_FIXTURE_INSTANCE, {
-    onCompleted: () => {
-      refetch();
-    },
-    onError: (error) => {
-      alert(`Error duplicating fixture: ${error.message}`);
-    },
-  });
 
   const [reorderFixtures] = useMutation(REORDER_PROJECT_FIXTURES, {
     onError: (_error) => {
@@ -312,66 +309,29 @@ export default function FixturesPage() {
   };
 
   // Find next available channel in the same universe
-  const findNextAvailableChannel = (universe: number, channelCount: number) => {
-    const fixturesInUniverse: FixtureInstance[] = fixtures
-      .filter((f: FixtureInstance) => f.universe === universe)
-      .sort((a: FixtureInstance, b: FixtureInstance) => a.startChannel - b.startChannel);
-
-    // Check if we can start at channel 1
-    if (fixturesInUniverse.length === 0 || fixturesInUniverse[0].startChannel > channelCount) {
-      return 1;
-    }
-
-    // Check gaps between fixtures
-    for (let i = 0; i < fixturesInUniverse.length; i++) {
-      const currentFixture = fixturesInUniverse[i];
-      const currentEnd = currentFixture.startChannel + (currentFixture.channelCount || 1) - 1;
-      
-      // Check if there's space after this fixture
-      const nextStart = currentEnd + 1;
-      
-      if (i === fixturesInUniverse.length - 1) {
-        // Last fixture, check if there's room after it
-        if (nextStart + channelCount - 1 <= 512) {
-          return nextStart;
-        }
-      } else {
-        // Check gap to next fixture
-        const nextFixture = fixturesInUniverse[i + 1];
-        if (nextStart + channelCount - 1 < nextFixture.startChannel) {
-          return nextStart;
-        }
-      }
-    }
-
-    // No space found in this universe
-    return -1;
+  // Extract base name by removing trailing number (e.g., "par 2" -> "par")
+  const extractBaseName = (name: string): string => {
+    // Match trailing space + number at the end
+    const match = name.match(/^(.+?)\s+\d+$/);
+    return match ? match[1] : name;
   };
 
   const handleDuplicateFixture = (fixture: FixtureInstance) => {
-    const channelCount = fixture.channelCount || 1;
-    const nextChannel = findNextAvailableChannel(fixture.universe, channelCount);
-    
-    if (nextChannel === -1) {
-      alert(`No space available in universe ${fixture.universe} for a fixture with ${channelCount} channels`);
-      return;
-    }
+    // Extract base name from the fixture name
+    const baseName = extractBaseName(fixture.name);
 
-    // Generate default name format: "Manufacturer Model - U#:startChannel"
-    const newName = `${fixture.manufacturer} ${fixture.model} - U${fixture.universe}:${nextChannel}`;
+    // Get the mode name from the fixture's flattened data
+    const modeName = fixture.modeName;
 
-    duplicateFixture({
-      variables: {
-        input: {
-          name: newName,
-          definitionId: fixture.definitionId,
-          // Note: modeId not needed with flattened structure
-          projectId: currentProject?.id,
-          universe: fixture.universe,
-          startChannel: nextChannel,
-        },
-      },
+    // Set duplicate data and open the Add Fixture modal
+    setDuplicateData({
+      name: baseName,
+      manufacturer: fixture.manufacturer,
+      model: fixture.model,
+      mode: modeName,
+      universe: fixture.universe,
     });
+    setIsAddModalOpen(true);
   };
 
   if (projectLoading) {
@@ -459,8 +419,7 @@ export default function FixturesPage() {
                   </button>
                   <button
                     onClick={() => handleDuplicateFixture(fixture)}
-                    disabled={duplicating}
-                    className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 p-2 rounded hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 p-2 rounded hover:bg-green-50 dark:hover:bg-green-900/20"
                     title="Duplicate fixture"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -535,7 +494,6 @@ export default function FixturesPage() {
                         onEdit={handleEditFixture}
                         onDuplicate={handleDuplicateFixture}
                         onDelete={handleDeleteFixture}
-                        duplicating={duplicating}
                       />
                     ))}
                   </tbody>
@@ -550,9 +508,17 @@ export default function FixturesPage() {
         <>
           <AddFixtureModal
             isOpen={isAddModalOpen}
-            onClose={() => setIsAddModalOpen(false)}
+            onClose={() => {
+              setIsAddModalOpen(false);
+              setDuplicateData(null);
+            }}
             projectId={currentProject.id}
             onFixtureAdded={handleFixtureAdded}
+            initialName={duplicateData?.name}
+            initialManufacturer={duplicateData?.manufacturer}
+            initialModel={duplicateData?.model}
+            initialMode={duplicateData?.mode}
+            initialUniverse={duplicateData?.universe}
           />
           <EditFixtureModal
             isOpen={isEditModalOpen}

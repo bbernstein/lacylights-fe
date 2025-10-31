@@ -17,6 +17,12 @@ interface AddFixtureModalProps {
   onClose: () => void;
   projectId: string;
   onFixtureAdded: () => void;
+  // Optional pre-population for duplicate functionality
+  initialName?: string;
+  initialManufacturer?: string;
+  initialModel?: string;
+  initialMode?: string;
+  initialUniverse?: number;
 }
 
 export default function AddFixtureModal({
@@ -24,6 +30,11 @@ export default function AddFixtureModal({
   onClose,
   projectId,
   onFixtureAdded,
+  initialName,
+  initialManufacturer,
+  initialModel,
+  initialMode,
+  initialUniverse,
 }: AddFixtureModalProps) {
   const [manufacturer, setManufacturer] = useState("");
   const [model, setModel] = useState("");
@@ -108,6 +119,46 @@ export default function AddFixtureModal({
       },
     },
   );
+
+  // Populate fields when modal opens with initial data (for duplicate)
+  useEffect(() => {
+    if (isOpen && initialManufacturer) {
+      setManufacturer(initialManufacturer);
+      setIsManualName(true); // Mark as manual since we're setting a specific name
+
+      if (initialName) {
+        setName(initialName);
+      }
+      if (initialUniverse) {
+        setUniverse(initialUniverse);
+      }
+
+      // Fetch models for the manufacturer
+      if (initialManufacturer) {
+        getModels({ variables: { manufacturer: initialManufacturer } });
+      }
+    }
+  }, [isOpen, initialManufacturer, initialName, initialUniverse, getModels]);
+
+  // When models are loaded and we have an initial model, select it
+  useEffect(() => {
+    if (models.length > 0 && initialModel) {
+      const matchingModel = models.find(m => m.model === initialModel);
+      if (matchingModel) {
+        setModel(initialModel);
+        setSelectedDefinitionId(matchingModel.id);
+        setSelectedModelData(matchingModel);
+
+        // If we have an initial mode, select it
+        if (initialMode) {
+          const matchingMode = matchingModel.modes.find(mode => mode.name === initialMode);
+          if (matchingMode) {
+            setSelectedModeId(matchingMode.id);
+          }
+        }
+      }
+    }
+  }, [models, initialModel, initialMode]);
 
   useEffect(() => {
     if (manufacturer) {
