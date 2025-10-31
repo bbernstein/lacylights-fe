@@ -3,6 +3,8 @@
   "version": "0.3.1",
   "private": true,
   "scripts": {
+    "codegen": "graphql-codegen --config codegen.yml",
+    "codegen:watch": "graphql-codegen --config codegen.yml --watch",
     "dev": "next dev",
     "build": "next build",
     "build:export": "next build",
@@ -19,6 +21,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:ci": "jest --ci --coverage",
+    "test:contracts": "jest --testMatch='**/*.contract.test.ts' --runInBand --testTimeout=30000",
     "test:e2e": "playwright test",
     "test:e2e:dev": "TEST_MODE=dev playwright test",
     "test:e2e:static": "npm run build && TEST_MODE=static playwright test",
@@ -39,6 +42,10 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@graphql-codegen/cli": "^6.0.1",
+    "@graphql-codegen/typed-document-node": "^6.1.0",
+    "@graphql-codegen/typescript": "^5.0.2",
+    "@graphql-codegen/typescript-operations": "^5.0.2",
     "@playwright/test": "^1.56.0",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",

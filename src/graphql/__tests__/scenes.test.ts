@@ -6,7 +6,6 @@ import {
   DELETE_SCENE,
   ACTIVATE_SCENE,
   GET_CURRENT_ACTIVE_SCENE,
-  CURRENT_ACTIVE_SCENE_UPDATED,
   DUPLICATE_SCENE,
 } from '../scenes';
 
@@ -106,25 +105,6 @@ describe('GraphQL Scenes', () => {
     });
   });
 
-  describe('Subscription definitions', () => {
-    it('exports CURRENT_ACTIVE_SCENE_UPDATED subscription', () => {
-      expect(CURRENT_ACTIVE_SCENE_UPDATED).toBeDefined();
-      expect(CURRENT_ACTIVE_SCENE_UPDATED.kind).toBe('Document');
-    });
-
-    it('CURRENT_ACTIVE_SCENE_UPDATED subscription structure', () => {
-      const subscriptionString = CURRENT_ACTIVE_SCENE_UPDATED.loc?.source.body;
-      expect(subscriptionString).toContain('subscription');
-      expect(subscriptionString).toContain('currentActiveSceneUpdated');
-    });
-
-    it('subscription has correct operation type', () => {
-      const operation = CURRENT_ACTIVE_SCENE_UPDATED.definitions[0];
-      if (operation.kind === 'OperationDefinition') {
-        expect(operation.operation).toBe('subscription');
-      }
-    });
-  });
 
   describe('GraphQL document validation', () => {
     it('all queries are valid GraphQL documents', () => {
@@ -151,12 +131,6 @@ describe('GraphQL Scenes', () => {
         expect(mutation.definitions).toBeDefined();
         expect(mutation.definitions.length).toBeGreaterThan(0);
       });
-    });
-
-    it('subscription is valid GraphQL document', () => {
-      expect(CURRENT_ACTIVE_SCENE_UPDATED.kind).toBe('Document');
-      expect(CURRENT_ACTIVE_SCENE_UPDATED.definitions).toBeDefined();
-      expect(CURRENT_ACTIVE_SCENE_UPDATED.definitions.length).toBeGreaterThan(0);
     });
 
     it('operations have correct operation types', () => {
@@ -247,11 +221,6 @@ describe('GraphQL Scenes', () => {
     it('GET_CURRENT_ACTIVE_SCENE includes scene data', () => {
       const queryString = GET_CURRENT_ACTIVE_SCENE.loc?.source.body;
       expect(queryString).toContain('currentActiveScene');
-    });
-
-    it('subscription includes scene data', () => {
-      const subscriptionString = CURRENT_ACTIVE_SCENE_UPDATED.loc?.source.body;
-      expect(subscriptionString).toContain('currentActiveSceneUpdated');
     });
   });
 });

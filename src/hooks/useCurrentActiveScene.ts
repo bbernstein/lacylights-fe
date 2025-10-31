@@ -1,6 +1,6 @@
-import { useQuery, useSubscription } from '@apollo/client';
+import { useQuery } from '@apollo/client';
 import { useState, useEffect } from 'react';
-import { GET_CURRENT_ACTIVE_SCENE, CURRENT_ACTIVE_SCENE_UPDATED } from '../graphql/scenes';
+import { GET_CURRENT_ACTIVE_SCENE } from '../graphql/scenes';
 
 interface CurrentActiveScene {
   id: string;
@@ -20,25 +20,12 @@ export function useCurrentActiveScene(): UseCurrentActiveSceneResult {
     return newScene?.id !== currentScene?.id;
   };
 
-  // Query initial active scene
+  // Query active scene with polling for updates
+  // Note: The backend doesn't have a currentActiveSceneUpdated subscription,
+  // so we use polling to check for changes every 2 seconds
   const { data: queryData, loading: queryLoading, error: queryError } = useQuery(GET_CURRENT_ACTIVE_SCENE, {
     fetchPolicy: 'cache-and-network', // Returns cached data if available and always makes a network request to update the data
-  });
-
-  // Subscribe to real-time updates
-  const { error: subscriptionError } = useSubscription(CURRENT_ACTIVE_SCENE_UPDATED, {
-    onData: ({ data: subscriptionData }) => {
-      const newActiveScene = subscriptionData?.data?.currentActiveSceneUpdated;
-      if (newActiveScene) {
-        // Only update state if the scene has actually changed to prevent unnecessary re-renders
-        setCurrentActiveScene(prevScene => {
-          if (shouldUpdateScene(newActiveScene, prevScene)) {
-            return newActiveScene;
-          }
-          return prevScene;
-        });
-      }
-    },
+    pollInterval: 2000, // Poll every 2 seconds for active scene changes
   });
 
   // Set initial state from query data or update if query returns different data
@@ -52,6 +39,6 @@ export function useCurrentActiveScene(): UseCurrentActiveSceneResult {
   return {
     currentActiveScene,
     isLoading: queryLoading,
-    error: (queryError || subscriptionError) as Error | undefined,
+    error: queryError as Error | undefined,
   };
 }
