@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="resources/lacylights-logo-square.png" alt="LacyLights Logo" width="200"/>
+</p>
+
 # LacyLights Frontend
 
 A Next.js-based web frontend for the LacyLights theatre lighting control system.
