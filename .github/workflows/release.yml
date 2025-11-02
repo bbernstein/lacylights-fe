@@ -140,8 +140,16 @@ jobs:
 
       - name: Install dependencies and build
         run: |
+          # Install all dependencies (including dev) for the build step
           npm ci
           npm run build
+
+      - name: Install production dependencies for archive
+        run: |
+          # Remove all dependencies and reinstall only production dependencies
+          # This reduces archive size and avoids including dev tools
+          rm -rf node_modules
+          npm ci --omit=dev
 
       - name: Create release archive
         run: |
