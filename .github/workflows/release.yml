@@ -4,16 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       version_bump:
-        description: 'Version bump type'
+        description: "Version bump type"
         required: true
         type: choice
         options:
           - patch
           - minor
           - major
-        default: 'patch'
+        default: "patch"
       release_name:
-        description: 'Release name (optional - leave blank for auto-generated)'
+        description: "Release name (optional - leave blank for auto-generated)"
         required: false
         type: string
 
@@ -34,7 +34,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Configure Git
         run: |
@@ -137,6 +137,30 @@ jobs:
               prerelease: false,
               generate_release_notes: true
             });
+
+      - name: Install dependencies and build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Create release archive
+        run: |
+          tar -czf lacylights-fe-${{ steps.new_version.outputs.version }}.tar.gz \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='node_modules/.cache' \
+            --exclude='*.test.ts' \
+            --exclude='*.test.tsx' \
+            --exclude='__tests__' \
+            src/ .next/ public/ node_modules/ package.json package-lock.json next.config.ts
+
+      - name: Upload release asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          gh release upload v${{ steps.new_version.outputs.version }} \
+            lacylights-fe-${{ steps.new_version.outputs.version }}.tar.gz \
+            --clobber
 
       - name: Summary
         run: |
