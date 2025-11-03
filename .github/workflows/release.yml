@@ -142,14 +142,16 @@ jobs:
         run: |
           # Install all dependencies (including dev) for the build step
           npm ci
+          # Build the Next.js application
           npm run build
+          # Verify BUILD_ID exists (critical for production mode)
+          test -f .next/BUILD_ID || (echo "ERROR: BUILD_ID not found after build" && exit 1)
 
-      - name: Install production dependencies for archive
+      - name: Optimize node_modules for production
         run: |
-          # Remove all dependencies and reinstall only production dependencies
-          # This reduces archive size and avoids including dev tools
-          rm -rf node_modules
-          npm ci --omit=dev
+          # Remove dev dependencies but preserve the build
+          # Using npm prune instead of removing node_modules entirely
+          npm prune --omit=dev
 
       - name: Create release archive
         run: |
