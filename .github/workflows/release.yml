@@ -157,7 +157,7 @@ jobs:
         run: |
           # Create directory structure for extraction
           mkdir -p lacylights-fe
-          cp -r src/ .next/ public/ node_modules/ package.json package-lock.json next.config.ts lacylights-fe/
+          cp -r src/ .next/ public/ node_modules/ package.json package-lock.json next.config.js lacylights-fe/
           tar -czf lacylights-fe-${{ steps.new_version.outputs.version }}.tar.gz \
             --exclude='.git' \
             --exclude='.github' \
