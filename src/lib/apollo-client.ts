@@ -1,35 +1,84 @@
-import { ApolloClient, InMemoryCache, createHttpLink, split } from '@apollo/client';
+import { ApolloClient, InMemoryCache, createHttpLink, split, from } from '@apollo/client';
 import { setContext } from '@apollo/client/link/context';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
 import { getMainDefinition } from '@apollo/client/utilities';
 
+// Runtime configuration cache
+let runtimeConfig: { graphqlUrl: string; graphqlWsUrl: string } | null = null;
+let configPromise: Promise<{ graphqlUrl: string; graphqlWsUrl: string }> | null = null;
+
+// Fetch runtime configuration from API endpoint
+async function fetchRuntimeConfig(): Promise<{ graphqlUrl: string; graphqlWsUrl: string }> {
+  if (runtimeConfig) {
+    return runtimeConfig;
+  }
+
+  if (configPromise) {
+    return configPromise;
+  }
+
+  configPromise = (async () => {
+    try {
+      const response = await fetch('/api/config');
+      if (response.ok) {
+        runtimeConfig = await response.json();
+        return runtimeConfig!;
+      }
+    } catch (error) {
+      console.warn('Failed to fetch runtime config, using defaults:', error);
+    }
+
+    // Fallback to defaults if API fetch fails
+    runtimeConfig = {
+      graphqlUrl: 'http://localhost:4000/graphql',
+      graphqlWsUrl: 'ws://localhost:4000/graphql',
+    };
+    return runtimeConfig;
+  })();
+
+  return configPromise;
+}
+
 // Determine URLs based on environment
 // In production (behind nginx), use relative paths
-// In development, use localhost
-const getGraphQLUrl = () => {
+// In development or Mac app, use runtime configuration
+function getGraphQLUrl(): string {
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
     // Production: use relative path (nginx proxy)
     return `${window.location.protocol}//${window.location.host}/graphql`;
   }
-  return process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:4000/graphql';
-};
 
-const getWebSocketUrl = () => {
+  // Mac app or development: use cached config or default
+  return runtimeConfig?.graphqlUrl || 'http://localhost:4000/graphql';
+}
+
+function getWebSocketUrl(): string {
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
     // Production: use WebSocket with current host (nginx proxy)
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${wsProtocol}//${window.location.host}/ws`;
   }
-  return process.env.NEXT_PUBLIC_GRAPHQL_WS_URL || 'ws://localhost:4000/graphql';
-};
+
+  // Mac app or development: use cached config or default
+  return runtimeConfig?.graphqlWsUrl || 'ws://localhost:4000/graphql';
+}
+
+// Custom link that fetches config before making requests
+const configLink = setContext(async (_, { headers }) => {
+  // Fetch runtime config on first request if we're on localhost
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && !runtimeConfig) {
+    await fetchRuntimeConfig();
+  }
+  return { headers };
+});
 
 const httpLink = createHttpLink({
-  uri: getGraphQLUrl(),
+  uri: () => getGraphQLUrl(),
 });
 
 const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(createClient({
-  url: getWebSocketUrl(),
+  url: () => getWebSocketUrl(),
   connectionParams: () => {
     const token = localStorage.getItem('token');
     return {
@@ -41,7 +90,7 @@ const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(createClient({
 const authLink = setContext((_, { headers }) => {
   // Get the authentication token from local storage if it exists
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  
+
   // Return the headers to the context so httpLink can read them
   return {
     headers: {
@@ -61,8 +110,8 @@ const splitLink = typeof window !== 'undefined' && wsLink ? split(
     );
   },
   wsLink,
-  authLink.concat(httpLink),
-) : authLink.concat(httpLink);
+  from([configLink, authLink, httpLink]),
+) : from([configLink, authLink, httpLink]);
 
 const apolloClient = new ApolloClient({
   link: splitLink,
@@ -73,5 +122,12 @@ const apolloClient = new ApolloClient({
     },
   },
 });
+
+// Prefetch runtime configuration if on localhost
+if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+  fetchRuntimeConfig().catch(err => {
+    console.error('Failed to prefetch runtime config:', err);
+  });
+}
 
 export default apolloClient;
