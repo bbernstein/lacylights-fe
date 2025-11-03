@@ -8,12 +8,8 @@ const nextConfig = {
   // Trailing slash for better static hosting compatibility
   trailingSlash: true,
 
-  // Environment variables for GraphQL endpoints
-  // These will be proxied by nginx in production or used directly in development
-  env: {
-    NEXT_PUBLIC_GRAPHQL_URL: process.env.NEXT_PUBLIC_GRAPHQL_URL || '/graphql',
-    NEXT_PUBLIC_GRAPHQL_WS_URL: process.env.NEXT_PUBLIC_GRAPHQL_WS_URL || '/ws',
-  },
+  // No build-time environment variables needed
+  // Runtime configuration is provided via /api/config endpoint
 };
 
 module.exports = nextConfig;
