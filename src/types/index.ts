@@ -104,6 +104,32 @@ export interface FixtureValue {
   channelValues: number[]; // Array of 0-255 values, index = channel offset
 }
 
+export interface SceneBoard {
+  id: string;
+  name: string;
+  description?: string;
+  project: Project;
+  defaultFadeTime: number;
+  gridSize?: number;
+  buttons: SceneBoardButton[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SceneBoardButton {
+  id: string;
+  sceneBoard: SceneBoard;
+  scene: Scene;
+  layoutX: number;
+  layoutY: number;
+  width?: number;
+  height?: number;
+  color?: string;
+  label?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CueList {
   id: string;
   name: string;
