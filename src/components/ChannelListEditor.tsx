@@ -974,6 +974,17 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                 />
               </div>
 
+              {/* Save Changes button moved to top for easy access */}
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={updating || !sceneName.trim()}
+                  className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {updating ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+
               {/* Preview Mode Toggle */}
               <div className="flex items-center justify-between p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg border border-gray-300 dark:border-gray-600">
                 <div className="flex items-center space-x-3">
@@ -1278,7 +1289,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
             </div>
           )}
 
-          <div className="max-h-[60vh] overflow-y-auto mb-6 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg">
+          <div className="mb-6 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg">
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -1319,16 +1330,6 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                 </div>
               </SortableContext>
             </DndContext>
-          </div>
-
-          <div className="flex space-x-3 justify-end">
-            <button
-              type="submit"
-              disabled={updating || !sceneName.trim()}
-              className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {updating ? 'Saving...' : 'Save Changes'}
-            </button>
           </div>
         </form>
       </div>
