@@ -33,6 +33,7 @@ describe('TabNavigation', () => {
 
       expect(screen.getByText('Fixtures')).toBeInTheDocument();
       expect(screen.getByText('Scenes')).toBeInTheDocument();
+      expect(screen.getByText('Scene Board')).toBeInTheDocument();
       expect(screen.getByText('Cue Lists')).toBeInTheDocument();
     });
 
@@ -43,10 +44,12 @@ describe('TabNavigation', () => {
 
       const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
       const scenesLink = screen.getByRole('link', { name: 'Scenes' });
+      const sceneBoardLink = screen.getByRole('link', { name: 'Scene Board' });
       const cueListsLink = screen.getByRole('link', { name: 'Cue Lists' });
 
       expect(fixturesLink).toHaveAttribute('href', '/fixtures');
       expect(scenesLink).toHaveAttribute('href', '/scenes');
+      expect(sceneBoardLink).toHaveAttribute('href', '/scene-board');
       expect(cueListsLink).toHaveAttribute('href', '/cue-lists');
     });
 
@@ -99,6 +102,22 @@ describe('TabNavigation', () => {
 
       expect(scenesLink).toHaveClass('border-blue-500', 'text-blue-600');
       expect(fixturesLink).toHaveClass('border-transparent', 'text-gray-500');
+      expect(cueListsLink).toHaveClass('border-transparent', 'text-gray-500');
+    });
+
+    it('handles scene-board path correctly', () => {
+      mockUsePathname.mockReturnValue('/scene-board');
+
+      render(<TabNavigation />);
+
+      const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
+      const scenesLink = screen.getByRole('link', { name: 'Scenes' });
+      const sceneBoardLink = screen.getByRole('link', { name: 'Scene Board' });
+      const cueListsLink = screen.getByRole('link', { name: 'Cue Lists' });
+
+      expect(sceneBoardLink).toHaveClass('border-blue-500', 'text-blue-600');
+      expect(fixturesLink).toHaveClass('border-transparent', 'text-gray-500');
+      expect(scenesLink).toHaveClass('border-transparent', 'text-gray-500');
       expect(cueListsLink).toHaveClass('border-transparent', 'text-gray-500');
     });
 
@@ -184,7 +203,7 @@ describe('TabNavigation', () => {
       render(<TabNavigation />);
 
       const links = screen.getAllByRole('link');
-      expect(links).toHaveLength(4); // Fixtures, Scenes, Cue Lists, Settings
+      expect(links).toHaveLength(5); // Fixtures, Scenes, Scene Board, Cue Lists, Settings
 
       links.forEach((link) => {
         expect(link).toHaveAttribute('href');
@@ -201,6 +220,7 @@ describe('TabNavigation', () => {
       const expectedTabs = [
         { name: 'Fixtures', href: '/fixtures' },
         { name: 'Scenes', href: '/scenes' },
+        { name: 'Scene Board', href: '/scene-board' },
         { name: 'Cue Lists', href: '/cue-lists' },
         { name: 'Settings', href: '/settings' },
       ];

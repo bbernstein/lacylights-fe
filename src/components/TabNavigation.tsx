@@ -11,6 +11,7 @@ interface Tab {
 const tabs: Tab[] = [
   { name: 'Fixtures', href: '/fixtures' },
   { name: 'Scenes', href: '/scenes' },
+  { name: 'Scene Board', href: '/scene-board' },
   { name: 'Cue Lists', href: '/cue-lists' },
   { name: 'Settings', href: '/settings' },
 ];
