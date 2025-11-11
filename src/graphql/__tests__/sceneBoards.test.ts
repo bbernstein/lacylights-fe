@@ -1,4 +1,3 @@
-import { gql } from '@apollo/client';
 import {
   GET_PROJECT_SCENE_BOARDS,
   GET_SCENE_BOARD,
