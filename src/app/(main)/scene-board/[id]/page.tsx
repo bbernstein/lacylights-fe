@@ -92,7 +92,7 @@ export default function SceneBoardDetailPage() {
   const board = boardData?.sceneBoard;
   const availableScenes = scenesData?.project?.scenes || [];
   const buttonsOnBoard = new Set(board?.buttons?.map((b: SceneBoardButton) => b.scene.id) || []);
-  const scenesToAdd = availableScenes.filter((s: any) => !buttonsOnBoard.has(s.id));
+  const scenesToAdd = availableScenes.filter((s: { id: string }) => !buttonsOnBoard.has(s.id));
 
   // Snap to grid helper
   const snapToGrid = useCallback((value: number) => {
@@ -137,18 +137,13 @@ export default function SceneBoardDetailPage() {
     const snappedX = snapToGrid(clampedX);
     const snappedY = snapToGrid(clampedY);
 
-    // Update the button position (optimistically in UI)
-    const updatedButtons = board?.buttons.map((b: SceneBoardButton) =>
-      b.id === draggingButton.id
-        ? { ...b, layoutX: snappedX, layoutY: snappedY }
-        : b
-    );
-
-    // This will cause a re-render with updated positions
-    if (updatedButtons) {
-      boardData.sceneBoard.buttons = updatedButtons;
-    }
-  }, [draggingButton, mode, dragOffset, board, boardData, snapToGrid]);
+    // Update the dragging button state to trigger re-render
+    setDraggingButton({
+      ...draggingButton,
+      layoutX: snappedX,
+      layoutY: snappedY,
+    });
+  }, [draggingButton, mode, dragOffset, snapToGrid]);
 
   // Handle drag end
   const handleDragEnd = useCallback(() => {
@@ -354,10 +349,12 @@ export default function SceneBoardDetailPage() {
           )}
 
           {board.buttons.map((button: SceneBoardButton) => {
-            const left = `${button.layoutX * 100}%`;
-            const top = `${button.layoutY * 100}%`;
-            const width = `${(button.width || 0.1) * 100}%`;
-            const height = `${(button.height || 0.1) * 100}%`;
+            // Use dragging button position if this button is being dragged
+            const displayButton = draggingButton?.id === button.id ? draggingButton : button;
+            const left = `${displayButton.layoutX * 100}%`;
+            const top = `${displayButton.layoutY * 100}%`;
+            const width = `${(displayButton.width || 0.1) * 100}%`;
+            const height = `${(displayButton.height || 0.1) * 100}%`;
 
             return (
               <div
@@ -447,7 +444,7 @@ export default function SceneBoardDetailPage() {
                     className="w-full border rounded px-3 py-2"
                   >
                     <option value="">-- Select a scene --</option>
-                    {scenesToAdd.map((scene: any) => (
+                    {scenesToAdd.map((scene: { id: string; name: string }) => (
                       <option key={scene.id} value={scene.id}>
                         {scene.name}
                       </option>
