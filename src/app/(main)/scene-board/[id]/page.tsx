@@ -61,11 +61,10 @@ export default function SceneBoardDetailPage() {
   });
 
   const [updatePositions] = useMutation(UPDATE_SCENE_BOARD_BUTTON_POSITIONS, {
-    onCompleted: () => {
-      refetch();
-    },
     onError: (error) => {
       alert(`Error updating positions: ${error.message}`);
+      // Refetch on error to revert to server state
+      refetch();
     },
   });
 
@@ -149,19 +148,51 @@ export default function SceneBoardDetailPage() {
   const handleDragEnd = useCallback(() => {
     if (!draggingButton || mode !== 'layout') return;
 
-    // Save the new position to the server
+    const newLayoutX = draggingButton.layoutX;
+    const newLayoutY = draggingButton.layoutY;
+    const buttonId = draggingButton.id;
+
+    // Clear dragging state first so the position "sticks"
+    setDraggingButton(null);
+
+    // Save the new position to the server with optimistic update
     updatePositions({
       variables: {
         positions: [{
-          buttonId: draggingButton.id,
-          layoutX: draggingButton.layoutX,
-          layoutY: draggingButton.layoutY,
+          buttonId,
+          layoutX: newLayoutX,
+          layoutY: newLayoutY,
         }],
       },
-    });
+      optimisticResponse: {
+        updateSceneBoardButtonPositions: true,
+      },
+      update: (cache) => {
+        // Update the cache immediately with the new position
+        const existingData = cache.readQuery<{ sceneBoard: typeof board }>({
+          query: GET_SCENE_BOARD,
+          variables: { id: boardId },
+        });
 
-    setDraggingButton(null);
-  }, [draggingButton, mode, updatePositions]);
+        if (existingData?.sceneBoard) {
+          cache.writeQuery({
+            query: GET_SCENE_BOARD,
+            variables: { id: boardId },
+            data: {
+              sceneBoard: {
+                ...existingData.sceneBoard,
+                buttons: existingData.sceneBoard.buttons.map((btn: SceneBoardButton) =>
+                  btn.id === buttonId
+                    ? { ...btn, layoutX: newLayoutX, layoutY: newLayoutY }
+                    : btn
+                ),
+              },
+            },
+          });
+        }
+      },
+    });
+  }, [draggingButton, mode, updatePositions, boardId]);
 
   const handleSceneClick = useCallback(
     (button: SceneBoardButton) => {
