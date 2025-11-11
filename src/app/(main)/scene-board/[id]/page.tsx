@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import {
@@ -27,6 +27,12 @@ export default function SceneBoardDetailPage() {
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [editedFadeTime, setEditedFadeTime] = useState(3.0);
+
+  // Drag state
+  const [draggingButton, setDraggingButton] = useState<SceneBoardButton | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const gridSize = 0.05; // 5% grid snapping
 
   const { data: boardData, loading, error, refetch } = useQuery(GET_SCENE_BOARD, {
     variables: { id: boardId },
@@ -88,6 +94,80 @@ export default function SceneBoardDetailPage() {
   const buttonsOnBoard = new Set(board?.buttons?.map((b: SceneBoardButton) => b.scene.id) || []);
   const scenesToAdd = availableScenes.filter((s: any) => !buttonsOnBoard.has(s.id));
 
+  // Snap to grid helper
+  const snapToGrid = useCallback((value: number) => {
+    return Math.round(value / gridSize) * gridSize;
+  }, [gridSize]);
+
+  // Handle drag start
+  const handleDragStart = useCallback((e: React.MouseEvent, button: SceneBoardButton) => {
+    if (mode !== 'layout') return;
+    e.stopPropagation();
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const buttonCenterX = button.layoutX * rect.width;
+    const buttonCenterY = button.layoutY * rect.height;
+
+    setDraggingButton(button);
+    setDragOffset({
+      x: e.clientX - rect.left - buttonCenterX,
+      y: e.clientY - rect.top - buttonCenterY,
+    });
+  }, [mode]);
+
+  // Handle drag move
+  const handleDragMove = useCallback((e: React.MouseEvent) => {
+    if (!draggingButton || mode !== 'layout') return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left - dragOffset.x) / rect.width;
+    const y = (e.clientY - rect.top - dragOffset.y) / rect.height;
+
+    // Clamp to canvas bounds (with some margin)
+    const clampedX = Math.max(0.05, Math.min(0.95, x));
+    const clampedY = Math.max(0.05, Math.min(0.95, y));
+
+    // Snap to grid
+    const snappedX = snapToGrid(clampedX);
+    const snappedY = snapToGrid(clampedY);
+
+    // Update the button position (optimistically in UI)
+    const updatedButtons = board?.buttons.map((b: SceneBoardButton) =>
+      b.id === draggingButton.id
+        ? { ...b, layoutX: snappedX, layoutY: snappedY }
+        : b
+    );
+
+    // This will cause a re-render with updated positions
+    if (updatedButtons) {
+      boardData.sceneBoard.buttons = updatedButtons;
+    }
+  }, [draggingButton, mode, dragOffset, board, boardData, snapToGrid]);
+
+  // Handle drag end
+  const handleDragEnd = useCallback(() => {
+    if (!draggingButton || mode !== 'layout') return;
+
+    // Save the new position to the server
+    updatePositions({
+      variables: {
+        positions: [{
+          buttonId: draggingButton.id,
+          layoutX: draggingButton.layoutX,
+          layoutY: draggingButton.layoutY,
+        }],
+      },
+    });
+
+    setDraggingButton(null);
+  }, [draggingButton, mode, updatePositions]);
+
   const handleSceneClick = useCallback(
     (button: SceneBoardButton) => {
       if (mode === 'play') {
@@ -136,7 +216,7 @@ export default function SceneBoardDetailPage() {
     for (let y = 0.1; y < 0.9; y += step) {
       for (let x = 0.1; x < 0.9; x += step) {
         const occupied = existingPositions.some(
-          (pos) => Math.abs(pos.x - x) < 0.1 && Math.abs(pos.y - y) < 0.1
+          (pos: { x: number; y: number }) => Math.abs(pos.x - x) < 0.1 && Math.abs(pos.y - y) < 0.1
         );
         if (!occupied) {
           layoutX = x;
@@ -253,7 +333,26 @@ export default function SceneBoardDetailPage() {
 
       {/* Canvas Area */}
       <div className="flex-1 bg-gray-900 relative overflow-hidden">
-        <div className="absolute inset-0">
+        <div
+          ref={canvasRef}
+          className="absolute inset-0"
+          onMouseMove={handleDragMove}
+          onMouseUp={handleDragEnd}
+          onMouseLeave={handleDragEnd}
+        >
+          {/* Grid overlay in layout mode */}
+          {mode === 'layout' && (
+            <div className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundImage: `
+                  linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                  linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
+                `,
+                backgroundSize: `${gridSize * 100}% ${gridSize * 100}%`,
+              }}
+            />
+          )}
+
           {board.buttons.map((button: SceneBoardButton) => {
             const left = `${button.layoutX * 100}%`;
             const top = `${button.layoutY * 100}%`;
@@ -263,9 +362,9 @@ export default function SceneBoardDetailPage() {
             return (
               <div
                 key={button.id}
-                className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${
+                className={`absolute transform -translate-x-1/2 -translate-y-1/2 select-none ${
                   mode === 'play' ? 'cursor-pointer' : 'cursor-move'
-                }`}
+                } ${draggingButton?.id === button.id ? 'opacity-75 z-50' : ''}`}
                 style={{
                   left,
                   top,
@@ -274,6 +373,7 @@ export default function SceneBoardDetailPage() {
                   minWidth: '120px',
                   minHeight: '80px',
                 }}
+                onMouseDown={(e) => handleDragStart(e, button)}
                 onClick={() => handleSceneClick(button)}
               >
                 <div
@@ -326,7 +426,7 @@ export default function SceneBoardDetailPage() {
         {mode === 'play' ? (
           <span>🎮 Play Mode - Click scenes to activate</span>
         ) : (
-          <span>✏️ Layout Mode - Drag scenes to reposition (drag not yet implemented)</span>
+          <span>✏️ Layout Mode - Drag scenes to reposition (snaps to 5% grid)</span>
         )}
       </div>
 
