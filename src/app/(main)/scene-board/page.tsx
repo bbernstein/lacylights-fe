@@ -17,6 +17,7 @@ export default function SceneBoardPage() {
   const [newBoardName, setNewBoardName] = useState('');
   const [newBoardDescription, setNewBoardDescription] = useState('');
   const [newBoardFadeTime, setNewBoardFadeTime] = useState(3.0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { currentProject, loading: projectLoading } = useProject();
 
   const { data, loading, error, refetch } = useQuery(GET_PROJECT_SCENE_BOARDS, {
@@ -33,7 +34,7 @@ export default function SceneBoardPage() {
       setNewBoardFadeTime(3.0);
     },
     onError: (error) => {
-      alert(`Error creating scene board: ${error.message}`);
+      setErrorMessage(`Error creating scene board: ${error.message}`);
     },
   });
 
@@ -42,7 +43,7 @@ export default function SceneBoardPage() {
       refetch();
     },
     onError: (error) => {
-      alert(`Error deleting scene board: ${error.message}`);
+      setErrorMessage(`Error deleting scene board: ${error.message}`);
     },
   });
 
@@ -53,12 +54,12 @@ export default function SceneBoardPage() {
 
   const handleCreateBoard = () => {
     if (!newBoardName.trim()) {
-      alert('Please enter a board name');
+      setErrorMessage('Please enter a board name');
       return;
     }
 
     if (newBoardFadeTime < 0) {
-      alert('Fade time must be 0 or greater');
+      setErrorMessage('Fade time must be 0 or greater');
       return;
     }
 
@@ -118,6 +119,20 @@ export default function SceneBoardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Error Banner */}
+      {errorMessage && (
+        <div className="bg-red-100 border border-red-200 rounded px-4 py-3 flex items-center justify-between dark:bg-red-900/20 dark:border-red-800">
+          <p className="text-red-700 dark:text-red-400">{errorMessage}</p>
+          <button
+            onClick={() => setErrorMessage(null)}
+            className="text-red-700 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <div className="sm:flex sm:items-center sm:justify-between">
         <div>
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Scene Boards</h2>

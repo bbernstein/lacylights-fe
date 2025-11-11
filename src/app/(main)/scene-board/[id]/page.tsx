@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import {
@@ -30,6 +30,7 @@ export default function SceneBoardDetailPage() {
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [editedFadeTime, setEditedFadeTime] = useState(3.0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Drag state
   const [draggingButton, setDraggingButton] = useState<SceneBoardButton | null>(null);
@@ -52,19 +53,19 @@ export default function SceneBoardDetailPage() {
       setIsEditingSettings(false);
     },
     onError: (error) => {
-      alert(`Error updating board: ${error.message}`);
+      setErrorMessage(`Error updating board: ${error.message}`);
     },
   });
 
   const [activateScene] = useMutation(ACTIVATE_SCENE_FROM_BOARD, {
     onError: (error) => {
-      alert(`Error activating scene: ${error.message}`);
+      setErrorMessage(`Error activating scene: ${error.message}`);
     },
   });
 
   const [updatePositions] = useMutation(UPDATE_SCENE_BOARD_BUTTON_POSITIONS, {
     onError: (error) => {
-      alert(`Error updating positions: ${error.message}`);
+      setErrorMessage(`Error updating positions: ${error.message}`);
       // Refetch on error to revert to server state
       refetch();
     },
@@ -77,7 +78,7 @@ export default function SceneBoardDetailPage() {
       setSelectedSceneId('');
     },
     onError: (error) => {
-      alert(`Error adding scene: ${error.message}`);
+      setErrorMessage(`Error adding scene: ${error.message}`);
     },
   });
 
@@ -86,7 +87,7 @@ export default function SceneBoardDetailPage() {
       refetch();
     },
     onError: (error) => {
-      alert(`Error removing scene: ${error.message}`);
+      setErrorMessage(`Error removing scene: ${error.message}`);
     },
   });
 
@@ -108,6 +109,23 @@ export default function SceneBoardDetailPage() {
     () => availableScenes.filter((s: { id: string }) => !buttonsOnBoard.has(s.id)),
     [availableScenes, buttonsOnBoard]
   );
+
+  // Handle Escape key to close modals
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isAddSceneModalOpen) {
+          setIsAddSceneModalOpen(false);
+          setSelectedSceneId('');
+        } else if (isEditingSettings) {
+          setIsEditingSettings(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAddSceneModalOpen, isEditingSettings]);
 
   // Snap to grid helper
   const snapToGrid = useCallback((value: number) => {
@@ -240,7 +258,7 @@ export default function SceneBoardDetailPage() {
 
   const handleAddScene = useCallback(() => {
     if (!selectedSceneId) {
-      alert('Please select a scene');
+      setErrorMessage('Please select a scene');
       return;
     }
 
@@ -284,12 +302,12 @@ export default function SceneBoardDetailPage() {
   const handleSaveSettings = useCallback(() => {
     // Validate inputs
     if (!editedName.trim()) {
-      alert('Please enter a board name');
+      setErrorMessage('Please enter a board name');
       return;
     }
 
     if (editedFadeTime < 0) {
-      alert('Fade time must be 0 or greater');
+      setErrorMessage('Fade time must be 0 or greater');
       return;
     }
 
@@ -328,6 +346,20 @@ export default function SceneBoardDetailPage() {
 
   return (
     <div className="h-screen flex flex-col">
+      {/* Error Banner */}
+      {errorMessage && (
+        <div className="bg-red-100 border-b border-red-200 px-6 py-3 flex items-center justify-between dark:bg-red-900/20 dark:border-red-800">
+          <p className="text-red-700 dark:text-red-400">{errorMessage}</p>
+          <button
+            onClick={() => setErrorMessage(null)}
+            className="text-red-700 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white border-b px-6 py-4 flex items-center justify-between dark:bg-gray-900 dark:border-gray-700">
         <div className="flex items-center gap-4">
@@ -356,10 +388,19 @@ export default function SceneBoardDetailPage() {
             onClick={() => setIsAddSceneModalOpen(true)}
             className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 dark:disabled:opacity-50"
             disabled={mode === 'play'}
-            title={mode === 'play' ? "Add scenes in Layout Mode" : undefined}
+            aria-disabled={mode === 'play'}
+            aria-describedby={mode === 'play' ? "add-scene-disabled-msg" : undefined}
           >
             + Add Scene
           </button>
+          {mode === 'play' && (
+            <span
+              id="add-scene-disabled-msg"
+              className="ml-2 text-sm text-gray-500 dark:text-gray-400"
+            >
+              Switch to Layout Mode to add scenes
+            </span>
+          )}
           <div className="border-l dark:border-gray-600 pl-2 ml-2">
             <button
               onClick={() => setMode('play')}
@@ -430,15 +471,17 @@ export default function SceneBoardDetailPage() {
                   minHeight: '80px',
                 }}
                 onMouseDown={(e) => handleDragStart(e, button)}
-                onClick={() => handleSceneClick(button)}
+                {...(mode === 'play' && {
+                  onClick: () => handleSceneClick(button),
+                  onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSceneClick(button);
+                    }
+                  },
+                })}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleSceneClick(button);
-                  }
-                }}
                 aria-label={`${mode === 'play' ? 'Activate' : 'Drag'} scene ${button.scene.name}`}
               >
                 <div
@@ -498,9 +541,15 @@ export default function SceneBoardDetailPage() {
 
       {/* Add Scene Modal */}
       {isAddSceneModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4 dark:text-white">Add Scene to Board</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsAddSceneModalOpen(false)}>
+          <div
+            className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-scene-modal-title"
+          >
+            <h2 id="add-scene-modal-title" className="text-2xl font-bold mb-4 dark:text-white">Add Scene to Board</h2>
             {scenesToAdd.length === 0 ? (
               <p className="text-gray-600 dark:text-gray-400 mb-4">All scenes are already on this board!</p>
             ) : (
@@ -545,9 +594,15 @@ export default function SceneBoardDetailPage() {
 
       {/* Edit Settings Modal */}
       {isEditingSettings && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4 dark:text-white">Board Settings</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsEditingSettings(false)}>
+          <div
+            className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="board-settings-modal-title"
+          >
+            <h2 id="board-settings-modal-title" className="text-2xl font-bold mb-4 dark:text-white">Board Settings</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-gray-300">Board Name</label>
