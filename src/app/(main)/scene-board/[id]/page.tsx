@@ -18,6 +18,13 @@ import { SceneBoardButton } from '@/types';
 // Grid configuration
 const GRID_SIZE = 0.05; // 5% grid snapping
 
+// Enable static export for this dynamic route
+// Scene boards are created dynamically at runtime, so we generate an empty list
+// and allow dynamic params to be handled client-side
+export async function generateStaticParams() {
+  return [];
+}
+
 export default function SceneBoardDetailPage() {
   const params = useParams();
   const router = useRouter();

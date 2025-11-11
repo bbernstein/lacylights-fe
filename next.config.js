@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Static export for RPi deployment via nginx
+  output: 'export',
+
   // Disable image optimization for compatibility
   images: {
     unoptimized: true,
