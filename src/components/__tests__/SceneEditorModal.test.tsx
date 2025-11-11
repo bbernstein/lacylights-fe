@@ -106,6 +106,9 @@ const mockFixtures = [
     createdAt: '2023-01-01T12:00:00Z',
     definitionId: 'def-1',
     project: mockProject,
+    layoutX: null,
+    layoutY: null,
+    layoutRotation: null,
     channels: [
       { id: 'ch-1', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },
       { id: 'ch-2', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
@@ -130,6 +133,9 @@ const mockFixtures = [
     createdAt: '2023-01-02T12:00:00Z',
     definitionId: 'def-2',
     project: mockProject,
+    layoutX: null,
+    layoutY: null,
+    layoutRotation: null,
     channels: [
       { id: 'ch-5', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },
       { id: 'ch-6', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
