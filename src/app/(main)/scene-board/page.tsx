@@ -57,6 +57,11 @@ export default function SceneBoardPage() {
       return;
     }
 
+    if (newBoardFadeTime < 0) {
+      alert('Fade time must be 0 or greater');
+      return;
+    }
+
     createSceneBoard({
       variables: {
         input: {
@@ -90,14 +95,14 @@ export default function SceneBoardPage() {
   if (projectLoading || loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading...</div>
+        <div className="text-gray-500 dark:text-gray-400">Loading...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4 bg-red-100 text-red-700 rounded">
+      <div className="p-4 bg-red-100 text-red-700 rounded dark:bg-red-900/20 dark:text-red-400 dark:border dark:border-red-800">
         Error loading scene boards: {error.message}
       </div>
     );
@@ -105,7 +110,7 @@ export default function SceneBoardPage() {
 
   if (!currentProject) {
     return (
-      <div className="p-4 bg-yellow-100 text-yellow-700 rounded">
+      <div className="p-4 bg-yellow-100 text-yellow-700 rounded border dark:bg-yellow-900/20 dark:text-yellow-400 dark:border dark:border-yellow-800">
         Please select a project first
       </div>
     );

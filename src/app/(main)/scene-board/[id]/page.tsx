@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import {
@@ -14,6 +14,9 @@ import {
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { useProject } from '@/contexts/ProjectContext';
 import { SceneBoardButton } from '@/types';
+
+// Grid configuration
+const GRID_SIZE = 0.05; // 5% grid snapping
 
 export default function SceneBoardDetailPage() {
   const params = useParams();
@@ -32,7 +35,6 @@ export default function SceneBoardDetailPage() {
   const [draggingButton, setDraggingButton] = useState<SceneBoardButton | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
-  const gridSize = 0.05; // 5% grid snapping
 
   const { data: boardData, loading, error, refetch } = useQuery(GET_SCENE_BOARD, {
     variables: { id: boardId },
@@ -89,14 +91,28 @@ export default function SceneBoardDetailPage() {
   });
 
   const board = boardData?.sceneBoard;
-  const availableScenes = scenesData?.project?.scenes || [];
-  const buttonsOnBoard = new Set(board?.buttons?.map((b: SceneBoardButton) => b.scene.id) || []);
-  const scenesToAdd = availableScenes.filter((s: { id: string }) => !buttonsOnBoard.has(s.id));
+
+  // Memoize available scenes to avoid recalculating on every render
+  const availableScenes = useMemo(
+    () => scenesData?.project?.scenes || [],
+    [scenesData?.project?.scenes]
+  );
+
+  // Memoize button IDs to avoid recalculating on every render
+  const buttonsOnBoard = useMemo(
+    () => new Set(board?.buttons?.map((b: SceneBoardButton) => b.scene.id) || []),
+    [board?.buttons]
+  );
+
+  const scenesToAdd = useMemo(
+    () => availableScenes.filter((s: { id: string }) => !buttonsOnBoard.has(s.id)),
+    [availableScenes, buttonsOnBoard]
+  );
 
   // Snap to grid helper
   const snapToGrid = useCallback((value: number) => {
-    return Math.round(value / gridSize) * gridSize;
-  }, [gridSize]);
+    return Math.round(value / GRID_SIZE) * GRID_SIZE;
+  }, []);
 
   // Handle drag start
   const handleDragStart = useCallback((e: React.MouseEvent, button: SceneBoardButton) => {
@@ -237,20 +253,20 @@ export default function SceneBoardDetailPage() {
     let layoutX = 0.1;
     let layoutY = 0.1;
     const step = 0.15;
+    let foundSpot = false;
 
-    // Simple grid placement
-    for (let y = 0.1; y < 0.9; y += step) {
-      for (let x = 0.1; x < 0.9; x += step) {
+    // Simple grid placement - use boolean flag to properly exit nested loops
+    for (let y = 0.1; y < 0.9 && !foundSpot; y += step) {
+      for (let x = 0.1; x < 0.9 && !foundSpot; x += step) {
         const occupied = existingPositions.some(
           (pos: { x: number; y: number }) => Math.abs(pos.x - x) < 0.1 && Math.abs(pos.y - y) < 0.1
         );
         if (!occupied) {
           layoutX = x;
           layoutY = y;
-          break;
+          foundSpot = true;
         }
       }
-      if (layoutX !== 0.1 || layoutY !== 0.1) break;
     }
 
     addSceneToBoard({
@@ -266,6 +282,17 @@ export default function SceneBoardDetailPage() {
   }, [selectedSceneId, board, boardId, addSceneToBoard]);
 
   const handleSaveSettings = useCallback(() => {
+    // Validate inputs
+    if (!editedName.trim()) {
+      alert('Please enter a board name');
+      return;
+    }
+
+    if (editedFadeTime < 0) {
+      alert('Fade time must be 0 or greater');
+      return;
+    }
+
     updateBoard({
       variables: {
         id: boardId,
@@ -286,14 +313,14 @@ export default function SceneBoardDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading scene board...</div>
+        <div className="text-gray-500 dark:text-gray-400">Loading scene board...</div>
       </div>
     );
   }
 
   if (error || !board) {
     return (
-      <div className="p-4 bg-red-100 text-red-700 rounded">
+      <div className="p-4 bg-red-100 text-red-700 rounded dark:bg-red-900/20 dark:text-red-400 dark:border dark:border-red-800">
         Error loading scene board: {error?.message || 'Board not found'}
       </div>
     );
@@ -302,17 +329,17 @@ export default function SceneBoardDetailPage() {
   return (
     <div className="h-screen flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
+      <div className="bg-white border-b px-6 py-4 flex items-center justify-between dark:bg-gray-900 dark:border-gray-700">
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push('/scene-board')}
-            className="text-gray-600 hover:text-gray-900"
+            className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
           >
             ← Back
           </button>
           <div>
-            <h1 className="text-2xl font-bold">{board.name}</h1>
-            <p className="text-sm text-gray-600">
+            <h1 className="text-2xl font-bold dark:text-white">{board.name}</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               {board.buttons.length} scenes • Fade: {board.defaultFadeTime}s
             </p>
           </div>
@@ -321,24 +348,25 @@ export default function SceneBoardDetailPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={openEditSettings}
-            className="px-3 py-2 border rounded hover:bg-gray-50"
+            className="px-3 py-2 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300"
           >
             Settings
           </button>
           <button
             onClick={() => setIsAddSceneModalOpen(true)}
-            className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 dark:disabled:opacity-50"
             disabled={mode === 'play'}
+            title={mode === 'play' ? "Add scenes in Layout Mode" : undefined}
           >
             + Add Scene
           </button>
-          <div className="border-l pl-2 ml-2">
+          <div className="border-l dark:border-gray-600 pl-2 ml-2">
             <button
               onClick={() => setMode('play')}
               className={`px-4 py-2 rounded-l ${
                 mode === 'play'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
               }`}
             >
               Play Mode
@@ -348,7 +376,7 @@ export default function SceneBoardDetailPage() {
               className={`px-4 py-2 rounded-r ${
                 mode === 'layout'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
               }`}
             >
               Layout Mode
@@ -374,7 +402,7 @@ export default function SceneBoardDetailPage() {
                   linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
                   linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
                 `,
-                backgroundSize: `${gridSize * 100}% ${gridSize * 100}%`,
+                backgroundSize: `${GRID_SIZE * 100}% ${GRID_SIZE * 100}%`,
               }}
             />
           )}
@@ -403,6 +431,15 @@ export default function SceneBoardDetailPage() {
                 }}
                 onMouseDown={(e) => handleDragStart(e, button)}
                 onClick={() => handleSceneClick(button)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleSceneClick(button);
+                  }
+                }}
+                aria-label={`${mode === 'play' ? 'Activate' : 'Drag'} scene ${button.scene.name}`}
               >
                 <div
                   className={`h-full rounded-lg border-2 flex items-center justify-center p-4 transition-all ${
@@ -423,6 +460,7 @@ export default function SceneBoardDetailPage() {
                           handleRemoveScene(button);
                         }}
                         className="mt-2 text-xs text-red-300 hover:text-red-100"
+                        aria-label={`Remove ${button.scene.name} from board`}
                       >
                         Remove
                       </button>
@@ -461,18 +499,18 @@ export default function SceneBoardDetailPage() {
       {/* Add Scene Modal */}
       {isAddSceneModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4">Add Scene to Board</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-2xl font-bold mb-4 dark:text-white">Add Scene to Board</h2>
             {scenesToAdd.length === 0 ? (
-              <p className="text-gray-600 mb-4">All scenes are already on this board!</p>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">All scenes are already on this board!</p>
             ) : (
               <>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium mb-2">Select Scene</label>
+                  <label className="block text-sm font-medium mb-2 dark:text-gray-300">Select Scene</label>
                   <select
                     value={selectedSceneId}
                     onChange={(e) => setSelectedSceneId(e.target.value)}
-                    className="w-full border rounded px-3 py-2"
+                    className="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                   >
                     <option value="">-- Select a scene --</option>
                     {scenesToAdd.map((scene: { id: string; name: string }) => (
@@ -488,7 +526,7 @@ export default function SceneBoardDetailPage() {
                       setIsAddSceneModalOpen(false);
                       setSelectedSceneId('');
                     }}
-                    className="px-4 py-2 border rounded hover:bg-gray-50"
+                    className="px-4 py-2 border rounded hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
                     Cancel
                   </button>
@@ -508,27 +546,27 @@ export default function SceneBoardDetailPage() {
       {/* Edit Settings Modal */}
       {isEditingSettings && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4">Board Settings</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-2xl font-bold mb-4 dark:text-white">Board Settings</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Board Name</label>
+                <label className="block text-sm font-medium mb-1 dark:text-gray-300">Board Name</label>
                 <input
                   type="text"
                   value={editedName}
                   onChange={(e) => setEditedName(e.target.value)}
-                  className="w-full border rounded px-3 py-2"
+                  className="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className="block text-sm font-medium mb-1 dark:text-gray-300">
                   Default Fade Time (seconds)
                 </label>
                 <input
                   type="number"
                   value={editedFadeTime}
                   onChange={(e) => setEditedFadeTime(parseFloat(e.target.value) || 0)}
-                  className="w-full border rounded px-3 py-2"
+                  className="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                   min="0"
                   step="0.1"
                 />
@@ -537,7 +575,7 @@ export default function SceneBoardDetailPage() {
             <div className="flex justify-end gap-2 mt-6">
               <button
                 onClick={() => setIsEditingSettings(false)}
-                className="px-4 py-2 border rounded hover:bg-gray-50"
+                className="px-4 py-2 border rounded hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
