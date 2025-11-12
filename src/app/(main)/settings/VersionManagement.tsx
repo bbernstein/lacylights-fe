@@ -101,8 +101,9 @@ export default function VersionManagement() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-32">
-        <div className="text-gray-600 dark:text-gray-400">Loading version information...</div>
+      <div className="flex flex-col justify-center items-center h-32">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400 mb-3"></div>
+        <div className="text-gray-600 dark:text-gray-400">Checking for updates...</div>
       </div>
     );
   }
