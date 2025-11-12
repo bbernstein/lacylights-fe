@@ -31,12 +31,38 @@ export default function VersionManagement() {
       setSelectedRepo(null);
       setSelectedVersion('latest');
     },
+    onError: (error) => {
+      console.error('Error updating repository:', error);
+      setUpdateResults([
+        {
+          repository: selectedRepo || 'unknown',
+          success: false,
+          error: error.message,
+          message: '',
+          previousVersion: '',
+          newVersion: '',
+        },
+      ]);
+    },
   });
 
   const [updateAllRepositories, { loading: updatingAll }] = useMutation(UPDATE_ALL_REPOSITORIES, {
     onCompleted: (result) => {
       setUpdateResults(result.updateAllRepositories);
       refetch();
+    },
+    onError: (error) => {
+      console.error('Error updating all repositories:', error);
+      setUpdateResults([
+        {
+          repository: 'all',
+          success: false,
+          error: error.message,
+          message: '',
+          previousVersion: '',
+          newVersion: '',
+        },
+      ]);
     },
   });
 
@@ -79,6 +105,14 @@ export default function VersionManagement() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <p className="text-red-800 dark:text-red-200">Error loading version information: {error.message}</p>
+      </div>
+    );
+  }
+
   if (!systemVersions?.versionManagementSupported) {
     return (
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
@@ -108,14 +142,6 @@ export default function VersionManagement() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-        <p className="text-red-800 dark:text-red-200">Error loading version information: {error.message}</p>
-      </div>
-    );
-  }
-
   const repositories = systemVersions?.repositories || [];
   const hasUpdates = repositories.some((repo: RepositoryVersion) => repo.updateAvailable);
 
@@ -133,9 +159,9 @@ export default function VersionManagement() {
               Clear
             </button>
           </div>
-          {updateResults.map((result, index) => (
+          {updateResults.map((result) => (
             <div
-              key={index}
+              key={result.repository}
               className={`p-3 rounded ${
                 result.success
                   ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
