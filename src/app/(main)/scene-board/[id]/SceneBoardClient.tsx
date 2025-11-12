@@ -29,7 +29,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
   const [mode, setMode] = useState<'play' | 'layout'>('play');
   const [isAddSceneModalOpen, setIsAddSceneModalOpen] = useState(false);
-  const [selectedSceneId, setSelectedSceneId] = useState<string>('');
+  const [selectedSceneIds, setSelectedSceneIds] = useState<Set<string>>(new Set());
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [editedFadeTime, setEditedFadeTime] = useState(3.0);
@@ -78,7 +78,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     onCompleted: () => {
       refetch();
       setIsAddSceneModalOpen(false);
-      setSelectedSceneId('');
+      setSelectedSceneIds(new Set());
     },
     onError: (error) => {
       setErrorMessage(`Error adding scene: ${error.message}`);
@@ -119,7 +119,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       if (e.key === 'Escape') {
         if (isAddSceneModalOpen) {
           setIsAddSceneModalOpen(false);
-          setSelectedSceneId('');
+          setSelectedSceneIds(new Set());
         } else if (isEditingSettings) {
           setIsEditingSettings(false);
         }
@@ -259,48 +259,89 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     [removeSceneFromBoard]
   );
 
-  const handleAddScene = useCallback(() => {
-    if (!selectedSceneId) {
-      setErrorMessage('Please select a scene');
+  const toggleSceneSelection = useCallback((sceneId: string) => {
+    setSelectedSceneIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(sceneId)) {
+        newSet.delete(sceneId);
+      } else {
+        newSet.add(sceneId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const selectAllScenes = useCallback(() => {
+    setSelectedSceneIds(new Set(scenesToAdd.map((s: { id: string }) => s.id)));
+  }, [scenesToAdd]);
+
+  const deselectAllScenes = useCallback(() => {
+    setSelectedSceneIds(new Set());
+  }, []);
+
+  const handleAddScenes = useCallback(async () => {
+    if (selectedSceneIds.size === 0) {
+      setErrorMessage('Please select at least one scene');
       return;
     }
 
-    // Find a free spot for the new button
+    // Find free spots for the new buttons
     const existingPositions = board?.buttons?.map((b: SceneBoardButton) => ({
       x: b.layoutX,
       y: b.layoutY,
     })) || [];
 
-    let layoutX = 0.1;
-    let layoutY = 0.1;
     const step = 0.15;
-    let foundSpot = false;
+    const sceneIdsArray = Array.from(selectedSceneIds);
 
-    // Simple grid placement - use boolean flag to properly exit nested loops
-    for (let y = 0.1; y < 0.9 && !foundSpot; y += step) {
-      for (let x = 0.1; x < 0.9 && !foundSpot; x += step) {
-        const occupied = existingPositions.some(
-          (pos: { x: number; y: number }) => Math.abs(pos.x - x) < 0.1 && Math.abs(pos.y - y) < 0.1
-        );
-        if (!occupied) {
-          layoutX = x;
-          layoutY = y;
-          foundSpot = true;
+    // Find positions for all selected scenes
+    const positions: Array<{ sceneId: string; x: number; y: number }> = [];
+    const currentPositions = [...existingPositions];
+
+    for (const sceneId of sceneIdsArray) {
+      let layoutX = 0.1;
+      let layoutY = 0.1;
+      let foundSpot = false;
+
+      // Simple grid placement - use boolean flag to properly exit nested loops
+      for (let y = 0.1; y < 0.9 && !foundSpot; y += step) {
+        for (let x = 0.1; x < 0.9 && !foundSpot; x += step) {
+          const occupied = currentPositions.some(
+            (pos: { x: number; y: number }) => Math.abs(pos.x - x) < 0.1 && Math.abs(pos.y - y) < 0.1
+          );
+          if (!occupied) {
+            layoutX = x;
+            layoutY = y;
+            foundSpot = true;
+            // Mark this position as occupied for subsequent scenes
+            currentPositions.push({ x: layoutX, y: layoutY });
+          }
         }
       }
+
+      positions.push({ sceneId, x: layoutX, y: layoutY });
     }
 
-    addSceneToBoard({
-      variables: {
-        input: {
-          sceneBoardId: boardId,
-          sceneId: selectedSceneId,
-          layoutX,
-          layoutY,
-        },
-      },
-    });
-  }, [selectedSceneId, board, boardId, addSceneToBoard]);
+    // Add all scenes sequentially
+    try {
+      for (const { sceneId, x, y } of positions) {
+        await addSceneToBoard({
+          variables: {
+            input: {
+              sceneBoardId: boardId,
+              sceneId,
+              layoutX: x,
+              layoutY: y,
+            },
+          },
+        });
+      }
+      // Clear selection after all scenes are added
+      setSelectedSceneIds(new Set());
+    } catch (error) {
+      console.error('Error adding scenes:', error);
+    }
+  }, [selectedSceneIds, board, boardId, addSceneToBoard]);
 
   const handleSaveSettings = useCallback(() => {
     // Validate inputs
@@ -552,41 +593,64 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
             aria-modal="true"
             aria-labelledby="add-scene-modal-title"
           >
-            <h2 id="add-scene-modal-title" className="text-2xl font-bold mb-4 dark:text-white">Add Scene to Board</h2>
+            <h2 id="add-scene-modal-title" className="text-2xl font-bold mb-4 dark:text-white">Add Scenes to Board</h2>
             {scenesToAdd.length === 0 ? (
               <p className="text-gray-600 dark:text-gray-400 mb-4">All scenes are already on this board!</p>
             ) : (
               <>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium mb-2 dark:text-gray-300">Select Scene</label>
-                  <select
-                    value={selectedSceneId}
-                    onChange={(e) => setSelectedSceneId(e.target.value)}
-                    className="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  >
-                    <option value="">-- Select a scene --</option>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium dark:text-gray-300">
+                      Select Scenes ({selectedSceneIds.size} selected)
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={selectAllScenes}
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        Select All
+                      </button>
+                      <button
+                        onClick={deselectAllScenes}
+                        className="text-xs text-gray-600 dark:text-gray-400 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <div className="border dark:border-gray-600 rounded max-h-96 overflow-y-auto bg-white dark:bg-gray-700">
                     {scenesToAdd.map((scene: { id: string; name: string }) => (
-                      <option key={scene.id} value={scene.id}>
-                        {scene.name}
-                      </option>
+                      <label
+                        key={scene.id}
+                        className="flex items-center px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer border-b last:border-b-0 dark:border-gray-600"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedSceneIds.has(scene.id)}
+                          onChange={() => toggleSceneSelection(scene.id)}
+                          className="mr-3 h-4 w-4 text-blue-600 rounded focus:ring-blue-500 focus:ring-2"
+                        />
+                        <span className="text-sm dark:text-white">{scene.name}</span>
+                      </label>
                     ))}
-                  </select>
+                  </div>
                 </div>
                 <div className="flex justify-end gap-2">
                   <button
                     onClick={() => {
                       setIsAddSceneModalOpen(false);
-                      setSelectedSceneId('');
+                      setSelectedSceneIds(new Set());
                     }}
                     className="px-4 py-2 border rounded hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={handleAddScene}
-                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                    onClick={handleAddScenes}
+                    disabled={selectedSceneIds.size === 0}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Add Scene
+                    Add {selectedSceneIds.size > 0 ? `${selectedSceneIds.size} ` : ''}Scene{selectedSceneIds.size !== 1 ? 's' : ''}
                   </button>
                 </div>
               </>
