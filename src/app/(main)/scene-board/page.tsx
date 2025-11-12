@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   GET_PROJECT_SCENE_BOARDS,
@@ -12,7 +11,6 @@ import { useProject } from '@/contexts/ProjectContext';
 import { SceneBoard } from '@/types';
 
 export default function SceneBoardPage() {
-  const router = useRouter();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newBoardName, setNewBoardName] = useState('');
   const [newBoardDescription, setNewBoardDescription] = useState('');
@@ -90,7 +88,9 @@ export default function SceneBoardPage() {
   };
 
   const handleOpenBoard = (board: SceneBoard) => {
-    router.push(`/scene-board/${board.id}`);
+    // Use full page navigation to avoid Next.js client-side routing issues
+    // with output: 'export' and dynamic params
+    window.location.href = `/scene-board/${board.id}`;
   };
 
   if (projectLoading || loading) {
