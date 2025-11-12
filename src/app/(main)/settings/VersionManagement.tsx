@@ -70,6 +70,15 @@ export default function VersionManagement() {
     setUpdateResults([]);
   };
 
+  if (loading) {
+    return (
+      <div className="flex flex-col justify-center items-center h-32">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400 mb-3"></div>
+        <div className="text-gray-600 dark:text-gray-400">Checking for updates...</div>
+      </div>
+    );
+  }
+
   if (!systemVersions?.versionManagementSupported) {
     return (
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
@@ -95,15 +104,6 @@ export default function VersionManagement() {
             </p>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex flex-col justify-center items-center h-32">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400 mb-3"></div>
-        <div className="text-gray-600 dark:text-gray-400">Checking for updates...</div>
       </div>
     );
   }
