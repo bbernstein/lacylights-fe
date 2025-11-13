@@ -36,7 +36,7 @@ const mockSystemVersionsSupported = {
 
 const mockSystemVersionsNotSupported = {
   versionManagementSupported: false,
-  lastChecked: null,
+  lastChecked: '',
   repositories: [],
 };
 
