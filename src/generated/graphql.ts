@@ -152,6 +152,25 @@ export type CreateProjectInput = {
   readonly name: Scalars['String']['input'];
 };
 
+export type CreateSceneBoardButtonInput = {
+  readonly color?: InputMaybe<Scalars['String']['input']>;
+  readonly height?: InputMaybe<Scalars['Float']['input']>;
+  readonly label?: InputMaybe<Scalars['String']['input']>;
+  readonly layoutX: Scalars['Float']['input'];
+  readonly layoutY: Scalars['Float']['input'];
+  readonly sceneBoardId: Scalars['ID']['input'];
+  readonly sceneId: Scalars['ID']['input'];
+  readonly width?: InputMaybe<Scalars['Float']['input']>;
+};
+
+export type CreateSceneBoardInput = {
+  readonly defaultFadeTime?: InputMaybe<Scalars['Float']['input']>;
+  readonly description?: InputMaybe<Scalars['String']['input']>;
+  readonly gridSize?: InputMaybe<Scalars['Int']['input']>;
+  readonly name: Scalars['String']['input'];
+  readonly projectId: Scalars['ID']['input'];
+};
+
 export type CreateSceneInput = {
   readonly description?: InputMaybe<Scalars['String']['input']>;
   readonly fixtureValues: ReadonlyArray<FixtureValueInput>;
@@ -491,7 +510,9 @@ export type ModeChannel = {
 
 export type Mutation = {
   readonly __typename?: 'Mutation';
+  readonly activateSceneFromBoard: Scalars['Boolean']['output'];
   readonly addFixturesToScene: Scene;
+  readonly addSceneToBoard: SceneBoardButton;
   readonly bulkCreateFixtures: ReadonlyArray<FixtureInstance>;
   readonly bulkUpdateCues: ReadonlyArray<Cue>;
   readonly bulkUpdateFixtures: ReadonlyArray<FixtureInstance>;
@@ -505,12 +526,14 @@ export type Mutation = {
   readonly createFixtureInstance: FixtureInstance;
   readonly createProject: Project;
   readonly createScene: Scene;
+  readonly createSceneBoard: SceneBoard;
   readonly deleteCue: Scalars['Boolean']['output'];
   readonly deleteCueList: Scalars['Boolean']['output'];
   readonly deleteFixtureDefinition: Scalars['Boolean']['output'];
   readonly deleteFixtureInstance: Scalars['Boolean']['output'];
   readonly deleteProject: Scalars['Boolean']['output'];
   readonly deleteScene: Scalars['Boolean']['output'];
+  readonly deleteSceneBoard: Scalars['Boolean']['output'];
   readonly disconnectWiFi: WiFiConnectionResult;
   readonly duplicateScene: Scene;
   readonly exportProject: ExportResult;
@@ -525,6 +548,7 @@ export type Mutation = {
   readonly playCue: Scalars['Boolean']['output'];
   readonly previousCue: Scalars['Boolean']['output'];
   readonly removeFixturesFromScene: Scene;
+  readonly removeSceneFromBoard: Scalars['Boolean']['output'];
   readonly reorderCues: Scalars['Boolean']['output'];
   readonly reorderProjectFixtures: Scalars['Boolean']['output'];
   readonly reorderSceneFixtures: Scalars['Boolean']['output'];
@@ -534,6 +558,7 @@ export type Mutation = {
   readonly startCueList: Scalars['Boolean']['output'];
   readonly startPreviewSession: PreviewSession;
   readonly stopCueList: Scalars['Boolean']['output'];
+  readonly updateAllRepositories: ReadonlyArray<UpdateResult>;
   readonly updateCue: Cue;
   readonly updateCueList: CueList;
   readonly updateFixtureDefinition: FixtureDefinition;
@@ -541,9 +566,20 @@ export type Mutation = {
   readonly updateFixturePositions: Scalars['Boolean']['output'];
   readonly updatePreviewChannel: Scalars['Boolean']['output'];
   readonly updateProject: Project;
+  readonly updateRepository: UpdateResult;
   readonly updateScene: Scene;
+  readonly updateSceneBoard: SceneBoard;
+  readonly updateSceneBoardButton: SceneBoardButton;
+  readonly updateSceneBoardButtonPositions: Scalars['Boolean']['output'];
   readonly updateScenePartial: Scene;
   readonly updateSetting: Setting;
+};
+
+
+export type MutationActivateSceneFromBoardArgs = {
+  fadeTimeOverride?: InputMaybe<Scalars['Float']['input']>;
+  sceneBoardId: Scalars['ID']['input'];
+  sceneId: Scalars['ID']['input'];
 };
 
 
@@ -551,6 +587,11 @@ export type MutationAddFixturesToSceneArgs = {
   fixtureValues: ReadonlyArray<FixtureValueInput>;
   overwriteExisting?: InputMaybe<Scalars['Boolean']['input']>;
   sceneId: Scalars['ID']['input'];
+};
+
+
+export type MutationAddSceneToBoardArgs = {
+  input: CreateSceneBoardButtonInput;
 };
 
 
@@ -621,6 +662,11 @@ export type MutationCreateSceneArgs = {
 };
 
 
+export type MutationCreateSceneBoardArgs = {
+  input: CreateSceneBoardInput;
+};
+
+
 export type MutationDeleteCueArgs = {
   id: Scalars['ID']['input'];
 };
@@ -647,6 +693,11 @@ export type MutationDeleteProjectArgs = {
 
 
 export type MutationDeleteSceneArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteSceneBoardArgs = {
   id: Scalars['ID']['input'];
 };
 
@@ -724,6 +775,11 @@ export type MutationPreviousCueArgs = {
 export type MutationRemoveFixturesFromSceneArgs = {
   fixtureIds: ReadonlyArray<Scalars['ID']['input']>;
   sceneId: Scalars['ID']['input'];
+};
+
+
+export type MutationRemoveSceneFromBoardArgs = {
+  buttonId: Scalars['ID']['input'];
 };
 
 
@@ -821,9 +877,32 @@ export type MutationUpdateProjectArgs = {
 };
 
 
+export type MutationUpdateRepositoryArgs = {
+  repository: Scalars['String']['input'];
+  version?: InputMaybe<Scalars['String']['input']>;
+};
+
+
 export type MutationUpdateSceneArgs = {
   id: Scalars['ID']['input'];
   input: UpdateSceneInput;
+};
+
+
+export type MutationUpdateSceneBoardArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateSceneBoardInput;
+};
+
+
+export type MutationUpdateSceneBoardButtonArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateSceneBoardButtonInput;
+};
+
+
+export type MutationUpdateSceneBoardButtonPositionsArgs = {
+  positions: ReadonlyArray<SceneBoardButtonPositionInput>;
 };
 
 
@@ -878,6 +957,7 @@ export type Project = {
   readonly fixtures: ReadonlyArray<FixtureInstance>;
   readonly id: Scalars['ID']['output'];
   readonly name: Scalars['String']['output'];
+  readonly sceneBoards: ReadonlyArray<SceneBoard>;
   readonly sceneCount: Scalars['Int']['output'];
   readonly scenes: ReadonlyArray<Scene>;
   readonly updatedAt: Scalars['String']['output'];
@@ -943,6 +1023,7 @@ export type QlcImportResult = {
 export type Query = {
   readonly __typename?: 'Query';
   readonly allDmxOutput: ReadonlyArray<UniverseOutput>;
+  readonly availableVersions: ReadonlyArray<Scalars['String']['output']>;
   readonly channelMap: ChannelMapResult;
   readonly compareScenes: SceneComparison;
   readonly cue?: Maybe<Cue>;
@@ -963,6 +1044,9 @@ export type Query = {
   readonly projects: ReadonlyArray<Project>;
   readonly savedWifiNetworks: ReadonlyArray<WiFiNetwork>;
   readonly scene?: Maybe<Scene>;
+  readonly sceneBoard?: Maybe<SceneBoard>;
+  readonly sceneBoardButton?: Maybe<SceneBoardButton>;
+  readonly sceneBoards: ReadonlyArray<SceneBoard>;
   readonly sceneFixtures: ReadonlyArray<SceneFixtureSummary>;
   readonly sceneUsage: SceneUsage;
   readonly scenes: ScenePage;
@@ -973,8 +1057,14 @@ export type Query = {
   readonly settings: ReadonlyArray<Setting>;
   readonly suggestChannelAssignment: ChannelAssignmentSuggestion;
   readonly systemInfo: SystemInfo;
+  readonly systemVersions: SystemVersionInfo;
   readonly wifiNetworks: ReadonlyArray<WiFiNetwork>;
   readonly wifiStatus: WiFiStatus;
+};
+
+
+export type QueryAvailableVersionsArgs = {
+  repository: Scalars['String']['input'];
 };
 
 
@@ -1067,6 +1157,21 @@ export type QuerySceneArgs = {
 };
 
 
+export type QuerySceneBoardArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QuerySceneBoardButtonArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QuerySceneBoardsArgs = {
+  projectId: Scalars['ID']['input'];
+};
+
+
 export type QuerySceneFixturesArgs = {
   sceneId: Scalars['ID']['input'];
 };
@@ -1127,6 +1232,14 @@ export type QueryWifiNetworksArgs = {
   rescan?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
+export type RepositoryVersion = {
+  readonly __typename?: 'RepositoryVersion';
+  readonly installed: Scalars['String']['output'];
+  readonly latest: Scalars['String']['output'];
+  readonly repository: Scalars['String']['output'];
+  readonly updateAvailable: Scalars['Boolean']['output'];
+};
+
 export type Scene = {
   readonly __typename?: 'Scene';
   readonly createdAt: Scalars['String']['output'];
@@ -1136,6 +1249,40 @@ export type Scene = {
   readonly name: Scalars['String']['output'];
   readonly project: Project;
   readonly updatedAt: Scalars['String']['output'];
+};
+
+export type SceneBoard = {
+  readonly __typename?: 'SceneBoard';
+  readonly buttons: ReadonlyArray<SceneBoardButton>;
+  readonly createdAt: Scalars['String']['output'];
+  readonly defaultFadeTime: Scalars['Float']['output'];
+  readonly description?: Maybe<Scalars['String']['output']>;
+  readonly gridSize?: Maybe<Scalars['Int']['output']>;
+  readonly id: Scalars['ID']['output'];
+  readonly name: Scalars['String']['output'];
+  readonly project: Project;
+  readonly updatedAt: Scalars['String']['output'];
+};
+
+export type SceneBoardButton = {
+  readonly __typename?: 'SceneBoardButton';
+  readonly color?: Maybe<Scalars['String']['output']>;
+  readonly createdAt: Scalars['String']['output'];
+  readonly height?: Maybe<Scalars['Float']['output']>;
+  readonly id: Scalars['ID']['output'];
+  readonly label?: Maybe<Scalars['String']['output']>;
+  readonly layoutX: Scalars['Float']['output'];
+  readonly layoutY: Scalars['Float']['output'];
+  readonly scene: Scene;
+  readonly sceneBoard: SceneBoard;
+  readonly updatedAt: Scalars['String']['output'];
+  readonly width?: Maybe<Scalars['Float']['output']>;
+};
+
+export type SceneBoardButtonPositionInput = {
+  readonly buttonId: Scalars['ID']['input'];
+  readonly layoutX: Scalars['Float']['input'];
+  readonly layoutY: Scalars['Float']['input'];
 };
 
 export type SceneComparison = {
@@ -1242,6 +1389,13 @@ export type SystemInfo = {
   readonly artnetEnabled: Scalars['Boolean']['output'];
 };
 
+export type SystemVersionInfo = {
+  readonly __typename?: 'SystemVersionInfo';
+  readonly lastChecked: Scalars['String']['output'];
+  readonly repositories: ReadonlyArray<RepositoryVersion>;
+  readonly versionManagementSupported: Scalars['Boolean']['output'];
+};
+
 export type UniverseChannelMap = {
   readonly __typename?: 'UniverseChannelMap';
   readonly availableChannels: Scalars['Int']['output'];
@@ -1269,6 +1423,32 @@ export type UpdateFixtureInstanceInput = {
   readonly startChannel?: InputMaybe<Scalars['Int']['input']>;
   readonly tags?: InputMaybe<ReadonlyArray<Scalars['String']['input']>>;
   readonly universe?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type UpdateResult = {
+  readonly __typename?: 'UpdateResult';
+  readonly error?: Maybe<Scalars['String']['output']>;
+  readonly message?: Maybe<Scalars['String']['output']>;
+  readonly newVersion: Scalars['String']['output'];
+  readonly previousVersion: Scalars['String']['output'];
+  readonly repository: Scalars['String']['output'];
+  readonly success: Scalars['Boolean']['output'];
+};
+
+export type UpdateSceneBoardButtonInput = {
+  readonly color?: InputMaybe<Scalars['String']['input']>;
+  readonly height?: InputMaybe<Scalars['Float']['input']>;
+  readonly label?: InputMaybe<Scalars['String']['input']>;
+  readonly layoutX?: InputMaybe<Scalars['Float']['input']>;
+  readonly layoutY?: InputMaybe<Scalars['Float']['input']>;
+  readonly width?: InputMaybe<Scalars['Float']['input']>;
+};
+
+export type UpdateSceneBoardInput = {
+  readonly defaultFadeTime?: InputMaybe<Scalars['Float']['input']>;
+  readonly description?: InputMaybe<Scalars['String']['input']>;
+  readonly gridSize?: InputMaybe<Scalars['Int']['input']>;
+  readonly name?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateSceneInput = {
@@ -1334,6 +1514,11 @@ export type WiFiStatus = {
   readonly signalStrength?: Maybe<Scalars['Int']['output']>;
   readonly ssid?: Maybe<Scalars['String']['output']>;
 };
+
+export type TestConnectionQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type TestConnectionQuery = { readonly __typename: 'Query' };
 
 export type GetProjectCueListsQueryVariables = Exact<{
   projectId: Scalars['ID']['input'];
@@ -1639,6 +1824,80 @@ export type ImportProjectMutationVariables = Exact<{
 
 export type ImportProjectMutation = { readonly __typename?: 'Mutation', readonly importProject: { readonly __typename?: 'ImportResult', readonly projectId: string, readonly warnings: ReadonlyArray<string>, readonly stats: { readonly __typename?: 'ImportStats', readonly fixtureDefinitionsCreated: number, readonly fixtureInstancesCreated: number, readonly scenesCreated: number, readonly cueListsCreated: number, readonly cuesCreated: number } } };
 
+export type GetProjectSceneBoardsQueryVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+}>;
+
+
+export type GetProjectSceneBoardsQuery = { readonly __typename?: 'Query', readonly sceneBoards: ReadonlyArray<{ readonly __typename?: 'SceneBoard', readonly id: string, readonly name: string, readonly description?: string | null, readonly defaultFadeTime: number, readonly gridSize?: number | null, readonly createdAt: string, readonly updatedAt: string, readonly buttons: ReadonlyArray<{ readonly __typename?: 'SceneBoardButton', readonly id: string, readonly layoutX: number, readonly layoutY: number, readonly width?: number | null, readonly height?: number | null, readonly color?: string | null, readonly label?: string | null, readonly scene: { readonly __typename?: 'Scene', readonly id: string, readonly name: string, readonly description?: string | null } }> }> };
+
+export type GetSceneBoardQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type GetSceneBoardQuery = { readonly __typename?: 'Query', readonly sceneBoard?: { readonly __typename?: 'SceneBoard', readonly id: string, readonly name: string, readonly description?: string | null, readonly defaultFadeTime: number, readonly gridSize?: number | null, readonly createdAt: string, readonly updatedAt: string, readonly project: { readonly __typename?: 'Project', readonly id: string, readonly name: string }, readonly buttons: ReadonlyArray<{ readonly __typename?: 'SceneBoardButton', readonly id: string, readonly layoutX: number, readonly layoutY: number, readonly width?: number | null, readonly height?: number | null, readonly color?: string | null, readonly label?: string | null, readonly createdAt: string, readonly scene: { readonly __typename?: 'Scene', readonly id: string, readonly name: string, readonly description?: string | null } }> } | null };
+
+export type CreateSceneBoardMutationVariables = Exact<{
+  input: CreateSceneBoardInput;
+}>;
+
+
+export type CreateSceneBoardMutation = { readonly __typename?: 'Mutation', readonly createSceneBoard: { readonly __typename?: 'SceneBoard', readonly id: string, readonly name: string, readonly description?: string | null, readonly defaultFadeTime: number, readonly gridSize?: number | null, readonly createdAt: string, readonly buttons: ReadonlyArray<{ readonly __typename?: 'SceneBoardButton', readonly id: string, readonly layoutX: number, readonly layoutY: number, readonly scene: { readonly __typename?: 'Scene', readonly id: string, readonly name: string } }> } };
+
+export type UpdateSceneBoardMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: UpdateSceneBoardInput;
+}>;
+
+
+export type UpdateSceneBoardMutation = { readonly __typename?: 'Mutation', readonly updateSceneBoard: { readonly __typename?: 'SceneBoard', readonly id: string, readonly name: string, readonly description?: string | null, readonly defaultFadeTime: number, readonly gridSize?: number | null, readonly updatedAt: string } };
+
+export type DeleteSceneBoardMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteSceneBoardMutation = { readonly __typename?: 'Mutation', readonly deleteSceneBoard: boolean };
+
+export type AddSceneToBoardMutationVariables = Exact<{
+  input: CreateSceneBoardButtonInput;
+}>;
+
+
+export type AddSceneToBoardMutation = { readonly __typename?: 'Mutation', readonly addSceneToBoard: { readonly __typename?: 'SceneBoardButton', readonly id: string, readonly layoutX: number, readonly layoutY: number, readonly width?: number | null, readonly height?: number | null, readonly color?: string | null, readonly label?: string | null, readonly scene: { readonly __typename?: 'Scene', readonly id: string, readonly name: string, readonly description?: string | null }, readonly sceneBoard: { readonly __typename?: 'SceneBoard', readonly id: string } } };
+
+export type UpdateSceneBoardButtonMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: UpdateSceneBoardButtonInput;
+}>;
+
+
+export type UpdateSceneBoardButtonMutation = { readonly __typename?: 'Mutation', readonly updateSceneBoardButton: { readonly __typename?: 'SceneBoardButton', readonly id: string, readonly layoutX: number, readonly layoutY: number, readonly width?: number | null, readonly height?: number | null, readonly color?: string | null, readonly label?: string | null } };
+
+export type RemoveSceneFromBoardMutationVariables = Exact<{
+  buttonId: Scalars['ID']['input'];
+}>;
+
+
+export type RemoveSceneFromBoardMutation = { readonly __typename?: 'Mutation', readonly removeSceneFromBoard: boolean };
+
+export type UpdateSceneBoardButtonPositionsMutationVariables = Exact<{
+  positions: ReadonlyArray<SceneBoardButtonPositionInput> | SceneBoardButtonPositionInput;
+}>;
+
+
+export type UpdateSceneBoardButtonPositionsMutation = { readonly __typename?: 'Mutation', readonly updateSceneBoardButtonPositions: boolean };
+
+export type ActivateSceneFromBoardMutationVariables = Exact<{
+  sceneBoardId: Scalars['ID']['input'];
+  sceneId: Scalars['ID']['input'];
+  fadeTimeOverride?: InputMaybe<Scalars['Float']['input']>;
+}>;
+
+
+export type ActivateSceneFromBoardMutation = { readonly __typename?: 'Mutation', readonly activateSceneFromBoard: boolean };
+
 export type GetProjectScenesQueryVariables = Exact<{
   projectId: Scalars['ID']['input'];
 }>;
@@ -1788,6 +2047,31 @@ export type SystemInfoUpdatedSubscriptionVariables = Exact<{ [key: string]: neve
 
 export type SystemInfoUpdatedSubscription = { readonly __typename?: 'Subscription', readonly systemInfoUpdated: { readonly __typename?: 'SystemInfo', readonly artnetBroadcastAddress: string, readonly artnetEnabled: boolean } };
 
+export type GetSystemVersionsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetSystemVersionsQuery = { readonly __typename?: 'Query', readonly systemVersions: { readonly __typename?: 'SystemVersionInfo', readonly versionManagementSupported: boolean, readonly lastChecked: string, readonly repositories: ReadonlyArray<{ readonly __typename?: 'RepositoryVersion', readonly repository: string, readonly installed: string, readonly latest: string, readonly updateAvailable: boolean }> } };
+
+export type GetAvailableVersionsQueryVariables = Exact<{
+  repository: Scalars['String']['input'];
+}>;
+
+
+export type GetAvailableVersionsQuery = { readonly __typename?: 'Query', readonly availableVersions: ReadonlyArray<string> };
+
+export type UpdateRepositoryMutationVariables = Exact<{
+  repository: Scalars['String']['input'];
+  version?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type UpdateRepositoryMutation = { readonly __typename?: 'Mutation', readonly updateRepository: { readonly __typename?: 'UpdateResult', readonly success: boolean, readonly repository: string, readonly previousVersion: string, readonly newVersion: string, readonly message?: string | null, readonly error?: string | null } };
+
+export type UpdateAllRepositoriesMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type UpdateAllRepositoriesMutation = { readonly __typename?: 'Mutation', readonly updateAllRepositories: ReadonlyArray<{ readonly __typename?: 'UpdateResult', readonly success: boolean, readonly repository: string, readonly previousVersion: string, readonly newVersion: string, readonly message?: string | null, readonly error?: string | null }> };
+
 export type WiFiNetworksQueryVariables = Exact<{
   rescan?: InputMaybe<Scalars['Boolean']['input']>;
 }>;
@@ -1838,6 +2122,7 @@ export type WiFiStatusUpdatedSubscriptionVariables = Exact<{ [key: string]: neve
 export type WiFiStatusUpdatedSubscription = { readonly __typename?: 'Subscription', readonly wifiStatusUpdated: { readonly __typename?: 'WiFiStatus', readonly available: boolean, readonly enabled: boolean, readonly connected: boolean, readonly ssid?: string | null, readonly signalStrength?: number | null, readonly ipAddress?: string | null, readonly macAddress?: string | null, readonly frequency?: string | null } };
 
 
+export const TestConnectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"TestConnection"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}}]}}]} as unknown as DocumentNode<TestConnectionQuery, TestConnectionQueryVariables>;
 export const GetProjectCueListsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetProjectCueLists"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"project"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"cueLists"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"loop"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"cues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"cueNumber"}},{"kind":"Field","name":{"kind":"Name","value":"scene"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"fadeInTime"}},{"kind":"Field","name":{"kind":"Name","value":"fadeOutTime"}},{"kind":"Field","name":{"kind":"Name","value":"followTime"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}}]}}]}}]}}]}}]} as unknown as DocumentNode<GetProjectCueListsQuery, GetProjectCueListsQueryVariables>;
 export const GetCueListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetCueList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cueList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"loop"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"project"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"cues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"cueNumber"}},{"kind":"Field","name":{"kind":"Name","value":"scene"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}}]}},{"kind":"Field","name":{"kind":"Name","value":"fadeInTime"}},{"kind":"Field","name":{"kind":"Name","value":"fadeOutTime"}},{"kind":"Field","name":{"kind":"Name","value":"followTime"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}}]}}]}}]}}]} as unknown as DocumentNode<GetCueListQuery, GetCueListQueryVariables>;
 export const CreateCueListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateCueList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateCueListInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createCueList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"loop"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"cues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"cueNumber"}}]}}]}}]}}]} as unknown as DocumentNode<CreateCueListMutation, CreateCueListMutationVariables>;
@@ -1879,6 +2164,16 @@ export const GetQlcFixtureMappingSuggestionsDocument = {"kind":"Document","defin
 export const ExportProjectToQlcDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ExportProjectToQLC"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"fixtureMappings"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"FixtureMappingInput"}}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exportProjectToQLC"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"fixtureMappings"},"value":{"kind":"Variable","name":{"kind":"Name","value":"fixtureMappings"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectName"}},{"kind":"Field","name":{"kind":"Name","value":"xmlContent"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureCount"}},{"kind":"Field","name":{"kind":"Name","value":"sceneCount"}},{"kind":"Field","name":{"kind":"Name","value":"cueListCount"}}]}}]}}]} as unknown as DocumentNode<ExportProjectToQlcMutation, ExportProjectToQlcMutationVariables>;
 export const ExportProjectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ExportProject"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"options"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"ExportOptionsInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exportProject"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"options"},"value":{"kind":"Variable","name":{"kind":"Name","value":"options"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"projectName"}},{"kind":"Field","name":{"kind":"Name","value":"jsonContent"}},{"kind":"Field","name":{"kind":"Name","value":"stats"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fixtureDefinitionsCount"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureInstancesCount"}},{"kind":"Field","name":{"kind":"Name","value":"scenesCount"}},{"kind":"Field","name":{"kind":"Name","value":"cueListsCount"}},{"kind":"Field","name":{"kind":"Name","value":"cuesCount"}}]}}]}}]}}]} as unknown as DocumentNode<ExportProjectMutation, ExportProjectMutationVariables>;
 export const ImportProjectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ImportProject"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"jsonContent"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"options"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ImportOptionsInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"importProject"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"jsonContent"},"value":{"kind":"Variable","name":{"kind":"Name","value":"jsonContent"}}},{"kind":"Argument","name":{"kind":"Name","value":"options"},"value":{"kind":"Variable","name":{"kind":"Name","value":"options"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"stats"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fixtureDefinitionsCreated"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureInstancesCreated"}},{"kind":"Field","name":{"kind":"Name","value":"scenesCreated"}},{"kind":"Field","name":{"kind":"Name","value":"cueListsCreated"}},{"kind":"Field","name":{"kind":"Name","value":"cuesCreated"}}]}},{"kind":"Field","name":{"kind":"Name","value":"warnings"}}]}}]}}]} as unknown as DocumentNode<ImportProjectMutation, ImportProjectMutationVariables>;
+export const GetProjectSceneBoardsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetProjectSceneBoards"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"sceneBoards"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"defaultFadeTime"}},{"kind":"Field","name":{"kind":"Name","value":"gridSize"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"buttons"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"layoutX"}},{"kind":"Field","name":{"kind":"Name","value":"layoutY"}},{"kind":"Field","name":{"kind":"Name","value":"width"}},{"kind":"Field","name":{"kind":"Name","value":"height"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"scene"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}}]}}]}}]}}]}}]} as unknown as DocumentNode<GetProjectSceneBoardsQuery, GetProjectSceneBoardsQueryVariables>;
+export const GetSceneBoardDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSceneBoard"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"sceneBoard"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"defaultFadeTime"}},{"kind":"Field","name":{"kind":"Name","value":"gridSize"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"project"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"buttons"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"layoutX"}},{"kind":"Field","name":{"kind":"Name","value":"layoutY"}},{"kind":"Field","name":{"kind":"Name","value":"width"}},{"kind":"Field","name":{"kind":"Name","value":"height"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"scene"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}}]}}]}}]}}]}}]} as unknown as DocumentNode<GetSceneBoardQuery, GetSceneBoardQueryVariables>;
+export const CreateSceneBoardDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateSceneBoard"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateSceneBoardInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createSceneBoard"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"defaultFadeTime"}},{"kind":"Field","name":{"kind":"Name","value":"gridSize"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"buttons"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"layoutX"}},{"kind":"Field","name":{"kind":"Name","value":"layoutY"}},{"kind":"Field","name":{"kind":"Name","value":"scene"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]}}]}}]} as unknown as DocumentNode<CreateSceneBoardMutation, CreateSceneBoardMutationVariables>;
+export const UpdateSceneBoardDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateSceneBoard"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateSceneBoardInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateSceneBoard"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}},{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"defaultFadeTime"}},{"kind":"Field","name":{"kind":"Name","value":"gridSize"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<UpdateSceneBoardMutation, UpdateSceneBoardMutationVariables>;
+export const DeleteSceneBoardDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteSceneBoard"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteSceneBoard"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode<DeleteSceneBoardMutation, DeleteSceneBoardMutationVariables>;
+export const AddSceneToBoardDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AddSceneToBoard"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateSceneBoardButtonInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"addSceneToBoard"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"layoutX"}},{"kind":"Field","name":{"kind":"Name","value":"layoutY"}},{"kind":"Field","name":{"kind":"Name","value":"width"}},{"kind":"Field","name":{"kind":"Name","value":"height"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"scene"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}}]}},{"kind":"Field","name":{"kind":"Name","value":"sceneBoard"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]}}]} as unknown as DocumentNode<AddSceneToBoardMutation, AddSceneToBoardMutationVariables>;
+export const UpdateSceneBoardButtonDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateSceneBoardButton"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateSceneBoardButtonInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateSceneBoardButton"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}},{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"layoutX"}},{"kind":"Field","name":{"kind":"Name","value":"layoutY"}},{"kind":"Field","name":{"kind":"Name","value":"width"}},{"kind":"Field","name":{"kind":"Name","value":"height"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"label"}}]}}]}}]} as unknown as DocumentNode<UpdateSceneBoardButtonMutation, UpdateSceneBoardButtonMutationVariables>;
+export const RemoveSceneFromBoardDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RemoveSceneFromBoard"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"buttonId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"removeSceneFromBoard"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"buttonId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"buttonId"}}}]}]}}]} as unknown as DocumentNode<RemoveSceneFromBoardMutation, RemoveSceneFromBoardMutationVariables>;
+export const UpdateSceneBoardButtonPositionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateSceneBoardButtonPositions"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"positions"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SceneBoardButtonPositionInput"}}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateSceneBoardButtonPositions"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"positions"},"value":{"kind":"Variable","name":{"kind":"Name","value":"positions"}}}]}]}}]} as unknown as DocumentNode<UpdateSceneBoardButtonPositionsMutation, UpdateSceneBoardButtonPositionsMutationVariables>;
+export const ActivateSceneFromBoardDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ActivateSceneFromBoard"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"sceneBoardId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"sceneId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"fadeTimeOverride"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Float"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"activateSceneFromBoard"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"sceneBoardId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"sceneBoardId"}}},{"kind":"Argument","name":{"kind":"Name","value":"sceneId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"sceneId"}}},{"kind":"Argument","name":{"kind":"Name","value":"fadeTimeOverride"},"value":{"kind":"Variable","name":{"kind":"Name","value":"fadeTimeOverride"}}}]}]}}]} as unknown as DocumentNode<ActivateSceneFromBoardMutation, ActivateSceneFromBoardMutationVariables>;
 export const GetProjectScenesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetProjectScenes"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"project"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"scenes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureValues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"fixture"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"universe"}},{"kind":"Field","name":{"kind":"Name","value":"startChannel"}},{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"modeName"}},{"kind":"Field","name":{"kind":"Name","value":"channelCount"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}},{"kind":"Field","name":{"kind":"Name","value":"defaultValue"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"channelValues"}}]}}]}}]}}]}}]} as unknown as DocumentNode<GetProjectScenesQuery, GetProjectScenesQueryVariables>;
 export const GetSceneDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetScene"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"scene"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"project"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"fixtureValues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"fixture"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"universe"}},{"kind":"Field","name":{"kind":"Name","value":"startChannel"}},{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"modeName"}},{"kind":"Field","name":{"kind":"Name","value":"channelCount"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}},{"kind":"Field","name":{"kind":"Name","value":"defaultValue"}}]}},{"kind":"Field","name":{"kind":"Name","value":"layoutX"}},{"kind":"Field","name":{"kind":"Name","value":"layoutY"}},{"kind":"Field","name":{"kind":"Name","value":"layoutRotation"}}]}},{"kind":"Field","name":{"kind":"Name","value":"channelValues"}}]}}]}}]}}]} as unknown as DocumentNode<GetSceneQuery, GetSceneQueryVariables>;
 export const CreateSceneDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateScene"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateSceneInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createScene"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureValues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fixture"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"channelValues"}}]}}]}}]}}]} as unknown as DocumentNode<CreateSceneMutation, CreateSceneMutationVariables>;
@@ -1901,6 +2196,10 @@ export const UpdateSettingDocument = {"kind":"Document","definitions":[{"kind":"
 export const GetSystemInfoDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSystemInfo"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"systemInfo"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"artnetBroadcastAddress"}},{"kind":"Field","name":{"kind":"Name","value":"artnetEnabled"}}]}}]}}]} as unknown as DocumentNode<GetSystemInfoQuery, GetSystemInfoQueryVariables>;
 export const GetNetworkInterfaceOptionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetNetworkInterfaceOptions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"networkInterfaceOptions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"address"}},{"kind":"Field","name":{"kind":"Name","value":"broadcast"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"interfaceType"}}]}}]}}]} as unknown as DocumentNode<GetNetworkInterfaceOptionsQuery, GetNetworkInterfaceOptionsQueryVariables>;
 export const SystemInfoUpdatedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"SystemInfoUpdated"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"systemInfoUpdated"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"artnetBroadcastAddress"}},{"kind":"Field","name":{"kind":"Name","value":"artnetEnabled"}}]}}]}}]} as unknown as DocumentNode<SystemInfoUpdatedSubscription, SystemInfoUpdatedSubscriptionVariables>;
+export const GetSystemVersionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSystemVersions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"systemVersions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"versionManagementSupported"}},{"kind":"Field","name":{"kind":"Name","value":"repositories"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"repository"}},{"kind":"Field","name":{"kind":"Name","value":"installed"}},{"kind":"Field","name":{"kind":"Name","value":"latest"}},{"kind":"Field","name":{"kind":"Name","value":"updateAvailable"}}]}},{"kind":"Field","name":{"kind":"Name","value":"lastChecked"}}]}}]}}]} as unknown as DocumentNode<GetSystemVersionsQuery, GetSystemVersionsQueryVariables>;
+export const GetAvailableVersionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetAvailableVersions"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"repository"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"availableVersions"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"repository"},"value":{"kind":"Variable","name":{"kind":"Name","value":"repository"}}}]}]}}]} as unknown as DocumentNode<GetAvailableVersionsQuery, GetAvailableVersionsQueryVariables>;
+export const UpdateRepositoryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateRepository"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"repository"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"version"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateRepository"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"repository"},"value":{"kind":"Variable","name":{"kind":"Name","value":"repository"}}},{"kind":"Argument","name":{"kind":"Name","value":"version"},"value":{"kind":"Variable","name":{"kind":"Name","value":"version"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"repository"}},{"kind":"Field","name":{"kind":"Name","value":"previousVersion"}},{"kind":"Field","name":{"kind":"Name","value":"newVersion"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"error"}}]}}]}}]} as unknown as DocumentNode<UpdateRepositoryMutation, UpdateRepositoryMutationVariables>;
+export const UpdateAllRepositoriesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateAllRepositories"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateAllRepositories"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"repository"}},{"kind":"Field","name":{"kind":"Name","value":"previousVersion"}},{"kind":"Field","name":{"kind":"Name","value":"newVersion"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"error"}}]}}]}}]} as unknown as DocumentNode<UpdateAllRepositoriesMutation, UpdateAllRepositoriesMutationVariables>;
 export const WiFiNetworksDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"WiFiNetworks"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"rescan"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Boolean"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"wifiNetworks"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"rescan"},"value":{"kind":"Variable","name":{"kind":"Name","value":"rescan"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"ssid"}},{"kind":"Field","name":{"kind":"Name","value":"signalStrength"}},{"kind":"Field","name":{"kind":"Name","value":"frequency"}},{"kind":"Field","name":{"kind":"Name","value":"security"}},{"kind":"Field","name":{"kind":"Name","value":"inUse"}},{"kind":"Field","name":{"kind":"Name","value":"saved"}}]}}]}}]} as unknown as DocumentNode<WiFiNetworksQuery, WiFiNetworksQueryVariables>;
 export const WiFiStatusDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"WiFiStatus"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"wifiStatus"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"available"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"connected"}},{"kind":"Field","name":{"kind":"Name","value":"ssid"}},{"kind":"Field","name":{"kind":"Name","value":"signalStrength"}},{"kind":"Field","name":{"kind":"Name","value":"ipAddress"}},{"kind":"Field","name":{"kind":"Name","value":"macAddress"}},{"kind":"Field","name":{"kind":"Name","value":"frequency"}}]}}]}}]} as unknown as DocumentNode<WiFiStatusQuery, WiFiStatusQueryVariables>;
 export const SavedWiFiNetworksDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"SavedWiFiNetworks"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"savedWifiNetworks"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"ssid"}},{"kind":"Field","name":{"kind":"Name","value":"signalStrength"}},{"kind":"Field","name":{"kind":"Name","value":"frequency"}},{"kind":"Field","name":{"kind":"Name","value":"security"}},{"kind":"Field","name":{"kind":"Name","value":"inUse"}},{"kind":"Field","name":{"kind":"Name","value":"saved"}}]}}]}}]} as unknown as DocumentNode<SavedWiFiNetworksQuery, SavedWiFiNetworksQueryVariables>;

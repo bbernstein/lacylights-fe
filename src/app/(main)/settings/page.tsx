@@ -5,6 +5,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import { GET_SETTINGS, UPDATE_SETTING, GET_NETWORK_INTERFACE_OPTIONS, GET_SYSTEM_INFO } from '@/graphql/settings';
 import { Setting, UpdateSettingInput, NetworkInterfaceOption, SystemInfo } from '@/types';
 import WiFiSettings from './WiFiSettings';
+import VersionManagement from './VersionManagement';
 
 interface SettingDefinition {
   key: string;
@@ -104,6 +105,12 @@ export default function SettingsPage() {
 
       {/* WiFi Configuration Section - Only show on systems with WiFi support */}
       <WiFiSettings />
+
+      {/* Version Management Section */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Version Management</h2>
+        <VersionManagement />
+      </div>
 
       {/* Art-Net Configuration Section */}
       <div>
