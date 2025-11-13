@@ -329,9 +329,9 @@ describe('SceneEditorModal', () => {
         expect(screen.getByLabelText(/scene name/i)).toBeInTheDocument();
       });
 
-      const nameInput = screen.getByLabelText(/scene name/i);
-      await userEvent.clear(nameInput);
-      await userEvent.type(nameInput, 'Updated Scene');
+      const nameInput = screen.getByLabelText(/scene name/i) as HTMLInputElement;
+      // Clear by setting value directly, then trigger change event
+      fireEvent.change(nameInput, { target: { value: 'Updated Scene' } });
 
       expect(nameInput).toHaveValue('Updated Scene');
     });
