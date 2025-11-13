@@ -26,6 +26,7 @@
 
 # backup files
 *.bak
+src/app/_api_backup
 
 # debug
 npm-debug.log*
