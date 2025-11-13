@@ -10,9 +10,9 @@ const mockRedChannel: SliderChannel = {
   maxValue: 255,
 };
 
-const mockDimmerChannel: SliderChannel = {
-  name: 'Dimmer',
-  type: ChannelType.DIMMER,
+const mockIntensityChannel: SliderChannel = {
+  name: 'Intensity',
+  type: ChannelType.INTENSITY,
   minValue: 0,
   maxValue: 255,
 };
@@ -95,12 +95,12 @@ describe('ChannelSlider', () => {
     }
   });
 
-  it('handles dimmer channel type', () => {
+  it('handles intensity channel type', () => {
     const handleChange = jest.fn();
 
     render(
       <ChannelSlider
-        channel={mockDimmerChannel}
+        channel={mockIntensityChannel}
         value={255}
         onChange={handleChange}
       />
