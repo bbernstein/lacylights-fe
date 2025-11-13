@@ -156,7 +156,7 @@ jobs:
           mkdir -p lacylights-fe-static
           cp -r out/ package.json package-lock.json next.config.js lacylights-fe-static/
           # Note: node_modules, src/, and .next/ not needed for static export (nginx serves static files from out/)
-          tar -czf lacylights-fe-static-${{ steps.new_version.outputs.version }}.tar.gz \
+          tar -czf lacylights-fe-static-v${{ steps.new_version.outputs.version }}.tar.gz \
             lacylights-fe-static/
           rm -rf lacylights-fe-static
 
@@ -182,7 +182,7 @@ jobs:
           # Create directory structure for extraction
           mkdir -p lacylights-fe-server
           cp -r src/ .next/ public/ node_modules/ package.json package-lock.json next.config.js lacylights-fe-server/
-          tar -czf lacylights-fe-server-${{ steps.new_version.outputs.version }}.tar.gz \
+          tar -czf lacylights-fe-server-v${{ steps.new_version.outputs.version }}.tar.gz \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='node_modules/.cache' \
@@ -197,8 +197,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           gh release upload v${{ steps.new_version.outputs.version }} \
-            lacylights-fe-static-${{ steps.new_version.outputs.version }}.tar.gz \
-            lacylights-fe-server-${{ steps.new_version.outputs.version }}.tar.gz \
+            lacylights-fe-static-v${{ steps.new_version.outputs.version }}.tar.gz \
+            lacylights-fe-server-v${{ steps.new_version.outputs.version }}.tar.gz \
             --clobber
 
       - name: Summary
