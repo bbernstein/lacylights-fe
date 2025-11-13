@@ -147,21 +147,16 @@ jobs:
         run: |
           # Build the Next.js application for static export (RPi deployment)
           npm run build:static
-          # Verify BUILD_ID exists (critical for production mode)
-          test -f .next/BUILD_ID || (echo "ERROR: BUILD_ID not found after build" && exit 1)
+          # Verify out directory exists (critical for static export)
+          test -d out || (echo "ERROR: out directory not found after static build" && exit 1)
 
       - name: Create static export archive (RPi)
         run: |
           # Create directory structure for extraction
           mkdir -p lacylights-fe-static
-          cp -r src/ .next/ public/ package.json package-lock.json next.config.js lacylights-fe-static/
-          # Note: node_modules not needed for static export (served by nginx)
+          cp -r out/ package.json package-lock.json next.config.js lacylights-fe-static/
+          # Note: node_modules, src/, and .next/ not needed for static export (nginx serves static files from out/)
           tar -czf lacylights-fe-static-${{ steps.new_version.outputs.version }}.tar.gz \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='*.test.ts' \
-            --exclude='*.test.tsx' \
-            --exclude='__tests__' \
             lacylights-fe-static/
           rm -rf lacylights-fe-static
 
@@ -169,6 +164,8 @@ jobs:
         run: |
           # Clean previous build
           rm -rf .next
+          # Reinstall dependencies for clean state
+          npm ci
           # Build for server mode with API routes
           npm run build
           # Verify BUILD_ID exists (critical for production mode)
