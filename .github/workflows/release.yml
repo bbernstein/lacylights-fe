@@ -142,8 +142,8 @@ jobs:
         run: |
           # Install all dependencies (including dev) for the build step
           npm ci
-          # Build the Next.js application
-          npm run build
+          # Build the Next.js application for static export (RPi deployment)
+          npm run build:static
           # Verify BUILD_ID exists (critical for production mode)
           test -f .next/BUILD_ID || (echo "ERROR: BUILD_ID not found after build" && exit 1)
 
