@@ -437,6 +437,11 @@ describe('CueListUnifiedView', () => {
     it('renders cue list with header', async () => {
       renderWithProvider();
 
+      // Wait for loading to complete before checking for the data
+      await waitFor(() => {
+        expect(screen.queryByText('Loading cue list...')).not.toBeInTheDocument();
+      });
+
       await waitFor(() => {
         expect(screen.getByDisplayValue('Test Cue List')).toBeInTheDocument();
         expect(screen.getByText('EDIT MODE')).toBeInTheDocument();
