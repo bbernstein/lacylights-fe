@@ -138,12 +138,36 @@ jobs:
               generate_release_notes: true
             });
 
-      - name: Install dependencies and build
+      - name: Install dependencies
         run: |
           # Install all dependencies (including dev) for the build step
           npm ci
+
+      - name: Build static export (for RPi)
+        run: |
           # Build the Next.js application for static export (RPi deployment)
           npm run build:static
+          # Verify out directory exists (critical for static export)
+          test -d out || (echo "ERROR: out directory not found after static build" && exit 1)
+
+      - name: Create static export archive (RPi)
+        run: |
+          # Create directory structure for extraction
+          mkdir -p lacylights-fe-static
+          cp -r out/ package.json package-lock.json next.config.js lacylights-fe-static/
+          # Note: node_modules, src/, and .next/ not needed for static export (nginx serves static files from out/)
+          tar -czf lacylights-fe-static-${{ steps.new_version.outputs.version }}.tar.gz \
+            lacylights-fe-static/
+          rm -rf lacylights-fe-static
+
+      - name: Build server mode (for Mac app)
+        run: |
+          # Clean previous build
+          rm -rf .next
+          # Reinstall dependencies for clean state
+          npm ci
+          # Build for server mode with API routes
+          npm run build
           # Verify BUILD_ID exists (critical for production mode)
           test -f .next/BUILD_ID || (echo "ERROR: BUILD_ID not found after build" && exit 1)
 
@@ -153,27 +177,28 @@ jobs:
           # Using npm prune instead of removing node_modules entirely
           npm prune --omit=dev
 
-      - name: Create release archive
+      - name: Create server mode archive (Mac app)
         run: |
           # Create directory structure for extraction
-          mkdir -p lacylights-fe
-          cp -r src/ .next/ public/ node_modules/ package.json package-lock.json next.config.js lacylights-fe/
-          tar -czf lacylights-fe-${{ steps.new_version.outputs.version }}.tar.gz \
+          mkdir -p lacylights-fe-server
+          cp -r src/ .next/ public/ node_modules/ package.json package-lock.json next.config.js lacylights-fe-server/
+          tar -czf lacylights-fe-server-${{ steps.new_version.outputs.version }}.tar.gz \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='node_modules/.cache' \
             --exclude='*.test.ts' \
             --exclude='*.test.tsx' \
             --exclude='__tests__' \
-            lacylights-fe/
-          rm -rf lacylights-fe
+            lacylights-fe-server/
+          rm -rf lacylights-fe-server
 
-      - name: Upload release asset
+      - name: Upload release assets
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           gh release upload v${{ steps.new_version.outputs.version }} \
-            lacylights-fe-${{ steps.new_version.outputs.version }}.tar.gz \
+            lacylights-fe-static-${{ steps.new_version.outputs.version }}.tar.gz \
+            lacylights-fe-server-${{ steps.new_version.outputs.version }}.tar.gz \
             --clobber
 
       - name: Summary
