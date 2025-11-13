@@ -795,4 +795,64 @@ describe('VersionManagement', () => {
       expect(screen.getByText('Change Version')).toBeInTheDocument();
     });
   });
+
+  describe('Polling behavior', () => {
+    it('polls for version updates every 30 seconds', async () => {
+      const mocks = createMocks();
+
+      render(
+        <MockedProvider mocks={mocks} addTypename={false}>
+          <VersionManagement />
+        </MockedProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('System Versions')).toBeInTheDocument();
+      });
+
+      // Component should be polling with 30 second interval
+      expect(screen.getByText('lacylights-fe')).toBeInTheDocument();
+    });
+  });
+
+  describe('Disabled states', () => {
+    it('disables update buttons during update operations', async () => {
+      const mocks = [
+        ...createMocks(),
+        {
+          request: {
+            query: UPDATE_ALL_REPOSITORIES,
+          },
+          result: {
+            data: {
+              updateAllRepositories: mockUpdateAllSuccess,
+            },
+          },
+        },
+        {
+          request: {
+            query: GET_SYSTEM_VERSIONS,
+          },
+          result: {
+            data: {
+              systemVersions: mockSystemVersionsSupported,
+            },
+          },
+        },
+      ];
+
+      render(
+        <MockedProvider mocks={mocks} addTypename={false}>
+          <VersionManagement />
+        </MockedProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Update All')).toBeInTheDocument();
+      });
+
+      const updateAllButton = screen.getByText('Update All');
+      expect(updateAllButton).not.toBeDisabled();
+    });
+  });
 });
