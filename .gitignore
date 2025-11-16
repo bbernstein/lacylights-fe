@@ -20,6 +20,9 @@
 # production
 /build
 
+# Extracted release directories (e.g., lacylights-fe-0.5.5/)
+lacylights-fe-*/
+
 # misc
 .DS_Store
 *.pem
