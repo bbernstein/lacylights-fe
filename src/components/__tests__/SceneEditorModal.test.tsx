@@ -360,8 +360,11 @@ describe('SceneEditorModal', () => {
       const nameInput = screen.getByLabelText(/scene name/i);
       await userEvent.clear(nameInput);
 
-      const saveButton = screen.getByRole('button', { name: /save changes/i });
-      expect(saveButton).toBeDisabled();
+      // Wait for React to re-render after the state change
+      await waitFor(() => {
+        const saveButton = screen.getByRole('button', { name: /save changes/i });
+        expect(saveButton).toBeDisabled();
+      });
     });
   });
 
