@@ -24,12 +24,52 @@ interface ImportExportButtonsProps {
 type ExportFormat = 'lacylights' | 'qlcplus';
 type ImportFormat = 'auto' | 'lacylights' | 'qlcplus';
 
+// Type definition for the native Mac app bridge
+interface LacyLightsBridge {
+  download: (content: string, filename: string) => void;
+  send: (message: Record<string, unknown>) => void;
+  log: (message: string) => void;
+  error: (message: string) => void;
+  getAppVersion: () => void;
+}
+
+// Extend Window interface to include the lacylights bridge
+declare global {
+  interface Window {
+    lacylights?: LacyLightsBridge;
+  }
+}
+
 /**
  * Format error message from caught exception
  */
 function formatErrorMessage(error: unknown, prefix: string): string {
   const errorMessage = error instanceof Error ? error.message : String(error);
   return `${prefix} ${errorMessage}`;
+}
+
+/**
+ * Download file using native Mac app bridge if available, otherwise use browser download
+ */
+function downloadFile(content: string, filename: string): void {
+  // Check if running in Mac app with native bridge
+  if (typeof window !== 'undefined' && window.lacylights?.download) {
+    // Use native Mac app download
+    window.lacylights.download(content, filename);
+  } else {
+    // Fallback to browser download
+    const blob = new Blob([content], {
+      type: filename.endsWith('.json') ? 'application/json' : 'application/xml'
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
 }
 
 /**
@@ -228,15 +268,8 @@ export default function ImportExportButtons({
 
           if (result.data?.exportProjectToQLC) {
             const exportResult = result.data.exportProjectToQLC;
-            const blob = new Blob([exportResult.xmlContent], { type: 'application/xml' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${sanitizeFilename(exportResult.projectName)}.qxw`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            const filename = `${sanitizeFilename(exportResult.projectName)}.qxw`;
+            downloadFile(exportResult.xmlContent, filename);
           }
         }
       } else {
@@ -254,15 +287,8 @@ export default function ImportExportButtons({
 
         if (result.data?.exportProject) {
           const exportResult = result.data.exportProject;
-          const blob = new Blob([exportResult.jsonContent], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `${sanitizeFilename(exportResult.projectName)}.json`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
+          const filename = `${sanitizeFilename(exportResult.projectName)}.json`;
+          downloadFile(exportResult.jsonContent, filename);
         }
       }
     } catch (error) {
