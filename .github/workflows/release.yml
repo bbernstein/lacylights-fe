@@ -233,7 +233,6 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_DIST_REGION }}
         run: |
           COMPONENT="fe-static"
-          VERSION="${{ steps.new_version.outputs.version }}"
           ARTIFACT="${{ steps.checksum.outputs.static_artifact }}"
 
           echo "Uploading $ARTIFACT to S3..."
@@ -250,7 +249,6 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_DIST_REGION }}
         run: |
           COMPONENT="fe-server"
-          VERSION="${{ steps.new_version.outputs.version }}"
           ARTIFACT="${{ steps.checksum.outputs.server_artifact }}"
 
           echo "Uploading $ARTIFACT to S3..."
