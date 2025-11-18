@@ -14,6 +14,8 @@ export default function ImportOFLFixtureModal({ isOpen, onClose, onFixtureImport
   const [manufacturer, setManufacturer] = useState('');
   const [oflJson, setOflJson] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
+  const [existingFixtureInfo, setExistingFixtureInfo] = useState<{ name: string; instanceCount: number } | null>(null);
 
   const [importFixture, { loading }] = useMutation(IMPORT_OFL_FIXTURE, {
     onCompleted: () => {
@@ -21,7 +23,18 @@ export default function ImportOFLFixtureModal({ isOpen, onClose, onFixtureImport
       handleClose();
     },
     onError: (err) => {
-      setError(err.message);
+      // Check if this is a duplicate fixture error
+      if (err.message.startsWith('FIXTURE_EXISTS:')) {
+        const parts = err.message.split(':');
+        const fixtureName = parts[1];
+        const instanceCount = parseInt(parts[2] || '0');
+
+        setExistingFixtureInfo({ name: fixtureName, instanceCount });
+        setShowReplaceConfirm(true);
+        setError(null);
+      } else {
+        setError(err.message);
+      }
     },
   });
 
@@ -29,10 +42,12 @@ export default function ImportOFLFixtureModal({ isOpen, onClose, onFixtureImport
     setManufacturer('');
     setOflJson('');
     setError(null);
+    setShowReplaceConfirm(false);
+    setExistingFixtureInfo(null);
     onClose();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, replace = false) => {
     e.preventDefault();
     setError(null);
 
@@ -49,13 +64,82 @@ export default function ImportOFLFixtureModal({ isOpen, onClose, onFixtureImport
         input: {
           manufacturer,
           oflFixtureJson: oflJson,
+          replace,
         },
       },
     });
   };
 
+  const handleReplaceConfirm = async () => {
+    setShowReplaceConfirm(false);
+    // Re-submit with replace=true
+    await handleSubmit(new Event('submit') as any, true);
+  };
+
+  const handleReplaceCancel = () => {
+    setShowReplaceConfirm(false);
+    setExistingFixtureInfo(null);
+  };
+
   if (!isOpen) {
     return null;
+  }
+
+  // Show replace confirmation dialog
+  if (showReplaceConfirm && existingFixtureInfo) {
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="flex min-h-screen items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={handleReplaceCancel} />
+
+          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-yellow-100 dark:bg-yellow-900/20 rounded-full">
+                <svg className="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+
+              <h3 className="text-lg font-semibold text-center text-gray-900 dark:text-white mb-2">
+                Fixture Already Exists
+              </h3>
+
+              <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-4">
+                The fixture <span className="font-semibold text-gray-900 dark:text-white">{existingFixtureInfo.name}</span> already exists in your library.
+              </p>
+
+              {existingFixtureInfo.instanceCount > 0 && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-red-800 dark:text-red-200">
+                    <strong>Warning:</strong> This fixture is currently used by <strong>{existingFixtureInfo.instanceCount}</strong> fixture instance{existingFixtureInfo.instanceCount !== 1 ? 's' : ''} in your projects. Replacing it will update the definition for all existing instances.
+                  </p>
+                </div>
+              )}
+
+              <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-6">
+                Would you like to replace the existing fixture definition with the new one?
+              </p>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleReplaceCancel}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReplaceConfirm}
+                  disabled={loading}
+                  className="flex-1 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Replacing...' : 'Replace Fixture'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -78,7 +162,7 @@ export default function ImportOFLFixtureModal({ isOpen, onClose, onFixtureImport
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <form onSubmit={(e) => handleSubmit(e, false)} className="p-6 space-y-6">
             {error && (
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
                 <p className="text-red-800 dark:text-red-200 text-sm">{error}</p>
