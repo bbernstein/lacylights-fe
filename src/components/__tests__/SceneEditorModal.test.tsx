@@ -357,8 +357,10 @@ describe('SceneEditorModal', () => {
         expect(screen.getByLabelText(/scene name/i)).toBeInTheDocument();
       });
 
-      const nameInput = screen.getByLabelText(/scene name/i);
-      await userEvent.clear(nameInput);
+      const nameInput = screen.getByLabelText(/scene name/i) as HTMLInputElement;
+
+      // Use fireEvent.change to directly set empty value for more reliable test behavior
+      fireEvent.change(nameInput, { target: { value: '' } });
 
       // Wait for React to re-render after the state change
       await waitFor(() => {
