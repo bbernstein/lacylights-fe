@@ -1,8 +1,12 @@
+// TEMPORARY: This component is disabled until backend PR #65 is merged
+// The IMPORT_OFL_FIXTURE mutation doesn't exist in backend main branch yet
+// This is a placeholder to prevent contract test failures
+
 'use client';
 
-import { useState } from 'react';
-import { useMutation } from '@apollo/client';
-import { IMPORT_OFL_FIXTURE } from '@/graphql/fixtures';
+// import { useState } from 'react';
+// import { useMutation } from '@apollo/client';
+// import { IMPORT_OFL_FIXTURE } from '@/graphql/fixtures';
 
 interface ImportOFLFixtureModalProps {
   isOpen: boolean;
@@ -10,6 +14,38 @@ interface ImportOFLFixtureModalProps {
   onFixtureImported: () => void;
 }
 
+export default function ImportOFLFixtureModal({ isOpen, onClose }: ImportOFLFixtureModalProps) {
+  // Placeholder implementation - full functionality coming soon
+  if (!isOpen) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose} />
+
+        <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Import OFL Fixture
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            This feature is coming soon. Backend integration is in progress.
+          </p>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// FULL IMPLEMENTATION BELOW - Uncomment when backend PR #65 is merged
+/*
 export default function ImportOFLFixtureModal({ isOpen, onClose, onFixtureImported }: ImportOFLFixtureModalProps) {
   const [manufacturer, setManufacturer] = useState('');
   const [oflJson, setOflJson] = useState('');
@@ -291,3 +327,4 @@ export default function ImportOFLFixtureModal({ isOpen, onClose, onFixtureImport
     </div>
   );
 }
+*/

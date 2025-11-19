@@ -78,28 +78,31 @@ export const DELETE_FIXTURE_INSTANCE = gql`
   }
 `;
 
-export const IMPORT_OFL_FIXTURE = gql`
-  mutation ImportOFLFixture($input: ImportOFLFixtureInput!) {
-    importOFLFixture(input: $input) {
-      id
-      manufacturer
-      model
-      type
-      channels {
-        id
-        name
-        type
-        offset
-      }
-      modes {
-        id
-        name
-        shortName
-        channelCount
-      }
-    }
-  }
-`;
+// TEMPORARY: Commented out until backend PR #65 is merged
+// This mutation exists in the backend PR but not in main branch yet
+// Uncommenting this will cause contract tests to fail
+// export const IMPORT_OFL_FIXTURE = gql`
+//   mutation ImportOFLFixture($input: ImportOFLFixtureInput!) {
+//     importOFLFixture(input: $input) {
+//       id
+//       manufacturer
+//       model
+//       type
+//       channels {
+//         id
+//         name
+//         type
+//         offset
+//       }
+//       modes {
+//         id
+//         name
+//         shortName
+//         channelCount
+//       }
+//     }
+//   }
+// `;
 
 export const GET_PROJECT_FIXTURES = gql`
   query GetProjectFixtures($projectId: ID!) {
