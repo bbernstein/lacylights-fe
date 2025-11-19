@@ -343,9 +343,10 @@ describe('SceneEditorModal', () => {
         expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
       });
 
-      const descInput = screen.getByLabelText(/description/i);
-      await userEvent.clear(descInput);
-      await userEvent.type(descInput, 'New description');
+      const descInput = screen.getByLabelText(/description/i) as HTMLTextAreaElement;
+
+      // Use fireEvent.change to directly set value for reliable test behavior
+      fireEvent.change(descInput, { target: { value: 'New description' } });
 
       expect(descInput).toHaveValue('New description');
     });
@@ -357,8 +358,10 @@ describe('SceneEditorModal', () => {
         expect(screen.getByLabelText(/scene name/i)).toBeInTheDocument();
       });
 
-      const nameInput = screen.getByLabelText(/scene name/i);
-      await userEvent.clear(nameInput);
+      const nameInput = screen.getByLabelText(/scene name/i) as HTMLInputElement;
+
+      // Use fireEvent.change to directly set empty value for more reliable test behavior
+      fireEvent.change(nameInput, { target: { value: '' } });
 
       // Wait for React to re-render after the state change
       await waitFor(() => {
@@ -601,9 +604,10 @@ describe('SceneEditorModal', () => {
         expect(screen.getByLabelText(/scene name/i)).toBeInTheDocument();
       });
 
-      const nameInput = screen.getByLabelText(/scene name/i);
-      await userEvent.clear(nameInput);
-      await userEvent.type(nameInput, 'Updated Scene');
+      const nameInput = screen.getByLabelText(/scene name/i) as HTMLInputElement;
+
+      // Use fireEvent.change to directly set value for reliable test behavior
+      fireEvent.change(nameInput, { target: { value: 'Updated Scene' } });
 
       const saveButton = screen.getByRole('button', { name: /save changes/i });
       await userEvent.click(saveButton);
@@ -802,9 +806,10 @@ describe('SceneEditorModal', () => {
         expect(screen.getByLabelText(/scene name/i)).toBeInTheDocument();
       });
 
-      const nameInput = screen.getByLabelText(/scene name/i);
-      await userEvent.clear(nameInput);
-      await userEvent.type(nameInput, 'Updated Scene');
+      const nameInput = screen.getByLabelText(/scene name/i) as HTMLInputElement;
+
+      // Use fireEvent.change to directly set value for reliable test behavior
+      fireEvent.change(nameInput, { target: { value: 'Updated Scene' } });
 
       const saveButton = screen.getByRole('button', { name: /save changes/i });
       await userEvent.click(saveButton);

@@ -5,6 +5,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECT_FIXTURES, DELETE_FIXTURE_INSTANCE, REORDER_PROJECT_FIXTURES } from '@/graphql/fixtures';
 import AddFixtureModal from '@/components/AddFixtureModal';
 import EditFixtureModal from '@/components/EditFixtureModal';
+import ImportOFLFixtureModal from '@/components/ImportOFLFixtureModal';
 import { useProject } from '@/contexts/ProjectContext';
 import { FixtureInstance } from '@/types';
 import {
@@ -162,6 +163,7 @@ function SortableRow({ fixture, onEdit, onDuplicate, onDelete }: SortableRowProp
 export default function FixturesPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedFixture, setSelectedFixture] = useState<FixtureInstance | null>(null);
   const [sortField, setSortField] = useState<SortField>('original');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -367,7 +369,17 @@ export default function FixturesPage() {
             Manage your lighting fixtures and DMX patching
           </p>
         </div>
-        <div className="mt-4 sm:mt-0">
+        <div className="mt-4 sm:mt-0 flex gap-3">
+          <button
+            type="button"
+            onClick={() => setIsImportModalOpen(true)}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            Import OFL Fixture
+          </button>
           <button
             type="button"
             onClick={() => setIsAddModalOpen(true)}
@@ -528,6 +540,11 @@ export default function FixturesPage() {
             }}
             fixture={selectedFixture}
             onFixtureUpdated={handleFixtureUpdated}
+          />
+          <ImportOFLFixtureModal
+            isOpen={isImportModalOpen}
+            onClose={() => setIsImportModalOpen(false)}
+            onFixtureImported={refetch}
           />
         </>
       )}

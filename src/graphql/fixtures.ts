@@ -78,6 +78,29 @@ export const DELETE_FIXTURE_INSTANCE = gql`
   }
 `;
 
+export const IMPORT_OFL_FIXTURE = gql`
+  mutation ImportOFLFixture($input: ImportOFLFixtureInput!) {
+    importOFLFixture(input: $input) {
+      id
+      manufacturer
+      model
+      type
+      channels {
+        id
+        name
+        type
+        offset
+      }
+      modes {
+        id
+        name
+        shortName
+        channelCount
+      }
+    }
+  }
+`;
+
 export const GET_PROJECT_FIXTURES = gql`
   query GetProjectFixtures($projectId: ID!) {
     project(id: $projectId) {
