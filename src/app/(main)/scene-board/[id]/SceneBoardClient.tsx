@@ -56,15 +56,17 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   // Track which board ID we've already auto-zoomed for
   const autoZoomedBoardId = useRef<string | null>(null);
 
-  // Touch state for pinch-to-zoom
+  // Touch state for pinch-to-zoom and two-finger pan
   const [touchState, setTouchState] = useState<{
     initialDistance: number | null;
     initialScale: number;
-    initialTouches: { x: number; y: number }[];
+    initialMidpoint: { x: number; y: number } | null;
+    initialOffset: { x: number; y: number };
   }>({
     initialDistance: null,
     initialScale: 1.0,
-    initialTouches: [],
+    initialMidpoint: null,
+    initialOffset: { x: 0, y: 0 },
   });
 
   const { data: boardData, loading, error, refetch } = useQuery(GET_SCENE_BOARD, {
@@ -252,49 +254,76 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     });
   }, [draggingButton, mode, updatePositions, boardId]);
 
-  // Touch gesture handlers for pinch-to-zoom
+  // Touch gesture handlers for pinch-to-zoom and two-finger pan
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
-      // Prevent default browser zoom when pinch gesture detected
+      // Prevent default browser behavior for two-finger gestures
       e.preventDefault();
 
-      // Pinch zoom starting
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
+
+      // Calculate initial distance for zoom
       const distance = Math.hypot(
         touch2.clientX - touch1.clientX,
         touch2.clientY - touch1.clientY
       );
+
+      // Calculate midpoint for panning
+      const midpoint = {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2,
+      };
+
       setTouchState({
         initialDistance: distance,
         initialScale: viewport.scale,
-        initialTouches: [
-          { x: touch1.clientX, y: touch1.clientY },
-          { x: touch2.clientX, y: touch2.clientY },
-        ],
+        initialMidpoint: midpoint,
+        initialOffset: { x: viewport.offsetX, y: viewport.offsetY },
       });
     }
-  }, [viewport.scale]);
+  }, [viewport.scale, viewport.offsetX, viewport.offsetY]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2 && touchState.initialDistance) {
-      // Prevent default browser zoom during pinch gesture
+    if (e.touches.length === 2 && touchState.initialDistance && touchState.initialMidpoint) {
+      // Prevent default browser behavior during two-finger gestures
       e.preventDefault();
 
-      // Pinch zoom
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
+
+      // Calculate current distance for zoom
       const currentDistance = Math.hypot(
         touch2.clientX - touch1.clientX,
         touch2.clientY - touch1.clientY
       );
+
+      // Calculate current midpoint for panning
+      const currentMidpoint = {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2,
+      };
+
+      // Calculate new scale from pinch gesture
       const scaleChange = currentDistance / touchState.initialDistance;
       const newScale = clamp(
         touchState.initialScale * scaleChange,
         MIN_ZOOM,
         MAX_ZOOM
       );
-      setViewport((prev) => ({ ...prev, scale: newScale }));
+
+      // Calculate pan offset from midpoint movement
+      // The offset needs to be divided by scale to account for the zoom level
+      const deltaX = (currentMidpoint.x - touchState.initialMidpoint.x) / newScale;
+      const deltaY = (currentMidpoint.y - touchState.initialMidpoint.y) / newScale;
+      const newOffsetX = touchState.initialOffset.x + deltaX;
+      const newOffsetY = touchState.initialOffset.y + deltaY;
+
+      setViewport({
+        scale: newScale,
+        offsetX: newOffsetX,
+        offsetY: newOffsetY,
+      });
     }
   }, [touchState]);
 
@@ -302,9 +331,10 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     setTouchState({
       initialDistance: null,
       initialScale: viewport.scale,
-      initialTouches: [],
+      initialMidpoint: null,
+      initialOffset: { x: viewport.offsetX, y: viewport.offsetY },
     });
-  }, [viewport.scale]);
+  }, [viewport.scale, viewport.offsetX, viewport.offsetY]);
 
   // Calculate zoom to fit all buttons within the viewport
   const zoomToFit = useCallback(() => {
@@ -755,6 +785,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         <div
           ref={canvasRef}
           className="absolute inset-0"
+          style={{ touchAction: 'none' }}
           onMouseMove={handleDragMove}
           onMouseUp={handleDragEnd}
           onMouseLeave={handleDragEnd}
