@@ -153,11 +153,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isAddSceneModalOpen, isEditingSettings]);
 
-  // Snap to grid helper
-  const snapToGrid = useCallback((value: number) => {
-    return Math.round(value / GRID_SIZE) * GRID_SIZE;
-  }, []);
-
   // Handle drag start
   const handleDragStart = useCallback((e: React.MouseEvent, button: SceneBoardButton) => {
     if (mode !== 'layout') return;
@@ -166,35 +161,34 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const buttonCenterX = button.layoutX * rect.width;
-    const buttonCenterY = button.layoutY * rect.height;
+    const canvasPos = screenToCanvas(e.clientX, e.clientY, viewport, canvas);
 
     setDraggingButton(button);
     setDragOffset({
-      x: e.clientX - rect.left - buttonCenterX,
-      y: e.clientY - rect.top - buttonCenterY,
+      x: canvasPos.x - button.layoutX,
+      y: canvasPos.y - button.layoutY,
     });
-  }, [mode]);
+  }, [mode, viewport]);
 
   // Handle drag move
   const handleDragMove = useCallback((e: React.MouseEvent) => {
-    if (!draggingButton || mode !== 'layout') return;
+    if (!draggingButton || mode !== 'layout' || !canvasRef.current || !board) return;
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const canvasPos = screenToCanvas(e.clientX, e.clientY, viewport, canvasRef.current);
 
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left - dragOffset.x) / rect.width;
-    const y = (e.clientY - rect.top - dragOffset.y) / rect.height;
+    const newX = canvasPos.x - dragOffset.x;
+    const newY = canvasPos.y - dragOffset.y;
 
-    // Clamp to canvas bounds (with some margin)
-    const clampedX = Math.max(0.05, Math.min(0.95, x));
-    const clampedY = Math.max(0.05, Math.min(0.95, y));
+    const buttonWidth = draggingButton.width || DEFAULT_BUTTON_WIDTH;
+    const buttonHeight = draggingButton.height || DEFAULT_BUTTON_HEIGHT;
+
+    // Clamp to canvas bounds
+    const clampedX = clamp(newX, 0, board.canvasWidth - buttonWidth);
+    const clampedY = clamp(newY, 0, board.canvasHeight - buttonHeight);
 
     // Snap to grid
-    const snappedX = snapToGrid(clampedX);
-    const snappedY = snapToGrid(clampedY);
+    const snappedX = snapToGrid(clampedX, GRID_SIZE);
+    const snappedY = snapToGrid(clampedY, GRID_SIZE);
 
     // Update the dragging button state to trigger re-render
     setDraggingButton({
@@ -202,7 +196,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       layoutX: snappedX,
       layoutY: snappedY,
     });
-  }, [draggingButton, mode, dragOffset, snapToGrid]);
+  }, [draggingButton, mode, dragOffset, viewport, board]);
 
   // Handle drag end
   const handleDragEnd = useCallback(() => {
@@ -253,6 +247,54 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       },
     });
   }, [draggingButton, mode, updatePositions, boardId]);
+
+  // Touch gesture handlers for pinch-to-zoom
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      // Pinch zoom starting
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+      setTouchState({
+        initialDistance: distance,
+        initialScale: viewport.scale,
+        initialTouches: [
+          { x: touch1.clientX, y: touch1.clientY },
+          { x: touch2.clientX, y: touch2.clientY },
+        ],
+      });
+    }
+  }, [viewport.scale]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchState.initialDistance) {
+      // Pinch zoom
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const currentDistance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+      const scaleChange = currentDistance / touchState.initialDistance;
+      const newScale = clamp(
+        touchState.initialScale * scaleChange,
+        MIN_ZOOM,
+        MAX_ZOOM
+      );
+      setViewport((prev) => ({ ...prev, scale: newScale }));
+    }
+  }, [touchState]);
+
+  const handleTouchEnd = useCallback(() => {
+    setTouchState({
+      initialDistance: null,
+      initialScale: viewport.scale,
+      initialTouches: [],
+    });
+  }, [viewport.scale]);
 
   const handleSceneClick = useCallback(
     (button: SceneBoardButton) => {
@@ -308,41 +350,47 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       return;
     }
 
-    // Find free spots for the new buttons
-    const existingPositions = board?.buttons?.map((b: SceneBoardButton) => ({
-      x: b.layoutX,
-      y: b.layoutY,
-    })) || [];
+    if (!board) return;
 
-    const step = 0.15;
+    // Convert existing buttons to Rect format for collision detection
+    const existingButtons: Rect[] = board.buttons.map((b: SceneBoardButton) => ({
+      layoutX: b.layoutX,
+      layoutY: b.layoutY,
+      width: b.width || DEFAULT_BUTTON_WIDTH,
+      height: b.height || DEFAULT_BUTTON_HEIGHT,
+    }));
+
     const sceneIdsArray = Array.from(selectedSceneIds);
-
-    // Find positions for all selected scenes
     const positions: Array<{ sceneId: string; x: number; y: number }> = [];
-    const currentPositions = [...existingPositions];
+    const currentButtons = [...existingButtons];
 
+    // Find positions for all selected scenes using collision detection
     for (const sceneId of sceneIdsArray) {
-      let layoutX = 0.1;
-      let layoutY = 0.1;
-      let foundSpot = false;
+      const availablePos = findAvailablePosition(
+        currentButtons,
+        board.canvasWidth,
+        board.canvasHeight,
+        DEFAULT_BUTTON_WIDTH,
+        DEFAULT_BUTTON_HEIGHT,
+        250, // grid step
+        20   // padding
+      );
 
-      // Simple grid placement - use boolean flag to properly exit nested loops
-      for (let y = 0.1; y < 0.9 && !foundSpot; y += step) {
-        for (let x = 0.1; x < 0.9 && !foundSpot; x += step) {
-          const occupied = currentPositions.some(
-            (pos: { x: number; y: number }) => Math.abs(pos.x - x) < 0.1 && Math.abs(pos.y - y) < 0.1
-          );
-          if (!occupied) {
-            layoutX = x;
-            layoutY = y;
-            foundSpot = true;
-            // Mark this position as occupied for subsequent scenes
-            currentPositions.push({ x: layoutX, y: layoutY });
-          }
-        }
+      if (availablePos) {
+        positions.push({ sceneId, x: availablePos.x, y: availablePos.y });
+        // Mark this position as occupied for subsequent scenes
+        currentButtons.push({
+          layoutX: availablePos.x,
+          layoutY: availablePos.y,
+          width: DEFAULT_BUTTON_WIDTH,
+          height: DEFAULT_BUTTON_HEIGHT,
+        });
+      } else {
+        // No available position found, use fallback (top-left with offset)
+        const fallbackX = 100 + (positions.length * 50) % (board.canvasWidth - DEFAULT_BUTTON_WIDTH);
+        const fallbackY = 100 + Math.floor((positions.length * 50) / (board.canvasWidth - DEFAULT_BUTTON_WIDTH)) * 150;
+        positions.push({ sceneId, x: fallbackX, y: fallbackY });
       }
-
-      positions.push({ sceneId, x: layoutX, y: layoutY });
     }
 
     // Add all scenes sequentially
@@ -501,42 +549,54 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           onMouseMove={handleDragMove}
           onMouseUp={handleDragEnd}
           onMouseLeave={handleDragEnd}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
-          {/* Grid overlay in layout mode */}
-          {mode === 'layout' && (
-            <div className="absolute inset-0 pointer-events-none"
-              style={{
-                backgroundImage: `
-                  linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-                  linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
-                `,
-                backgroundSize: `${GRID_SIZE * 100}% ${GRID_SIZE * 100}%`,
-              }}
-            />
-          )}
-
-          {board.buttons.map((button: SceneBoardButton) => {
-            // Use dragging button position if this button is being dragged
-            const displayButton = draggingButton?.id === button.id ? draggingButton : button;
-            const left = `${displayButton.layoutX * 100}%`;
-            const top = `${displayButton.layoutY * 100}%`;
-            const width = `${(displayButton.width || 0.1) * 100}%`;
-            const height = `${(displayButton.height || 0.1) * 100}%`;
-
-            return (
+          {/* Transformed canvas container */}
+          <div
+            style={{
+              transform: `scale(${viewport.scale}) translate(${viewport.offsetX}px, ${viewport.offsetY}px)`,
+              transformOrigin: '0 0',
+              width: `${board.canvasWidth}px`,
+              height: `${board.canvasHeight}px`,
+              position: 'relative',
+            }}
+          >
+            {/* Grid overlay in layout mode */}
+            {mode === 'layout' && (
               <div
-                key={button.id}
-                className={`absolute transform -translate-x-1/2 -translate-y-1/2 select-none ${
-                  mode === 'play' ? 'cursor-pointer' : 'cursor-move'
-                } ${draggingButton?.id === button.id ? 'opacity-75 z-50' : ''}`}
+                className="absolute inset-0 pointer-events-none"
                 style={{
-                  left,
-                  top,
-                  width,
-                  height,
-                  minWidth: '120px',
-                  minHeight: '80px',
+                  backgroundImage: `
+                    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
+                  `,
+                  backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`,
                 }}
+              />
+            )}
+
+            {board.buttons.map((button: SceneBoardButton) => {
+              // Use dragging button position if this button is being dragged
+              const displayButton = draggingButton?.id === button.id ? draggingButton : button;
+              const left = `${displayButton.layoutX}px`;
+              const top = `${displayButton.layoutY}px`;
+              const width = `${displayButton.width || DEFAULT_BUTTON_WIDTH}px`;
+              const height = `${displayButton.height || DEFAULT_BUTTON_HEIGHT}px`;
+
+              return (
+                <div
+                  key={button.id}
+                  className={`absolute select-none ${
+                    mode === 'play' ? 'cursor-pointer' : 'cursor-move'
+                  } ${draggingButton?.id === button.id ? 'opacity-75 z-50' : ''}`}
+                  style={{
+                    left,
+                    top,
+                    width,
+                    height,
+                  }}
                 onMouseDown={(e) => handleDragStart(e, button)}
                 {...(mode === 'play' && {
                   onClick: () => handleSceneClick(button),
@@ -581,28 +641,57 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
             );
           })}
 
-          {board.buttons.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center text-gray-400">
-                <p className="text-xl mb-4">No scenes on this board yet</p>
-                <button
-                  onClick={() => setIsAddSceneModalOpen(true)}
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                >
-                  Add Your First Scene
-                </button>
+            {board.buttons.length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center text-gray-400">
+                  <p className="text-xl mb-4">No scenes on this board yet</p>
+                  <button
+                    onClick={() => setIsAddSceneModalOpen(true)}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                  >
+                    Add Your First Scene
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        </div>
+
+        {/* Zoom Controls */}
+        <div className="fixed bottom-4 right-4 flex flex-col gap-2 bg-gray-800 rounded-lg p-2 shadow-lg">
+          <button
+            onClick={() => setViewport(prev => ({ ...prev, scale: clamp(prev.scale + 0.1, MIN_ZOOM, MAX_ZOOM) }))}
+            className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-500 font-bold"
+            aria-label="Zoom in"
+          >
+            +
+          </button>
+          <div className="text-center text-sm text-white px-2">
+            {Math.round(viewport.scale * 100)}%
+          </div>
+          <button
+            onClick={() => setViewport(prev => ({ ...prev, scale: clamp(prev.scale - 0.1, MIN_ZOOM, MAX_ZOOM) }))}
+            className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-500 font-bold"
+            aria-label="Zoom out"
+          >
+            −
+          </button>
+          <button
+            onClick={() => setViewport({ scale: 1.0, offsetX: 0, offsetY: 0 })}
+            className="px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 text-xs"
+            aria-label="Reset zoom"
+          >
+            Reset
+          </button>
         </div>
       </div>
 
       {/* Mode indicator */}
       <div className="bg-gray-800 text-white px-6 py-2 text-sm">
         {mode === 'play' ? (
-          <span>🎮 Play Mode - Click scenes to activate</span>
+          <span>🎮 Play Mode - Click scenes to activate • Pinch to zoom</span>
         ) : (
-          <span>✏️ Layout Mode - Drag scenes to reposition (snaps to 5% grid)</span>
+          <span>✏️ Layout Mode - Drag scenes to reposition (snaps to {GRID_SIZE}px grid) • Pinch to zoom</span>
         )}
       </div>
 
