@@ -16,8 +16,9 @@ import { useProject } from '@/contexts/ProjectContext';
 import { SceneBoardButton } from '@/types';
 import { screenToCanvas, clamp, snapToGrid, findAvailablePosition, Rect } from '@/lib/canvasUtils';
 
-// Grid configuration
-const GRID_SIZE = 50; // 50px grid snapping
+// Grid configuration - must match auto-placement in canvasUtils.ts
+const GRID_SIZE = 250; // Grid step for snapping (matches findAvailablePosition gridStep)
+const GRID_PADDING = 20; // Grid offset (matches findAvailablePosition padding)
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3.0;
 const DEFAULT_BUTTON_WIDTH = 200;
@@ -185,16 +186,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     const newX = canvasPos.x - dragOffset.x;
     const newY = canvasPos.y - dragOffset.y;
 
-    const buttonWidth = draggingButton.width || DEFAULT_BUTTON_WIDTH;
-    const buttonHeight = draggingButton.height || DEFAULT_BUTTON_HEIGHT;
-
-    // Clamp to canvas bounds
-    const clampedX = clamp(newX, 0, board.canvasWidth - buttonWidth);
-    const clampedY = clamp(newY, 0, board.canvasHeight - buttonHeight);
-
-    // Snap to grid
-    const snappedX = snapToGrid(clampedX, GRID_SIZE);
-    const snappedY = snapToGrid(clampedY, GRID_SIZE);
+    // Snap to grid with padding offset
+    // Grid positions are: GRID_PADDING + (n * GRID_SIZE) where n can be negative
+    // To snap: subtract padding, snap to grid, add padding back
+    const snappedX = snapToGrid(newX - GRID_PADDING, GRID_SIZE) + GRID_PADDING;
+    const snappedY = snapToGrid(newY - GRID_PADDING, GRID_SIZE) + GRID_PADDING;
 
     // Update the dragging button state to trigger re-render
     setDraggingButton({
@@ -400,6 +396,41 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       return () => clearTimeout(timer);
     }
   }, [board, zoomToFit]); // Run when board or zoomToFit changes
+
+  // Add native touch event listeners with passive: false to prevent browser handling
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleNativeTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault(); // This only works with { passive: false }
+        handleTouchStart(e as unknown as React.TouchEvent);
+      }
+    };
+
+    const handleNativeTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault(); // This only works with { passive: false }
+        handleTouchMove(e as unknown as React.TouchEvent);
+      }
+    };
+
+    const handleNativeTouchEnd = (_e: TouchEvent) => {
+      handleTouchEnd();
+    };
+
+    // Add listeners with passive: false to allow preventDefault
+    canvas.addEventListener('touchstart', handleNativeTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleNativeTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleNativeTouchEnd, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('touchstart', handleNativeTouchStart);
+      canvas.removeEventListener('touchmove', handleNativeTouchMove);
+      canvas.removeEventListener('touchend', handleNativeTouchEnd);
+    };
+  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   const handleSceneClick = useCallback(
     (button: SceneBoardButton) => {
