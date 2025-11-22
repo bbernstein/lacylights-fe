@@ -30,11 +30,24 @@ jobs:
         working-directory: backend
         run: docker build -t lacylights-backend:test .
 
+      - name: Initialize database schema
+        run: |
+          echo "Creating database volume and initializing schema..."
+          docker run --rm \
+            -v lacylights-contract-db:/app \
+            -e DATABASE_URL="file:/app/test-contract.db" \
+            -e ARTNET_ENABLED=false \
+            -e NON_INTERACTIVE=true \
+            lacylights-backend:test \
+            sh -c "npx prisma db push --accept-data-loss && npx prisma generate"
+          echo "Database initialized successfully"
+
       - name: Start backend container
         run: |
           docker run -d \
             --name backend \
             -p 4000:4000 \
+            -v lacylights-contract-db:/app \
             -e DATABASE_URL="file:/app/test-contract.db" \
             -e ARTNET_ENABLED=false \
             -e NON_INTERACTIVE=true \
@@ -61,12 +74,6 @@ jobs:
           docker logs backend
           exit 1
 
-      - name: Initialize database
-        run: |
-          echo "Creating database schema..."
-          docker exec --user root backend npx prisma db push --accept-data-loss
-          echo "Database initialized successfully"
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -91,6 +98,7 @@ jobs:
         run: |
           docker stop backend || true
           docker rm backend || true
+          docker volume rm lacylights-contract-db || true
 
       - name: Upload test results
         if: always()
