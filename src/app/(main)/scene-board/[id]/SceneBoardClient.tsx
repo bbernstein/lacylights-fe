@@ -14,9 +14,16 @@ import {
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { useProject } from '@/contexts/ProjectContext';
 import { SceneBoardButton } from '@/types';
+import { screenToCanvas, clamp, snapToGrid, findAvailablePosition, Rect } from '@/lib/canvasUtils';
 
 // Grid configuration
-const GRID_SIZE = 0.05; // 5% grid snapping
+const GRID_SIZE = 10; // Fine grid for flexible button placement
+const AUTO_PLACEMENT_GRID_SIZE = 250; // Grid step for auto-placement (matches findAvailablePosition gridStep)
+const AUTO_PLACEMENT_PADDING = 20; // Grid offset for auto-placement (matches findAvailablePosition padding)
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 3.0;
+const DEFAULT_BUTTON_WIDTH = 200;
+const DEFAULT_BUTTON_HEIGHT = 120;
 
 interface SceneBoardClientProps {
   id: string;
@@ -34,11 +41,35 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   const [editedName, setEditedName] = useState('');
   const [editedFadeTime, setEditedFadeTime] = useState(3.0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Drag state
   const [draggingButton, setDraggingButton] = useState<SceneBoardButton | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Viewport state for zoom/pan
+  const [viewport, setViewport] = useState({
+    scale: 1.0,
+    offsetX: 0,
+    offsetY: 0,
+  });
+
+  // Track which board ID we've already auto-zoomed for
+  const autoZoomedBoardId = useRef<string | null>(null);
+
+  // Touch state for pinch-to-zoom and two-finger pan
+  const [touchState, setTouchState] = useState<{
+    initialDistance: number | null;
+    initialScale: number;
+    initialMidpoint: { x: number; y: number } | null;
+    initialOffset: { x: number; y: number };
+  }>({
+    initialDistance: null,
+    initialScale: 1.0,
+    initialMidpoint: null,
+    initialOffset: { x: 0, y: 0 },
+  });
 
   const { data: boardData, loading, error, refetch } = useQuery(GET_SCENE_BOARD, {
     variables: { id: boardId },
@@ -130,11 +161,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isAddSceneModalOpen, isEditingSettings]);
 
-  // Snap to grid helper
-  const snapToGrid = useCallback((value: number) => {
-    return Math.round(value / GRID_SIZE) * GRID_SIZE;
-  }, []);
-
   // Handle drag start
   const handleDragStart = useCallback((e: React.MouseEvent, button: SceneBoardButton) => {
     if (mode !== 'layout') return;
@@ -143,35 +169,27 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const buttonCenterX = button.layoutX * rect.width;
-    const buttonCenterY = button.layoutY * rect.height;
+    const canvasPos = screenToCanvas(e.clientX, e.clientY, viewport, canvas);
 
     setDraggingButton(button);
     setDragOffset({
-      x: e.clientX - rect.left - buttonCenterX,
-      y: e.clientY - rect.top - buttonCenterY,
+      x: canvasPos.x - button.layoutX,
+      y: canvasPos.y - button.layoutY,
     });
-  }, [mode]);
+  }, [mode, viewport]);
 
   // Handle drag move
   const handleDragMove = useCallback((e: React.MouseEvent) => {
-    if (!draggingButton || mode !== 'layout') return;
+    if (!draggingButton || mode !== 'layout' || !canvasRef.current || !board) return;
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const canvasPos = screenToCanvas(e.clientX, e.clientY, viewport, canvasRef.current);
 
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left - dragOffset.x) / rect.width;
-    const y = (e.clientY - rect.top - dragOffset.y) / rect.height;
+    const newX = canvasPos.x - dragOffset.x;
+    const newY = canvasPos.y - dragOffset.y;
 
-    // Clamp to canvas bounds (with some margin)
-    const clampedX = Math.max(0.05, Math.min(0.95, x));
-    const clampedY = Math.max(0.05, Math.min(0.95, y));
-
-    // Snap to grid
-    const snappedX = snapToGrid(clampedX);
-    const snappedY = snapToGrid(clampedY);
+    // Snap to fine grid (allows flexible positioning)
+    const snappedX = snapToGrid(newX, GRID_SIZE);
+    const snappedY = snapToGrid(newY, GRID_SIZE);
 
     // Update the dragging button state to trigger re-render
     setDraggingButton({
@@ -179,7 +197,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       layoutX: snappedX,
       layoutY: snappedY,
     });
-  }, [draggingButton, mode, dragOffset, snapToGrid]);
+  }, [draggingButton, mode, dragOffset, viewport, board]);
 
   // Handle drag end
   const handleDragEnd = useCallback(() => {
@@ -230,6 +248,239 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       },
     });
   }, [draggingButton, mode, updatePositions, boardId]);
+
+  // Touch gesture handlers for pinch-to-zoom and two-finger pan
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      // Prevent default browser behavior for two-finger gestures
+      e.preventDefault();
+
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+
+      // Calculate initial distance for zoom
+      const distance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+
+      // Calculate midpoint for panning
+      const midpoint = {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2,
+      };
+
+      setTouchState({
+        initialDistance: distance,
+        initialScale: viewport.scale,
+        initialMidpoint: midpoint,
+        initialOffset: { x: viewport.offsetX, y: viewport.offsetY },
+      });
+    }
+  }, [viewport.scale, viewport.offsetX, viewport.offsetY]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchState.initialDistance && touchState.initialMidpoint) {
+      // Prevent default browser behavior during two-finger gestures
+      e.preventDefault();
+
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+
+      // Calculate current distance for zoom
+      const currentDistance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+
+      // Calculate current midpoint for panning
+      const currentMidpoint = {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2,
+      };
+
+      // Calculate new scale from pinch gesture
+      const scaleChange = currentDistance / touchState.initialDistance;
+      const newScale = clamp(
+        touchState.initialScale * scaleChange,
+        MIN_ZOOM,
+        MAX_ZOOM
+      );
+
+      // Calculate pan offset from midpoint movement
+      // The offset needs to be divided by scale to account for the zoom level
+      const deltaX = (currentMidpoint.x - touchState.initialMidpoint.x) / newScale;
+      const deltaY = (currentMidpoint.y - touchState.initialMidpoint.y) / newScale;
+      const newOffsetX = touchState.initialOffset.x + deltaX;
+      const newOffsetY = touchState.initialOffset.y + deltaY;
+
+      setViewport({
+        scale: newScale,
+        offsetX: newOffsetX,
+        offsetY: newOffsetY,
+      });
+    }
+  }, [touchState]);
+
+  const handleTouchEnd = useCallback(() => {
+    setTouchState({
+      initialDistance: null,
+      initialScale: viewport.scale,
+      initialMidpoint: null,
+      initialOffset: { x: viewport.offsetX, y: viewport.offsetY },
+    });
+  }, [viewport.scale, viewport.offsetX, viewport.offsetY]);
+
+  // Calculate zoom to fit all buttons within the viewport
+  const zoomToFit = useCallback(() => {
+    if (!board || board.buttons.length === 0 || !canvasRef.current) return;
+
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    const viewportWidth = canvasRect.width;
+    const viewportHeight = canvasRect.height;
+
+    // Calculate bounding box of all buttons
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    board.buttons.forEach((button: SceneBoardButton) => {
+      const x = button.layoutX;
+      const y = button.layoutY;
+      const width = button.width || DEFAULT_BUTTON_WIDTH;
+      const height = button.height || DEFAULT_BUTTON_HEIGHT;
+
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + width);
+      maxY = Math.max(maxY, y + height);
+    });
+
+    // Add padding around buttons (10% of canvas size)
+    const PADDING = 100;
+    minX -= PADDING;
+    minY -= PADDING;
+    maxX += PADDING;
+    maxY += PADDING;
+
+    // Calculate required scale to fit all buttons
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
+    const scaleX = viewportWidth / contentWidth;
+    const scaleY = viewportHeight / contentHeight;
+    const newScale = clamp(Math.min(scaleX, scaleY), MIN_ZOOM, MAX_ZOOM);
+
+    // Calculate offset to center the content
+    const scaledContentWidth = contentWidth * newScale;
+    const scaledContentHeight = contentHeight * newScale;
+    const offsetX = (viewportWidth - scaledContentWidth) / 2 - minX * newScale;
+    const offsetY = (viewportHeight - scaledContentHeight) / 2 - minY * newScale;
+
+    setViewport({
+      scale: newScale,
+      offsetX,
+      offsetY,
+    });
+  }, [board]);
+
+  // Set initial zoom to fit on mount or when board ID changes
+  useEffect(() => {
+    if (board && board.buttons.length > 0 && board.id !== autoZoomedBoardId.current) {
+      // Use a small delay to ensure canvas dimensions are available
+      const timer = setTimeout(() => {
+        zoomToFit();
+        autoZoomedBoardId.current = board.id;
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [board, zoomToFit]); // Run when board or zoomToFit changes
+
+  // Add native touch event listeners with passive: false to prevent browser handling
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleNativeTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault(); // This only works with { passive: false }
+        handleTouchStart(e as unknown as React.TouchEvent);
+      }
+    };
+
+    const handleNativeTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault(); // This only works with { passive: false }
+        handleTouchMove(e as unknown as React.TouchEvent);
+      }
+    };
+
+    const handleNativeTouchEnd = (_e: TouchEvent) => {
+      handleTouchEnd();
+    };
+
+    // Add listeners with passive: false to allow preventDefault
+    canvas.addEventListener('touchstart', handleNativeTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleNativeTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleNativeTouchEnd, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('touchstart', handleNativeTouchStart);
+      canvas.removeEventListener('touchmove', handleNativeTouchMove);
+      canvas.removeEventListener('touchend', handleNativeTouchEnd);
+    };
+  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
+
+  // Add wheel event listeners for Mac touchpad pinch-to-zoom and pan
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault(); // Prevent browser zoom/scroll
+
+      // Check if this is a pinch-to-zoom gesture (ctrlKey is set on Mac for pinch)
+      if (e.ctrlKey) {
+        // Pinch-to-zoom on Mac touchpad
+        const delta = -e.deltaY; // Positive = zoom in, negative = zoom out
+        const zoomFactor = delta > 0 ? 1.05 : 0.95;
+        const newScale = clamp(viewport.scale * zoomFactor, MIN_ZOOM, MAX_ZOOM);
+
+        // Zoom towards the cursor position
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Calculate new offset to zoom towards cursor
+        const scaleDiff = newScale - viewport.scale;
+        const newOffsetX = viewport.offsetX - (mouseX / viewport.scale) * (scaleDiff / newScale);
+        const newOffsetY = viewport.offsetY - (mouseY / viewport.scale) * (scaleDiff / newScale);
+
+        setViewport({
+          scale: newScale,
+          offsetX: newOffsetX,
+          offsetY: newOffsetY,
+        });
+      } else {
+        // Two-finger scroll/pan on Mac touchpad
+        const deltaX = e.deltaX;
+        const deltaY = e.deltaY;
+
+        setViewport((prev) => ({
+          ...prev,
+          offsetX: prev.offsetX - deltaX / prev.scale,
+          offsetY: prev.offsetY - deltaY / prev.scale,
+        }));
+      }
+    };
+
+    // Add wheel listener with passive: false to allow preventDefault
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, [viewport]);
 
   const handleSceneClick = useCallback(
     (button: SceneBoardButton) => {
@@ -285,41 +536,52 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       return;
     }
 
-    // Find free spots for the new buttons
-    const existingPositions = board?.buttons?.map((b: SceneBoardButton) => ({
-      x: b.layoutX,
-      y: b.layoutY,
-    })) || [];
+    if (!board) return;
 
-    const step = 0.15;
+    // Convert existing buttons to Rect format for collision detection
+    const existingButtons: Rect[] = board.buttons.map((b: SceneBoardButton) => ({
+      layoutX: b.layoutX,
+      layoutY: b.layoutY,
+      width: b.width || DEFAULT_BUTTON_WIDTH,
+      height: b.height || DEFAULT_BUTTON_HEIGHT,
+    }));
+
     const sceneIdsArray = Array.from(selectedSceneIds);
-
-    // Find positions for all selected scenes
     const positions: Array<{ sceneId: string; x: number; y: number }> = [];
-    const currentPositions = [...existingPositions];
+    const currentButtons = [...existingButtons];
 
+    // Find positions for all selected scenes using collision detection
     for (const sceneId of sceneIdsArray) {
-      let layoutX = 0.1;
-      let layoutY = 0.1;
-      let foundSpot = false;
+      const availablePos = findAvailablePosition(
+        currentButtons,
+        board.canvasWidth,
+        board.canvasHeight,
+        DEFAULT_BUTTON_WIDTH,
+        DEFAULT_BUTTON_HEIGHT,
+        AUTO_PLACEMENT_GRID_SIZE,
+        AUTO_PLACEMENT_PADDING
+      );
 
-      // Simple grid placement - use boolean flag to properly exit nested loops
-      for (let y = 0.1; y < 0.9 && !foundSpot; y += step) {
-        for (let x = 0.1; x < 0.9 && !foundSpot; x += step) {
-          const occupied = currentPositions.some(
-            (pos: { x: number; y: number }) => Math.abs(pos.x - x) < 0.1 && Math.abs(pos.y - y) < 0.1
-          );
-          if (!occupied) {
-            layoutX = x;
-            layoutY = y;
-            foundSpot = true;
-            // Mark this position as occupied for subsequent scenes
-            currentPositions.push({ x: layoutX, y: layoutY });
-          }
-        }
+      if (availablePos) {
+        positions.push({ sceneId, x: availablePos.x, y: availablePos.y });
+        // Mark this position as occupied for subsequent scenes
+        currentButtons.push({
+          layoutX: availablePos.x,
+          layoutY: availablePos.y,
+          width: DEFAULT_BUTTON_WIDTH,
+          height: DEFAULT_BUTTON_HEIGHT,
+        });
+      } else {
+        // No available position found, use fallback (top-left with offset)
+        // Fallback positioning uses a smaller grid to pack buttons tighter when canvas is full
+        const FALLBACK_INITIAL_OFFSET = 100;  // Starting position from top-left corner
+        const FALLBACK_HORIZONTAL_STEP = 50;  // Horizontal spacing between buttons
+        const FALLBACK_VERTICAL_STEP = 150;   // Vertical spacing between rows
+
+        const fallbackX = FALLBACK_INITIAL_OFFSET + (positions.length * FALLBACK_HORIZONTAL_STEP) % (board.canvasWidth - DEFAULT_BUTTON_WIDTH);
+        const fallbackY = FALLBACK_INITIAL_OFFSET + Math.floor((positions.length * FALLBACK_HORIZONTAL_STEP) / (board.canvasWidth - DEFAULT_BUTTON_WIDTH)) * FALLBACK_VERTICAL_STEP;
+        positions.push({ sceneId, x: fallbackX, y: fallbackY });
       }
-
-      positions.push({ sceneId, x: layoutX, y: layoutY });
     }
 
     // Add all scenes sequentially
@@ -404,24 +666,37 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         </div>
       )}
 
-      {/* Header */}
-      <div className="bg-white border-b px-6 py-4 flex items-center justify-between dark:bg-gray-900 dark:border-gray-700">
-        <div className="flex items-center gap-4">
+      {/* Header - Compact on mobile */}
+      <div className="bg-white border-b px-3 py-2 md:px-6 md:py-4 flex items-center justify-between dark:bg-gray-900 dark:border-gray-700">
+        {/* Left side - always visible */}
+        <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
           <button
             onClick={() => router.push('/scene-board')}
-            className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+            className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white shrink-0"
+            aria-label="Back to scene boards"
           >
-            ← Back
+            ←
           </button>
-          <div>
-            <h1 className="text-2xl font-bold dark:text-white">{board.name}</h1>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+          <div className="min-w-0">
+            <h1 className="text-lg md:text-2xl font-bold dark:text-white truncate">{board.name}</h1>
+            {/* Info visible only on desktop */}
+            <p className="hidden md:block text-sm text-gray-600 dark:text-gray-300">
               {board.buttons.length} scenes • Fade: {board.defaultFadeTime}s
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Right side - desktop only */}
+        <div className="hidden md:flex items-center gap-2">
+          <button
+            onClick={zoomToFit}
+            className="px-3 py-2 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300"
+            title="Zoom to fit all scenes"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+          </button>
           <button
             onClick={openEditSettings}
             className="px-3 py-2 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300"
@@ -468,52 +743,186 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
             </button>
           </div>
         </div>
+
+        {/* Hamburger menu - mobile only */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="md:hidden p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white shrink-0"
+          aria-label="Toggle menu"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
       </div>
+
+      {/* Mobile slide-in menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-50" onClick={() => setMobileMenuOpen(false)}>
+          <div className="absolute inset-0 bg-black bg-opacity-50" />
+          <div
+            className="absolute right-0 top-0 bottom-0 w-80 max-w-full bg-white dark:bg-gray-900 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Menu header */}
+            <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
+              <h2 className="text-lg font-bold dark:text-white">Menu</h2>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                aria-label="Close menu"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Menu content */}
+            <div className="p-4 space-y-4">
+              {/* Board info */}
+              <div className="pb-4 border-b dark:border-gray-700">
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  {board.buttons.length} scenes • Fade: {board.defaultFadeTime}s
+                </p>
+              </div>
+
+              {/* Mode toggle */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mode</label>
+                <div className="flex rounded overflow-hidden">
+                  <button
+                    onClick={() => {
+                      setMode('play');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex-1 px-4 py-3 text-sm font-medium ${
+                      mode === 'play'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    Play Mode
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMode('layout');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex-1 px-4 py-3 text-sm font-medium ${
+                      mode === 'layout'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    Layout Mode
+                  </button>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    zoomToFit();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300 text-left flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                  </svg>
+                  Zoom to Fit
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsAddSceneModalOpen(true);
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-left"
+                  disabled={mode === 'play'}
+                >
+                  + Add Scene
+                </button>
+                {mode === 'play' && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 px-2">
+                    Switch to Layout Mode to add scenes
+                  </p>
+                )}
+
+                <button
+                  onClick={() => {
+                    openEditSettings();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300 text-left"
+                >
+                  Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Canvas Area */}
       <div className="flex-1 bg-gray-900 relative overflow-hidden">
         <div
           ref={canvasRef}
           className="absolute inset-0"
+          style={{ touchAction: 'none' }}
           onMouseMove={handleDragMove}
           onMouseUp={handleDragEnd}
           onMouseLeave={handleDragEnd}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
-          {/* Grid overlay in layout mode */}
-          {mode === 'layout' && (
-            <div className="absolute inset-0 pointer-events-none"
-              style={{
-                backgroundImage: `
-                  linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-                  linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
-                `,
-                backgroundSize: `${GRID_SIZE * 100}% ${GRID_SIZE * 100}%`,
-              }}
-            />
-          )}
-
-          {board.buttons.map((button: SceneBoardButton) => {
-            // Use dragging button position if this button is being dragged
-            const displayButton = draggingButton?.id === button.id ? draggingButton : button;
-            const left = `${displayButton.layoutX * 100}%`;
-            const top = `${displayButton.layoutY * 100}%`;
-            const width = `${(displayButton.width || 0.1) * 100}%`;
-            const height = `${(displayButton.height || 0.1) * 100}%`;
-
-            return (
+          {/* Transformed canvas container */}
+          <div
+            style={{
+              transform: `translate(${viewport.offsetX}px, ${viewport.offsetY}px) scale(${viewport.scale})`,
+              transformOrigin: '0 0',
+              width: `${board.canvasWidth}px`,
+              height: `${board.canvasHeight}px`,
+              position: 'relative',
+            }}
+          >
+            {/* Grid overlay in layout mode */}
+            {mode === 'layout' && (
               <div
-                key={button.id}
-                className={`absolute transform -translate-x-1/2 -translate-y-1/2 select-none ${
-                  mode === 'play' ? 'cursor-pointer' : 'cursor-move'
-                } ${draggingButton?.id === button.id ? 'opacity-75 z-50' : ''}`}
+                className="absolute inset-0 pointer-events-none"
                 style={{
-                  left,
-                  top,
-                  width,
-                  height,
-                  minWidth: '120px',
-                  minHeight: '80px',
+                  backgroundImage: `
+                    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
+                  `,
+                  backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`,
                 }}
+              />
+            )}
+
+            {board.buttons.map((button: SceneBoardButton) => {
+              // Use dragging button position if this button is being dragged
+              const displayButton = draggingButton?.id === button.id ? draggingButton : button;
+              const left = `${displayButton.layoutX}px`;
+              const top = `${displayButton.layoutY}px`;
+              const width = `${displayButton.width || DEFAULT_BUTTON_WIDTH}px`;
+              const height = `${displayButton.height || DEFAULT_BUTTON_HEIGHT}px`;
+
+              return (
+                <div
+                  key={button.id}
+                  className={`absolute select-none ${
+                    mode === 'play' ? 'cursor-pointer' : 'cursor-move'
+                  } ${draggingButton?.id === button.id ? 'opacity-75 z-50' : ''}`}
+                  style={{
+                    left,
+                    top,
+                    width,
+                    height,
+                  }}
                 onMouseDown={(e) => handleDragStart(e, button)}
                 {...(mode === 'play' && {
                   onClick: () => handleSceneClick(button),
@@ -558,28 +967,57 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
             );
           })}
 
-          {board.buttons.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center text-gray-400">
-                <p className="text-xl mb-4">No scenes on this board yet</p>
-                <button
-                  onClick={() => setIsAddSceneModalOpen(true)}
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                >
-                  Add Your First Scene
-                </button>
+            {board.buttons.length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center text-gray-400">
+                  <p className="text-xl mb-4">No scenes on this board yet</p>
+                  <button
+                    onClick={() => setIsAddSceneModalOpen(true)}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                  >
+                    Add Your First Scene
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        </div>
+
+        {/* Zoom Controls */}
+        <div className="fixed bottom-4 right-4 flex flex-col gap-2 bg-gray-800 rounded-lg p-2 shadow-lg">
+          <button
+            onClick={() => setViewport(prev => ({ ...prev, scale: clamp(prev.scale + 0.1, MIN_ZOOM, MAX_ZOOM) }))}
+            className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-500 font-bold"
+            aria-label="Zoom in"
+          >
+            +
+          </button>
+          <div className="text-center text-sm text-white px-2">
+            {Math.round(viewport.scale * 100)}%
+          </div>
+          <button
+            onClick={() => setViewport(prev => ({ ...prev, scale: clamp(prev.scale - 0.1, MIN_ZOOM, MAX_ZOOM) }))}
+            className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-500 font-bold"
+            aria-label="Zoom out"
+          >
+            −
+          </button>
+          <button
+            onClick={() => setViewport({ scale: 1.0, offsetX: 0, offsetY: 0 })}
+            className="px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 text-xs"
+            aria-label="Reset zoom"
+          >
+            Reset
+          </button>
         </div>
       </div>
 
       {/* Mode indicator */}
       <div className="bg-gray-800 text-white px-6 py-2 text-sm">
         {mode === 'play' ? (
-          <span>🎮 Play Mode - Click scenes to activate</span>
+          <span>🎮 Play Mode - Click scenes to activate • Pinch to zoom</span>
         ) : (
-          <span>✏️ Layout Mode - Drag scenes to reposition (snaps to 5% grid)</span>
+          <span>✏️ Layout Mode - Drag scenes to reposition (snaps to {GRID_SIZE}px grid) • Pinch to zoom</span>
         )}
       </div>
 

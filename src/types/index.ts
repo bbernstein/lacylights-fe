@@ -111,6 +111,8 @@ export interface SceneBoard {
   project: Project;
   defaultFadeTime: number;
   gridSize?: number;
+  canvasWidth: number; // Canvas width in pixels
+  canvasHeight: number; // Canvas height in pixels
   buttons: SceneBoardButton[];
   createdAt: string;
   updatedAt: string;
@@ -120,10 +122,10 @@ export interface SceneBoardButton {
   id: string;
   sceneBoard: SceneBoard;
   scene: Scene;
-  layoutX: number;
-  layoutY: number;
-  width?: number;
-  height?: number;
+  layoutX: number; // X position in pixels (0 to canvasWidth-1)
+  layoutY: number; // Y position in pixels (0 to canvasHeight-1)
+  width?: number; // Button width in pixels (default: 200)
+  height?: number; // Button height in pixels (default: 120)
   color?: string;
   label?: string;
   createdAt: string;
