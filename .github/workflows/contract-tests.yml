@@ -34,6 +34,7 @@ jobs:
         run: |
           echo "Creating database volume and initializing schema..."
           docker run --rm \
+            --user root \
             -v lacylights-contract-db:/app \
             -e DATABASE_URL="file:/app/test-contract.db" \
             -e ARTNET_ENABLED=false \
