@@ -54,6 +54,7 @@ jobs:
             -e ARTNET_ENABLED=false \
             -e NON_INTERACTIVE=true \
             -e SKIP_FIXTURE_IMPORT=true \
+            -e SKIP_MIGRATIONS=true \
             --health-cmd="node dist/healthcheck.js" \
             --health-interval=5s \
             --health-timeout=3s \
