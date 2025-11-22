@@ -35,12 +35,12 @@ jobs:
           echo "Creating database volume and initializing schema..."
           docker run --rm \
             --user root \
-            -v lacylights-contract-db:/app \
-            -e DATABASE_URL="file:/app/test-contract.db" \
+            -v lacylights-contract-db:/data \
+            -e DATABASE_URL="file:/data/test-contract.db" \
             -e ARTNET_ENABLED=false \
             -e NON_INTERACTIVE=true \
             lacylights-backend:test \
-            sh -c "npx prisma migrate deploy && npx prisma generate"
+            sh -c "npx prisma db push --accept-data-loss"
           echo "Database initialized successfully"
 
       - name: Start backend container
@@ -48,8 +48,8 @@ jobs:
           docker run -d \
             --name backend \
             -p 4000:4000 \
-            -v lacylights-contract-db:/app \
-            -e DATABASE_URL="file:/app/test-contract.db" \
+            -v lacylights-contract-db:/data \
+            -e DATABASE_URL="file:/data/test-contract.db" \
             -e ARTNET_ENABLED=false \
             -e NON_INTERACTIVE=true \
             -e SKIP_FIXTURE_IMPORT=true \
