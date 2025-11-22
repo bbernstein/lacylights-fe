@@ -40,7 +40,7 @@ jobs:
             -e ARTNET_ENABLED=false \
             -e NON_INTERACTIVE=true \
             lacylights-backend:test \
-            sh -c "npx prisma db push --accept-data-loss && npx prisma generate"
+            sh -c "npx prisma migrate deploy && npx prisma generate"
           echo "Database initialized successfully"
 
       - name: Start backend container
