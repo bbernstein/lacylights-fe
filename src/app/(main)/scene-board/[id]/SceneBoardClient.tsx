@@ -16,9 +16,10 @@ import { useProject } from '@/contexts/ProjectContext';
 import { SceneBoardButton } from '@/types';
 import { screenToCanvas, clamp, snapToGrid, findAvailablePosition, Rect } from '@/lib/canvasUtils';
 
-// Grid configuration - must match auto-placement in canvasUtils.ts
-const GRID_SIZE = 250; // Grid step for snapping (matches findAvailablePosition gridStep)
-const GRID_PADDING = 20; // Grid offset (matches findAvailablePosition padding)
+// Grid configuration
+const GRID_SIZE = 10; // Fine grid for flexible button placement
+const AUTO_PLACEMENT_GRID_SIZE = 250; // Grid step for auto-placement (matches findAvailablePosition gridStep)
+const AUTO_PLACEMENT_PADDING = 20; // Grid offset for auto-placement (matches findAvailablePosition padding)
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3.0;
 const DEFAULT_BUTTON_WIDTH = 200;
@@ -186,11 +187,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     const newX = canvasPos.x - dragOffset.x;
     const newY = canvasPos.y - dragOffset.y;
 
-    // Snap to grid with padding offset
-    // Grid positions are: GRID_PADDING + (n * GRID_SIZE) where n can be negative
-    // To snap: subtract padding, snap to grid, add padding back
-    const snappedX = snapToGrid(newX - GRID_PADDING, GRID_SIZE) + GRID_PADDING;
-    const snappedY = snapToGrid(newY - GRID_PADDING, GRID_SIZE) + GRID_PADDING;
+    // Snap to fine grid (allows flexible positioning)
+    const snappedX = snapToGrid(newX, GRID_SIZE);
+    const snappedY = snapToGrid(newY, GRID_SIZE);
 
     // Update the dragging button state to trigger re-render
     setDraggingButton({
@@ -432,6 +431,57 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     };
   }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
 
+  // Add wheel event listeners for Mac touchpad pinch-to-zoom and pan
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault(); // Prevent browser zoom/scroll
+
+      // Check if this is a pinch-to-zoom gesture (ctrlKey is set on Mac for pinch)
+      if (e.ctrlKey) {
+        // Pinch-to-zoom on Mac touchpad
+        const delta = -e.deltaY; // Positive = zoom in, negative = zoom out
+        const zoomFactor = delta > 0 ? 1.05 : 0.95;
+        const newScale = clamp(viewport.scale * zoomFactor, MIN_ZOOM, MAX_ZOOM);
+
+        // Zoom towards the cursor position
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Calculate new offset to zoom towards cursor
+        const scaleDiff = newScale - viewport.scale;
+        const newOffsetX = viewport.offsetX - (mouseX / viewport.scale) * (scaleDiff / newScale);
+        const newOffsetY = viewport.offsetY - (mouseY / viewport.scale) * (scaleDiff / newScale);
+
+        setViewport({
+          scale: newScale,
+          offsetX: newOffsetX,
+          offsetY: newOffsetY,
+        });
+      } else {
+        // Two-finger scroll/pan on Mac touchpad
+        const deltaX = e.deltaX;
+        const deltaY = e.deltaY;
+
+        setViewport((prev) => ({
+          ...prev,
+          offsetX: prev.offsetX - deltaX / prev.scale,
+          offsetY: prev.offsetY - deltaY / prev.scale,
+        }));
+      }
+    };
+
+    // Add wheel listener with passive: false to allow preventDefault
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, [viewport]);
+
   const handleSceneClick = useCallback(
     (button: SceneBoardButton) => {
       if (mode === 'play') {
@@ -508,8 +558,8 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         board.canvasHeight,
         DEFAULT_BUTTON_WIDTH,
         DEFAULT_BUTTON_HEIGHT,
-        250, // grid step
-        20   // padding
+        AUTO_PLACEMENT_GRID_SIZE,
+        AUTO_PLACEMENT_PADDING
       );
 
       if (availablePos) {
