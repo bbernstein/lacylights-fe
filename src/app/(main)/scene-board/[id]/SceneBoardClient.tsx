@@ -20,7 +20,7 @@ import { screenToCanvas, clamp, snapToGrid, findAvailablePosition, Rect } from '
 const GRID_SIZE = 10; // Fine grid for flexible button placement
 const AUTO_PLACEMENT_GRID_SIZE = 250; // Grid step for auto-placement (matches findAvailablePosition gridStep)
 const AUTO_PLACEMENT_PADDING = 20; // Grid offset for auto-placement (matches findAvailablePosition padding)
-const MIN_ZOOM = 0.5;
+const MIN_ZOOM = 0.2;  // Allow zooming out to 20% for fitting many buttons on mobile
 const MAX_ZOOM = 3.0;
 const DEFAULT_BUTTON_WIDTH = 200;
 const DEFAULT_BUTTON_HEIGHT = 120;
@@ -249,6 +249,56 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     });
   }, [draggingButton, mode, updatePositions, boardId]);
 
+  // Touch drag handlers (for mobile support)
+  const handleTouchStartButton = useCallback((e: React.TouchEvent, button: SceneBoardButton) => {
+    // Only handle single-touch drags in layout mode
+    if (mode !== 'layout' || e.touches.length !== 1) return;
+
+    // Stop propagation to prevent canvas-level touch handlers from interfering
+    e.stopPropagation();
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const touch = e.touches[0];
+    const canvasPos = screenToCanvas(touch.clientX, touch.clientY, viewport, canvas);
+
+    setDraggingButton(button);
+    setDragOffset({
+      x: canvasPos.x - button.layoutX,
+      y: canvasPos.y - button.layoutY,
+    });
+  }, [mode, viewport]);
+
+  const handleTouchMoveButton = useCallback((e: React.TouchEvent) => {
+    if (!draggingButton || mode !== 'layout' || !canvasRef.current || !board || e.touches.length !== 1) return;
+
+    // Prevent scrolling while dragging
+    e.preventDefault();
+
+    const touch = e.touches[0];
+    const canvasPos = screenToCanvas(touch.clientX, touch.clientY, viewport, canvasRef.current);
+
+    const newX = canvasPos.x - dragOffset.x;
+    const newY = canvasPos.y - dragOffset.y;
+
+    // Snap to fine grid (allows flexible positioning)
+    const snappedX = snapToGrid(newX, GRID_SIZE);
+    const snappedY = snapToGrid(newY, GRID_SIZE);
+
+    // Update the dragging button state to trigger re-render
+    setDraggingButton({
+      ...draggingButton,
+      layoutX: snappedX,
+      layoutY: snappedY,
+    });
+  }, [draggingButton, mode, dragOffset, viewport, board]);
+
+  const handleTouchEndButton = useCallback(() => {
+    // Use the same end logic as mouse drag
+    handleDragEnd();
+  }, [handleDragEnd]);
+
   // Touch gesture handlers for pinch-to-zoom and two-finger pan
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
@@ -307,12 +357,18 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         MAX_ZOOM
       );
 
-      // Calculate pan offset from midpoint movement
-      // The offset needs to be divided by scale to account for the zoom level
-      const deltaX = (currentMidpoint.x - touchState.initialMidpoint.x) / newScale;
-      const deltaY = (currentMidpoint.y - touchState.initialMidpoint.y) / newScale;
-      const newOffsetX = touchState.initialOffset.x + deltaX;
-      const newOffsetY = touchState.initialOffset.y + deltaY;
+      // To zoom around the midpoint, we need to:
+      // 1. Calculate the canvas coordinates at the initial midpoint
+      // 2. Adjust the offset so that canvas point stays at the midpoint screen position
+
+      // Canvas coordinates at the initial midpoint (using initial scale and offset)
+      const canvasX = (touchState.initialMidpoint.x - touchState.initialOffset.x) / touchState.initialScale;
+      const canvasY = (touchState.initialMidpoint.y - touchState.initialOffset.y) / touchState.initialScale;
+
+      // Calculate what the offset needs to be to keep that canvas point at the current midpoint
+      // Formula: screenX = canvasX * scale + offsetX  =>  offsetX = screenX - canvasX * scale
+      const newOffsetX = currentMidpoint.x - canvasX * newScale;
+      const newOffsetY = currentMidpoint.y - canvasY * newScale;
 
       setViewport({
         scale: newScale,
@@ -924,6 +980,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                     height,
                   }}
                 onMouseDown={(e) => handleDragStart(e, button)}
+                onTouchStart={(e) => handleTouchStartButton(e, button)}
+                onTouchMove={handleTouchMoveButton}
+                onTouchEnd={handleTouchEndButton}
                 {...(mode === 'play' && {
                   onClick: () => handleSceneClick(button),
                   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
