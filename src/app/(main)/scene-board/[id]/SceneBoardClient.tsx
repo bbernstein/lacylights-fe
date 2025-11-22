@@ -573,8 +573,13 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         });
       } else {
         // No available position found, use fallback (top-left with offset)
-        const fallbackX = 100 + (positions.length * 50) % (board.canvasWidth - DEFAULT_BUTTON_WIDTH);
-        const fallbackY = 100 + Math.floor((positions.length * 50) / (board.canvasWidth - DEFAULT_BUTTON_WIDTH)) * 150;
+        // Fallback positioning uses a smaller grid to pack buttons tighter when canvas is full
+        const FALLBACK_INITIAL_OFFSET = 100;  // Starting position from top-left corner
+        const FALLBACK_HORIZONTAL_STEP = 50;  // Horizontal spacing between buttons
+        const FALLBACK_VERTICAL_STEP = 150;   // Vertical spacing between rows
+
+        const fallbackX = FALLBACK_INITIAL_OFFSET + (positions.length * FALLBACK_HORIZONTAL_STEP) % (board.canvasWidth - DEFAULT_BUTTON_WIDTH);
+        const fallbackY = FALLBACK_INITIAL_OFFSET + Math.floor((positions.length * FALLBACK_HORIZONTAL_STEP) / (board.canvasWidth - DEFAULT_BUTTON_WIDTH)) * FALLBACK_VERTICAL_STEP;
         positions.push({ sceneId, x: fallbackX, y: fallbackY });
       }
     }
@@ -877,7 +882,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           {/* Transformed canvas container */}
           <div
             style={{
-              transform: `scale(${viewport.scale}) translate(${viewport.offsetX}px, ${viewport.offsetY}px)`,
+              transform: `translate(${viewport.offsetX}px, ${viewport.offsetY}px) scale(${viewport.scale})`,
               transformOrigin: '0 0',
               width: `${board.canvasWidth}px`,
               height: `${board.canvasHeight}px`,

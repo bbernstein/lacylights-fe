@@ -48,7 +48,9 @@ describe('canvasUtils', () => {
     it('should detect collision at exact edges without padding', () => {
       const rect1: Rect = { layoutX: 0, layoutY: 0, width: 100, height: 100 };
       const rect2: Rect = { layoutX: 100, layoutY: 0, width: 100, height: 100 };
-      // Rectangles touching at edges are considered colliding (expected behavior)
+      // Rectangles touching at edges are considered colliding (expected behavior).
+      // This design choice ensures that UI elements (e.g., buttons) do not appear to overlap visually,
+      // and avoids ambiguous cases where elements are flush but not truly separated.
       expect(checkCollision(rect1, rect2)).toBe(true);
     });
 
