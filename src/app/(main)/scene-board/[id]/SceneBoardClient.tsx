@@ -53,6 +53,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     offsetY: 0,
   });
 
+  // Track which board ID we've already auto-zoomed for
+  const autoZoomedBoardId = useRef<string | null>(null);
+
   // Touch state for pinch-to-zoom
   const [touchState, setTouchState] = useState<{
     initialDistance: number | null;
@@ -252,6 +255,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   // Touch gesture handlers for pinch-to-zoom
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
+      // Prevent default browser zoom when pinch gesture detected
+      e.preventDefault();
+
       // Pinch zoom starting
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
@@ -272,6 +278,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2 && touchState.initialDistance) {
+      // Prevent default browser zoom during pinch gesture
+      e.preventDefault();
+
       // Pinch zoom
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
@@ -296,6 +305,71 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       initialTouches: [],
     });
   }, [viewport.scale]);
+
+  // Calculate zoom to fit all buttons within the viewport
+  const zoomToFit = useCallback(() => {
+    if (!board || board.buttons.length === 0 || !canvasRef.current) return;
+
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    const viewportWidth = canvasRect.width;
+    const viewportHeight = canvasRect.height;
+
+    // Calculate bounding box of all buttons
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    board.buttons.forEach((button) => {
+      const x = button.layoutX;
+      const y = button.layoutY;
+      const width = button.width || DEFAULT_BUTTON_WIDTH;
+      const height = button.height || DEFAULT_BUTTON_HEIGHT;
+
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + width);
+      maxY = Math.max(maxY, y + height);
+    });
+
+    // Add padding around buttons (10% of canvas size)
+    const PADDING = 100;
+    minX -= PADDING;
+    minY -= PADDING;
+    maxX += PADDING;
+    maxY += PADDING;
+
+    // Calculate required scale to fit all buttons
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
+    const scaleX = viewportWidth / contentWidth;
+    const scaleY = viewportHeight / contentHeight;
+    const newScale = clamp(Math.min(scaleX, scaleY), MIN_ZOOM, MAX_ZOOM);
+
+    // Calculate offset to center the content
+    const scaledContentWidth = contentWidth * newScale;
+    const scaledContentHeight = contentHeight * newScale;
+    const offsetX = (viewportWidth - scaledContentWidth) / 2 - minX * newScale;
+    const offsetY = (viewportHeight - scaledContentHeight) / 2 - minY * newScale;
+
+    setViewport({
+      scale: newScale,
+      offsetX,
+      offsetY,
+    });
+  }, [board]);
+
+  // Set initial zoom to fit on mount or when board ID changes
+  useEffect(() => {
+    if (board && board.buttons.length > 0 && board.id !== autoZoomedBoardId.current) {
+      // Use a small delay to ensure canvas dimensions are available
+      const timer = setTimeout(() => {
+        zoomToFit();
+        autoZoomedBoardId.current = board.id;
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [board, zoomToFit]); // Run when board or zoomToFit changes
 
   const handleSceneClick = useCallback(
     (button: SceneBoardButton) => {
@@ -499,6 +573,15 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         {/* Right side - desktop only */}
         <div className="hidden md:flex items-center gap-2">
           <button
+            onClick={zoomToFit}
+            className="px-3 py-2 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300"
+            title="Zoom to fit all scenes"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+          </button>
+          <button
             onClick={openEditSettings}
             className="px-3 py-2 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300"
           >
@@ -623,6 +706,19 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
               {/* Actions */}
               <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    zoomToFit();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300 text-left flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                  </svg>
+                  Zoom to Fit
+                </button>
+
                 <button
                   onClick={() => {
                     setIsAddSceneModalOpen(true);
