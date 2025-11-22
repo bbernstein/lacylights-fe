@@ -47,6 +47,7 @@ jobs:
         run: |
           docker run -d \
             --name backend \
+            --user root \
             -p 4000:4000 \
             -v lacylights-contract-db:/data \
             -e DATABASE_URL="file:/data/test-contract.db" \
