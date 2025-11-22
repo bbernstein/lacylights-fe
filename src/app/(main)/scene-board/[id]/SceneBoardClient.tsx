@@ -39,6 +39,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   const [editedName, setEditedName] = useState('');
   const [editedFadeTime, setEditedFadeTime] = useState(3.0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Drag state
   const [draggingButton, setDraggingButton] = useState<SceneBoardButton | null>(null);
@@ -475,24 +476,28 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         </div>
       )}
 
-      {/* Header */}
-      <div className="bg-white border-b px-6 py-4 flex items-center justify-between dark:bg-gray-900 dark:border-gray-700">
-        <div className="flex items-center gap-4">
+      {/* Header - Compact on mobile */}
+      <div className="bg-white border-b px-3 py-2 md:px-6 md:py-4 flex items-center justify-between dark:bg-gray-900 dark:border-gray-700">
+        {/* Left side - always visible */}
+        <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
           <button
             onClick={() => router.push('/scene-board')}
-            className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+            className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white shrink-0"
+            aria-label="Back to scene boards"
           >
-            ← Back
+            ←
           </button>
-          <div>
-            <h1 className="text-2xl font-bold dark:text-white">{board.name}</h1>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+          <div className="min-w-0">
+            <h1 className="text-lg md:text-2xl font-bold dark:text-white truncate">{board.name}</h1>
+            {/* Info visible only on desktop */}
+            <p className="hidden md:block text-sm text-gray-600 dark:text-gray-300">
               {board.buttons.length} scenes • Fade: {board.defaultFadeTime}s
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Right side - desktop only */}
+        <div className="hidden md:flex items-center gap-2">
           <button
             onClick={openEditSettings}
             className="px-3 py-2 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300"
@@ -539,7 +544,115 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
             </button>
           </div>
         </div>
+
+        {/* Hamburger menu - mobile only */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="md:hidden p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white shrink-0"
+          aria-label="Toggle menu"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
       </div>
+
+      {/* Mobile slide-in menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-50" onClick={() => setMobileMenuOpen(false)}>
+          <div className="absolute inset-0 bg-black bg-opacity-50" />
+          <div
+            className="absolute right-0 top-0 bottom-0 w-80 max-w-full bg-white dark:bg-gray-900 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Menu header */}
+            <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
+              <h2 className="text-lg font-bold dark:text-white">Menu</h2>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                aria-label="Close menu"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Menu content */}
+            <div className="p-4 space-y-4">
+              {/* Board info */}
+              <div className="pb-4 border-b dark:border-gray-700">
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  {board.buttons.length} scenes • Fade: {board.defaultFadeTime}s
+                </p>
+              </div>
+
+              {/* Mode toggle */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mode</label>
+                <div className="flex rounded overflow-hidden">
+                  <button
+                    onClick={() => {
+                      setMode('play');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex-1 px-4 py-3 text-sm font-medium ${
+                      mode === 'play'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    Play Mode
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMode('layout');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex-1 px-4 py-3 text-sm font-medium ${
+                      mode === 'layout'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    Layout Mode
+                  </button>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    setIsAddSceneModalOpen(true);
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-left"
+                  disabled={mode === 'play'}
+                >
+                  + Add Scene
+                </button>
+                {mode === 'play' && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 px-2">
+                    Switch to Layout Mode to add scenes
+                  </p>
+                )}
+
+                <button
+                  onClick={() => {
+                    openEditSettings();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300 text-left"
+                >
+                  Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Canvas Area */}
       <div className="flex-1 bg-gray-900 relative overflow-hidden">
