@@ -14,9 +14,14 @@ import {
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { useProject } from '@/contexts/ProjectContext';
 import { SceneBoardButton } from '@/types';
+import { screenToCanvas, clamp, snapToGrid, findAvailablePosition, Rect } from '@/lib/canvasUtils';
 
 // Grid configuration
-const GRID_SIZE = 0.05; // 5% grid snapping
+const GRID_SIZE = 50; // 50px grid snapping
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 3.0;
+const DEFAULT_BUTTON_WIDTH = 200;
+const DEFAULT_BUTTON_HEIGHT = 120;
 
 interface SceneBoardClientProps {
   id: string;
@@ -39,6 +44,24 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   const [draggingButton, setDraggingButton] = useState<SceneBoardButton | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Viewport state for zoom/pan
+  const [viewport, setViewport] = useState({
+    scale: 1.0,
+    offsetX: 0,
+    offsetY: 0,
+  });
+
+  // Touch state for pinch-to-zoom
+  const [touchState, setTouchState] = useState<{
+    initialDistance: number | null;
+    initialScale: number;
+    initialTouches: { x: number; y: number }[];
+  }>({
+    initialDistance: null,
+    initialScale: 1.0,
+    initialTouches: [],
+  });
 
   const { data: boardData, loading, error, refetch } = useQuery(GET_SCENE_BOARD, {
     variables: { id: boardId },

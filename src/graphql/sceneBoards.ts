@@ -9,6 +9,8 @@ export const GET_PROJECT_SCENE_BOARDS = gql`
       description
       defaultFadeTime
       gridSize
+      canvasWidth
+      canvasHeight
       createdAt
       updatedAt
       buttons {
@@ -38,6 +40,8 @@ export const GET_SCENE_BOARD = gql`
       description
       defaultFadeTime
       gridSize
+      canvasWidth
+      canvasHeight
       createdAt
       updatedAt
       project {
@@ -72,6 +76,8 @@ export const CREATE_SCENE_BOARD = gql`
       description
       defaultFadeTime
       gridSize
+      canvasWidth
+      canvasHeight
       createdAt
       buttons {
         id
@@ -95,6 +101,8 @@ export const UPDATE_SCENE_BOARD = gql`
       description
       defaultFadeTime
       gridSize
+      canvasWidth
+      canvasHeight
       updatedAt
     }
   }
