@@ -345,7 +345,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     let maxX = -Infinity;
     let maxY = -Infinity;
 
-    board.buttons.forEach((button) => {
+    board.buttons.forEach((button: SceneBoardButton) => {
       const x = button.layoutX;
       const y = button.layoutY;
       const width = button.width || DEFAULT_BUTTON_WIDTH;
