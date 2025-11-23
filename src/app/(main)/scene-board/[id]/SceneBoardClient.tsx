@@ -62,13 +62,17 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   const [touchState, setTouchState] = useState<{
     initialDistance: number | null;
     initialScale: number;
-    initialMidpoint: { x: number; y: number } | null;
+    initialMidpoint: { x: number; y: number } | null; // Canvas-relative coords
+    initialViewportMidpoint: { x: number; y: number } | null; // Viewport coords for tracking pan
     initialOffset: { x: number; y: number };
+    canvasRect: DOMRect | null; // Stable canvas rect for the gesture
   }>({
     initialDistance: null,
     initialScale: 1.0,
     initialMidpoint: null,
+    initialViewportMidpoint: null,
     initialOffset: { x: 0, y: 0 },
+    canvasRect: null,
   });
 
   const { data: boardData, loading, error, refetch } = useQuery(GET_SCENE_BOARD, {
@@ -323,8 +327,10 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         y: (touch1.clientY + touch2.clientY) / 2,
       };
 
-      // Convert to canvas-relative coordinates (accounting for canvas position in page)
+      // Get stable canvas rect for this gesture
       const canvasRect = canvas.getBoundingClientRect();
+
+      // Convert to canvas-relative coordinates
       const midpoint = {
         x: viewportMidpoint.x - canvasRect.left,
         y: viewportMidpoint.y - canvasRect.top,
@@ -334,18 +340,18 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         initialDistance: distance,
         initialScale: viewport.scale,
         initialMidpoint: midpoint,
+        initialViewportMidpoint: viewportMidpoint, // Store viewport coords for pan tracking
         initialOffset: { x: viewport.offsetX, y: viewport.offsetY },
+        canvasRect: canvasRect, // Store canvas rect for stable coordinate space
       });
     }
   }, [viewport.scale, viewport.offsetX, viewport.offsetY]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2 && touchState.initialDistance && touchState.initialMidpoint && canvasRef.current) {
+    if (e.touches.length === 2 && touchState.initialDistance && touchState.initialMidpoint &&
+        touchState.canvasRect && touchState.initialViewportMidpoint) {
       // Prevent default browser behavior during two-finger gestures
       e.preventDefault();
-
-      const canvas = canvasRef.current;
-      const canvasRect = canvas.getBoundingClientRect();
 
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
@@ -357,15 +363,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       );
 
       // Calculate current midpoint in viewport coordinates
-      const viewportMidpoint = {
+      const currentViewportMidpoint = {
         x: (touch1.clientX + touch2.clientX) / 2,
         y: (touch1.clientY + touch2.clientY) / 2,
-      };
-
-      // Convert to canvas-relative coordinates
-      const currentMidpoint = {
-        x: viewportMidpoint.x - canvasRect.left,
-        y: viewportMidpoint.y - canvasRect.top,
       };
 
       // Calculate new scale from pinch gesture
@@ -376,18 +376,18 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         MAX_ZOOM
       );
 
-      // To zoom around the midpoint, we need to:
-      // 1. Calculate the canvas coordinates at the initial midpoint
-      // 2. Adjust the offset so that canvas point stays at the midpoint screen position
+      // Calculate how much the midpoint has moved (for panning)
+      const midpointDeltaX = currentViewportMidpoint.x - touchState.initialViewportMidpoint.x;
+      const midpointDeltaY = currentViewportMidpoint.y - touchState.initialViewportMidpoint.y;
 
-      // Canvas coordinates at the initial midpoint (using initial scale and offset)
+      // Find which canvas point is under the initial midpoint
       const canvasX = (touchState.initialMidpoint.x - touchState.initialOffset.x) / touchState.initialScale;
       const canvasY = (touchState.initialMidpoint.y - touchState.initialOffset.y) / touchState.initialScale;
 
-      // Calculate what the offset needs to be to keep that canvas point at the current midpoint
-      // Formula: screenX = canvasX * scale + offsetX  =>  offsetX = screenX - canvasX * scale
-      const newOffsetX = currentMidpoint.x - canvasX * newScale;
-      const newOffsetY = currentMidpoint.y - canvasY * newScale;
+      // Keep that canvas point centered on the initial midpoint (for zoom)
+      // Then add the midpoint movement delta (for pan)
+      const newOffsetX = touchState.initialMidpoint.x - canvasX * newScale + midpointDeltaX;
+      const newOffsetY = touchState.initialMidpoint.y - canvasY * newScale + midpointDeltaY;
 
       setViewport({
         scale: newScale,
@@ -402,7 +402,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       initialDistance: null,
       initialScale: viewport.scale,
       initialMidpoint: null,
+      initialViewportMidpoint: null,
       initialOffset: { x: viewport.offsetX, y: viewport.offsetY },
+      canvasRect: null,
     });
   }, [viewport.scale, viewport.offsetX, viewport.offsetY]);
 
