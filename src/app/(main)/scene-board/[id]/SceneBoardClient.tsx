@@ -368,6 +368,12 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         y: (touch1.clientY + touch2.clientY) / 2,
       };
 
+      // Convert to canvas-relative coordinates using STABLE canvas rect
+      const currentCanvasMidpoint = {
+        x: currentViewportMidpoint.x - touchState.canvasRect.left,
+        y: currentViewportMidpoint.y - touchState.canvasRect.top,
+      };
+
       // Calculate new scale from pinch gesture
       const scaleChange = currentDistance / touchState.initialDistance;
       const newScale = clamp(
@@ -376,9 +382,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         MAX_ZOOM
       );
 
-      // Calculate how much the midpoint has moved (for panning)
-      const midpointDeltaX = currentViewportMidpoint.x - touchState.initialViewportMidpoint.x;
-      const midpointDeltaY = currentViewportMidpoint.y - touchState.initialViewportMidpoint.y;
+      // Calculate how much the midpoint has moved in CANVAS-RELATIVE space (for panning)
+      const midpointDeltaX = currentCanvasMidpoint.x - touchState.initialMidpoint.x;
+      const midpointDeltaY = currentCanvasMidpoint.y - touchState.initialMidpoint.y;
 
       // Find which canvas point is under the initial midpoint
       const canvasX = (touchState.initialMidpoint.x - touchState.initialOffset.x) / touchState.initialScale;
