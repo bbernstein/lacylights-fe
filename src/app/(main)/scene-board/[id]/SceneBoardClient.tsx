@@ -344,6 +344,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       // Prevent default browser behavior during two-finger gestures
       e.preventDefault();
 
+      const canvas = canvasRef.current;
+      const canvasRect = canvas.getBoundingClientRect();
+
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
 
@@ -353,6 +356,18 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         touch2.clientY - touch1.clientY
       );
 
+      // Calculate current midpoint in viewport coordinates
+      const viewportMidpoint = {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2,
+      };
+
+      // Convert to canvas-relative coordinates
+      const currentMidpoint = {
+        x: viewportMidpoint.x - canvasRect.left,
+        y: viewportMidpoint.y - canvasRect.top,
+      };
+
       // Calculate new scale from pinch gesture
       const scaleChange = currentDistance / touchState.initialDistance;
       const newScale = clamp(
@@ -361,15 +376,18 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         MAX_ZOOM
       );
 
-      // The key insight: we want to keep the same canvas point under the initial midpoint
+      // To zoom around the midpoint, we need to:
+      // 1. Calculate the canvas coordinates at the initial midpoint
+      // 2. Adjust the offset so that canvas point stays at the midpoint screen position
+
       // Canvas coordinates at the initial midpoint (using initial scale and offset)
       const canvasX = (touchState.initialMidpoint.x - touchState.initialOffset.x) / touchState.initialScale;
       const canvasY = (touchState.initialMidpoint.y - touchState.initialOffset.y) / touchState.initialScale;
 
-      // Keep that canvas point at the same screen position (initialMidpoint)
+      // Calculate what the offset needs to be to keep that canvas point at the current midpoint
       // Formula: screenX = canvasX * scale + offsetX  =>  offsetX = screenX - canvasX * scale
-      const newOffsetX = touchState.initialMidpoint.x - canvasX * newScale;
-      const newOffsetY = touchState.initialMidpoint.y - canvasY * newScale;
+      const newOffsetX = currentMidpoint.x - canvasX * newScale;
+      const newOffsetY = currentMidpoint.y - canvasY * newScale;
 
       setViewport({
         scale: newScale,
