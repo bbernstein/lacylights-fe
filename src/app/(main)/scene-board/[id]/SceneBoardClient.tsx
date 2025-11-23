@@ -64,11 +64,13 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     initialScale: number;
     initialMidpoint: { x: number; y: number } | null;
     initialOffset: { x: number; y: number };
+    canvasRect: DOMRect | null;
   }>({
     initialDistance: null,
     initialScale: 1.0,
     initialMidpoint: null,
     initialOffset: { x: 0, y: 0 },
+    canvasRect: null,
   });
 
   const { data: boardData, loading, error, refetch } = useQuery(GET_SCENE_BOARD, {
@@ -323,8 +325,10 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         y: (touch1.clientY + touch2.clientY) / 2,
       };
 
-      // Convert to canvas-relative coordinates (accounting for canvas position in page)
+      // Get canvas rect once at start and use it throughout the gesture
       const canvasRect = canvas.getBoundingClientRect();
+
+      // Convert to canvas-relative coordinates (accounting for canvas position in page)
       const midpoint = {
         x: viewportMidpoint.x - canvasRect.left,
         y: viewportMidpoint.y - canvasRect.top,
@@ -335,17 +339,15 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         initialScale: viewport.scale,
         initialMidpoint: midpoint,
         initialOffset: { x: viewport.offsetX, y: viewport.offsetY },
+        canvasRect: canvasRect,
       });
     }
   }, [viewport.scale, viewport.offsetX, viewport.offsetY]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2 && touchState.initialDistance && touchState.initialMidpoint && canvasRef.current) {
+    if (e.touches.length === 2 && touchState.initialDistance && touchState.initialMidpoint && touchState.canvasRect) {
       // Prevent default browser behavior during two-finger gestures
       e.preventDefault();
-
-      const canvas = canvasRef.current;
-      const canvasRect = canvas.getBoundingClientRect();
 
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
@@ -362,10 +364,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         y: (touch1.clientY + touch2.clientY) / 2,
       };
 
-      // Convert to canvas-relative coordinates
+      // Convert to canvas-relative coordinates using the INITIAL canvas rect
+      // This ensures consistent coordinate space throughout the gesture
       const currentMidpoint = {
-        x: viewportMidpoint.x - canvasRect.left,
-        y: viewportMidpoint.y - canvasRect.top,
+        x: viewportMidpoint.x - touchState.canvasRect.left,
+        y: viewportMidpoint.y - touchState.canvasRect.top,
       };
 
       // Calculate new scale from pinch gesture
@@ -403,6 +406,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       initialScale: viewport.scale,
       initialMidpoint: null,
       initialOffset: { x: viewport.offsetX, y: viewport.offsetY },
+      canvasRect: null,
     });
   }, [viewport.scale, viewport.offsetX, viewport.offsetY]);
 
