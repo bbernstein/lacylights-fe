@@ -622,8 +622,10 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
         console.log('🟢 Zoom+Pan:', {
           scale: newScale.toFixed(3),
-          cursorDelta: { x: cursorDeltaX.toFixed(1), y: cursorDeltaY.toFixed(1) },
-          offset: { x: newOffsetX.toFixed(1), y: newOffsetY.toFixed(1) },
+          cursorDeltaX: cursorDeltaX.toFixed(1),
+          cursorDeltaY: cursorDeltaY.toFixed(1),
+          offsetX: newOffsetX.toFixed(1),
+          offsetY: newOffsetY.toFixed(1),
         });
 
         setViewport({
