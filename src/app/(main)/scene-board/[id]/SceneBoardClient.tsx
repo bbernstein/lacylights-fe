@@ -305,13 +305,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
   // Touch gesture handlers for pinch-to-zoom and two-finger pan
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    console.log('🔵 TouchStart fired!', {
-      touches: e.touches.length,
-      type: e.type,
-    });
-
     if (e.touches.length === 2) {
-      console.log('🔵 Two-finger touch detected - initializing zoom/pan gesture');
       // Prevent default browser behavior for two-finger gestures
       e.preventDefault();
 
@@ -402,24 +396,10 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       const PAN_THRESHOLD = 5; // pixels
       const panDistance = Math.hypot(viewportDeltaX, viewportDeltaY);
 
-      // DEBUG: Log gesture details
-      console.log('🔵 TouchMove gesture data:', {
-        initialMidpoint: touchState.initialViewportMidpoint,
-        currentMidpoint: currentViewportMidpoint,
-        delta: { x: viewportDeltaX, y: viewportDeltaY },
-        panDistance: panDistance.toFixed(2),
-        thresholdTriggered: panDistance > PAN_THRESHOLD,
-        scaleChange: scaleChange.toFixed(3),
-        newScale: newScale.toFixed(3),
-      });
-
       if (panDistance > PAN_THRESHOLD) {
-        console.log('🔵   → Applying pan delta:', { x: viewportDeltaX.toFixed(2), y: viewportDeltaY.toFixed(2) });
         // Apply the viewport delta as-is (already in correct coordinate space)
         newOffsetX += viewportDeltaX;
         newOffsetY += viewportDeltaY;
-      } else {
-        console.log('🔵   → Ignoring pan (below threshold)');
       }
 
       setViewport({
@@ -542,20 +522,14 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   // Add wheel event listeners for Mac touchpad pinch-to-zoom and pan
-  // Track trackpad zoom gesture state across wheel events
+  // Track zoom gesture state to keep zoom centered on cursor position
   const trackpadGestureRef = useRef<{
     isZooming: boolean;
-    initialMouse: { x: number; y: number } | null;
-    initialScale: number;
-    initialOffset: { x: number; y: number };
-    canvasPoint: { x: number; y: number } | null;
+    zoomCenter: { x: number; y: number; canvasX: number; canvasY: number } | null;
     lastEventTime: number;
   }>({
     isZooming: false,
-    initialMouse: null,
-    initialScale: 1,
-    initialOffset: { x: 0, y: 0 },
-    canvasPoint: null,
+    zoomCenter: null,
     lastEventTime: 0,
   });
 
@@ -564,69 +538,39 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     if (!canvas) return;
 
     const handleWheel = (e: WheelEvent) => {
-      e.preventDefault(); // Prevent browser zoom/scroll
+      e.preventDefault();
 
       const now = Date.now();
       const timeSinceLastEvent = now - trackpadGestureRef.current.lastEventTime;
 
-      console.log('🟡 Wheel event:', {
-        ctrlKey: e.ctrlKey,
-        deltaX: e.deltaX.toFixed(2),
-        deltaY: e.deltaY.toFixed(2),
-        timeSince: timeSinceLastEvent,
-      });
-
-      // Check if this is a pinch-to-zoom gesture (ctrlKey is set on Mac for pinch)
       if (e.ctrlKey) {
+        // Trackpad pinch-to-zoom gesture
         const rect = canvas.parentElement?.getBoundingClientRect();
         if (!rect) return;
 
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        // Reset gesture state if it's been more than 200ms since last zoom event
+        // Reset gesture if it's been more than 200ms since last zoom event
         if (timeSinceLastEvent > 200 || !trackpadGestureRef.current.isZooming) {
-          console.log('🟢 Starting new zoom gesture');
           trackpadGestureRef.current.isZooming = true;
-          trackpadGestureRef.current.initialMouse = { x: mouseX, y: mouseY };
-          trackpadGestureRef.current.initialScale = viewport.scale;
-          trackpadGestureRef.current.initialOffset = { x: viewport.offsetX, y: viewport.offsetY };
-
-          // Pick the canvas point to keep centered
           const canvasX = (mouseX - viewport.offsetX) / viewport.scale;
           const canvasY = (mouseY - viewport.offsetY) / viewport.scale;
-          trackpadGestureRef.current.canvasPoint = { x: canvasX, y: canvasY };
+          trackpadGestureRef.current.zoomCenter = { x: mouseX, y: mouseY, canvasX, canvasY };
         }
 
         trackpadGestureRef.current.lastEventTime = now;
 
-        // Calculate zoom
         const delta = -e.deltaY;
         const zoomFactor = delta > 0 ? 1.05 : 0.95;
         const newScale = clamp(viewport.scale * zoomFactor, MIN_ZOOM, MAX_ZOOM);
 
-        const gesture = trackpadGestureRef.current;
-        if (!gesture.canvasPoint || !gesture.initialMouse) return;
+        const center = trackpadGestureRef.current.zoomCenter;
+        if (!center) return;
 
-        // Calculate pan from cursor movement
-        const cursorDeltaX = mouseX - gesture.initialMouse.x;
-        const cursorDeltaY = mouseY - gesture.initialMouse.y;
-
-        // Zoom toward the initial canvas point + apply cursor movement as pan
-        let newOffsetX = gesture.initialMouse.x - gesture.canvasPoint.x * newScale;
-        let newOffsetY = gesture.initialMouse.y - gesture.canvasPoint.y * newScale;
-
-        // Add cursor movement (pan)
-        newOffsetX += cursorDeltaX;
-        newOffsetY += cursorDeltaY;
-
-        console.log('🟢 Zoom+Pan:', {
-          scale: newScale.toFixed(3),
-          cursorDeltaX: cursorDeltaX.toFixed(1),
-          cursorDeltaY: cursorDeltaY.toFixed(1),
-          offsetX: newOffsetX.toFixed(1),
-          offsetY: newOffsetY.toFixed(1),
-        });
+        // Zoom toward the initial cursor position
+        const newOffsetX = center.x - center.canvasX * newScale;
+        const newOffsetY = center.y - center.canvasY * newScale;
 
         setViewport({
           scale: newScale,
@@ -634,22 +578,17 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           offsetY: newOffsetY,
         });
       } else {
-        // Two-finger scroll/pan on Mac trackpad (not zooming)
-        // Reset zoom gesture state since we're not zooming anymore
+        // Two-finger scroll/pan (not zooming)
         trackpadGestureRef.current.isZooming = false;
-
-        const deltaX = e.deltaX;
-        const deltaY = e.deltaY;
 
         setViewport((prev) => ({
           ...prev,
-          offsetX: prev.offsetX - deltaX / prev.scale,
-          offsetY: prev.offsetY - deltaY / prev.scale,
+          offsetX: prev.offsetX - e.deltaX / prev.scale,
+          offsetY: prev.offsetY - e.deltaY / prev.scale,
         }));
       }
     };
 
-    // Add wheel listener with passive: false to allow preventDefault
     canvas.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
