@@ -275,7 +275,13 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   }, [mode, viewport]);
 
   const handleTouchMoveButton = useCallback((e: React.TouchEvent) => {
-    if (!draggingButton || mode !== 'layout' || !canvasRef.current || !board || e.touches.length !== 1) return;
+    if (!draggingButton || mode !== 'layout' || !canvasRef.current || !board) return;
+
+    // If a second finger is added, end the drag operation
+    if (e.touches.length !== 1) {
+      handleDragEnd();
+      return;
+    }
 
     // Prevent scrolling while dragging
     e.preventDefault();
@@ -296,9 +302,12 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       layoutX: snappedX,
       layoutY: snappedY,
     });
-  }, [draggingButton, mode, dragOffset, viewport, board]);
+  }, [draggingButton, mode, dragOffset, viewport, board, handleDragEnd]);
 
-  const handleTouchEndButton = useCallback(() => {
+  const handleTouchEndButton = useCallback((e: React.TouchEvent) => {
+    // Stop propagation to prevent canvas-level touch handlers from interfering
+    e.stopPropagation();
+
     // Use the same end logic as mouse drag
     handleDragEnd();
   }, [handleDragEnd]);
