@@ -365,6 +365,16 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         touch2.clientY - touch1.clientY
       );
 
+      // Calculate current midpoint in viewport coordinates
+      const currentViewportMidpoint = {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2,
+      };
+
+      // Calculate how much the midpoint has moved in viewport coordinates
+      const viewportDeltaX = currentViewportMidpoint.x - touchState.initialViewportMidpoint.x;
+      const viewportDeltaY = currentViewportMidpoint.y - touchState.initialViewportMidpoint.y;
+
       // Calculate new scale from pinch gesture
       const scaleChange = currentDistance / touchState.initialDistance;
       const newScale = clamp(
@@ -374,14 +384,23 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       );
 
       // Find which canvas point is under the initial midpoint
-      // Use the stored initialMidpoint which is in the stable coordinate space from gesture start
       const canvasX = (touchState.initialMidpoint.x - touchState.initialOffset.x) / touchState.initialScale;
       const canvasY = (touchState.initialMidpoint.y - touchState.initialOffset.y) / touchState.initialScale;
 
       // Keep that canvas point centered on the initial midpoint during zoom
-      // Pure zoom only - no panning (users can pan separately with two-finger drag)
-      const newOffsetX = touchState.initialMidpoint.x - canvasX * newScale;
-      const newOffsetY = touchState.initialMidpoint.y - canvasY * newScale;
+      let newOffsetX = touchState.initialMidpoint.x - canvasX * newScale;
+      let newOffsetY = touchState.initialMidpoint.y - canvasY * newScale;
+
+      // Apply pan if midpoint has moved significantly (mobile two-finger pan)
+      // Use a threshold to ignore small trackpad drift
+      const PAN_THRESHOLD = 5; // pixels
+      const panDistance = Math.hypot(viewportDeltaX, viewportDeltaY);
+
+      if (panDistance > PAN_THRESHOLD) {
+        // Apply the viewport delta as-is (already in correct coordinate space)
+        newOffsetX += viewportDeltaX;
+        newOffsetY += viewportDeltaY;
+      }
 
       setViewport({
         scale: newScale,
