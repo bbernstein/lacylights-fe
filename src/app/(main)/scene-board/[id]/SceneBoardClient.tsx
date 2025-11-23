@@ -305,7 +305,13 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
   // Touch gesture handlers for pinch-to-zoom and two-finger pan
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    console.log('🔵 TouchStart fired!', {
+      touches: e.touches.length,
+      type: e.type,
+    });
+
     if (e.touches.length === 2) {
+      console.log('🔵 Two-finger touch detected - initializing zoom/pan gesture');
       // Prevent default browser behavior for two-finger gestures
       e.preventDefault();
 
@@ -397,7 +403,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       const panDistance = Math.hypot(viewportDeltaX, viewportDeltaY);
 
       // DEBUG: Log gesture details
-      console.log('Touch gesture:', {
+      console.log('🔵 TouchMove gesture data:', {
         initialMidpoint: touchState.initialViewportMidpoint,
         currentMidpoint: currentViewportMidpoint,
         delta: { x: viewportDeltaX, y: viewportDeltaY },
@@ -408,12 +414,12 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       });
 
       if (panDistance > PAN_THRESHOLD) {
-        console.log('  → Applying pan delta:', { x: viewportDeltaX.toFixed(2), y: viewportDeltaY.toFixed(2) });
+        console.log('🔵   → Applying pan delta:', { x: viewportDeltaX.toFixed(2), y: viewportDeltaY.toFixed(2) });
         // Apply the viewport delta as-is (already in correct coordinate space)
         newOffsetX += viewportDeltaX;
         newOffsetY += viewportDeltaY;
       } else {
-        console.log('  → Ignoring pan (below threshold)');
+        console.log('🔵   → Ignoring pan (below threshold)');
       }
 
       setViewport({
