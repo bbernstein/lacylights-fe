@@ -371,21 +371,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         y: (touch1.clientY + touch2.clientY) / 2,
       };
 
-      // Get CURRENT canvas rect (important for trackpad where canvas can move)
-      const currentCanvasRect = canvas.getBoundingClientRect();
-
-      // Convert both initial and current midpoints using CURRENT canvas rect
-      // This ensures they're in the same coordinate space
-      const initialCanvasMidpoint = {
-        x: touchState.initialViewportMidpoint.x - currentCanvasRect.left,
-        y: touchState.initialViewportMidpoint.y - currentCanvasRect.top,
-      };
-
-      const currentCanvasMidpoint = {
-        x: currentViewportMidpoint.x - currentCanvasRect.left,
-        y: currentViewportMidpoint.y - currentCanvasRect.top,
-      };
-
       // Calculate new scale from pinch gesture
       const scaleChange = currentDistance / touchState.initialDistance;
       const newScale = clamp(
@@ -394,18 +379,15 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         MAX_ZOOM
       );
 
-      // Calculate how much the midpoint has moved in CANVAS-RELATIVE space (for panning)
-      const midpointDeltaX = currentCanvasMidpoint.x - initialCanvasMidpoint.x;
-      const midpointDeltaY = currentCanvasMidpoint.y - initialCanvasMidpoint.y;
+      // Find which canvas point is under the initial midpoint
+      // Use the stored initialMidpoint which is in the stable coordinate space from gesture start
+      const canvasX = (touchState.initialMidpoint.x - touchState.initialOffset.x) / touchState.initialScale;
+      const canvasY = (touchState.initialMidpoint.y - touchState.initialOffset.y) / touchState.initialScale;
 
-      // Find which canvas point is under the initial midpoint (using recalculated position)
-      const canvasX = (initialCanvasMidpoint.x - touchState.initialOffset.x) / touchState.initialScale;
-      const canvasY = (initialCanvasMidpoint.y - touchState.initialOffset.y) / touchState.initialScale;
-
-      // Keep that canvas point centered on the initial midpoint (for zoom)
-      // Then add the midpoint movement delta (for pan)
-      const newOffsetX = initialCanvasMidpoint.x - canvasX * newScale + midpointDeltaX;
-      const newOffsetY = initialCanvasMidpoint.y - canvasY * newScale + midpointDeltaY;
+      // Keep that canvas point centered on the initial midpoint during zoom
+      // Pure zoom only - no panning (users can pan separately with two-finger drag)
+      const newOffsetX = touchState.initialMidpoint.x - canvasX * newScale;
+      const newOffsetY = touchState.initialMidpoint.y - canvasY * newScale;
 
       setViewport({
         scale: newScale,
