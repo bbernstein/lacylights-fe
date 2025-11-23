@@ -305,6 +305,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       // Prevent default browser behavior for two-finger gestures
       e.preventDefault();
 
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
 
@@ -314,10 +317,17 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         touch2.clientY - touch1.clientY
       );
 
-      // Calculate midpoint for panning
-      const midpoint = {
+      // Calculate midpoint in viewport coordinates
+      const viewportMidpoint = {
         x: (touch1.clientX + touch2.clientX) / 2,
         y: (touch1.clientY + touch2.clientY) / 2,
+      };
+
+      // Convert to canvas-relative coordinates (accounting for canvas position in page)
+      const canvasRect = canvas.getBoundingClientRect();
+      const midpoint = {
+        x: viewportMidpoint.x - canvasRect.left,
+        y: viewportMidpoint.y - canvasRect.top,
       };
 
       setTouchState({
@@ -330,9 +340,12 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   }, [viewport.scale, viewport.offsetX, viewport.offsetY]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2 && touchState.initialDistance && touchState.initialMidpoint) {
+    if (e.touches.length === 2 && touchState.initialDistance && touchState.initialMidpoint && canvasRef.current) {
       // Prevent default browser behavior during two-finger gestures
       e.preventDefault();
+
+      const canvas = canvasRef.current;
+      const canvasRect = canvas.getBoundingClientRect();
 
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
@@ -343,10 +356,16 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         touch2.clientY - touch1.clientY
       );
 
-      // Calculate current midpoint for panning
-      const currentMidpoint = {
+      // Calculate current midpoint in viewport coordinates
+      const viewportMidpoint = {
         x: (touch1.clientX + touch2.clientX) / 2,
         y: (touch1.clientY + touch2.clientY) / 2,
+      };
+
+      // Convert to canvas-relative coordinates
+      const currentMidpoint = {
+        x: viewportMidpoint.x - canvasRect.left,
+        y: viewportMidpoint.y - canvasRect.top,
       };
 
       // Calculate new scale from pinch gesture
