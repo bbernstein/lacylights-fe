@@ -365,12 +365,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         touch2.clientY - touch1.clientY
       );
 
-      // Calculate current midpoint in viewport coordinates
-      const currentViewportMidpoint = {
-        x: (touch1.clientX + touch2.clientX) / 2,
-        y: (touch1.clientY + touch2.clientY) / 2,
-      };
-
       // Calculate new scale from pinch gesture
       const scaleChange = currentDistance / touchState.initialDistance;
       const newScale = clamp(
