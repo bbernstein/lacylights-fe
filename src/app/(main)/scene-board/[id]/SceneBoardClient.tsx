@@ -549,6 +549,13 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault(); // Prevent browser zoom/scroll
 
+      console.log('🟡 Wheel event:', {
+        ctrlKey: e.ctrlKey,
+        deltaX: e.deltaX.toFixed(2),
+        deltaY: e.deltaY.toFixed(2),
+        deltaZ: e.deltaZ.toFixed(2),
+      });
+
       // Check if this is a pinch-to-zoom gesture (ctrlKey is set on Mac for pinch)
       if (e.ctrlKey) {
         // Pinch-to-zoom on Mac touchpad
