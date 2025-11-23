@@ -556,15 +556,30 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         const zoomFactor = delta > 0 ? 1.05 : 0.95;
         const newScale = clamp(viewport.scale * zoomFactor, MIN_ZOOM, MAX_ZOOM);
 
-        // Zoom towards the cursor position
-        const rect = canvas.getBoundingClientRect();
+        // Get the canvas container's position (not the transformed canvas itself!)
+        const rect = canvas.parentElement?.getBoundingClientRect();
+        if (!rect) return;
+
+        // Mouse position in viewport coordinates (relative to container)
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        // Calculate new offset to zoom towards cursor
-        const scaleDiff = newScale - viewport.scale;
-        const newOffsetX = viewport.offsetX - (mouseX / viewport.scale) * (scaleDiff / newScale);
-        const newOffsetY = viewport.offsetY - (mouseY / viewport.scale) * (scaleDiff / newScale);
+        // Find which canvas point (in 2000x2000 canvas space) is under the mouse
+        const canvasX = (mouseX - viewport.offsetX) / viewport.scale;
+        const canvasY = (mouseY - viewport.offsetY) / viewport.scale;
+
+        // Calculate new offset to keep that canvas point under the mouse
+        const newOffsetX = mouseX - canvasX * newScale;
+        const newOffsetY = mouseY - canvasY * newScale;
+
+        console.log('🟢 Wheel zoom:', {
+          mouse: { x: mouseX.toFixed(1), y: mouseY.toFixed(1) },
+          canvasPoint: { x: canvasX.toFixed(1), y: canvasY.toFixed(1) },
+          oldScale: viewport.scale.toFixed(3),
+          newScale: newScale.toFixed(3),
+          oldOffset: { x: viewport.offsetX.toFixed(1), y: viewport.offsetY.toFixed(1) },
+          newOffset: { x: newOffsetX.toFixed(1), y: newOffsetY.toFixed(1) },
+        });
 
         setViewport({
           scale: newScale,
