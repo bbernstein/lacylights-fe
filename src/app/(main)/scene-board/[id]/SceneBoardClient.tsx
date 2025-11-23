@@ -20,7 +20,7 @@ import { screenToCanvas, clamp, snapToGrid, findAvailablePosition, Rect } from '
 const GRID_SIZE = 10; // Fine grid for flexible button placement
 const AUTO_PLACEMENT_GRID_SIZE = 250; // Grid step for auto-placement (matches findAvailablePosition gridStep)
 const AUTO_PLACEMENT_PADDING = 20; // Grid offset for auto-placement (matches findAvailablePosition padding)
-const MIN_ZOOM = 0.5;
+const MIN_ZOOM = 0.2;  // Allow zooming out to 20% for fitting many buttons on mobile
 const MAX_ZOOM = 3.0;
 const DEFAULT_BUTTON_WIDTH = 200;
 const DEFAULT_BUTTON_HEIGHT = 120;
@@ -62,13 +62,17 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   const [touchState, setTouchState] = useState<{
     initialDistance: number | null;
     initialScale: number;
-    initialMidpoint: { x: number; y: number } | null;
+    initialMidpoint: { x: number; y: number } | null; // Canvas-relative coords
+    initialViewportMidpoint: { x: number; y: number } | null; // Viewport coords for tracking pan
     initialOffset: { x: number; y: number };
+    canvasRect: DOMRect | null; // Stable canvas rect for the gesture
   }>({
     initialDistance: null,
     initialScale: 1.0,
     initialMidpoint: null,
+    initialViewportMidpoint: null,
     initialOffset: { x: 0, y: 0 },
+    canvasRect: null,
   });
 
   const { data: boardData, loading, error, refetch } = useQuery(GET_SCENE_BOARD, {
@@ -249,11 +253,73 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     });
   }, [draggingButton, mode, updatePositions, boardId]);
 
+  // Touch drag handlers (for mobile support)
+  const handleTouchStartButton = useCallback((e: React.TouchEvent, button: SceneBoardButton) => {
+    // Only handle single-touch drags in layout mode
+    if (mode !== 'layout' || e.touches.length !== 1) return;
+
+    // Stop propagation to prevent canvas-level touch handlers from interfering
+    e.stopPropagation();
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const touch = e.touches[0];
+    const canvasPos = screenToCanvas(touch.clientX, touch.clientY, viewport, canvas);
+
+    setDraggingButton(button);
+    setDragOffset({
+      x: canvasPos.x - button.layoutX,
+      y: canvasPos.y - button.layoutY,
+    });
+  }, [mode, viewport]);
+
+  const handleTouchMoveButton = useCallback((e: React.TouchEvent) => {
+    if (!draggingButton || mode !== 'layout' || !canvasRef.current || !board) return;
+
+    // If a second finger is added, end the drag operation
+    if (e.touches.length !== 1) {
+      handleDragEnd();
+      return;
+    }
+
+    // Prevent scrolling while dragging
+    e.preventDefault();
+
+    const touch = e.touches[0];
+    const canvasPos = screenToCanvas(touch.clientX, touch.clientY, viewport, canvasRef.current);
+
+    const newX = canvasPos.x - dragOffset.x;
+    const newY = canvasPos.y - dragOffset.y;
+
+    // Snap to fine grid (allows flexible positioning)
+    const snappedX = snapToGrid(newX, GRID_SIZE);
+    const snappedY = snapToGrid(newY, GRID_SIZE);
+
+    // Update the dragging button state to trigger re-render
+    setDraggingButton({
+      ...draggingButton,
+      layoutX: snappedX,
+      layoutY: snappedY,
+    });
+  }, [draggingButton, mode, dragOffset, viewport, board, handleDragEnd]);
+
+  const handleTouchEndButton = useCallback((e: React.TouchEvent) => {
+    // Stop propagation to prevent canvas-level touch handlers from interfering
+    e.stopPropagation();
+
+    // Use the same end logic as mouse drag
+    handleDragEnd();
+  }, [handleDragEnd]);
+
   // Touch gesture handlers for pinch-to-zoom and two-finger pan
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       // Prevent default browser behavior for two-finger gestures
       e.preventDefault();
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
@@ -264,25 +330,40 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         touch2.clientY - touch1.clientY
       );
 
-      // Calculate midpoint for panning
-      const midpoint = {
+      // Calculate midpoint in viewport coordinates
+      const viewportMidpoint = {
         x: (touch1.clientX + touch2.clientX) / 2,
         y: (touch1.clientY + touch2.clientY) / 2,
+      };
+
+      // Get stable canvas rect for this gesture
+      const canvasRect = canvas.getBoundingClientRect();
+
+      // Convert to canvas-relative coordinates
+      const midpoint = {
+        x: viewportMidpoint.x - canvasRect.left,
+        y: viewportMidpoint.y - canvasRect.top,
       };
 
       setTouchState({
         initialDistance: distance,
         initialScale: viewport.scale,
         initialMidpoint: midpoint,
+        initialViewportMidpoint: viewportMidpoint, // Store viewport coords for pan tracking
         initialOffset: { x: viewport.offsetX, y: viewport.offsetY },
+        canvasRect: canvasRect, // Store canvas rect for stable coordinate space
       });
     }
   }, [viewport.scale, viewport.offsetX, viewport.offsetY]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2 && touchState.initialDistance && touchState.initialMidpoint) {
+    if (e.touches.length === 2 && touchState.initialDistance && touchState.initialMidpoint &&
+        touchState.canvasRect && touchState.initialViewportMidpoint) {
       // Prevent default browser behavior during two-finger gestures
       e.preventDefault();
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
@@ -293,11 +374,15 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         touch2.clientY - touch1.clientY
       );
 
-      // Calculate current midpoint for panning
-      const currentMidpoint = {
+      // Calculate current midpoint in viewport coordinates
+      const currentViewportMidpoint = {
         x: (touch1.clientX + touch2.clientX) / 2,
         y: (touch1.clientY + touch2.clientY) / 2,
       };
+
+      // Calculate how much the midpoint has moved in viewport coordinates
+      const viewportDeltaX = currentViewportMidpoint.x - touchState.initialViewportMidpoint.x;
+      const viewportDeltaY = currentViewportMidpoint.y - touchState.initialViewportMidpoint.y;
 
       // Calculate new scale from pinch gesture
       const scaleChange = currentDistance / touchState.initialDistance;
@@ -307,12 +392,24 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         MAX_ZOOM
       );
 
-      // Calculate pan offset from midpoint movement
-      // The offset needs to be divided by scale to account for the zoom level
-      const deltaX = (currentMidpoint.x - touchState.initialMidpoint.x) / newScale;
-      const deltaY = (currentMidpoint.y - touchState.initialMidpoint.y) / newScale;
-      const newOffsetX = touchState.initialOffset.x + deltaX;
-      const newOffsetY = touchState.initialOffset.y + deltaY;
+      // Find which canvas point is under the initial midpoint
+      const canvasX = (touchState.initialMidpoint.x - touchState.initialOffset.x) / touchState.initialScale;
+      const canvasY = (touchState.initialMidpoint.y - touchState.initialOffset.y) / touchState.initialScale;
+
+      // Keep that canvas point centered on the initial midpoint during zoom
+      let newOffsetX = touchState.initialMidpoint.x - canvasX * newScale;
+      let newOffsetY = touchState.initialMidpoint.y - canvasY * newScale;
+
+      // Apply pan if midpoint has moved significantly (mobile two-finger pan)
+      // Use a threshold to ignore small trackpad drift
+      const PAN_THRESHOLD = 5; // pixels
+      const panDistance = Math.hypot(viewportDeltaX, viewportDeltaY);
+
+      if (panDistance > PAN_THRESHOLD) {
+        // Apply the viewport delta as-is (already in correct coordinate space)
+        newOffsetX += viewportDeltaX;
+        newOffsetY += viewportDeltaY;
+      }
 
       setViewport({
         scale: newScale,
@@ -327,7 +424,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       initialDistance: null,
       initialScale: viewport.scale,
       initialMidpoint: null,
+      initialViewportMidpoint: null,
       initialOffset: { x: viewport.offsetX, y: viewport.offsetY },
+      canvasRect: null,
     });
   }, [viewport.scale, viewport.offsetX, viewport.offsetY]);
 
@@ -432,29 +531,55 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   // Add wheel event listeners for Mac touchpad pinch-to-zoom and pan
+  // Track zoom gesture state to keep zoom centered on cursor position
+  const trackpadGestureRef = useRef<{
+    isZooming: boolean;
+    zoomCenter: { x: number; y: number; canvasX: number; canvasY: number } | null;
+    lastEventTime: number;
+  }>({
+    isZooming: false,
+    zoomCenter: null,
+    lastEventTime: 0,
+  });
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const handleWheel = (e: WheelEvent) => {
-      e.preventDefault(); // Prevent browser zoom/scroll
+      e.preventDefault();
 
-      // Check if this is a pinch-to-zoom gesture (ctrlKey is set on Mac for pinch)
+      const now = Date.now();
+      const timeSinceLastEvent = now - trackpadGestureRef.current.lastEventTime;
+
       if (e.ctrlKey) {
-        // Pinch-to-zoom on Mac touchpad
-        const delta = -e.deltaY; // Positive = zoom in, negative = zoom out
-        const zoomFactor = delta > 0 ? 1.05 : 0.95;
-        const newScale = clamp(viewport.scale * zoomFactor, MIN_ZOOM, MAX_ZOOM);
+        // Trackpad pinch-to-zoom gesture
+        const rect = canvas.parentElement?.getBoundingClientRect();
+        if (!rect) return;
 
-        // Zoom towards the cursor position
-        const rect = canvas.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        // Calculate new offset to zoom towards cursor
-        const scaleDiff = newScale - viewport.scale;
-        const newOffsetX = viewport.offsetX - (mouseX / viewport.scale) * (scaleDiff / newScale);
-        const newOffsetY = viewport.offsetY - (mouseY / viewport.scale) * (scaleDiff / newScale);
+        // Reset gesture if it's been more than 200ms since last zoom event
+        if (timeSinceLastEvent > 200 || !trackpadGestureRef.current.isZooming) {
+          trackpadGestureRef.current.isZooming = true;
+          const canvasX = (mouseX - viewport.offsetX) / viewport.scale;
+          const canvasY = (mouseY - viewport.offsetY) / viewport.scale;
+          trackpadGestureRef.current.zoomCenter = { x: mouseX, y: mouseY, canvasX, canvasY };
+        }
+
+        trackpadGestureRef.current.lastEventTime = now;
+
+        const delta = -e.deltaY;
+        const zoomFactor = delta > 0 ? 1.05 : 0.95;
+        const newScale = clamp(viewport.scale * zoomFactor, MIN_ZOOM, MAX_ZOOM);
+
+        const center = trackpadGestureRef.current.zoomCenter;
+        if (!center) return;
+
+        // Zoom toward the initial cursor position
+        const newOffsetX = center.x - center.canvasX * newScale;
+        const newOffsetY = center.y - center.canvasY * newScale;
 
         setViewport({
           scale: newScale,
@@ -462,19 +587,17 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           offsetY: newOffsetY,
         });
       } else {
-        // Two-finger scroll/pan on Mac touchpad
-        const deltaX = e.deltaX;
-        const deltaY = e.deltaY;
+        // Two-finger scroll/pan (not zooming)
+        trackpadGestureRef.current.isZooming = false;
 
         setViewport((prev) => ({
           ...prev,
-          offsetX: prev.offsetX - deltaX / prev.scale,
-          offsetY: prev.offsetY - deltaY / prev.scale,
+          offsetX: prev.offsetX - e.deltaX / prev.scale,
+          offsetY: prev.offsetY - e.deltaY / prev.scale,
         }));
       }
     };
 
-    // Add wheel listener with passive: false to allow preventDefault
     canvas.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
@@ -924,6 +1047,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                     height,
                   }}
                 onMouseDown={(e) => handleDragStart(e, button)}
+                onTouchStart={(e) => handleTouchStartButton(e, button)}
+                onTouchMove={handleTouchMoveButton}
+                onTouchEnd={handleTouchEndButton}
                 {...(mode === 'play' && {
                   onClick: () => handleSceneClick(button),
                   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
