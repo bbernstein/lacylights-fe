@@ -396,10 +396,24 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       const PAN_THRESHOLD = 5; // pixels
       const panDistance = Math.hypot(viewportDeltaX, viewportDeltaY);
 
+      // DEBUG: Log gesture details
+      console.log('Touch gesture:', {
+        initialMidpoint: touchState.initialViewportMidpoint,
+        currentMidpoint: currentViewportMidpoint,
+        delta: { x: viewportDeltaX, y: viewportDeltaY },
+        panDistance: panDistance.toFixed(2),
+        thresholdTriggered: panDistance > PAN_THRESHOLD,
+        scaleChange: scaleChange.toFixed(3),
+        newScale: newScale.toFixed(3),
+      });
+
       if (panDistance > PAN_THRESHOLD) {
+        console.log('  → Applying pan delta:', { x: viewportDeltaX.toFixed(2), y: viewportDeltaY.toFixed(2) });
         // Apply the viewport delta as-is (already in correct coordinate space)
         newOffsetX += viewportDeltaX;
         newOffsetY += viewportDeltaY;
+      } else {
+        console.log('  → Ignoring pan (below threshold)');
       }
 
       setViewport({
