@@ -167,12 +167,14 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isAddSceneModalOpen, isEditingSettings]);
 
-  // Exit focus mode on component unmount (when navigating away)
+  // Enter focus mode on mount, exit on unmount
   useEffect(() => {
+    enterFocusMode();
+
     return () => {
       exitFocusMode();
     };
-  }, [exitFocusMode]);
+  }, [enterFocusMode, exitFocusMode]);
 
   // Force play mode when in focus mode
   useEffect(() => {
