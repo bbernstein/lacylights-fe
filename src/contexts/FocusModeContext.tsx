@@ -27,9 +27,10 @@ export function FocusModeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Handle ESC key to exit focus mode
+  // Only exit if the event hasn't been handled by a modal or other component
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isFocusMode) {
+      if (e.key === 'Escape' && isFocusMode && !e.defaultPrevented) {
         exitFocusMode();
       }
     };

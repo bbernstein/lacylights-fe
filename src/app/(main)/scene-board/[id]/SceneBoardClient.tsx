@@ -155,9 +155,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (isAddSceneModalOpen) {
+          e.preventDefault();
           setIsAddSceneModalOpen(false);
           setSelectedSceneIds(new Set());
         } else if (isEditingSettings) {
+          e.preventDefault();
           setIsEditingSettings(false);
         }
       }
