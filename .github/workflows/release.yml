@@ -12,6 +12,11 @@ on:
           - minor
           - major
         default: "patch"
+      is_prerelease:
+        description: "Is this a prerelease (beta) version?"
+        required: true
+        type: boolean
+        default: false
       release_name:
         description: "Release name (optional - leave blank for auto-generated)"
         required: false
@@ -52,27 +57,78 @@ jobs:
         id: new_version
         run: |
           CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
-          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+          IS_PRERELEASE="${{ inputs.is_prerelease }}"
+
+          # Check if current version is a beta
+          if [[ "$CURRENT_VERSION" =~ b([0-9]+)$ ]]; then
+            IS_CURRENT_BETA=true
+            CURRENT_BETA_NUM="${BASH_REMATCH[1]}"
+            BASE_VERSION="${CURRENT_VERSION%b*}"
+          else
+            IS_CURRENT_BETA=false
+            BASE_VERSION="$CURRENT_VERSION"
+          fi
+
+          # Parse base version
+          IFS='.' read -ra VERSION_PARTS <<< "$BASE_VERSION"
           MAJOR="${VERSION_PARTS[0]}"
           MINOR="${VERSION_PARTS[1]}"
           PATCH="${VERSION_PARTS[2]}"
 
-          case "${{ inputs.version_bump }}" in
-            major)
-              MAJOR=$((MAJOR + 1))
-              MINOR=0
-              PATCH=0
-              ;;
-            minor)
-              MINOR=$((MINOR + 1))
-              PATCH=0
-              ;;
-            patch)
-              PATCH=$((PATCH + 1))
-              ;;
-          esac
+          # Determine new version based on current state and request
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            # User wants a beta version
+            if [ "$IS_CURRENT_BETA" = "true" ]; then
+              # Current is beta - increment beta counter
+              NEW_BETA_NUM=$((CURRENT_BETA_NUM + 1))
+              NEW_VERSION="${BASE_VERSION}b${NEW_BETA_NUM}"
+              echo "Incrementing beta: ${CURRENT_VERSION} -> ${NEW_VERSION}"
+            else
+              # Current is stable - bump according to type, add b1
+              case "${{ inputs.version_bump }}" in
+                major)
+                  MAJOR=$((MAJOR + 1))
+                  MINOR=0
+                  PATCH=0
+                  ;;
+                minor)
+                  MINOR=$((MINOR + 1))
+                  PATCH=0
+                  ;;
+                patch)
+                  PATCH=$((PATCH + 1))
+                  ;;
+              esac
+              NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}b1"
+              echo "Creating first beta: ${CURRENT_VERSION} -> ${NEW_VERSION}"
+            fi
+          else
+            # User wants a stable version
+            if [ "$IS_CURRENT_BETA" = "true" ]; then
+              # Current is beta - promote to stable (remove beta suffix)
+              NEW_VERSION="$BASE_VERSION"
+              echo "Promoting beta to stable: ${CURRENT_VERSION} -> ${NEW_VERSION}"
+            else
+              # Current is stable - bump according to type
+              case "${{ inputs.version_bump }}" in
+                major)
+                  MAJOR=$((MAJOR + 1))
+                  MINOR=0
+                  PATCH=0
+                  ;;
+                minor)
+                  MINOR=$((MINOR + 1))
+                  PATCH=0
+                  ;;
+                patch)
+                  PATCH=$((PATCH + 1))
+                  ;;
+              esac
+              NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+              echo "Standard bump: ${CURRENT_VERSION} -> ${NEW_VERSION}"
+            fi
+          fi
 
-          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "New version: $NEW_VERSION"
 
@@ -106,6 +162,18 @@ jobs:
             echo "name=${{ inputs.release_name }}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Check if prerelease
+        id: prerelease_check
+        run: |
+          VERSION="${{ steps.new_version.outputs.version }}"
+          if [[ "$VERSION" =~ b[0-9]+$ ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "Version $VERSION is a prerelease (beta)"
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "Version $VERSION is a stable release"
+          fi
+
       - name: Create GitHub Release
         uses: actions/github-script@v7
         with:
@@ -134,7 +202,7 @@ jobs:
               tag_name: tagName,
               name: '${{ steps.release_name.outputs.name }}',
               draft: false,
-              prerelease: false,
+              prerelease: ${{ steps.prerelease_check.outputs.is_prerelease }},
               generate_release_notes: true
             });
 
@@ -272,7 +340,7 @@ jobs:
 
           # Check if this is a prerelease
           IS_PRERELEASE="false"
-          if [[ "$VERSION" =~ (alpha|beta|rc) ]]; then
+          if [[ "$VERSION" =~ b[0-9]+$ ]]; then
             IS_PRERELEASE="true"
           fi
 
@@ -310,7 +378,7 @@ jobs:
 
           # Check if this is a prerelease
           IS_PRERELEASE="false"
-          if [[ "$VERSION" =~ (alpha|beta|rc) ]]; then
+          if [[ "$VERSION" =~ b[0-9]+$ ]]; then
             IS_PRERELEASE="true"
           fi
 
@@ -348,7 +416,7 @@ jobs:
 
           # Check if this is a prerelease
           IS_PRERELEASE="false"
-          if [[ "$VERSION" =~ (alpha|beta|rc) ]]; then
+          if [[ "$VERSION" =~ b[0-9]+$ ]]; then
             IS_PRERELEASE="true"
           fi
 
@@ -381,7 +449,7 @@ jobs:
 
           # Check if this is a prerelease
           IS_PRERELEASE="false"
-          if [[ "$VERSION" =~ (alpha|beta|rc) ]]; then
+          if [[ "$VERSION" =~ b[0-9]+$ ]]; then
             IS_PRERELEASE="true"
           fi
 
