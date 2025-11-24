@@ -332,6 +332,7 @@ jobs:
           echo "✓ Server build upload successful"
 
       - name: Update latest.json for static build
+        if: steps.prerelease_check.outputs.is_prerelease == 'false'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_DIST_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_DIST_SECRET_ACCESS_KEY }}
@@ -365,6 +366,7 @@ jobs:
           echo "✓ Static latest.json updated"
 
       - name: Update latest.json for server build
+        if: steps.prerelease_check.outputs.is_prerelease == 'false'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_DIST_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_DIST_SECRET_ACCESS_KEY }}
