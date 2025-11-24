@@ -1194,11 +1194,12 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
             −
           </button>
           <button
-            onClick={() => setViewport({ scale: 1.0, offsetX: 0, offsetY: 0 })}
+            onClick={zoomToFit}
             className="px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 text-xs"
-            aria-label="Reset zoom"
+            aria-label="Zoom to fit all scenes"
+            title="Fit all scenes in view"
           >
-            Reset
+            Fit All
           </button>
         </div>
       </div>
