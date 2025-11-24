@@ -13,6 +13,7 @@ import {
 } from '@/graphql/sceneBoards';
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { useProject } from '@/contexts/ProjectContext';
+import { useFocusMode } from '@/contexts/FocusModeContext';
 import { SceneBoardButton } from '@/types';
 import { screenToCanvas, clamp, snapToGrid, findAvailablePosition, Rect } from '@/lib/canvasUtils';
 
@@ -33,6 +34,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   const router = useRouter();
   const boardId = id === '__dynamic__' ? (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() || '' : '') : id;
   const { currentProject } = useProject();
+  const { isFocusMode, enterFocusMode, exitFocusMode } = useFocusMode();
 
   const [mode, setMode] = useState<'play' | 'layout'>('play');
   const [isAddSceneModalOpen, setIsAddSceneModalOpen] = useState(false);
@@ -153,9 +155,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (isAddSceneModalOpen) {
+          e.preventDefault();
           setIsAddSceneModalOpen(false);
           setSelectedSceneIds(new Set());
         } else if (isEditingSettings) {
+          e.preventDefault();
           setIsEditingSettings(false);
         }
       }
@@ -164,6 +168,22 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isAddSceneModalOpen, isEditingSettings]);
+
+  // Enter focus mode on mount, exit on unmount
+  useEffect(() => {
+    enterFocusMode();
+
+    return () => {
+      exitFocusMode();
+    };
+  }, [enterFocusMode, exitFocusMode]);
+
+  // Force play mode when in focus mode
+  useEffect(() => {
+    if (isFocusMode && mode !== 'play') {
+      setMode('play');
+    }
+  }, [isFocusMode, mode]);
 
   // Handle drag start
   const handleDragStart = useCallback((e: React.MouseEvent, button: SceneBoardButton) => {
@@ -789,98 +809,132 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         </div>
       )}
 
-      {/* Header - Compact on mobile */}
-      <div className="bg-white border-b px-3 py-2 md:px-6 md:py-4 flex items-center justify-between dark:bg-gray-900 dark:border-gray-700">
-        {/* Left side - always visible */}
-        <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
+      {/* Header */}
+      {isFocusMode ? (
+        /* Minimal Focus Mode Header */
+        <div className="bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 px-3 py-2 flex items-center gap-3">
           <button
             onClick={() => router.push('/scene-board')}
-            className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white shrink-0"
+            className="text-gray-300 hover:text-white shrink-0 text-2xl"
             aria-label="Back to scene boards"
           >
             ←
           </button>
-          <div className="min-w-0">
-            <h1 className="text-lg md:text-2xl font-bold dark:text-white truncate">{board.name}</h1>
-            {/* Info visible only on desktop */}
-            <p className="hidden md:block text-sm text-gray-600 dark:text-gray-300">
-              {board.buttons.length} scenes • Fade: {board.defaultFadeTime}s
-            </p>
-          </div>
-        </div>
-
-        {/* Right side - desktop only */}
-        <div className="hidden md:flex items-center gap-2">
+          <h1 className="text-lg font-bold text-white truncate flex-1">{board.name}</h1>
           <button
-            onClick={zoomToFit}
-            className="px-3 py-2 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300"
-            title="Zoom to fit all scenes"
+            onClick={exitFocusMode}
+            className="text-gray-300 hover:text-white shrink-0 p-1"
+            aria-label="Exit focus mode"
+            title="Exit focus mode (ESC)"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <button
-            onClick={openEditSettings}
-            className="px-3 py-2 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300"
-          >
-            Settings
-          </button>
-          <button
-            onClick={() => setIsAddSceneModalOpen(true)}
-            className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 dark:disabled:opacity-50"
-            disabled={mode === 'play'}
-            aria-disabled={mode === 'play'}
-            aria-describedby={mode === 'play' ? "add-scene-disabled-msg" : undefined}
-          >
-            + Add Scene
-          </button>
-          {mode === 'play' && (
-            <span
-              id="add-scene-disabled-msg"
-              className="ml-2 text-sm text-gray-500 dark:text-gray-400"
-            >
-              Switch to Layout Mode to add scenes
-            </span>
-          )}
-          <div className="border-l dark:border-gray-600 pl-2 ml-2">
-            <button
-              onClick={() => setMode('play')}
-              className={`px-4 py-2 rounded-l ${
-                mode === 'play'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-              }`}
-            >
-              Play Mode
-            </button>
-            <button
-              onClick={() => setMode('layout')}
-              className={`px-4 py-2 rounded-r ${
-                mode === 'layout'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-              }`}
-            >
-              Layout Mode
-            </button>
-          </div>
         </div>
+      ) : (
+        /* Normal Header - Compact on mobile */
+        <div className="bg-white border-b px-3 py-2 md:px-6 md:py-4 flex items-center justify-between dark:bg-gray-900 dark:border-gray-700">
+          {/* Left side - always visible */}
+          <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
+            <button
+              onClick={() => router.push('/scene-board')}
+              className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white shrink-0"
+              aria-label="Back to scene boards"
+            >
+              ←
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-lg md:text-2xl font-bold dark:text-white truncate">{board.name}</h1>
+              {/* Info visible only on desktop */}
+              <p className="hidden md:block text-sm text-gray-600 dark:text-gray-300">
+                {board.buttons.length} scenes • Fade: {board.defaultFadeTime}s
+              </p>
+            </div>
+          </div>
 
-        {/* Hamburger menu - mobile only */}
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white shrink-0"
-          aria-label="Toggle menu"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-      </div>
+          {/* Right side - desktop only */}
+          <div className="hidden md:flex items-center gap-2">
+            <button
+              onClick={enterFocusMode}
+              className="px-3 py-2 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300"
+              title="Enter focus mode (full screen)"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            </button>
+            <button
+              onClick={zoomToFit}
+              className="px-3 py-2 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300"
+              title="Zoom to fit all scenes"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+              </svg>
+            </button>
+            <button
+              onClick={openEditSettings}
+              className="px-3 py-2 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300"
+            >
+              Settings
+            </button>
+            <button
+              onClick={() => setIsAddSceneModalOpen(true)}
+              className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 dark:disabled:opacity-50"
+              disabled={mode === 'play'}
+              aria-disabled={mode === 'play'}
+              aria-describedby={mode === 'play' ? "add-scene-disabled-msg" : undefined}
+            >
+              + Add Scene
+            </button>
+            {mode === 'play' && (
+              <span
+                id="add-scene-disabled-msg"
+                className="ml-2 text-sm text-gray-500 dark:text-gray-400"
+              >
+                Switch to Layout Mode to add scenes
+              </span>
+            )}
+            <div className="border-l dark:border-gray-600 pl-2 ml-2">
+              <button
+                onClick={() => setMode('play')}
+                className={`px-4 py-2 rounded-l ${
+                  mode === 'play'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                Play Mode
+              </button>
+              <button
+                onClick={() => setMode('layout')}
+                className={`px-4 py-2 rounded-r ${
+                  mode === 'layout'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                Layout Mode
+              </button>
+            </div>
+          </div>
+
+          {/* Hamburger menu - mobile only */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white shrink-0"
+            aria-label="Toggle menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Mobile slide-in menu */}
-      {mobileMenuOpen && (
+      {mobileMenuOpen && !isFocusMode && (
         <div className="md:hidden fixed inset-0 z-50" onClick={() => setMobileMenuOpen(false)}>
           <div className="absolute inset-0 bg-black bg-opacity-50" />
           <div
@@ -947,13 +1001,26 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
               <div className="space-y-2">
                 <button
                   onClick={() => {
+                    enterFocusMode();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 text-left flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                  </svg>
+                  Enter Focus Mode
+                </button>
+
+                <button
+                  onClick={() => {
                     zoomToFit();
                     setMobileMenuOpen(false);
                   }}
                   className="w-full px-4 py-3 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300 text-left flex items-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
                   </svg>
                   Zoom to Fit
                 </button>
@@ -1129,23 +1196,26 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
             −
           </button>
           <button
-            onClick={() => setViewport({ scale: 1.0, offsetX: 0, offsetY: 0 })}
+            onClick={zoomToFit}
             className="px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 text-xs"
-            aria-label="Reset zoom"
+            aria-label="Zoom to fit all scenes"
+            title="Fit all scenes in view"
           >
-            Reset
+            Fit All
           </button>
         </div>
       </div>
 
       {/* Mode indicator */}
-      <div className="bg-gray-800 text-white px-6 py-2 text-sm">
-        {mode === 'play' ? (
-          <span>🎮 Play Mode - Click scenes to activate • Pinch to zoom</span>
-        ) : (
-          <span>✏️ Layout Mode - Drag scenes to reposition (snaps to {GRID_SIZE}px grid) • Pinch to zoom</span>
-        )}
-      </div>
+      {!isFocusMode && (
+        <div className="bg-gray-800 text-white px-6 py-2 text-sm">
+          {mode === 'play' ? (
+            <span>🎮 Play Mode - Click scenes to activate • Pinch to zoom</span>
+          ) : (
+            <span>✏️ Layout Mode - Drag scenes to reposition (snaps to {GRID_SIZE}px grid) • Pinch to zoom</span>
+          )}
+        </div>
+      )}
 
       {/* Add Scene Modal */}
       {isAddSceneModalOpen && (

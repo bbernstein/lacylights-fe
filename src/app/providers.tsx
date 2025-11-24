@@ -3,6 +3,7 @@
 import { ApolloProvider } from '@apollo/client';
 import apolloClient from '@/lib/apollo-client';
 import { ProjectProvider } from '@/contexts/ProjectContext';
+import { FocusModeProvider } from '@/contexts/FocusModeContext';
 import { useEffect } from 'react';
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -39,9 +40,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <ApolloProvider client={apolloClient}>
-      <ProjectProvider>
-        {children}
-      </ProjectProvider>
+      <FocusModeProvider>
+        <ProjectProvider>
+          {children}
+        </ProjectProvider>
+      </FocusModeProvider>
     </ApolloProvider>
   );
 }
