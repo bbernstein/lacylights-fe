@@ -345,7 +345,7 @@ jobs:
           aws s3 cp "${VERSION}-static.json" \
             "s3://${{ secrets.AWS_DIST_BUCKET }}/releases/${COMPONENT}/${VERSION}.json" \
             --content-type "application/json" \
-            --cache-control "max-age=3600, immutable" \
+            --cache-control "max-age=31536000, immutable" \
             --metadata-directive REPLACE
 
           echo "✓ ${VERSION}.json uploaded for static build"
@@ -396,7 +396,7 @@ jobs:
           aws s3 cp "${VERSION}-server.json" \
             "s3://${{ secrets.AWS_DIST_BUCKET }}/releases/${COMPONENT}/${VERSION}.json" \
             --content-type "application/json" \
-            --cache-control "max-age=3600, immutable" \
+            --cache-control "max-age=31536000, immutable" \
             --metadata-directive REPLACE
 
           echo "✓ ${VERSION}.json uploaded for server build"
