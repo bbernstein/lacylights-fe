@@ -100,25 +100,85 @@ Key GraphQL operations:
 
 ## Building for Production
 
-### Static Export (for Raspberry Pi)
+LacyLights Frontend supports **two deployment modes**, each with its own build process and distribution artifact:
 
-LacyLights frontend is deployed as a static export on Raspberry Pi:
+### 1. Static Export (for Raspberry Pi)
+
+Build a static export for deployment on Raspberry Pi with nginx:
 
 ```bash
-npm run build
+npm run build:static
 ```
 
-This generates a static site in the `out/` directory optimized for nginx deployment.
+This generates a static site in the `out/` directory optimized for nginx deployment. The static export:
+- Contains no Node.js server components
+- Serves pre-rendered HTML/CSS/JS files
+- Uses client-side API calls to backend
+- Deployed via `lacylights-fe-static` artifact
 
 For complete Raspberry Pi deployment instructions, see:
 📖 **[Raspberry Pi Deployment Guide](https://github.com/bbernstein/lacylights-node/blob/main/deploy/DEPLOYMENT.md)**
 
-### Development Production Server
+### 2. Server Mode (for Mac Application)
+
+Build a full Next.js server for the Mac desktop application:
 
 ```bash
 npm run build
 npm start
 ```
+
+This creates a production Next.js server that:
+- Runs as a Node.js application
+- Supports API routes and server components
+- Bundled with the Mac desktop app
+- Deployed via `lacylights-fe-server` artifact
+
+## Releases and Versioning
+
+### Version Format
+
+LacyLights Frontend uses semantic versioning with beta support:
+
+- **Stable Release**: `X.Y.Z` (e.g., `0.7.2`, `1.0.0`)
+- **Beta Release**: `X.Y.ZbN` (e.g., `0.7.3b1`, `0.7.3b2`)
+
+Beta releases are marked as "Pre-release" on GitHub and are used for testing new features before stable release.
+
+### Automated Releases
+
+Releases are created automatically via GitHub Actions workflow. The workflow:
+- Handles version bumping (major, minor, patch)
+- Manages beta version sequences
+- Builds **both** static and server artifacts
+- Uploads to S3 distribution (`dist.lacylights.com`)
+- Updates DynamoDB for version tracking
+- Creates GitHub Release with artifacts
+
+### Installation
+
+**Download Latest Release:**
+
+- **Static Build (RPi)**: https://dist.lacylights.com/releases/fe-static/latest.json
+- **Server Build (Mac)**: https://dist.lacylights.com/releases/fe-server/latest.json
+
+**Manual Installation:**
+
+```bash
+# For Raspberry Pi (static export)
+wget https://dist.lacylights.com/releases/fe-static/lacylights-fe-static-v[VERSION].tar.gz
+tar -xzf lacylights-fe-static-v[VERSION].tar.gz
+# Deploy to nginx
+
+# For Mac (server mode)
+wget https://dist.lacylights.com/releases/fe-server/lacylights-fe-server-v[VERSION].tar.gz
+tar -xzf lacylights-fe-server-v[VERSION].tar.gz
+cd lacylights-fe-server
+npm start
+```
+
+**For complete release process documentation**, see:
+📖 **[RELEASE_PROCESS.md](./RELEASE_PROCESS.md)**
 
 ## Contributing
 
