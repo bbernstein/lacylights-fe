@@ -59,11 +59,12 @@ jobs:
           CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
           IS_PRERELEASE="${{ inputs.is_prerelease }}"
 
-          # Check if current version is a beta
-          if [[ "$CURRENT_VERSION" =~ b([0-9]+)$ ]]; then
+          # Check if current version is a beta (format: X.Y.Zb[N] or X.Y.Z-b[N])
+          if [[ "$CURRENT_VERSION" =~ -?b([0-9]+)$ ]]; then
             IS_CURRENT_BETA=true
             CURRENT_BETA_NUM="${BASH_REMATCH[1]}"
-            BASE_VERSION="${CURRENT_VERSION%b*}"
+            # Remove both dash and beta suffix (handles both formats)
+            BASE_VERSION=$(echo "$CURRENT_VERSION" | sed 's/-\?b[0-9]\+$//')
           else
             IS_CURRENT_BETA=false
             BASE_VERSION="$CURRENT_VERSION"
