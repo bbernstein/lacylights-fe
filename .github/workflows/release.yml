@@ -59,11 +59,23 @@ jobs:
           CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
           IS_PRERELEASE="${{ inputs.is_prerelease }}"
 
-          # Check if current version is a beta
-          if [[ "$CURRENT_VERSION" =~ b([0-9]+)$ ]]; then
+          # Normalize legacy beta version formats to semver-compatible prerelease format.
+          # Legacy formats: X.Y.Zb[N] or X.Y.Z-b[N]
+          # Target format:  X.Y.Z-beta.[N] (semver-compatible)
+          if [[ "$CURRENT_VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-?b([0-9]+)$ ]]; then
+            echo "⚠️  Old format detected: $CURRENT_VERSION"
+            BASE_VERSION="${BASH_REMATCH[1]}"
+            CURRENT_BETA_NUM="${BASH_REMATCH[2]}"
+            CURRENT_VERSION="${BASE_VERSION}-beta.${CURRENT_BETA_NUM}"
+            echo "✓ Normalized to: $CURRENT_VERSION"
+          fi
+          echo "version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+
+          # Check if current version is a beta (semver format: X.Y.Z-beta.[N])
+          if [[ "$CURRENT_VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-beta\.([0-9]+)$ ]]; then
             IS_CURRENT_BETA=true
-            CURRENT_BETA_NUM="${BASH_REMATCH[1]}"
-            BASE_VERSION="${CURRENT_VERSION%b*}"
+            BASE_VERSION="${BASH_REMATCH[1]}"
+            CURRENT_BETA_NUM="${BASH_REMATCH[2]}"
           else
             IS_CURRENT_BETA=false
             BASE_VERSION="$CURRENT_VERSION"
@@ -80,16 +92,16 @@ jobs:
           if ! [[ "$MINOR" =~ ^[0-9]+$ ]]; then MINOR=0; fi
           if ! [[ "$PATCH" =~ ^[0-9]+$ ]]; then PATCH=0; fi
 
-          # Determine new version based on current state and request
+          # Determine new version based on current state and request (semver-compatible)
           if [ "$IS_PRERELEASE" = "true" ]; then
             # User wants a beta version
             if [ "$IS_CURRENT_BETA" = "true" ]; then
               # Current is beta - increment beta counter
               NEW_BETA_NUM=$((CURRENT_BETA_NUM + 1))
-              NEW_VERSION="${BASE_VERSION}b${NEW_BETA_NUM}"
+              NEW_VERSION="${BASE_VERSION}-beta.${NEW_BETA_NUM}"
               echo "Incrementing beta: ${CURRENT_VERSION} -> ${NEW_VERSION}"
             else
-              # Current is stable - bump according to type, add b1
+              # Current is stable - bump according to type, add -beta.1
               case "${{ inputs.version_bump }}" in
                 major)
                   MAJOR=$((MAJOR + 1))
@@ -104,7 +116,7 @@ jobs:
                   PATCH=$((PATCH + 1))
                   ;;
               esac
-              NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}b1"
+              NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}-beta.1"
               echo "Creating first beta: ${CURRENT_VERSION} -> ${NEW_VERSION}"
             fi
           else
@@ -178,7 +190,8 @@ jobs:
         id: prerelease_check
         run: |
           VERSION="${{ steps.new_version.outputs.version }}"
-          if [[ "$VERSION" =~ b[0-9]+$ ]]; then
+          # Check for semver-compatible beta format: X.Y.Z-beta.[N]
+          if [[ "$VERSION" =~ -beta\.[0-9]+$ ]]; then
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
             echo "Version $VERSION is a prerelease (beta)"
           else
