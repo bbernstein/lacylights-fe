@@ -59,9 +59,9 @@ jobs:
           CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
           IS_PRERELEASE="${{ inputs.is_prerelease }}"
 
-          # Normalize old format to new format if needed (self-correction)
-          # Old format: X.Y.Zb[N] or X.Y.Z-b[N]
-          # New format: X.Y.Z-beta.[N]
+          # Normalize legacy beta version formats to semver-compatible prerelease format.
+          # Legacy formats: X.Y.Zb[N] or X.Y.Z-b[N]
+          # Target format:  X.Y.Z-beta.[N] (semver-compatible)
           if [[ "$CURRENT_VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-?b([0-9]+)$ ]]; then
             echo "⚠️  Old format detected: $CURRENT_VERSION"
             BASE_VERSION="${BASH_REMATCH[1]}"
@@ -69,6 +69,7 @@ jobs:
             CURRENT_VERSION="${BASE_VERSION}-beta.${CURRENT_BETA_NUM}"
             echo "✓ Normalized to: $CURRENT_VERSION"
           fi
+          echo "version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
 
           # Check if current version is a beta (semver format: X.Y.Z-beta.[N])
           if [[ "$CURRENT_VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-beta\.([0-9]+)$ ]]; then
