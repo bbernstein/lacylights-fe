@@ -225,6 +225,11 @@ export const BULK_CREATE_FIXTURES = gql`
         maxValue
         defaultValue
       }
+
+      # 2D Layout Position
+      layoutX
+      layoutY
+      layoutRotation
     }
   }
 `;
