@@ -195,3 +195,72 @@ export const GET_CHANNEL_MAP = gql`
     }
   }
 `;
+
+// Bulk Fixture Operations
+export const BULK_CREATE_FIXTURES = gql`
+  mutation BulkCreateFixtures($input: BulkFixtureCreateInput!) {
+    bulkCreateFixtures(input: $input) {
+      id
+      name
+      description
+      universe
+      startChannel
+      tags
+      projectOrder
+      createdAt
+
+      # Flattened fields
+      definitionId
+      manufacturer
+      model
+      type
+      modeName
+      channelCount
+      channels {
+        id
+        offset
+        name
+        type
+        minValue
+        maxValue
+        defaultValue
+      }
+    }
+  }
+`;
+
+export const BULK_UPDATE_FIXTURES = gql`
+  mutation BulkUpdateFixtures($input: BulkFixtureUpdateInput!) {
+    bulkUpdateFixtures(input: $input) {
+      id
+      name
+      description
+      universe
+      startChannel
+      tags
+      projectOrder
+
+      # Flattened fields
+      definitionId
+      manufacturer
+      model
+      type
+      modeName
+      channelCount
+      channels {
+        id
+        offset
+        name
+        type
+        minValue
+        maxValue
+        defaultValue
+      }
+
+      # 2D Layout Position
+      layoutX
+      layoutY
+      layoutRotation
+    }
+  }
+`;

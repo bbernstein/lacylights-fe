@@ -161,6 +161,27 @@ export interface BulkCueUpdateInput {
   easingType?: string;
 }
 
+// Bulk Fixture Operations
+export interface BulkFixtureCreateInput {
+  fixtures: CreateFixtureInstanceInput[];
+}
+
+export interface FixtureUpdateItem {
+  fixtureId: string;
+  name?: string;
+  description?: string;
+  universe?: number;
+  startChannel?: number;
+  tags?: string[];
+  layoutX?: number;
+  layoutY?: number;
+  layoutRotation?: number;
+}
+
+export interface BulkFixtureUpdateInput {
+  fixtures: FixtureUpdateItem[];
+}
+
 export interface CueListPlaybackStatus {
   cueListId: string;
   currentCueIndex: number | null;
