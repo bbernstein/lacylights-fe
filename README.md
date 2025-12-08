@@ -56,7 +56,7 @@ npm run dev:static
 
 This builds the static export and serves it with a server that mimics the nginx routing used in production. This is crucial for testing routing behavior since `npm run dev` uses the Next.js dev server which handles routes differently than the static export.
 
-📖 **See [STATIC_TESTING.md](./STATIC_TESTING.md) for complete documentation.**
+📖 **See [STATIC_TESTING.md](./docs/STATIC_TESTING.md) for complete documentation.**
 
 ## Development
 
@@ -178,7 +178,7 @@ npm start
 ```
 
 **For complete release process documentation**, see:
-📖 **[RELEASE_PROCESS.md](./RELEASE_PROCESS.md)**
+📖 **[RELEASE_PROCESS.md](./docs/RELEASE_PROCESS.md)**
 
 ## Contributing
 
