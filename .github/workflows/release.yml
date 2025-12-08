@@ -451,9 +451,44 @@ jobs:
           aws s3 cp latest-static.json \
             "s3://${{ secrets.AWS_DIST_BUCKET }}/releases/${COMPONENT}/latest.json" \
             --content-type "application/json" \
+            --cache-control "max-age=300, must-revalidate" \
             --metadata-directive REPLACE
 
           echo "✓ Static latest.json updated"
+
+      - name: Update prerelease.json for static build
+        if: steps.prerelease_check.outputs.is_prerelease == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_DIST_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_DIST_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_DIST_REGION }}
+        run: |
+          COMPONENT="fe-static"
+          VERSION="${{ steps.new_version.outputs.version }}"
+          ARTIFACT="${{ steps.checksum.outputs.static_artifact }}"
+          SHA256="${{ steps.checksum.outputs.static_sha256 }}"
+          FILE_SIZE="${{ steps.checksum.outputs.static_size }}"
+
+          # Create prerelease.json
+          cat > prerelease-static.json <<EOF
+          {
+            "version": "$VERSION",
+            "url": "https://dist.lacylights.com/releases/${COMPONENT}/$ARTIFACT",
+            "sha256": "$SHA256",
+            "releaseDate": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "isPrerelease": true,
+            "fileSize": $FILE_SIZE
+          }
+          EOF
+
+          echo "Uploading prerelease.json for static build..."
+          aws s3 cp prerelease-static.json \
+            "s3://${{ secrets.AWS_DIST_BUCKET }}/releases/${COMPONENT}/prerelease.json" \
+            --content-type "application/json" \
+            --cache-control "max-age=300, must-revalidate" \
+            --metadata-directive REPLACE
+
+          echo "✓ Static prerelease.json updated"
 
       - name: Update latest.json for server build
         if: steps.prerelease_check.outputs.is_prerelease == 'false'
@@ -485,9 +520,44 @@ jobs:
           aws s3 cp latest-server.json \
             "s3://${{ secrets.AWS_DIST_BUCKET }}/releases/${COMPONENT}/latest.json" \
             --content-type "application/json" \
+            --cache-control "max-age=300, must-revalidate" \
             --metadata-directive REPLACE
 
           echo "✓ Server latest.json updated"
+
+      - name: Update prerelease.json for server build
+        if: steps.prerelease_check.outputs.is_prerelease == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_DIST_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_DIST_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_DIST_REGION }}
+        run: |
+          COMPONENT="fe-server"
+          VERSION="${{ steps.new_version.outputs.version }}"
+          ARTIFACT="${{ steps.checksum.outputs.server_artifact }}"
+          SHA256="${{ steps.checksum.outputs.server_sha256 }}"
+          FILE_SIZE="${{ steps.checksum.outputs.server_size }}"
+
+          # Create prerelease.json
+          cat > prerelease-server.json <<EOF
+          {
+            "version": "$VERSION",
+            "url": "https://dist.lacylights.com/releases/${COMPONENT}/$ARTIFACT",
+            "sha256": "$SHA256",
+            "releaseDate": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "isPrerelease": true,
+            "fileSize": $FILE_SIZE
+          }
+          EOF
+
+          echo "Uploading prerelease.json for server build..."
+          aws s3 cp prerelease-server.json \
+            "s3://${{ secrets.AWS_DIST_BUCKET }}/releases/${COMPONENT}/prerelease.json" \
+            --content-type "application/json" \
+            --cache-control "max-age=300, must-revalidate" \
+            --metadata-directive REPLACE
+
+          echo "✓ Server prerelease.json updated"
 
       - name: Update DynamoDB for static build
         env:
