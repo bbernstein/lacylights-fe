@@ -53,6 +53,20 @@ function getGraphQLUrl(): string {
   return runtimeConfig?.graphqlUrl || 'http://localhost:4000/graphql';
 }
 
+async function getWebSocketUrlAsync(): Promise<string> {
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    // Production: use WebSocket with current host (nginx proxy)
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${wsProtocol}//${window.location.host}/ws`;
+  }
+
+  // Mac app or development: ensure config is loaded first
+  if (!runtimeConfig) {
+    await fetchRuntimeConfig();
+  }
+  return runtimeConfig?.graphqlWsUrl || 'ws://localhost:4000/graphql';
+}
+
 function getWebSocketUrl(): string {
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
     // Production: use WebSocket with current host (nginx proxy)
@@ -78,7 +92,9 @@ const httpLink = createHttpLink({
 });
 
 const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(createClient({
-  url: () => getWebSocketUrl(),
+  // Use async URL function to ensure config is loaded before connecting
+  url: async () => await getWebSocketUrlAsync(),
+  lazy: true, // Don't connect until first subscription
   connectionParams: () => {
     const token = localStorage.getItem('token');
     return {
