@@ -53,12 +53,31 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
     // The subscription will naturally update with new data for the new cueListId.
   });
 
-  // Set initial state from query data ONLY if we don't have subscription data yet
+  // Update state from query data (initial load and refetches)
+  // This handles both initial load and refetches triggered by mutations
   useEffect(() => {
-    if (queryData?.cueListPlaybackStatus && !playbackStatus) {
-      setPlaybackStatus(queryData.cueListPlaybackStatus);
+    if (queryData?.cueListPlaybackStatus) {
+      const newStatus = queryData.cueListPlaybackStatus;
+      setPlaybackStatus(prevStatus => {
+        if (!prevStatus) return newStatus;
+
+        // Always update for important state changes (cue index and playing status)
+        if (prevStatus.currentCueIndex !== newStatus.currentCueIndex ||
+            prevStatus.isPlaying !== newStatus.isPlaying) {
+          return newStatus;
+        }
+
+        // For fade progress-only changes, use threshold to avoid excessive updates
+        const prevProgress = prevStatus.fadeProgress ?? 0;
+        const newProgress = newStatus.fadeProgress ?? 0;
+        if (Math.abs(prevProgress - newProgress) < FADE_PROGRESS_THRESHOLD) {
+          return prevStatus;
+        }
+
+        return newStatus;
+      });
     }
-  }, [queryData, playbackStatus]);
+  }, [queryData]);
 
   // Note: Error handling is managed through the returned error property
   // Production builds should use proper error monitoring instead of console logging
