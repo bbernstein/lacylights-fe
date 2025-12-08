@@ -82,7 +82,7 @@ const httpLink = createHttpLink({
 
 const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(createClient({
   // Use async URL function to ensure config is loaded before connecting
-  url: async () => await getWebSocketUrl(),
+  url: async () => getWebSocketUrl(),
   lazy: true, // Don't connect until first subscription
   connectionParams: () => {
     const token = localStorage.getItem('token');
