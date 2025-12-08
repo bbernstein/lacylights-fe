@@ -24,6 +24,8 @@ import BulkFadeUpdateModal from './BulkFadeUpdateModal';
 import SceneEditorModal from './SceneEditorModal';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
 import { PencilIcon } from '@heroicons/react/24/outline';
+import FadeProgressChart from './FadeProgressChart';
+import { EasingType } from '@/utils/easing';
 import {
   DndContext,
   closestCenter,
@@ -525,12 +527,17 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
           </div>
         ) : (
           <div className="flex items-center space-x-2 relative">
-            {/* Fade progress background for active cue */}
-            {isActive && fadeProgress !== undefined && fadeProgress < 100 && (
-              <div
-                className="absolute inset-0 bg-green-600/20 dark:bg-green-400/20 transition-all duration-100 rounded"
-                style={{ width: `${fadeProgress}%` }}
-              />
+            {/* Fade progress chart for active cue */}
+            {isActive && fadeProgress !== undefined && fadeProgress > 0 && fadeProgress < 100 && !editMode && (
+              <div className="absolute inset-0 opacity-30 overflow-hidden rounded">
+                <FadeProgressChart
+                  progress={fadeProgress}
+                  easingType={(cue.easingType as EasingType) || 'EASE_IN_OUT_SINE'}
+                  width={200}
+                  height={32}
+                  className="w-full h-full"
+                />
+              </div>
             )}
             <button
               onClick={() => editMode && setShowSceneSelect(true)}
@@ -830,11 +837,16 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
             </div>
           ) : (
             <div className="flex items-center space-x-2 relative flex-1">
-              {isActive && fadeProgress !== undefined && fadeProgress < 100 && (
-                <div
-                  className="absolute inset-0 bg-green-600/20 dark:bg-green-400/20 transition-all duration-100 rounded"
-                  style={{ width: `${fadeProgress}%` }}
-                />
+              {isActive && fadeProgress !== undefined && fadeProgress > 0 && fadeProgress < 100 && !editMode && (
+                <div className="absolute inset-0 opacity-30 overflow-hidden rounded">
+                  <FadeProgressChart
+                    progress={fadeProgress}
+                    easingType={(cue.easingType as EasingType) || 'EASE_IN_OUT_SINE'}
+                    width={200}
+                    height={24}
+                    className="w-full h-full"
+                  />
+                </div>
               )}
               <button
                 onClick={() => editMode && setShowSceneSelect(true)}
@@ -1405,11 +1417,11 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                   className={`px-3 py-1 rounded text-sm font-medium whitespace-nowrap ${
                     editMode
                       ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                      : 'bg-green-600 hover:bg-green-700 text-white'
                   }`}
-                  title={editMode ? 'Exit edit mode' : 'Enter edit mode'}
+                  title={editMode ? 'Switch to Play mode' : 'Switch to Edit mode'}
                 >
-                  {editMode ? 'EDITING' : 'EDIT MODE'}
+                  {editMode ? 'EDITING' : 'PLAYING'}
                 </button>
               </div>
             </div>

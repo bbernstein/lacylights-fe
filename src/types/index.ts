@@ -151,6 +151,7 @@ export interface Cue {
   fadeOutTime: number;
   followTime?: number;
   notes?: string;
+  easingType?: string;
 }
 
 export interface BulkCueUpdateInput {

@@ -274,10 +274,11 @@ describe('CueListPlayer', () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        expect(screen.getByText('Opening Scene')).toBeInTheDocument();
-        expect(screen.getByText('Mid Scene')).toBeInTheDocument();
-        expect(screen.getByText('Scene: Scene 1')).toBeInTheDocument();
-        expect(screen.getByText('Scene: Scene 2')).toBeInTheDocument();
+        // Now Playing section duplicates cue name, so use getAllByText
+        expect(screen.getAllByText('Opening Scene')[0]).toBeInTheDocument();
+        expect(screen.getAllByText('Mid Scene')[0]).toBeInTheDocument();
+        expect(screen.getAllByText('Scene: Scene 1')[0]).toBeInTheDocument();
+        expect(screen.getAllByText('Scene: Scene 2')[0]).toBeInTheDocument();
       });
     });
 
@@ -286,9 +287,11 @@ describe('CueListPlayer', () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        const currentCue = screen.getByText('Opening Scene').closest('div[class*="bg-gray-700"]');
+        // Get from cue list display, not Now Playing section
+        const openingSceneElements = screen.getAllByText('Opening Scene');
+        const currentCue = openingSceneElements[openingSceneElements.length - 1].closest('div[class*="bg-gray-700"]');
         expect(currentCue).toHaveClass('border-green-500');
-        expect(screen.getByText('LIVE')).toBeInTheDocument();
+        expect(screen.getAllByText('LIVE')[0]).toBeInTheDocument();
       });
     });
 
@@ -297,8 +300,9 @@ describe('CueListPlayer', () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        const progressBar = document.querySelector('[style*="width: 50%"]');
-        expect(progressBar).toBeInTheDocument();
+        // FadeProgressChart component should render with the progress
+        const fadeProgressChart = document.querySelector('[data-testid="fade-progress-chart"]');
+        expect(fadeProgressChart).toBeInTheDocument();
       });
     });
 
@@ -532,11 +536,12 @@ describe('CueListPlayer', () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        expect(screen.getByText('Mid Scene')).toBeInTheDocument();
+        expect(screen.getAllByText('Mid Scene')[0]).toBeInTheDocument();
       });
 
       // Click on a non-current cue to jump to it
-      const midSceneCue = screen.getByText('Mid Scene').closest('div[class*="cursor-pointer"]');
+      const midSceneElements = screen.getAllByText('Mid Scene');
+      const midSceneCue = midSceneElements[0].closest('div[class*="cursor-pointer"]');
       if (midSceneCue) {
         await userEvent.click(midSceneCue);
       }
@@ -547,11 +552,12 @@ describe('CueListPlayer', () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        expect(screen.getByText('Opening Scene')).toBeInTheDocument();
+        expect(screen.getAllByText('Opening Scene')[0]).toBeInTheDocument();
       });
 
-      // Current cue should not have cursor-pointer class
-      const currentCue = screen.getByText('Opening Scene').closest('div');
+      // Current cue should not have cursor-pointer class (get from cue list, not NOW PLAYING)
+      const openingSceneElements = screen.getAllByText('Opening Scene');
+      const currentCue = openingSceneElements[openingSceneElements.length - 1].closest('div');
       expect(currentCue).not.toHaveClass('cursor-pointer');
     });
   });
@@ -650,9 +656,11 @@ describe('CueListPlayer', () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        const currentCue = screen.getByText('Opening Scene').closest('div[class*="bg-gray-700"]');
+        // Get from cue list display, not Now Playing section
+        const openingSceneElements = screen.getAllByText('Opening Scene');
+        const currentCue = openingSceneElements[openingSceneElements.length - 1].closest('div[class*="bg-gray-700"]');
         expect(currentCue).toHaveClass('border-green-500');
-        expect(currentCue).toHaveClass('scale-105');
+        expect(currentCue).toHaveClass('scale-[1.02]');
       });
     });
 
@@ -661,7 +669,8 @@ describe('CueListPlayer', () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        const nextCue = screen.getByText('Mid Scene').closest('div[class*="opacity-80"]');
+        const midSceneElements = screen.getAllByText('Mid Scene');
+        const nextCue = midSceneElements[0].closest('div[class*="opacity-80"]');
         expect(nextCue).toBeInTheDocument();
       });
     });
@@ -699,14 +708,15 @@ describe('CueListPlayer', () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        expect(screen.getByText('Opening Scene')).toBeInTheDocument();
+        // Opening Scene appears in both NOW PLAYING section and cue list
+        expect(screen.getAllByText('Opening Scene')[0]).toBeInTheDocument();
         const progressDots = screen.getAllByTitle(/\d+: .+/);
         expect(progressDots).toHaveLength(1);
       });
     });
 
     it('handles fade progress edge cases', async () => {
-      // Test with 0% progress
+      // Test with 0% progress - chart should NOT show (fade not started)
       mockUseCueListPlayback.mockReturnValue({
         playbackStatus: { ...mockPlaybackStatus, fadeProgress: 0 },
       });
@@ -715,11 +725,12 @@ describe('CueListPlayer', () => {
       const { rerender } = renderWithProvider(mocks);
 
       await waitFor(() => {
-        const progressBar = document.querySelector('[style*="width: 0%"]');
-        expect(progressBar).not.toBeInTheDocument(); // Should not show at 0%
+        // FadeProgressChart should NOT appear at 0% (fade hasn't started)
+        const fadeProgressChart = document.querySelector('[data-testid="fade-progress-chart"]');
+        expect(fadeProgressChart).not.toBeInTheDocument();
       });
 
-      // Test with 100% progress
+      // Test with 100% progress - chart should NOT show (fade complete)
       mockUseCueListPlayback.mockReturnValue({
         playbackStatus: { ...mockPlaybackStatus, fadeProgress: 100 },
       });
@@ -731,8 +742,9 @@ describe('CueListPlayer', () => {
       );
 
       await waitFor(() => {
-        const progressBar = document.querySelector('[style*="width: 100%"]');
-        expect(progressBar).not.toBeInTheDocument(); // Should not show at 100%
+        // FadeProgressChart should NOT appear at 100% (fade complete)
+        const fadeProgressChart = document.querySelector('[data-testid="fade-progress-chart"]');
+        expect(fadeProgressChart).not.toBeInTheDocument();
       });
     });
 
