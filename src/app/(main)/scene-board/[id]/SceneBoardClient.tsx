@@ -77,6 +77,21 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     canvasRect: null,
   });
 
+  // Single-finger pan state (for panning canvas when not dragging a button)
+  const [singleFingerPan, setSingleFingerPan] = useState<{
+    isPanning: boolean;
+    startX: number;
+    startY: number;
+    startOffsetX: number;
+    startOffsetY: number;
+  }>({
+    isPanning: false,
+    startX: 0,
+    startY: 0,
+    startOffsetX: 0,
+    startOffsetY: 0,
+  });
+
   const { data: boardData, loading, error, refetch } = useQuery(GET_SCENE_BOARD, {
     variables: { id: boardId },
     skip: !boardId,
@@ -273,25 +288,61 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     });
   }, [draggingButton, mode, updatePositions, boardId]);
 
+  // Handle scene click (activate in play mode)
+  const handleSceneClick = useCallback(
+    (button: SceneBoardButton) => {
+      if (mode === 'play') {
+        // Activate the scene
+        activateScene({
+          variables: {
+            sceneBoardId: boardId,
+            sceneId: button.scene.id,
+          },
+        });
+      }
+    },
+    [mode, boardId, activateScene]
+  );
+
+  // Track touch start time and position to differentiate taps from drags
+  const touchStartRef = useRef<{
+    time: number;
+    x: number;
+    y: number;
+    button: SceneBoardButton | null;
+  }>({ time: 0, x: 0, y: 0, button: null });
+
   // Touch drag handlers (for mobile support)
   const handleTouchStartButton = useCallback((e: React.TouchEvent, button: SceneBoardButton) => {
-    // Only handle single-touch drags in layout mode
-    if (mode !== 'layout' || e.touches.length !== 1) return;
+    // Only handle single-finger touches on buttons
+    if (e.touches.length !== 1) return;
 
     // Stop propagation to prevent canvas-level touch handlers from interfering
     e.stopPropagation();
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
     const touch = e.touches[0];
-    const canvasPos = screenToCanvas(touch.clientX, touch.clientY, viewport, canvas);
 
-    setDraggingButton(button);
-    setDragOffset({
-      x: canvasPos.x - button.layoutX,
-      y: canvasPos.y - button.layoutY,
-    });
+    // Record touch start for tap detection
+    touchStartRef.current = {
+      time: Date.now(),
+      x: touch.clientX,
+      y: touch.clientY,
+      button,
+    };
+
+    // In layout mode, prepare for potential drag
+    if (mode === 'layout') {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const canvasPos = screenToCanvas(touch.clientX, touch.clientY, viewport, canvas);
+
+      setDraggingButton(button);
+      setDragOffset({
+        x: canvasPos.x - button.layoutX,
+        y: canvasPos.y - button.layoutY,
+      });
+    }
   }, [mode, viewport]);
 
   const handleTouchMoveButton = useCallback((e: React.TouchEvent) => {
@@ -328,13 +379,41 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     // Stop propagation to prevent canvas-level touch handlers from interfering
     e.stopPropagation();
 
-    // Use the same end logic as mouse drag
-    handleDragEnd();
-  }, [handleDragEnd]);
+    const touchStart = touchStartRef.current;
+    const touchDuration = Date.now() - touchStart.time;
+    const TAP_THRESHOLD_TIME = 300; // ms - max time for a tap
 
-  // Touch gesture handlers for pinch-to-zoom and two-finger pan
+    // Check if this was a tap (short duration, minimal movement)
+    // For play mode, we want to activate the scene on tap
+    if (mode === 'play' && touchStart.button) {
+      // In play mode, check if it was a tap
+      // Note: We can't easily get the end position from touchend, but if no move occurred
+      // the drag state would not have been set, indicating a tap
+      if (touchDuration < TAP_THRESHOLD_TIME && !draggingButton) {
+        handleSceneClick(touchStart.button);
+      }
+    } else if (mode === 'layout') {
+      // In layout mode, complete the drag
+      handleDragEnd();
+    }
+
+    // Reset touch start ref
+    touchStartRef.current = { time: 0, x: 0, y: 0, button: null };
+  }, [handleDragEnd, handleSceneClick, mode, draggingButton]);
+
+  // Touch gesture handlers for pinch-to-zoom, two-finger pan, and single-finger pan
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
+      // Two-finger gesture: pinch-to-zoom and pan
+      // End any single-finger pan in progress
+      setSingleFingerPan({
+        isPanning: false,
+        startX: 0,
+        startY: 0,
+        startOffsetX: 0,
+        startOffsetY: 0,
+      });
+
       // Prevent default browser behavior for two-finger gestures
       e.preventDefault();
 
@@ -373,12 +452,24 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         initialOffset: { x: viewport.offsetX, y: viewport.offsetY },
         canvasRect: canvasRect, // Store canvas rect for stable coordinate space
       });
+    } else if (e.touches.length === 1) {
+      // Single-finger touch on the canvas (not on a button) - start panning
+      // This is only triggered when touch starts directly on canvas, not on buttons
+      const touch = e.touches[0];
+      setSingleFingerPan({
+        isPanning: true,
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startOffsetX: viewport.offsetX,
+        startOffsetY: viewport.offsetY,
+      });
     }
   }, [viewport.scale, viewport.offsetX, viewport.offsetY]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2 && touchState.initialDistance && touchState.initialMidpoint &&
         touchState.canvasRect && touchState.initialViewportMidpoint) {
+      // Two-finger gesture: pinch-to-zoom and pan
       // Prevent default browser behavior during two-finger gestures
       e.preventDefault();
 
@@ -436,10 +527,24 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         offsetX: newOffsetX,
         offsetY: newOffsetY,
       });
+    } else if (e.touches.length === 1 && singleFingerPan.isPanning) {
+      // Single-finger pan on canvas
+      e.preventDefault();
+
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - singleFingerPan.startX;
+      const deltaY = touch.clientY - singleFingerPan.startY;
+
+      setViewport(prev => ({
+        ...prev,
+        offsetX: singleFingerPan.startOffsetX + deltaX,
+        offsetY: singleFingerPan.startOffsetY + deltaY,
+      }));
     }
-  }, [touchState]);
+  }, [touchState, singleFingerPan]);
 
   const handleTouchEnd = useCallback(() => {
+    // Reset two-finger gesture state
     setTouchState({
       initialDistance: null,
       initialScale: viewport.scale,
@@ -447,6 +552,15 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       initialViewportMidpoint: null,
       initialOffset: { x: viewport.offsetX, y: viewport.offsetY },
       canvasRect: null,
+    });
+
+    // Reset single-finger pan state
+    setSingleFingerPan({
+      isPanning: false,
+      startX: 0,
+      startY: 0,
+      startOffsetX: 0,
+      startOffsetY: 0,
     });
   }, [viewport.scale, viewport.offsetX, viewport.offsetY]);
 
@@ -521,15 +635,18 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     if (!canvas) return;
 
     const handleNativeTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        e.preventDefault(); // This only works with { passive: false }
+      // Handle both single-finger (pan) and two-finger (pinch-zoom) gestures
+      if (e.touches.length >= 1) {
+        // Only prevent default for canvas background touches, not button touches
+        // The button touch handlers will stop propagation
         handleTouchStart(e as unknown as React.TouchEvent);
       }
     };
 
     const handleNativeTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        e.preventDefault(); // This only works with { passive: false }
+      // Handle both single-finger pan and two-finger pinch-zoom
+      if (e.touches.length >= 1) {
+        e.preventDefault(); // Prevent scrolling during pan/zoom
         handleTouchMove(e as unknown as React.TouchEvent);
       }
     };
@@ -624,21 +741,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       canvas.removeEventListener('wheel', handleWheel);
     };
   }, [viewport]);
-
-  const handleSceneClick = useCallback(
-    (button: SceneBoardButton) => {
-      if (mode === 'play') {
-        // Activate the scene
-        activateScene({
-          variables: {
-            sceneBoardId: boardId,
-            sceneId: button.scene.id,
-          },
-        });
-      }
-    },
-    [mode, boardId, activateScene]
-  );
 
   const handleRemoveScene = useCallback(
     (button: SceneBoardButton) => {
@@ -1210,9 +1312,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       {!isFocusMode && (
         <div className="bg-gray-800 text-white px-6 py-2 text-sm">
           {mode === 'play' ? (
-            <span>🎮 Play Mode - Click scenes to activate • Pinch to zoom</span>
+            <span>🎮 Play Mode - Tap scenes to activate • Drag to pan • Pinch to zoom</span>
           ) : (
-            <span>✏️ Layout Mode - Drag scenes to reposition (snaps to {GRID_SIZE}px grid) • Pinch to zoom</span>
+            <span>✏️ Layout Mode - Drag scenes to reposition • Drag canvas to pan • Pinch to zoom</span>
           )}
         </div>
       )}
