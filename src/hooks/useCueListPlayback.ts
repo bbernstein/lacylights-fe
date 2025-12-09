@@ -14,9 +14,11 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
   const [playbackStatus, setPlaybackStatus] = useState<CueListPlaybackStatus | null>(null);
 
   // Query initial playback status
+  // Use 'cache-and-network' so we receive updates when refetchQueries updates the cache
   const { data: queryData, loading: queryLoading, error: queryError } = useQuery(GET_CUE_LIST_PLAYBACK_STATUS, {
     variables: { cueListId },
-    fetchPolicy: 'cache-and-network', // Always get fresh data on mount but use cache for immediate response
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
   });
 
   // Subscribe to real-time updates
@@ -78,9 +80,6 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
       });
     }
   }, [queryData]);
-
-  // Note: Error handling is managed through the returned error property
-  // Production builds should use proper error monitoring instead of console logging
 
   return {
     playbackStatus,

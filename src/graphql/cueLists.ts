@@ -189,20 +189,6 @@ export const GET_CUE_LIST_PLAYBACK_STATUS = gql`
       cueListId
       currentCueIndex
       isPlaying
-      currentCue {
-        id
-        name
-        cueNumber
-        fadeInTime
-        fadeOutTime
-        followTime
-        notes
-        easingType
-        scene {
-          id
-          name
-        }
-      }
       fadeProgress
       lastUpdated
     }
@@ -245,20 +231,6 @@ export const CUE_LIST_PLAYBACK_SUBSCRIPTION = gql`
       cueListId
       currentCueIndex
       isPlaying
-      currentCue {
-        id
-        name
-        cueNumber
-        fadeInTime
-        fadeOutTime
-        followTime
-        notes
-        easingType
-        scene {
-          id
-          name
-        }
-      }
       fadeProgress
       lastUpdated
     }

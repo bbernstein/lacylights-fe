@@ -17,7 +17,6 @@ import { useCueListPlayback } from '@/hooks/useCueListPlayback';
 import { Cue } from '@/types';
 import { convertCueIndexForLocalState } from '@/utils/cueListHelpers';
 import { DEFAULT_FADEOUT_TIME } from '@/constants/playback';
-import CueDetailsDisplay from './CueDetailsDisplay';
 import FadeProgressChart from './FadeProgressChart';
 import { EasingType } from '@/utils/easing';
 
@@ -82,8 +81,8 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   const isPlaying = playbackStatus?.isPlaying || false;
   const fadeProgress = playbackStatus?.fadeProgress ?? 0;
 
-  // Get the current cue for the details display
-  const currentCue = currentCueIndex >= 0 && currentCueIndex < cues.length
+  // Get the current cue (available for future use)
+  const _currentCue = currentCueIndex >= 0 && currentCueIndex < cues.length
     ? cues[currentCueIndex]
     : null;
 
@@ -283,29 +282,6 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
         )}
       </div>
 
-      {/* NOW PLAYING Section - Enhanced current cue display */}
-      {currentCue && (
-        <div className="bg-gray-800/90 border-b border-gray-700 px-6 py-4">
-          <div className="max-w-2xl mx-auto">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium text-green-400 bg-green-900/50 px-2 py-1 rounded uppercase tracking-wide">
-                Now Playing
-              </span>
-              <span className="text-2xl font-bold text-green-400">
-                Q{currentCue.cueNumber}
-              </span>
-            </div>
-            <CueDetailsDisplay
-              cue={currentCue}
-              fadeProgress={fadeProgress}
-              isPlaying={isPlaying}
-              showChart={true}
-              easingType={(currentCue.easingType as EasingType) || 'EASE_IN_OUT_SINE'}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Cue Display - shows all cues with auto-scroll to current */}
       <div ref={containerRef} className="flex-1 flex flex-col items-center p-6 overflow-y-auto">
         {displayCues.length > 0 ? (
@@ -325,15 +301,15 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
                 } ${!isCurrent ? 'cursor-pointer hover:bg-gray-700/70' : ''}`}
                 onClick={() => !isCurrent && handleJumpToCue(index)}
               >
-                {/* Fade progress chart as background for current cue */}
+                {/* Fade progress chart as full background for current cue */}
                 {isCurrent && isPlaying && fadeProgress > 0 && fadeProgress < 100 && (
-                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-600/30">
+                  <div className="absolute inset-0 opacity-30">
                     <FadeProgressChart
                       progress={fadeProgress}
                       easingType={(cue.easingType as EasingType) || 'EASE_IN_OUT_SINE'}
                       width={600}
-                      height={4}
-                      className="w-full"
+                      height={100}
+                      className="w-full h-full"
                     />
                   </div>
                 )}
