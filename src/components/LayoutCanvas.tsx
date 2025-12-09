@@ -11,6 +11,11 @@ interface LayoutCanvasProps {
   onFixtureClick?: (fixtureId: string) => void;
   selectedFixtureIds?: Set<string>;
   onSelectionChange?: (selectedIds: Set<string>) => void;
+  // Copy/paste support
+  onCopy?: () => void;
+  onPaste?: () => void;
+  canPaste?: boolean; // Whether there's data available to paste
+  showCopiedFeedback?: boolean; // Show visual feedback after copy
 }
 
 interface FixturePosition {
@@ -62,6 +67,10 @@ export default function LayoutCanvas({
   onFixtureClick,
   selectedFixtureIds: externalSelectedIds,
   onSelectionChange,
+  onCopy,
+  onPaste,
+  canPaste = false,
+  showCopiedFeedback = false,
 }: LayoutCanvasProps) {
   // Internal selection state (used if not controlled by parent)
   const [internalSelection, setInternalSelection] = useState<Set<string>>(
@@ -131,6 +140,22 @@ export default function LayoutCanvas({
   } | null>(null);
   const [isTouchPanning, setIsTouchPanning] = useState(false);
   const [isTouchDragging, setIsTouchDragging] = useState(false);
+
+  // Long-press state for toggle selection on touch
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isLongPressing, setIsLongPressing] = useState(false);
+  const LONG_PRESS_DURATION = 500; // ms
+
+  // Two-finger marquee selection state
+  const [isTwoFingerMarquee, setIsTwoFingerMarquee] = useState(false);
+  const [twoFingerMarqueeStart, setTwoFingerMarqueeStart] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [twoFingerMarqueeCurrent, setTwoFingerMarqueeCurrent] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
   // Save state tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -461,7 +486,7 @@ export default function LayoutCanvas({
       }
     });
 
-    // Draw marquee selection box
+    // Draw marquee selection box (mouse-based shift+drag)
     if (isMarqueeSelecting && marqueeStart && marqueeCurrent) {
       const minX = Math.min(marqueeStart.x, marqueeCurrent.x);
       const maxX = Math.max(marqueeStart.x, marqueeCurrent.x);
@@ -477,6 +502,23 @@ export default function LayoutCanvas({
       ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
       ctx.setLineDash([]);
     }
+
+    // Draw two-finger marquee selection box (touch-based)
+    if (isTwoFingerMarquee && twoFingerMarqueeStart && twoFingerMarqueeCurrent) {
+      const minX = Math.min(twoFingerMarqueeStart.x, twoFingerMarqueeCurrent.x);
+      const maxX = Math.max(twoFingerMarqueeStart.x, twoFingerMarqueeCurrent.x);
+      const minY = Math.min(twoFingerMarqueeStart.y, twoFingerMarqueeCurrent.y);
+      const maxY = Math.max(twoFingerMarqueeStart.y, twoFingerMarqueeCurrent.y);
+
+      ctx.strokeStyle = "#10b981"; // Green for touch marquee (to differentiate from mouse)
+      ctx.lineWidth = 3;
+      ctx.setLineDash([8, 4]);
+      ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+
+      ctx.fillStyle = "rgba(16, 185, 129, 0.15)";
+      ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
+      ctx.setLineDash([]);
+    }
   }, [
     fixtures,
     fixturePositions,
@@ -487,6 +529,9 @@ export default function LayoutCanvas({
     isMarqueeSelecting,
     marqueeStart,
     marqueeCurrent,
+    isTwoFingerMarquee,
+    twoFingerMarqueeStart,
+    twoFingerMarqueeCurrent,
     normalizedToCanvas,
     getFixtureColor,
     getTextColor,
@@ -742,8 +787,17 @@ export default function LayoutCanvas({
     };
   };
 
+  // Cancel long-press timer
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    setIsLongPressing(false);
+  }, []);
+
   /**
-   * Handle touch start for pinch-to-zoom and single-finger interactions
+   * Handle touch start for pinch-to-zoom, single-finger interactions, and long-press
    */
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -751,7 +805,10 @@ export default function LayoutCanvas({
 
     const rect = canvas.getBoundingClientRect();
 
-    // Two-finger touch for pinch-to-zoom
+    // Cancel any pending long-press
+    cancelLongPress();
+
+    // Two-finger touch: check if on empty space for marquee, otherwise pinch-zoom
     if (e.touches.length === 2) {
       e.preventDefault(); // Prevent default browser zoom
 
@@ -762,13 +819,26 @@ export default function LayoutCanvas({
 
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
-      const distance = getTouchDistance(touch1, touch2);
       const center = getTouchCenter(touch1, touch2, rect);
 
-      setIsPinching(true);
-      setTouchStart({ x: center.x, y: center.y, distance });
+      // Check if center is on a fixture
+      const fixtureAtCenter = getFixtureAtPosition(center.x, center.y);
+
+      if (!fixtureAtCenter) {
+        // Two-finger on empty space: start marquee selection
+        setIsTwoFingerMarquee(true);
+        setTwoFingerMarqueeStart({ x: center.x, y: center.y });
+        setTwoFingerMarqueeCurrent({ x: center.x, y: center.y });
+        setIsPinching(false);
+      } else {
+        // Two-finger on fixture: pinch-to-zoom
+        const distance = getTouchDistance(touch1, touch2);
+        setIsPinching(true);
+        setTouchStart({ x: center.x, y: center.y, distance });
+        setIsTwoFingerMarquee(false);
+      }
     } else if (e.touches.length === 1) {
-      // Single-finger touch for panning or fixture dragging
+      // Single-finger touch for panning, fixture dragging, or long-press toggle
       const touch = e.touches[0];
       const x = touch.clientX - rect.left;
       const y = touch.clientY - rect.top;
@@ -786,37 +856,25 @@ export default function LayoutCanvas({
       });
 
       if (touchedFixture) {
-        // Prepare for fixture dragging
-        // Select the fixture if not already selected
-        if (!selectedFixtureIds.has(touchedFixture)) {
-          updateSelection(new Set([touchedFixture]));
-        }
-
-        // Set up drag state
-        setIsTouchDragging(true);
-        setDraggedFixtures(
-          selectedFixtureIds.has(touchedFixture)
-            ? new Set(selectedFixtureIds)
-            : new Set([touchedFixture])
-        );
-        setDragStart({ x, y });
-
-        // Store initial offsets for each dragged fixture
-        const fixturesToDrag = selectedFixtureIds.has(touchedFixture)
-          ? selectedFixtureIds
-          : new Set([touchedFixture]);
-        const offsets = new Map<string, { x: number; y: number }>();
-        fixturesToDrag.forEach((fixtureId) => {
-          const position = fixturePositions.get(fixtureId);
-          if (position) {
-            const canvasPos = normalizedToCanvas(position.x, position.y);
-            offsets.set(fixtureId, {
-              x: canvasPos.x - x,
-              y: canvasPos.y - y,
-            });
+        // Start long-press timer for toggle selection
+        longPressTimerRef.current = setTimeout(() => {
+          setIsLongPressing(true);
+          // Toggle selection on long-press
+          const newSelection = new Set(selectedFixtureIds);
+          if (newSelection.has(touchedFixture)) {
+            newSelection.delete(touchedFixture);
+          } else {
+            newSelection.add(touchedFixture);
           }
-        });
-        setDragOffset(offsets);
+          updateSelection(newSelection);
+          // Provide haptic feedback if available
+          if (navigator.vibrate) {
+            navigator.vibrate(50);
+          }
+        }, LONG_PRESS_DURATION);
+
+        // Don't immediately start dragging - wait for movement or long-press
+        // Just record the touch position
       } else {
         // Prepare for panning (touching empty space)
         setIsTouchPanning(true);
@@ -826,7 +884,7 @@ export default function LayoutCanvas({
   };
 
   /**
-   * Handle touch move for pinch-to-zoom, panning, and fixture dragging
+   * Handle touch move for pinch-to-zoom, panning, fixture dragging, and marquee selection
    */
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -834,50 +892,99 @@ export default function LayoutCanvas({
 
     const rect = canvas.getBoundingClientRect();
 
-    // Handle pinch-to-zoom (two fingers)
-    if (e.touches.length === 2 && isPinching && touchStart) {
-      e.preventDefault(); // Prevent default browser zoom
+    // Handle two-finger gestures
+    if (e.touches.length === 2) {
+      e.preventDefault();
 
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
-      const distance = getTouchDistance(touch1, touch2);
       const center = getTouchCenter(touch1, touch2, rect);
 
-      // Calculate scale change based on distance change
-      const scaleChange = distance / touchStart.distance;
-      const newScale = Math.max(
-        MIN_ZOOM,
-        Math.min(MAX_ZOOM, viewport.scale * scaleChange),
-      );
+      if (isTwoFingerMarquee && twoFingerMarqueeStart) {
+        // Update marquee selection box
+        setTwoFingerMarqueeCurrent({ x: center.x, y: center.y });
+      } else if (isPinching && touchStart) {
+        // Pinch-to-zoom
+        const distance = getTouchDistance(touch1, touch2);
 
-      // Zoom towards the pinch center
-      const scaleRatio = newScale / viewport.scale;
-      const newX = center.x - (center.x - viewport.x) * scaleRatio;
-      const newY = center.y - (center.y - viewport.y) * scaleRatio;
+        // Calculate scale change based on distance change
+        const scaleChange = distance / touchStart.distance;
+        const newScale = Math.max(
+          MIN_ZOOM,
+          Math.min(MAX_ZOOM, viewport.scale * scaleChange),
+        );
 
-      setViewport({
-        x: newX,
-        y: newY,
-        scale: newScale,
-      });
+        // Zoom towards the pinch center
+        const scaleRatio = newScale / viewport.scale;
+        const newX = center.x - (center.x - viewport.x) * scaleRatio;
+        const newY = center.y - (center.y - viewport.y) * scaleRatio;
 
-      // Update touchStart for next move event
-      setTouchStart({ x: center.x, y: center.y, distance });
-    } else if (e.touches.length === 1) {
+        setViewport({
+          x: newX,
+          y: newY,
+          scale: newScale,
+        });
+
+        // Update touchStart for next move event
+        setTouchStart({ x: center.x, y: center.y, distance });
+      }
+    } else if (e.touches.length === 1 && singleTouchStart) {
       e.preventDefault(); // Prevent scrolling
 
       const touch = e.touches[0];
       const x = touch.clientX - rect.left;
       const y = touch.clientY - rect.top;
 
-      if (isTouchPanning && singleTouchStart) {
+      // Check if we've moved enough to cancel long-press and start dragging
+      const DRAG_THRESHOLD = 10; // pixels
+      const deltaX = Math.abs(touch.clientX - singleTouchStart.x);
+      const deltaY = Math.abs(touch.clientY - singleTouchStart.y);
+
+      if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
+        // Movement detected - cancel long-press
+        cancelLongPress();
+
+        // If touching a fixture and not already dragging, start drag
+        if (singleTouchStart.fixtureId && !isTouchDragging && !isLongPressing) {
+          const touchedFixture = singleTouchStart.fixtureId;
+
+          // Select the fixture if not already selected
+          if (!selectedFixtureIds.has(touchedFixture)) {
+            updateSelection(new Set([touchedFixture]));
+          }
+
+          // Set up drag state
+          setIsTouchDragging(true);
+          const fixturesToDrag = selectedFixtureIds.has(touchedFixture)
+            ? new Set(selectedFixtureIds)
+            : new Set([touchedFixture]);
+          setDraggedFixtures(fixturesToDrag);
+          setDragStart({ x: singleTouchStart.canvasX, y: singleTouchStart.canvasY });
+
+          // Store initial offsets for each dragged fixture
+          const offsets = new Map<string, { x: number; y: number }>();
+          fixturesToDrag.forEach((fixtureId) => {
+            const position = fixturePositions.get(fixtureId);
+            if (position) {
+              const canvasPos = normalizedToCanvas(position.x, position.y);
+              offsets.set(fixtureId, {
+                x: canvasPos.x - singleTouchStart.canvasX,
+                y: canvasPos.y - singleTouchStart.canvasY,
+              });
+            }
+          });
+          setDragOffset(offsets);
+        }
+      }
+
+      if (isTouchPanning) {
         // Pan the viewport
         setViewport((prev) => ({
           ...prev,
           x: touch.clientX - panStart.x,
           y: touch.clientY - panStart.y,
         }));
-      } else if (isTouchDragging && dragStart && draggedFixtures.size > 0) {
+      } else if (isTouchDragging && draggedFixtures.size > 0) {
         // Drag fixtures
         const newPositions = new Map(fixturePositions);
 
@@ -913,9 +1020,52 @@ export default function LayoutCanvas({
   };
 
   /**
-   * Handle touch end for pinch-to-zoom, panning, and fixture dragging
+   * Handle touch end for pinch-to-zoom, panning, fixture dragging, and marquee selection
    */
   const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    // Cancel any pending long-press
+    cancelLongPress();
+
+    // Handle two-finger marquee completion
+    if (e.touches.length < 2 && isTwoFingerMarquee && twoFingerMarqueeStart && twoFingerMarqueeCurrent) {
+      // Calculate marquee bounds
+      const minX = Math.min(twoFingerMarqueeStart.x, twoFingerMarqueeCurrent.x);
+      const maxX = Math.max(twoFingerMarqueeStart.x, twoFingerMarqueeCurrent.x);
+      const minY = Math.min(twoFingerMarqueeStart.y, twoFingerMarqueeCurrent.y);
+      const maxY = Math.max(twoFingerMarqueeStart.y, twoFingerMarqueeCurrent.y);
+
+      // Find all fixtures within marquee bounds
+      const selectedInMarquee = new Set<string>();
+      fixtures.forEach((fixture) => {
+        const position = fixturePositions.get(fixture.id);
+        if (!position) return;
+
+        const canvasPos = normalizedToCanvas(position.x, position.y);
+
+        // Check if fixture center is within marquee
+        if (
+          canvasPos.x >= minX &&
+          canvasPos.x <= maxX &&
+          canvasPos.y >= minY &&
+          canvasPos.y <= maxY
+        ) {
+          selectedInMarquee.add(fixture.id);
+        }
+      });
+
+      // Update selection (additive - add to existing selection)
+      if (selectedInMarquee.size > 0) {
+        const newSelection = new Set(selectedFixtureIds);
+        selectedInMarquee.forEach((id) => newSelection.add(id));
+        updateSelection(newSelection);
+      }
+
+      // Reset marquee state
+      setIsTwoFingerMarquee(false);
+      setTwoFingerMarqueeStart(null);
+      setTwoFingerMarqueeCurrent(null);
+    }
+
     // If less than 2 touches remain, end pinch gesture
     if (e.touches.length < 2) {
       setIsPinching(false);
@@ -927,13 +1077,15 @@ export default function LayoutCanvas({
       // Track if we were dragging fixtures to trigger auto-save
       const wasDraggingFixtures = isTouchDragging && draggedFixtures.size > 0;
 
-      // Check if this was a tap (quick touch without much movement)
-      if (singleTouchStart && singleTouchStart.fixtureId) {
+      // Check if this was a tap (quick touch without much movement) and not a long-press
+      if (singleTouchStart && singleTouchStart.fixtureId && !isLongPressing) {
         const touchDuration = Date.now() - singleTouchStart.time;
-        const TAP_THRESHOLD = 200; // ms
+        const TAP_THRESHOLD = 300; // ms
 
         if (touchDuration < TAP_THRESHOLD && !wasDraggingFixtures) {
-          // This was a tap on a fixture - notify parent
+          // This was a tap on a fixture - select it (replacing current selection)
+          updateSelection(new Set([singleTouchStart.fixtureId]));
+          // Notify parent
           if (onFixtureClick) {
             onFixtureClick(singleTouchStart.fixtureId);
           }
@@ -1178,6 +1330,67 @@ export default function LayoutCanvas({
             )}
           </button>
         </div>
+
+        {/* Copy/Paste Buttons - shown when fixtures are selected */}
+        {selectedFixtureIds.size > 0 && (onCopy || onPaste) && (
+          <div className="bg-gray-800 rounded-lg p-2 shadow-lg flex flex-col gap-1">
+            {onCopy && (
+              <button
+                onClick={onCopy}
+                className="w-full px-3 py-2 rounded transition-colors text-sm bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center gap-2"
+                title="Copy channel values from selected fixture"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+                Copy
+                {showCopiedFeedback && (
+                  <span className="text-green-400 text-xs">✓</span>
+                )}
+              </button>
+            )}
+            {onPaste && (
+              <button
+                onClick={onPaste}
+                disabled={!canPaste}
+                className={`w-full px-3 py-2 rounded transition-colors text-sm flex items-center justify-center gap-2 ${
+                  canPaste
+                    ? "bg-blue-600 hover:bg-blue-700 text-white"
+                    : "bg-gray-600 text-gray-400 cursor-not-allowed"
+                }`}
+                title={canPaste ? "Paste channel values to selected fixtures" : "Nothing to paste - copy first"}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                  />
+                </svg>
+                Paste
+              </button>
+            )}
+            <div className="text-xs text-gray-400 text-center mt-1">
+              {selectedFixtureIds.size} selected
+            </div>
+          </div>
+        )}
 
         {/* View Settings */}
         <div className="bg-gray-800 rounded-lg p-2 shadow-lg">

@@ -631,6 +631,10 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
               fixtureValues={fixtureValues}
               selectedFixtureIds={selectedFixtureIds}
               onSelectionChange={handleSelectionChange}
+              onCopy={handleCopyFixtureValues}
+              onPaste={handlePasteFixtureValues}
+              canPaste={copiedChannelValues !== null}
+              showCopiedFeedback={showCopiedFeedback}
             />
             {selectedFixtures.length > 0 && (
               <MultiSelectControls
