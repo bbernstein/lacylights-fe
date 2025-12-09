@@ -93,7 +93,8 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   const isFading = playbackStatus?.isFading || false;
   const fadeProgress = playbackStatus?.fadeProgress ?? 0;
 
-  // Get the current cue (available for future use)
+  // Get the current cue - intentionally kept for future use and debugging
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _currentCue = currentCueIndex >= 0 && currentCueIndex < cues.length
     ? cues[currentCueIndex]
     : null;

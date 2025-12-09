@@ -95,9 +95,24 @@ const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(createClient({
   shouldRetry: () => true, // Always retry on disconnect
   keepAlive: 30000, // Send ping every 30 seconds to keep connection alive
   on: {
-    connected: () => console.log('[WebSocket] Connected'),
-    closed: (event) => console.log('[WebSocket] Closed', event),
-    error: (error) => console.error('[WebSocket] Error', error),
+    connected: () => {
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.log('[WebSocket] Connected');
+      }
+    },
+    closed: (event) => {
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.log('[WebSocket] Closed', event);
+      }
+    },
+    error: (error) => {
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.error('[WebSocket] Error', error);
+      }
+    },
   },
 })) : null;
 

@@ -127,6 +127,7 @@ export default function FadeProgressChart({
     return (
       <div className={`relative ${className}`} data-testid="fade-progress-chart">
         <svg
+          role="img"
           width={width}
           height={height}
           viewBox={`0 0 ${width} ${height}`}
@@ -151,6 +152,7 @@ export default function FadeProgressChart({
   return (
     <div className={`relative ${className}`} data-testid="fade-progress-chart">
       <svg
+        role="img"
         width={width}
         height={height}
         viewBox={`0 0 ${width} ${height}`}

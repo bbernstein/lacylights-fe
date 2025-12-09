@@ -17,8 +17,16 @@ export type EasingType =
 /**
  * Calculates the y value for a cubic bezier curve.
  * Simplified implementation matching the backend.
+ * Note: The x control points are intentionally unused in this simplified
+ * implementation, matching the backend behavior.
  */
-function cubicBezier(p1y: number, p2y: number, t: number): number {
+function cubicBezier(
+  _p1x: number,
+  p1y: number,
+  _p2x: number,
+  p2y: number,
+  t: number
+): number {
   const cy = 3 * p1y;
   const by = 3 * (p2y - p1y) - cy;
   const ay = 1 - cy - by;
@@ -66,7 +74,7 @@ export function applyEasing(
 
     case 'BEZIER':
       // Standard ease-in-out bezier curve (0.42, 0, 0.58, 1)
-      return cubicBezier(0, 1, t);
+      return cubicBezier(0.42, 0, 0.58, 1, t);
 
     case 'S_CURVE':
       // Sigmoid function normalized to 0-1 range

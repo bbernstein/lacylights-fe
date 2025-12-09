@@ -267,6 +267,7 @@ describe('useCueListPlayback', () => {
         cueListId: mockCueListId,
         currentCueIndex: 5,
         isPlaying: false,
+        isFading: false,
         fadeProgress: 0.0,
         lastUpdated: '2023-12-01T10:00:00Z',
       };
