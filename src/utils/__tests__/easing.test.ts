@@ -8,16 +8,6 @@ import {
 } from '../easing';
 
 describe('easing utilities', () => {
-  // All supported easing types for comprehensive testing
-  const _allEasingTypes: EasingType[] = [
-    'LINEAR',
-    'EASE_IN_OUT_CUBIC',
-    'EASE_IN_OUT_SINE',
-    'EASE_OUT_EXPONENTIAL',
-    'BEZIER',
-    'S_CURVE',
-  ];
-
   describe('applyEasing', () => {
     it('returns 0 for progress 0 on most easing types', () => {
       // S_CURVE uses sigmoid which asymptotically approaches 0 but never reaches it
