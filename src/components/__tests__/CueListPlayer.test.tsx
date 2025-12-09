@@ -107,6 +107,7 @@ describe('CueListPlayer', () => {
     cueListId: mockCueListId,
     currentCueIndex: 0,
     isPlaying: true,
+    isFading: true,
     currentCue: mockCueList.cues[0],
     fadeProgress: 50,
     lastUpdated: '2023-01-01T12:00:00Z',
@@ -730,7 +731,8 @@ describe('CueListPlayer', () => {
         expect(fadeProgressChart).not.toBeInTheDocument();
       });
 
-      // Test with 100% progress - chart should NOT show (fade complete)
+      // Test with 100% progress - chart IS visible during slide-off animation
+      // The chart remains visible while slideOffProgress < 100%, sliding off to the left
       mockUseCueListPlayback.mockReturnValue({
         playbackStatus: { ...mockPlaybackStatus, fadeProgress: 100 },
       });
@@ -742,9 +744,10 @@ describe('CueListPlayer', () => {
       );
 
       await waitFor(() => {
-        // FadeProgressChart should NOT appear at 100% (fade complete)
+        // FadeProgressChart IS visible at 100% fadeProgress (slide-off animation in progress)
+        // The chart only disappears after slideOffProgress reaches 100%
         const fadeProgressChart = document.querySelector('[data-testid="fade-progress-chart"]');
-        expect(fadeProgressChart).not.toBeInTheDocument();
+        expect(fadeProgressChart).toBeInTheDocument();
       });
     });
 

@@ -90,6 +90,15 @@ const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(createClient({
       authorization: token ? `Bearer ${token}` : '',
     };
   },
+  // Reconnection configuration for stale connections
+  retryAttempts: Infinity, // Keep trying to reconnect indefinitely
+  shouldRetry: () => true, // Always retry on disconnect
+  keepAlive: 30000, // Send ping every 30 seconds to keep connection alive
+  on: {
+    connected: () => console.log('[WebSocket] Connected'),
+    closed: (event) => console.log('[WebSocket] Closed', event),
+    error: (error) => console.error('[WebSocket] Error', error),
+  },
 })) : null;
 
 const authLink = setContext((_, { headers }) => {

@@ -189,6 +189,7 @@ export const GET_CUE_LIST_PLAYBACK_STATUS = gql`
       cueListId
       currentCueIndex
       isPlaying
+      isFading
       fadeProgress
       lastUpdated
     }
@@ -231,6 +232,7 @@ export const CUE_LIST_PLAYBACK_SUBSCRIPTION = gql`
       cueListId
       currentCueIndex
       isPlaying
+      isFading
       fadeProgress
       lastUpdated
     }

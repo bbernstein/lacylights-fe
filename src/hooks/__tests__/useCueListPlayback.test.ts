@@ -10,6 +10,7 @@ const mockPlaybackStatus = {
   cueListId: mockCueListId,
   currentCueIndex: 1,
   isPlaying: true,
+  isFading: true,
   fadeProgress: 0.5,
   lastUpdated: '2023-01-01T12:00:00Z',
 };

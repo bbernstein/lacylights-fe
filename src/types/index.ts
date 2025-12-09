@@ -186,7 +186,10 @@ export interface BulkFixtureUpdateInput {
 export interface CueListPlaybackStatus {
   cueListId: string;
   currentCueIndex: number | null;
+  /** True when scene values are currently active on DMX fixtures (stays true after fade until stopped) */
   isPlaying: boolean;
+  /** True when a fade transition is in progress (fade-in, fade-out, or crossfade) */
+  isFading: boolean;
   currentCue?: Cue;
   fadeProgress?: number;
   lastUpdated: string;

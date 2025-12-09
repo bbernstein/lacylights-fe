@@ -24,6 +24,8 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
   // Subscribe to real-time updates
   const { loading: subscriptionLoading, error: subscriptionError } = useSubscription(CUE_LIST_PLAYBACK_SUBSCRIPTION, {
     variables: { cueListId },
+    // Automatically resubscribe if connection drops and reconnects
+    shouldResubscribe: true,
     onData: ({ data: subscriptionData }) => {
       if (subscriptionData?.data?.cueListPlaybackUpdated) {
         const newStatus = subscriptionData.data.cueListPlaybackUpdated;
@@ -81,8 +83,12 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
     }
   }, [queryData]);
 
+  // Use local state if available (updated by subscription), otherwise fall back to query data
+  // This ensures we show the current state immediately when returning to the page
+  const effectivePlaybackStatus = playbackStatus || queryData?.cueListPlaybackStatus || null;
+
   return {
-    playbackStatus,
+    playbackStatus: effectivePlaybackStatus,
     isLoading: queryLoading || subscriptionLoading,
     error: (queryError || subscriptionError) as Error | undefined,
   };

@@ -40,6 +40,16 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   const containerRef = useRef<HTMLDivElement>(null);
   const currentCueRef = useRef<HTMLDivElement>(null);
 
+  // State for the slide-off animation after fade completes
+  const [slideOffProgress, setSlideOffProgress] = useState<number>(0);
+  const slideOffStartTime = useRef<number | null>(null);
+  const slideOffDuration = useRef<number>(0);
+  const slideOffAnimationFrame = useRef<number | null>(null);
+  const prevCueIndex = useRef<number>(-1);
+
+  // Track the previous cue that's fading out during transition
+  const [fadingOutCueIndex, setFadingOutCueIndex] = useState<number | null>(null);
+
   useEffect(() => {
     setActualCueListId(extractCueListId(cueListIdProp));
   }, [cueListIdProp]);
@@ -78,7 +88,9 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
 
   // Get current state from subscription data only
   const currentCueIndex = convertCueIndexForLocalState(playbackStatus?.currentCueIndex);
+  // isPlaying = scene is active on DMX, isFading = fade transition in progress
   const isPlaying = playbackStatus?.isPlaying || false;
+  const isFading = playbackStatus?.isFading || false;
   const fadeProgress = playbackStatus?.fadeProgress ?? 0;
 
   // Get the current cue (available for future use)
@@ -141,6 +153,76 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
       });
     }
   }, [currentCueIndex]);
+
+  // Track cue changes and fade-out visualization for previous cue
+  useEffect(() => {
+    // Handle cue change - track the previous cue for fade-out visualization
+    if (currentCueIndex !== prevCueIndex.current) {
+      setSlideOffProgress(0);
+      slideOffStartTime.current = null;
+
+      // If there was a previous cue, mark it as fading out
+      if (prevCueIndex.current >= 0) {
+        setFadingOutCueIndex(prevCueIndex.current);
+      }
+
+      prevCueIndex.current = currentCueIndex;
+      return;
+    }
+
+    // Clear the fading out cue when current cue's fade completes (isFading becomes false)
+    if (!isFading && fadingOutCueIndex !== null) {
+      setFadingOutCueIndex(null);
+    }
+  }, [currentCueIndex, isFading, fadingOutCueIndex]);
+
+  // Slide-off animation: after fade completes, animate the curve sliding off to the left
+  useEffect(() => {
+    // Cleanup function for animation frame
+    const cleanup = () => {
+      if (slideOffAnimationFrame.current !== null) {
+        cancelAnimationFrame(slideOffAnimationFrame.current);
+        slideOffAnimationFrame.current = null;
+      }
+    };
+
+    // Start slide-off when fade completes (isFading changes from true to false)
+    if (!isFading && isPlaying && currentCueIndex >= 0 && currentCueIndex < cues.length) {
+      // Only start if not already animating
+      if (slideOffStartTime.current === null) {
+        const currentCueData = cues[currentCueIndex];
+        slideOffDuration.current = currentCueData.fadeInTime * 1000; // Same duration as fade-in
+        slideOffStartTime.current = performance.now();
+        setSlideOffProgress(0);
+
+        const animate = (timestamp: number) => {
+          if (slideOffStartTime.current === null) return;
+
+          const elapsed = timestamp - slideOffStartTime.current;
+          const progress = Math.min(100, (elapsed / slideOffDuration.current) * 100);
+
+          setSlideOffProgress(progress);
+
+          if (progress < 100) {
+            slideOffAnimationFrame.current = requestAnimationFrame(animate);
+          } else {
+            slideOffAnimationFrame.current = null;
+          }
+        };
+
+        slideOffAnimationFrame.current = requestAnimationFrame(animate);
+      }
+    }
+
+    // Reset slide-off when a new fade starts
+    if (isFading && slideOffProgress > 0) {
+      cleanup();
+      setSlideOffProgress(0);
+      slideOffStartTime.current = null;
+    }
+
+    return cleanup;
+  }, [isFading, isPlaying, currentCueIndex, cues, slideOffProgress]);
 
   // Memoize the disable condition to avoid repetition
   // When loop is enabled, GO button should always work (even at last cue)
@@ -302,14 +384,31 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
                 onClick={() => !isCurrent && handleJumpToCue(index)}
               >
                 {/* Fade progress chart as full background for current cue */}
-                {isCurrent && isPlaying && fadeProgress > 0 && fadeProgress < 100 && (
+                {/* Show when scene is playing (active on DMX), with progress during fade or 100% when holding */}
+                {isCurrent && isPlaying && (
                   <div className="absolute inset-0 opacity-30">
                     <FadeProgressChart
-                      progress={fadeProgress}
+                      progress={isFading ? fadeProgress : 100}
+                      slideOffProgress={!isFading ? slideOffProgress : 0}
                       easingType={(cue.easingType as EasingType) || 'EASE_IN_OUT_SINE'}
                       width={600}
                       height={100}
                       className="w-full h-full"
+                    />
+                  </div>
+                )}
+
+                {/* Fade-out chart for previous cue during transition */}
+                {/* Shows inverted progress (100% → 0%) as new cue fades in */}
+                {fadingOutCueIndex === index && isFading && (
+                  <div className="absolute inset-0 opacity-30">
+                    <FadeProgressChart
+                      progress={100 - fadeProgress}
+                      easingType={(cue.easingType as EasingType) || 'EASE_IN_OUT_SINE'}
+                      width={600}
+                      height={100}
+                      className="w-full h-full"
+                      variant="fadeOut"
                     />
                   </div>
                 )}
