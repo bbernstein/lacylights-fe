@@ -120,6 +120,18 @@ export default function LayoutCanvas({
   } | null>(null);
   const [isPinching, setIsPinching] = useState(false);
 
+  // Single-finger touch state for panning and dragging
+  const [singleTouchStart, setSingleTouchStart] = useState<{
+    x: number;
+    y: number;
+    canvasX: number;
+    canvasY: number;
+    fixtureId: string | null;
+    time: number;
+  } | null>(null);
+  const [isTouchPanning, setIsTouchPanning] = useState(false);
+  const [isTouchDragging, setIsTouchDragging] = useState(false);
+
   // Save state tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -731,17 +743,23 @@ export default function LayoutCanvas({
   };
 
   /**
-   * Handle touch start for pinch-to-zoom
+   * Handle touch start for pinch-to-zoom and single-finger interactions
    */
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const rect = canvas.getBoundingClientRect();
+
     // Two-finger touch for pinch-to-zoom
     if (e.touches.length === 2) {
       e.preventDefault(); // Prevent default browser zoom
 
-      const rect = canvas.getBoundingClientRect();
+      // Cancel any single-finger operation in progress
+      setSingleTouchStart(null);
+      setIsTouchPanning(false);
+      setIsTouchDragging(false);
+
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
       const distance = getTouchDistance(touch1, touch2);
@@ -749,21 +767,77 @@ export default function LayoutCanvas({
 
       setIsPinching(true);
       setTouchStart({ x: center.x, y: center.y, distance });
+    } else if (e.touches.length === 1) {
+      // Single-finger touch for panning or fixture dragging
+      const touch = e.touches[0];
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+
+      // Check if touching a fixture
+      const touchedFixture = getFixtureAtPosition(x, y);
+
+      setSingleTouchStart({
+        x: touch.clientX,
+        y: touch.clientY,
+        canvasX: x,
+        canvasY: y,
+        fixtureId: touchedFixture,
+        time: Date.now(),
+      });
+
+      if (touchedFixture) {
+        // Prepare for fixture dragging
+        // Select the fixture if not already selected
+        if (!selectedFixtureIds.has(touchedFixture)) {
+          updateSelection(new Set([touchedFixture]));
+        }
+
+        // Set up drag state
+        setIsTouchDragging(true);
+        setDraggedFixtures(
+          selectedFixtureIds.has(touchedFixture)
+            ? new Set(selectedFixtureIds)
+            : new Set([touchedFixture])
+        );
+        setDragStart({ x, y });
+
+        // Store initial offsets for each dragged fixture
+        const fixturesToDrag = selectedFixtureIds.has(touchedFixture)
+          ? selectedFixtureIds
+          : new Set([touchedFixture]);
+        const offsets = new Map<string, { x: number; y: number }>();
+        fixturesToDrag.forEach((fixtureId) => {
+          const position = fixturePositions.get(fixtureId);
+          if (position) {
+            const canvasPos = normalizedToCanvas(position.x, position.y);
+            offsets.set(fixtureId, {
+              x: canvasPos.x - x,
+              y: canvasPos.y - y,
+            });
+          }
+        });
+        setDragOffset(offsets);
+      } else {
+        // Prepare for panning (touching empty space)
+        setIsTouchPanning(true);
+        setPanStart({ x: touch.clientX - viewport.x, y: touch.clientY - viewport.y });
+      }
     }
   };
 
   /**
-   * Handle touch move for pinch-to-zoom
+   * Handle touch move for pinch-to-zoom, panning, and fixture dragging
    */
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Handle pinch-to-zoom
+    const rect = canvas.getBoundingClientRect();
+
+    // Handle pinch-to-zoom (two fingers)
     if (e.touches.length === 2 && isPinching && touchStart) {
       e.preventDefault(); // Prevent default browser zoom
 
-      const rect = canvas.getBoundingClientRect();
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
       const distance = getTouchDistance(touch1, touch2);
@@ -789,17 +863,95 @@ export default function LayoutCanvas({
 
       // Update touchStart for next move event
       setTouchStart({ x: center.x, y: center.y, distance });
+    } else if (e.touches.length === 1) {
+      e.preventDefault(); // Prevent scrolling
+
+      const touch = e.touches[0];
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+
+      if (isTouchPanning && singleTouchStart) {
+        // Pan the viewport
+        setViewport((prev) => ({
+          ...prev,
+          x: touch.clientX - panStart.x,
+          y: touch.clientY - panStart.y,
+        }));
+      } else if (isTouchDragging && dragStart && draggedFixtures.size > 0) {
+        // Drag fixtures
+        const newPositions = new Map(fixturePositions);
+
+        draggedFixtures.forEach((fixtureId) => {
+          const offset = dragOffset.get(fixtureId);
+          if (!offset) return;
+
+          // Calculate new canvas position
+          const newCanvasX = x + offset.x;
+          const newCanvasY = y + offset.y;
+
+          // Convert to normalized coordinates
+          const normalized = canvasToNormalized(newCanvasX, newCanvasY);
+
+          // Clamp to 0-1 range
+          const clampedX = Math.max(0, Math.min(1, normalized.x));
+          const clampedY = Math.max(0, Math.min(1, normalized.y));
+
+          const existingPos = newPositions.get(fixtureId);
+          if (existingPos) {
+            newPositions.set(fixtureId, {
+              ...existingPos,
+              x: clampedX,
+              y: clampedY,
+            });
+          }
+        });
+
+        setFixturePositions(newPositions);
+        setHasUnsavedChanges(true);
+      }
     }
   };
 
   /**
-   * Handle touch end for pinch-to-zoom
+   * Handle touch end for pinch-to-zoom, panning, and fixture dragging
    */
   const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
     // If less than 2 touches remain, end pinch gesture
     if (e.touches.length < 2) {
       setIsPinching(false);
       setTouchStart(null);
+    }
+
+    // End single-finger operations when all touches are released
+    if (e.touches.length === 0) {
+      // Track if we were dragging fixtures to trigger auto-save
+      const wasDraggingFixtures = isTouchDragging && draggedFixtures.size > 0;
+
+      // Check if this was a tap (quick touch without much movement)
+      if (singleTouchStart && singleTouchStart.fixtureId) {
+        const touchDuration = Date.now() - singleTouchStart.time;
+        const TAP_THRESHOLD = 200; // ms
+
+        if (touchDuration < TAP_THRESHOLD && !wasDraggingFixtures) {
+          // This was a tap on a fixture - notify parent
+          if (onFixtureClick) {
+            onFixtureClick(singleTouchStart.fixtureId);
+          }
+        }
+      }
+
+      // Reset single-finger touch state
+      setSingleTouchStart(null);
+      setIsTouchPanning(false);
+      setIsTouchDragging(false);
+      setDraggedFixtures(new Set());
+      setDragStart(null);
+      setDragOffset(new Map());
+
+      // Auto-save positions after dragging fixtures
+      if (wasDraggingFixtures && hasUnsavedChanges) {
+        handleSaveLayout();
+      }
     }
   };
 
@@ -924,6 +1076,21 @@ export default function LayoutCanvas({
     // Add with { passive: false } to allow preventDefault
     container.addEventListener("wheel", handleWheelCapture, { passive: false });
     return () => container.removeEventListener("wheel", handleWheelCapture);
+  }, []);
+
+  // Add native touch event listeners with passive: false to prevent default scrolling
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleNativeTouchMove = (e: TouchEvent) => {
+      // Prevent scrolling during touch interactions on the canvas
+      e.preventDefault();
+    };
+
+    // Add with { passive: false } to allow preventDefault
+    canvas.addEventListener("touchmove", handleNativeTouchMove, { passive: false });
+    return () => canvas.removeEventListener("touchmove", handleNativeTouchMove);
   }, []);
 
   // Determine cursor style based on interaction state
