@@ -33,9 +33,10 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
         setPlaybackStatus(prevStatus => {
           if (!prevStatus) return newStatus;
 
-          // Prioritize important state changes (cue index and playing status)
+          // Prioritize important state changes (cue index, playing status, and fading status)
           if (prevStatus.currentCueIndex !== newStatus.currentCueIndex ||
-              prevStatus.isPlaying !== newStatus.isPlaying) {
+              prevStatus.isPlaying !== newStatus.isPlaying ||
+              prevStatus.isFading !== newStatus.isFading) {
             return newStatus; // Always update for important state changes
           }
 
@@ -65,9 +66,10 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
       setPlaybackStatus(prevStatus => {
         if (!prevStatus) return newStatus;
 
-        // Always update for important state changes (cue index and playing status)
+        // Always update for important state changes (cue index, playing status, and fading status)
         if (prevStatus.currentCueIndex !== newStatus.currentCueIndex ||
-            prevStatus.isPlaying !== newStatus.isPlaying) {
+            prevStatus.isPlaying !== newStatus.isPlaying ||
+            prevStatus.isFading !== newStatus.isFading) {
           return newStatus;
         }
 
