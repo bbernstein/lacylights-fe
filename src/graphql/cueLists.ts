@@ -23,6 +23,7 @@ export const GET_PROJECT_CUE_LISTS = gql`
           fadeOutTime
           followTime
           notes
+          easingType
         }
       }
     }
@@ -55,6 +56,7 @@ export const GET_CUE_LIST = gql`
         fadeOutTime
         followTime
         notes
+        easingType
       }
     }
   }
@@ -114,6 +116,7 @@ export const CREATE_CUE = gql`
       fadeOutTime
       followTime
       notes
+      easingType
     }
   }
 `;
@@ -132,6 +135,7 @@ export const UPDATE_CUE = gql`
       fadeOutTime
       followTime
       notes
+      easingType
     }
   }
 `;
@@ -174,6 +178,7 @@ export const BULK_UPDATE_CUES = gql`
       fadeOutTime
       followTime
       notes
+      easingType
     }
   }
 `;
@@ -184,15 +189,7 @@ export const GET_CUE_LIST_PLAYBACK_STATUS = gql`
       cueListId
       currentCueIndex
       isPlaying
-      currentCue {
-        id
-        name
-        cueNumber
-        fadeInTime
-        fadeOutTime
-        followTime
-        notes
-      }
+      isFading
       fadeProgress
       lastUpdated
     }
@@ -235,15 +232,7 @@ export const CUE_LIST_PLAYBACK_SUBSCRIPTION = gql`
       cueListId
       currentCueIndex
       isPlaying
-      currentCue {
-        id
-        name
-        cueNumber
-        fadeInTime
-        fadeOutTime
-        followTime
-        notes
-      }
+      isFading
       fadeProgress
       lastUpdated
     }

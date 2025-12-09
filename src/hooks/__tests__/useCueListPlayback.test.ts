@@ -10,15 +10,7 @@ const mockPlaybackStatus = {
   cueListId: mockCueListId,
   currentCueIndex: 1,
   isPlaying: true,
-  currentCue: {
-    id: 'cue-1',
-    name: 'Test Cue',
-    cueNumber: 1,
-    fadeInTime: 2.0,
-    fadeOutTime: 3.0,
-    followTime: null,
-    notes: 'Test notes',
-  },
+  isFading: true,
   fadeProgress: 0.5,
   lastUpdated: '2023-01-01T12:00:00Z',
 };
@@ -275,7 +267,7 @@ describe('useCueListPlayback', () => {
         cueListId: mockCueListId,
         currentCueIndex: 5,
         isPlaying: false,
-        currentCue: null,
+        isFading: false,
         fadeProgress: 0.0,
         lastUpdated: '2023-12-01T10:00:00Z',
       };
@@ -293,7 +285,6 @@ describe('useCueListPlayback', () => {
       await waitFor(() => {
         expect(result.current.playbackStatus?.currentCueIndex).toBe(5);
         expect(result.current.playbackStatus?.isPlaying).toBe(false);
-        expect(result.current.playbackStatus?.currentCue).toBeNull();
         expect(result.current.playbackStatus?.fadeProgress).toBe(0.0);
       });
     });

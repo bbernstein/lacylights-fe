@@ -14,14 +14,18 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
   const [playbackStatus, setPlaybackStatus] = useState<CueListPlaybackStatus | null>(null);
 
   // Query initial playback status
+  // Use 'cache-and-network' so we receive updates when refetchQueries updates the cache
   const { data: queryData, loading: queryLoading, error: queryError } = useQuery(GET_CUE_LIST_PLAYBACK_STATUS, {
     variables: { cueListId },
-    fetchPolicy: 'cache-and-network', // Always get fresh data on mount but use cache for immediate response
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
   });
 
   // Subscribe to real-time updates
   const { loading: subscriptionLoading, error: subscriptionError } = useSubscription(CUE_LIST_PLAYBACK_SUBSCRIPTION, {
     variables: { cueListId },
+    // Automatically resubscribe if connection drops and reconnects
+    shouldResubscribe: true,
     onData: ({ data: subscriptionData }) => {
       if (subscriptionData?.data?.cueListPlaybackUpdated) {
         const newStatus = subscriptionData.data.cueListPlaybackUpdated;
@@ -29,9 +33,10 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
         setPlaybackStatus(prevStatus => {
           if (!prevStatus) return newStatus;
 
-          // Prioritize important state changes (cue index and playing status)
+          // Prioritize important state changes (cue index, playing status, and fading status)
           if (prevStatus.currentCueIndex !== newStatus.currentCueIndex ||
-              prevStatus.isPlaying !== newStatus.isPlaying) {
+              prevStatus.isPlaying !== newStatus.isPlaying ||
+              prevStatus.isFading !== newStatus.isFading) {
             return newStatus; // Always update for important state changes
           }
 
@@ -53,18 +58,39 @@ export function useCueListPlayback(cueListId: string): UseCueListPlaybackResult 
     // The subscription will naturally update with new data for the new cueListId.
   });
 
-  // Set initial state from query data ONLY if we don't have subscription data yet
+  // Update state from query data (initial load and refetches)
+  // This handles both initial load and refetches triggered by mutations
   useEffect(() => {
-    if (queryData?.cueListPlaybackStatus && !playbackStatus) {
-      setPlaybackStatus(queryData.cueListPlaybackStatus);
-    }
-  }, [queryData, playbackStatus]);
+    if (queryData?.cueListPlaybackStatus) {
+      const newStatus = queryData.cueListPlaybackStatus;
+      setPlaybackStatus(prevStatus => {
+        if (!prevStatus) return newStatus;
 
-  // Note: Error handling is managed through the returned error property
-  // Production builds should use proper error monitoring instead of console logging
+        // Always update for important state changes (cue index, playing status, and fading status)
+        if (prevStatus.currentCueIndex !== newStatus.currentCueIndex ||
+            prevStatus.isPlaying !== newStatus.isPlaying ||
+            prevStatus.isFading !== newStatus.isFading) {
+          return newStatus;
+        }
+
+        // For fade progress-only changes, use threshold to avoid excessive updates
+        const prevProgress = prevStatus.fadeProgress ?? 0;
+        const newProgress = newStatus.fadeProgress ?? 0;
+        if (Math.abs(prevProgress - newProgress) < FADE_PROGRESS_THRESHOLD) {
+          return prevStatus;
+        }
+
+        return newStatus;
+      });
+    }
+  }, [queryData]);
+
+  // Use local state if available (updated by subscription), otherwise fall back to query data
+  // This ensures we show the current state immediately when returning to the page
+  const effectivePlaybackStatus = playbackStatus || queryData?.cueListPlaybackStatus || null;
 
   return {
-    playbackStatus,
+    playbackStatus: effectivePlaybackStatus,
     isLoading: queryLoading || subscriptionLoading,
     error: (queryError || subscriptionError) as Error | undefined,
   };
