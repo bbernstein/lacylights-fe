@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MockedProvider } from "@apollo/client/testing";
 import LayoutCanvas from "../LayoutCanvas";
-import { ChannelType, FixtureType, FixtureInstance } from "../../types";
+import { ChannelType, FadeBehavior, FixtureType, FixtureInstance } from "../../types";
 import { UPDATE_FIXTURE_POSITIONS } from "../../graphql/fixtures";
 
 // Mock canvas context
@@ -86,7 +86,7 @@ const mockFixtures: FixtureInstance[] = [
         type: ChannelType.RED,
         minValue: 0,
         maxValue: 255,
-        defaultValue: 0,
+        defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
       },
       {
         id: "ch-2",
@@ -95,7 +95,7 @@ const mockFixtures: FixtureInstance[] = [
         type: ChannelType.GREEN,
         minValue: 0,
         maxValue: 255,
-        defaultValue: 0,
+        defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
       },
       {
         id: "ch-3",
@@ -104,7 +104,7 @@ const mockFixtures: FixtureInstance[] = [
         type: ChannelType.BLUE,
         minValue: 0,
         maxValue: 255,
-        defaultValue: 0,
+        defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
       },
       {
         id: "ch-4",
@@ -113,7 +113,7 @@ const mockFixtures: FixtureInstance[] = [
         type: ChannelType.INTENSITY,
         minValue: 0,
         maxValue: 255,
-        defaultValue: 255,
+        defaultValue: 255, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
       },
     ],
   },
@@ -141,7 +141,7 @@ const mockFixtures: FixtureInstance[] = [
         type: ChannelType.RED,
         minValue: 0,
         maxValue: 255,
-        defaultValue: 0,
+        defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
       },
       {
         id: "ch-6",
@@ -150,7 +150,7 @@ const mockFixtures: FixtureInstance[] = [
         type: ChannelType.GREEN,
         minValue: 0,
         maxValue: 255,
-        defaultValue: 0,
+        defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
       },
       {
         id: "ch-7",
@@ -159,7 +159,7 @@ const mockFixtures: FixtureInstance[] = [
         type: ChannelType.BLUE,
         minValue: 0,
         maxValue: 255,
-        defaultValue: 0,
+        defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
       },
     ],
   },
@@ -593,7 +593,7 @@ describe("LayoutCanvas", () => {
             type: ChannelType.RED,
             minValue: 0,
             maxValue: 255,
-            defaultValue: 0,
+            defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
           },
           {
             id: "ch-2",
@@ -602,7 +602,7 @@ describe("LayoutCanvas", () => {
             type: ChannelType.GREEN,
             minValue: 0,
             maxValue: 255,
-            defaultValue: 0,
+            defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
           },
           {
             id: "ch-3",
@@ -611,7 +611,7 @@ describe("LayoutCanvas", () => {
             type: ChannelType.BLUE,
             minValue: 0,
             maxValue: 255,
-            defaultValue: 0,
+            defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
           },
           {
             id: "ch-4",
@@ -620,7 +620,7 @@ describe("LayoutCanvas", () => {
             type: ChannelType.AMBER,
             minValue: 0,
             maxValue: 255,
-            defaultValue: 0,
+            defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
           },
           {
             id: "ch-5",
@@ -629,7 +629,7 @@ describe("LayoutCanvas", () => {
             type: ChannelType.WHITE,
             minValue: 0,
             maxValue: 255,
-            defaultValue: 0,
+            defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
           },
         ],
       };
@@ -658,7 +658,7 @@ describe("LayoutCanvas", () => {
             type: ChannelType.RED,
             minValue: 0,
             maxValue: 255,
-            defaultValue: 0,
+            defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
           },
           {
             id: "ch-2",
@@ -667,7 +667,7 @@ describe("LayoutCanvas", () => {
             type: ChannelType.GREEN,
             minValue: 0,
             maxValue: 255,
-            defaultValue: 0,
+            defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
           },
           {
             id: "ch-3",
@@ -676,7 +676,7 @@ describe("LayoutCanvas", () => {
             type: ChannelType.BLUE,
             minValue: 0,
             maxValue: 255,
-            defaultValue: 0,
+            defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
           },
           {
             id: "ch-4",
@@ -685,7 +685,7 @@ describe("LayoutCanvas", () => {
             type: ChannelType.UV,
             minValue: 0,
             maxValue: 255,
-            defaultValue: 0,
+            defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false,
           },
         ],
       };

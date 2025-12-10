@@ -4,7 +4,7 @@ import { MockedProvider } from '@apollo/client/testing';
 import CreateSceneModal from '../CreateSceneModal';
 import { CREATE_SCENE } from '../../graphql/scenes';
 import { GET_PROJECT_FIXTURES } from '../../graphql/fixtures';
-import { FixtureInstance, ChannelType, FixtureType } from '../../types';
+import { FixtureInstance, ChannelType, FixtureType, FadeBehavior } from '../../types';
 
 const mockProjectId = 'project-123';
 const mockOnClose = jest.fn();
@@ -28,10 +28,10 @@ const mockFixtures: FixtureInstance[] = [
     definitionId: 'def-1',
     project: { id: mockProjectId, name: 'Test Project' } as FixtureInstance['project'],
     channels: [
-      { id: '1', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },
-      { id: '2', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
-      { id: '3', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0 },
-      { id: '4', offset: 3, name: 'Master', type: ChannelType.INTENSITY, minValue: 0, maxValue: 255, defaultValue: 255 },
+      { id: '1', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: '2', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: '3', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: '4', offset: 3, name: 'Master', type: ChannelType.INTENSITY, minValue: 0, maxValue: 255, defaultValue: 255, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
     ],
   },
   {
@@ -51,12 +51,12 @@ const mockFixtures: FixtureInstance[] = [
     definitionId: 'def-2',
     project: { id: mockProjectId, name: 'Test Project' } as FixtureInstance['project'],
     channels: [
-      { id: '5', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },
-      { id: '6', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
-      { id: '7', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0 },
-      { id: '8', offset: 3, name: 'White', type: ChannelType.WHITE, minValue: 0, maxValue: 255, defaultValue: 0 },
-      { id: '9', offset: 4, name: 'Amber', type: ChannelType.AMBER, minValue: 0, maxValue: 255, defaultValue: 0 },
-      { id: '10', offset: 5, name: 'UV', type: ChannelType.UV, minValue: 0, maxValue: 255, defaultValue: 0 },
+      { id: '5', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: '6', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: '7', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: '8', offset: 3, name: 'White', type: ChannelType.WHITE, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: '9', offset: 4, name: 'Amber', type: ChannelType.AMBER, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: '10', offset: 5, name: 'UV', type: ChannelType.UV, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
     ],
   },
 ];
@@ -1666,8 +1666,8 @@ describe('CreateSceneModal', () => {
           startChannel: 1,
           channelCount: 2,
           channels: [
-            { id: '1', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },
-            { id: '2', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
+            { id: '1', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+            { id: '2', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
           ],
         },
       ];

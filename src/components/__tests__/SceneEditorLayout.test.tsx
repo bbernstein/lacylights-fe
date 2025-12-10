@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
 import SceneEditorLayout from '../SceneEditorLayout';
 import { GET_SCENE } from '@/graphql/scenes';
-import { FixtureType, ChannelType } from '@/types';
+import { FixtureType, ChannelType, FadeBehavior } from '@/types';
 
 // Mock ChannelListEditor since it's tested separately
 jest.mock('../ChannelListEditor', () => {
@@ -37,10 +37,10 @@ const mockFixture = {
   startChannel: 1,
   channelCount: 4,
   channels: [
-    { id: 'ch-1', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },
-    { id: 'ch-2', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
-    { id: 'ch-3', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0 },
-    { id: 'ch-4', offset: 3, name: 'Intensity', type: ChannelType.INTENSITY, minValue: 0, maxValue: 255, defaultValue: 255 },
+    { id: 'ch-1', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+    { id: 'ch-2', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+    { id: 'ch-3', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+    { id: 'ch-4', offset: 3, name: 'Intensity', type: ChannelType.INTENSITY, minValue: 0, maxValue: 255, defaultValue: 255, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
   ],
   __typename: 'FixtureInstance',
 };

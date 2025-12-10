@@ -90,6 +90,8 @@ export const IMPORT_OFL_FIXTURE = gql`
         name
         type
         offset
+        fadeBehavior
+        isDiscrete
       }
       modes {
         id
@@ -130,8 +132,10 @@ export const GET_PROJECT_FIXTURES = gql`
           minValue
           maxValue
           defaultValue
+          fadeBehavior
+          isDiscrete
         }
-        
+
       }
     }
   }
@@ -224,6 +228,8 @@ export const BULK_CREATE_FIXTURES = gql`
         minValue
         maxValue
         defaultValue
+        fadeBehavior
+        isDiscrete
       }
 
       # 2D Layout Position
@@ -260,6 +266,8 @@ export const BULK_UPDATE_FIXTURES = gql`
         minValue
         maxValue
         defaultValue
+        fadeBehavior
+        isDiscrete
       }
 
       # 2D Layout Position
