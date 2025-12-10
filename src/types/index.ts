@@ -329,6 +329,11 @@ export enum ProjectRole {
 }
 
 // Input Types
+export interface ChannelFadeBehaviorInput {
+  channelId: string;
+  fadeBehavior: FadeBehavior;
+}
+
 export interface CreateProjectInput {
   name: string;
   description?: string;

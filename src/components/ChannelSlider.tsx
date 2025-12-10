@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { ChannelType } from '@/types';
+import { ChannelType, FadeBehavior } from '@/types';
 import { UV_COLOR_HEX } from '@/utils/colorConversion';
 import { abbreviateChannelName } from '@/utils/channelAbbreviation';
+import FadeBehaviorBadge from './FadeBehaviorBadge';
 
 // Default min/max values for DMX channels (standard range: 0-255)
 const DEFAULT_MIN_VALUE = 0;
@@ -15,6 +16,8 @@ export interface SliderChannel {
   type: ChannelType;
   minValue: number;
   maxValue: number;
+  fadeBehavior?: FadeBehavior;
+  isDiscrete?: boolean;
 }
 
 interface ChannelSliderProps {
@@ -23,18 +26,22 @@ interface ChannelSliderProps {
   onChange: (value: number) => void;
   onChangeComplete?: (value: number) => void;
   tooltip?: string;
+  showFadeBehavior?: boolean;
+  onFadeBehaviorClick?: () => void;
 }
 
 /**
  * Shared channel slider component used by both ChannelListEditor and MultiSelectControls.
- * Displays a single row with: color indicator, abbreviated name, slider, and number input.
+ * Displays a single row with: color indicator, abbreviated name, slider, number input, and optional fade behavior badge.
  */
 export default function ChannelSlider({
   channel,
   value,
   onChange,
   onChangeComplete,
-  tooltip
+  tooltip,
+  showFadeBehavior = false,
+  onFadeBehaviorClick
 }: ChannelSliderProps) {
   const [localValue, setLocalValue] = useState(value);
 
@@ -152,6 +159,14 @@ export default function ChannelSlider({
         className="w-12 text-xs text-center font-mono text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0 focus:outline-none focus:ring-1 focus:ring-blue-500"
         title="Use arrow keys to adjust. Hold Shift for ±10"
       />
+      {showFadeBehavior && channel.fadeBehavior && (
+        <FadeBehaviorBadge
+          fadeBehavior={channel.fadeBehavior}
+          isDiscrete={channel.isDiscrete}
+          size="sm"
+          onClick={onFadeBehaviorClick}
+        />
+      )}
     </div>
   );
 }

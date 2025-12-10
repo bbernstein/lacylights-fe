@@ -277,3 +277,44 @@ export const BULK_UPDATE_FIXTURES = gql`
     }
   }
 `;
+
+// Instance Channel Updates
+export const UPDATE_INSTANCE_CHANNEL_FADE_BEHAVIOR = gql`
+  mutation UpdateInstanceChannelFadeBehavior(
+    $channelId: ID!
+    $fadeBehavior: FadeBehavior!
+  ) {
+    updateInstanceChannelFadeBehavior(
+      channelId: $channelId
+      fadeBehavior: $fadeBehavior
+    ) {
+      id
+      offset
+      name
+      type
+      minValue
+      maxValue
+      defaultValue
+      fadeBehavior
+      isDiscrete
+    }
+  }
+`;
+
+export const BULK_UPDATE_INSTANCE_CHANNELS_FADE_BEHAVIOR = gql`
+  mutation BulkUpdateInstanceChannelsFadeBehavior(
+    $updates: [ChannelFadeBehaviorInput!]!
+  ) {
+    bulkUpdateInstanceChannelsFadeBehavior(updates: $updates) {
+      id
+      offset
+      name
+      type
+      minValue
+      maxValue
+      defaultValue
+      fadeBehavior
+      isDiscrete
+    }
+  }
+`;
