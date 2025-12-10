@@ -36,6 +36,11 @@ const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 5;
 const ZOOM_SPEED = 0.1;
 
+// Touch gesture thresholds
+const LONG_PRESS_DURATION = 500; // ms - time to trigger long-press
+const DRAG_THRESHOLD = 10; // pixels - movement threshold to start drag
+const TAP_THRESHOLD = 300; // ms - max time for a tap
+
 // Helper to convert hex color to normalized RGB values
 function hexToNormalizedRGB(hex: string) {
   // Remove leading '#' if present
@@ -144,15 +149,14 @@ export default function LayoutCanvas({
   // Long-press state for toggle selection on touch
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isLongPressing, setIsLongPressing] = useState(false);
-  const LONG_PRESS_DURATION = 500; // ms
 
-  // Two-finger marquee selection state
-  const [isTwoFingerMarquee, setIsTwoFingerMarquee] = useState(false);
-  const [twoFingerMarqueeStart, setTwoFingerMarqueeStart] = useState<{
+  // Long-press marquee selection state (long-press on empty space then drag)
+  const [isTouchMarquee, setIsTouchMarquee] = useState(false);
+  const [touchMarqueeStart, setTouchMarqueeStart] = useState<{
     x: number;
     y: number;
   } | null>(null);
-  const [twoFingerMarqueeCurrent, setTwoFingerMarqueeCurrent] = useState<{
+  const [touchMarqueeCurrent, setTouchMarqueeCurrent] = useState<{
     x: number;
     y: number;
   } | null>(null);
@@ -503,12 +507,12 @@ export default function LayoutCanvas({
       ctx.setLineDash([]);
     }
 
-    // Draw two-finger marquee selection box (touch-based)
-    if (isTwoFingerMarquee && twoFingerMarqueeStart && twoFingerMarqueeCurrent) {
-      const minX = Math.min(twoFingerMarqueeStart.x, twoFingerMarqueeCurrent.x);
-      const maxX = Math.max(twoFingerMarqueeStart.x, twoFingerMarqueeCurrent.x);
-      const minY = Math.min(twoFingerMarqueeStart.y, twoFingerMarqueeCurrent.y);
-      const maxY = Math.max(twoFingerMarqueeStart.y, twoFingerMarqueeCurrent.y);
+    // Draw touch marquee selection box (long-press then drag on empty space)
+    if (isTouchMarquee && touchMarqueeStart && touchMarqueeCurrent) {
+      const minX = Math.min(touchMarqueeStart.x, touchMarqueeCurrent.x);
+      const maxX = Math.max(touchMarqueeStart.x, touchMarqueeCurrent.x);
+      const minY = Math.min(touchMarqueeStart.y, touchMarqueeCurrent.y);
+      const maxY = Math.max(touchMarqueeStart.y, touchMarqueeCurrent.y);
 
       ctx.strokeStyle = "#10b981"; // Green for touch marquee (to differentiate from mouse)
       ctx.lineWidth = 3;
@@ -529,9 +533,9 @@ export default function LayoutCanvas({
     isMarqueeSelecting,
     marqueeStart,
     marqueeCurrent,
-    isTwoFingerMarquee,
-    twoFingerMarqueeStart,
-    twoFingerMarqueeCurrent,
+    isTouchMarquee,
+    touchMarqueeStart,
+    touchMarqueeCurrent,
     normalizedToCanvas,
     getFixtureColor,
     getTextColor,
@@ -796,6 +800,15 @@ export default function LayoutCanvas({
     setIsLongPressing(false);
   }, []);
 
+  // Cleanup long-press timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
+
   /**
    * Handle touch start for pinch-to-zoom, single-finger interactions, and long-press
    */
@@ -808,7 +821,7 @@ export default function LayoutCanvas({
     // Cancel any pending long-press
     cancelLongPress();
 
-    // Two-finger touch: check if on empty space for marquee, otherwise pinch-zoom
+    // Two-finger touch: always pinch-to-zoom
     if (e.touches.length === 2) {
       e.preventDefault(); // Prevent default browser zoom
 
@@ -816,29 +829,19 @@ export default function LayoutCanvas({
       setSingleTouchStart(null);
       setIsTouchPanning(false);
       setIsTouchDragging(false);
+      setIsTouchMarquee(false);
+      setTouchMarqueeStart(null);
+      setTouchMarqueeCurrent(null);
 
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
+      const distance = getTouchDistance(touch1, touch2);
       const center = getTouchCenter(touch1, touch2, rect);
 
-      // Check if center is on a fixture
-      const fixtureAtCenter = getFixtureAtPosition(center.x, center.y);
-
-      if (!fixtureAtCenter) {
-        // Two-finger on empty space: start marquee selection
-        setIsTwoFingerMarquee(true);
-        setTwoFingerMarqueeStart({ x: center.x, y: center.y });
-        setTwoFingerMarqueeCurrent({ x: center.x, y: center.y });
-        setIsPinching(false);
-      } else {
-        // Two-finger on fixture: pinch-to-zoom
-        const distance = getTouchDistance(touch1, touch2);
-        setIsPinching(true);
-        setTouchStart({ x: center.x, y: center.y, distance });
-        setIsTwoFingerMarquee(false);
-      }
+      setIsPinching(true);
+      setTouchStart({ x: center.x, y: center.y, distance });
     } else if (e.touches.length === 1) {
-      // Single-finger touch for panning, fixture dragging, or long-press toggle
+      // Single-finger touch for panning, fixture dragging, or long-press
       const touch = e.touches[0];
       const x = touch.clientX - rect.left;
       const y = touch.clientY - rect.top;
@@ -856,7 +859,7 @@ export default function LayoutCanvas({
       });
 
       if (touchedFixture) {
-        // Start long-press timer for toggle selection
+        // Start long-press timer for toggle selection on fixture
         longPressTimerRef.current = setTimeout(() => {
           setIsLongPressing(true);
           // Toggle selection on long-press
@@ -876,7 +879,21 @@ export default function LayoutCanvas({
         // Don't immediately start dragging - wait for movement or long-press
         // Just record the touch position
       } else {
-        // Prepare for panning (touching empty space)
+        // Touching empty space - start long-press timer for marquee selection
+        longPressTimerRef.current = setTimeout(() => {
+          setIsLongPressing(true);
+          // Start marquee selection mode
+          setIsTouchMarquee(true);
+          setTouchMarqueeStart({ x, y });
+          setTouchMarqueeCurrent({ x, y });
+          setIsTouchPanning(false);
+          // Provide haptic feedback if available
+          if (navigator.vibrate) {
+            navigator.vibrate(50);
+          }
+        }, LONG_PRESS_DURATION);
+
+        // Prepare for panning (will be cancelled if long-press triggers marquee)
         setIsTouchPanning(true);
         setPanStart({ x: touch.clientX - viewport.x, y: touch.clientY - viewport.y });
       }
@@ -892,42 +909,35 @@ export default function LayoutCanvas({
 
     const rect = canvas.getBoundingClientRect();
 
-    // Handle two-finger gestures
-    if (e.touches.length === 2) {
+    // Handle two-finger pinch-to-zoom
+    if (e.touches.length === 2 && isPinching && touchStart) {
       e.preventDefault();
 
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
+      const distance = getTouchDistance(touch1, touch2);
       const center = getTouchCenter(touch1, touch2, rect);
 
-      if (isTwoFingerMarquee && twoFingerMarqueeStart) {
-        // Update marquee selection box
-        setTwoFingerMarqueeCurrent({ x: center.x, y: center.y });
-      } else if (isPinching && touchStart) {
-        // Pinch-to-zoom
-        const distance = getTouchDistance(touch1, touch2);
+      // Calculate scale change based on distance change
+      const scaleChange = distance / touchStart.distance;
+      const newScale = Math.max(
+        MIN_ZOOM,
+        Math.min(MAX_ZOOM, viewport.scale * scaleChange),
+      );
 
-        // Calculate scale change based on distance change
-        const scaleChange = distance / touchStart.distance;
-        const newScale = Math.max(
-          MIN_ZOOM,
-          Math.min(MAX_ZOOM, viewport.scale * scaleChange),
-        );
+      // Zoom towards the pinch center
+      const scaleRatio = newScale / viewport.scale;
+      const newX = center.x - (center.x - viewport.x) * scaleRatio;
+      const newY = center.y - (center.y - viewport.y) * scaleRatio;
 
-        // Zoom towards the pinch center
-        const scaleRatio = newScale / viewport.scale;
-        const newX = center.x - (center.x - viewport.x) * scaleRatio;
-        const newY = center.y - (center.y - viewport.y) * scaleRatio;
+      setViewport({
+        x: newX,
+        y: newY,
+        scale: newScale,
+      });
 
-        setViewport({
-          x: newX,
-          y: newY,
-          scale: newScale,
-        });
-
-        // Update touchStart for next move event
-        setTouchStart({ x: center.x, y: center.y, distance });
-      }
+      // Update touchStart for next move event
+      setTouchStart({ x: center.x, y: center.y, distance });
     } else if (e.touches.length === 1 && singleTouchStart) {
       e.preventDefault(); // Prevent scrolling
 
@@ -936,7 +946,6 @@ export default function LayoutCanvas({
       const y = touch.clientY - rect.top;
 
       // Check if we've moved enough to cancel long-press and start dragging
-      const DRAG_THRESHOLD = 10; // pixels
       const deltaX = Math.abs(touch.clientX - singleTouchStart.x);
       const deltaY = Math.abs(touch.clientY - singleTouchStart.y);
 
@@ -948,16 +957,19 @@ export default function LayoutCanvas({
         if (singleTouchStart.fixtureId && !isTouchDragging && !isLongPressing) {
           const touchedFixture = singleTouchStart.fixtureId;
 
-          // Select the fixture if not already selected
-          if (!selectedFixtureIds.has(touchedFixture)) {
-            updateSelection(new Set([touchedFixture]));
+          // Determine the selection to use for dragging
+          // Use the current selection if the touched fixture is already selected,
+          // otherwise create a new selection with just this fixture
+          let fixturesToDrag: Set<string>;
+          if (selectedFixtureIds.has(touchedFixture)) {
+            fixturesToDrag = new Set(selectedFixtureIds);
+          } else {
+            fixturesToDrag = new Set([touchedFixture]);
+            updateSelection(fixturesToDrag);
           }
 
           // Set up drag state
           setIsTouchDragging(true);
-          const fixturesToDrag = selectedFixtureIds.has(touchedFixture)
-            ? new Set(selectedFixtureIds)
-            : new Set([touchedFixture]);
           setDraggedFixtures(fixturesToDrag);
           setDragStart({ x: singleTouchStart.canvasX, y: singleTouchStart.canvasY });
 
@@ -977,7 +989,10 @@ export default function LayoutCanvas({
         }
       }
 
-      if (isTouchPanning) {
+      if (isTouchMarquee && touchMarqueeStart) {
+        // Update marquee selection box
+        setTouchMarqueeCurrent({ x, y });
+      } else if (isTouchPanning) {
         // Pan the viewport
         setViewport((prev) => ({
           ...prev,
@@ -1026,13 +1041,13 @@ export default function LayoutCanvas({
     // Cancel any pending long-press
     cancelLongPress();
 
-    // Handle two-finger marquee completion
-    if (e.touches.length < 2 && isTwoFingerMarquee && twoFingerMarqueeStart && twoFingerMarqueeCurrent) {
+    // Handle touch marquee completion (long-press then drag on empty space)
+    if (e.touches.length === 0 && isTouchMarquee && touchMarqueeStart && touchMarqueeCurrent) {
       // Calculate marquee bounds
-      const minX = Math.min(twoFingerMarqueeStart.x, twoFingerMarqueeCurrent.x);
-      const maxX = Math.max(twoFingerMarqueeStart.x, twoFingerMarqueeCurrent.x);
-      const minY = Math.min(twoFingerMarqueeStart.y, twoFingerMarqueeCurrent.y);
-      const maxY = Math.max(twoFingerMarqueeStart.y, twoFingerMarqueeCurrent.y);
+      const minX = Math.min(touchMarqueeStart.x, touchMarqueeCurrent.x);
+      const maxX = Math.max(touchMarqueeStart.x, touchMarqueeCurrent.x);
+      const minY = Math.min(touchMarqueeStart.y, touchMarqueeCurrent.y);
+      const maxY = Math.max(touchMarqueeStart.y, touchMarqueeCurrent.y);
 
       // Find all fixtures within marquee bounds
       const selectedInMarquee = new Set<string>();
@@ -1061,9 +1076,9 @@ export default function LayoutCanvas({
       }
 
       // Reset marquee state
-      setIsTwoFingerMarquee(false);
-      setTwoFingerMarqueeStart(null);
-      setTwoFingerMarqueeCurrent(null);
+      setIsTouchMarquee(false);
+      setTouchMarqueeStart(null);
+      setTouchMarqueeCurrent(null);
     }
 
     // If less than 2 touches remain, end pinch gesture
@@ -1080,7 +1095,6 @@ export default function LayoutCanvas({
       // Check if this was a tap (quick touch without much movement) and not a long-press
       if (singleTouchStart && singleTouchStart.fixtureId && !isLongPressing) {
         const touchDuration = Date.now() - singleTouchStart.time;
-        const TAP_THRESHOLD = 300; // ms
 
         if (touchDuration < TAP_THRESHOLD && !wasDraggingFixtures) {
           // This was a tap on a fixture - select it (replacing current selection)
@@ -1099,6 +1113,12 @@ export default function LayoutCanvas({
       setDraggedFixtures(new Set());
       setDragStart(null);
       setDragOffset(new Map());
+
+      // Reset touch marquee state (in case it wasn't handled above)
+      setIsTouchMarquee(false);
+      setTouchMarqueeStart(null);
+      setTouchMarqueeCurrent(null);
+      setIsLongPressing(false);
 
       // Auto-save positions after dragging fixtures
       if (wasDraggingFixtures && hasUnsavedChanges) {

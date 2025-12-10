@@ -26,6 +26,10 @@ const MAX_ZOOM = 3.0;
 const DEFAULT_BUTTON_WIDTH = 200;
 const DEFAULT_BUTTON_HEIGHT = 120;
 
+// Touch gesture thresholds
+const TAP_THRESHOLD_TIME = 300; // ms - max time for a tap
+const TAP_MOVEMENT_THRESHOLD = 10; // pixels - max movement for a tap
+
 interface SceneBoardClientProps {
   id: string;
 }
@@ -381,15 +385,19 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
     const touchStart = touchStartRef.current;
     const touchDuration = Date.now() - touchStart.time;
-    const TAP_THRESHOLD_TIME = 300; // ms - max time for a tap
 
-    // Check if this was a tap (short duration, minimal movement)
+    // Get the end position from changedTouches (available in touchend)
+    const touch = e.changedTouches[0];
+    const movementX = touch ? Math.abs(touch.clientX - touchStart.x) : 0;
+    const movementY = touch ? Math.abs(touch.clientY - touchStart.y) : 0;
+    const totalMovement = Math.max(movementX, movementY);
+
+    // Check if this was a tap (short duration AND minimal movement)
+    const isTap = touchDuration < TAP_THRESHOLD_TIME && totalMovement < TAP_MOVEMENT_THRESHOLD;
+
     // For play mode, we want to activate the scene on tap
     if (mode === 'play' && touchStart.button) {
-      // In play mode, check if it was a tap
-      // Note: We can't easily get the end position from touchend, but if no move occurred
-      // the drag state would not have been set, indicating a tap
-      if (touchDuration < TAP_THRESHOLD_TIME && !draggingButton) {
+      if (isTap) {
         handleSceneClick(touchStart.button);
       }
     } else if (mode === 'layout') {
@@ -399,7 +407,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
     // Reset touch start ref
     touchStartRef.current = { time: 0, x: 0, y: 0, button: null };
-  }, [handleDragEnd, handleSceneClick, mode, draggingButton]);
+  }, [handleDragEnd, handleSceneClick, mode]);
 
   // Touch gesture handlers for pinch-to-zoom, two-finger pan, and single-finger pan
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -1314,7 +1322,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           {mode === 'play' ? (
             <span>🎮 Play Mode - Tap scenes to activate • Drag to pan • Pinch to zoom</span>
           ) : (
-            <span>✏️ Layout Mode - Drag scenes to reposition • Drag canvas to pan • Pinch to zoom</span>
+            <span>✏️ Layout Mode - Drag scenes to reposition (snaps to {GRID_SIZE}px grid) • Drag canvas to pan • Pinch to zoom</span>
           )}
         </div>
       )}
