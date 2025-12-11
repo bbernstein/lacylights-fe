@@ -210,20 +210,21 @@ export default function OFLManagement() {
   const [preferBundled, setPreferBundled] = useState(false);
   const [lastResult, setLastResult] = useState<OFLImportResult | null>(null);
 
+  // Subscribe to real-time progress first (must be before useQuery that depends on it)
+  const { data: subscriptionData } = useSubscription<{
+    oflImportProgress: OFLImportStatus;
+  }>(OFL_IMPORT_PROGRESS);
+
   // Query current status
-  // Use slower polling when subscription is available, faster when it might not be
+  // Use slower polling (30s) when subscription is active to reduce unnecessary server load,
+  // faster polling (5s) as fallback when subscription is not available
   const {
     data: statusData,
     loading: statusLoading,
     refetch: refetchStatus,
   } = useQuery<{ oflImportStatus: OFLImportStatus }>(GET_OFL_IMPORT_STATUS, {
-    pollInterval: subscriptionData ? 30000 : 5000, // Reduce polling when subscription is active
+    pollInterval: subscriptionData ? 30000 : 5000,
   });
-
-  // Subscribe to real-time progress (defined before usage in pollInterval)
-  const { data: subscriptionData } = useSubscription<{
-    oflImportProgress: OFLImportStatus;
-  }>(OFL_IMPORT_PROGRESS);
 
   // Query for updates check
   const {
