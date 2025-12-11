@@ -101,9 +101,10 @@ export default function FadeBehaviorEditModal({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close fade behavior modal"
             className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
           >
-            <XMarkIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+            <XMarkIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" aria-hidden="true" />
           </button>
         </div>
 

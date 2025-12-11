@@ -211,13 +211,19 @@ export default function OFLManagement() {
   const [lastResult, setLastResult] = useState<OFLImportResult | null>(null);
 
   // Query current status
+  // Use slower polling when subscription is available, faster when it might not be
   const {
     data: statusData,
     loading: statusLoading,
     refetch: refetchStatus,
   } = useQuery<{ oflImportStatus: OFLImportStatus }>(GET_OFL_IMPORT_STATUS, {
-    pollInterval: 5000, // Poll every 5 seconds as fallback
+    pollInterval: subscriptionData ? 30000 : 5000, // Reduce polling when subscription is active
   });
+
+  // Subscribe to real-time progress (defined before usage in pollInterval)
+  const { data: subscriptionData } = useSubscription<{
+    oflImportProgress: OFLImportStatus;
+  }>(OFL_IMPORT_PROGRESS);
 
   // Query for updates check
   const {
@@ -227,11 +233,6 @@ export default function OFLManagement() {
   } = useQuery<{ checkOFLUpdates: OFLUpdateCheckResult }>(CHECK_OFL_UPDATES, {
     fetchPolicy: 'cache-first',
   });
-
-  // Subscribe to real-time progress
-  const { data: subscriptionData } = useSubscription<{
-    oflImportProgress: OFLImportStatus;
-  }>(OFL_IMPORT_PROGRESS);
 
   // Use subscription data if available, otherwise fall back to polling
   const currentStatus = subscriptionData?.oflImportProgress || statusData?.oflImportStatus;
@@ -375,9 +376,10 @@ export default function OFLManagement() {
             </div>
             <button
               onClick={() => setLastResult(null)}
+              aria-label="Dismiss import result"
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
             >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" role="img" aria-hidden="true">
                 <path
                   fillRule="evenodd"
                   d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"

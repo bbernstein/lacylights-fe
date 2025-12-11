@@ -307,13 +307,23 @@ export enum ChannelType {
 
 /**
  * Determines how a channel behaves during scene transitions.
- * FADE - Interpolate smoothly between values (default for intensity, colors)
- * SNAP - Jump to target value at start of transition (for gobos, macros, effects)
- * SNAP_END - Jump to target value at end of transition
+ *
+ * @example
+ * // FADE: Good for smooth transitions
+ * dimmer.fadeBehavior = FadeBehavior.FADE;
+ *
+ * // SNAP: Good for discrete values like gobo slots
+ * gobo.fadeBehavior = FadeBehavior.SNAP;
+ *
+ * // SNAP_END: Good for maintaining current value until fade completes
+ * colorWheel.fadeBehavior = FadeBehavior.SNAP_END;
  */
 export enum FadeBehavior {
+  /** Smoothly interpolate between values during the transition. Best for intensity, colors, pan/tilt, zoom. */
   FADE = 'FADE',
+  /** Jump instantly to target value at the START of the transition. Best for gobos, color wheels, macros, effects. */
   SNAP = 'SNAP',
+  /** Hold the current value until the fade completes, then jump to target. Useful for discrete channels where you want the old value to remain visible throughout the crossfade. */
   SNAP_END = 'SNAP_END'
 }
 

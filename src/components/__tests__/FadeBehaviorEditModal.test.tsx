@@ -167,7 +167,7 @@ describe('FadeBehaviorEditModal', () => {
       const onClose = jest.fn();
       render(<FadeBehaviorEditModal {...defaultProps} onClose={onClose} />);
 
-      const closeButton = screen.getByRole('button', { name: '' }); // X button has no text
+      const closeButton = screen.getByRole('button', { name: /close fade behavior modal/i });
       fireEvent.click(closeButton);
       expect(onClose).toHaveBeenCalled();
     });
