@@ -390,3 +390,83 @@ export interface UpdateSettingInput {
   key: string;
   value: string;
 }
+
+// OFL (Open Fixture Library) Types
+export enum OFLImportPhase {
+  IDLE = 'IDLE',
+  INITIALIZING = 'INITIALIZING',
+  DOWNLOADING = 'DOWNLOADING',
+  EXTRACTING = 'EXTRACTING',
+  ANALYZING = 'ANALYZING',
+  IMPORTING = 'IMPORTING',
+  FINALIZING = 'FINALIZING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum OFLFixtureChangeType {
+  NEW = 'NEW',
+  UPDATED = 'UPDATED',
+  UNCHANGED = 'UNCHANGED',
+}
+
+export interface OFLImportStats {
+  totalProcessed: number;
+  successfulImports: number;
+  failedImports: number;
+  skippedDuplicates: number;
+  updatedFixtures: number;
+  durationSeconds: number;
+}
+
+export interface OFLImportStatus {
+  isImporting: boolean;
+  phase: OFLImportPhase;
+  currentManufacturer?: string;
+  currentFixture?: string;
+  totalFixtures: number;
+  processedFixtures: number;
+  successfulImports: number;
+  failedImports: number;
+  skippedDuplicates: number;
+  updatedFixtures: number;
+  percentComplete: number;
+  startedAt?: string;
+  estimatedSecondsRemaining?: number;
+  errorMessage?: string;
+}
+
+export interface OFLFixtureUpdate {
+  manufacturer: string;
+  model: string;
+  changeType: OFLFixtureChangeType;
+  isInUse: boolean;
+  instanceCount: number;
+  currentHash?: string;
+  newHash: string;
+}
+
+export interface OFLUpdateCheckResult {
+  hasUpdates: boolean;
+  totalNew: number;
+  totalUpdated: number;
+  totalInUse: number;
+  oflVersion: string;
+  currentVersion?: string;
+  updates: OFLFixtureUpdate[];
+}
+
+export interface OFLImportResult {
+  success: boolean;
+  stats: OFLImportStats;
+  errorMessage?: string;
+  oflVersion: string;
+}
+
+export interface OFLImportOptionsInput {
+  forceReimport?: boolean;
+  updateInUseFixtures?: boolean;
+  manufacturers?: string[];
+  preferBundled?: boolean;
+}

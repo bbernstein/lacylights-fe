@@ -6,6 +6,7 @@ import { GET_SETTINGS, UPDATE_SETTING, GET_NETWORK_INTERFACE_OPTIONS, GET_SYSTEM
 import { Setting, UpdateSettingInput, NetworkInterfaceOption, SystemInfo } from '@/types';
 import WiFiSettings from './WiFiSettings';
 import VersionManagement from './VersionManagement';
+import OFLManagement from './OFLManagement';
 
 interface SettingDefinition {
   key: string;
@@ -105,6 +106,12 @@ export default function SettingsPage() {
 
       {/* WiFi Configuration Section - Only show on systems with WiFi support */}
       <WiFiSettings />
+
+      {/* Fixture Library Section */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Fixture Library</h2>
+        <OFLManagement />
+      </div>
 
       {/* Version Management Section */}
       <div>
