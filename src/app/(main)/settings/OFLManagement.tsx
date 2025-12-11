@@ -27,13 +27,11 @@ function OFLProgressBar({
 }) {
   const phaseLabels: Record<OFLImportPhase, string> = {
     [OFLImportPhase.IDLE]: 'Idle',
-    [OFLImportPhase.INITIALIZING]: 'Initializing...',
     [OFLImportPhase.DOWNLOADING]: 'Downloading from GitHub...',
     [OFLImportPhase.EXTRACTING]: 'Extracting bundle...',
-    [OFLImportPhase.ANALYZING]: 'Analyzing fixtures...',
+    [OFLImportPhase.PARSING]: 'Parsing fixtures...',
     [OFLImportPhase.IMPORTING]: 'Importing fixtures...',
-    [OFLImportPhase.FINALIZING]: 'Finalizing...',
-    [OFLImportPhase.COMPLETED]: 'Completed',
+    [OFLImportPhase.COMPLETE]: 'Completed',
     [OFLImportPhase.FAILED]: 'Failed',
     [OFLImportPhase.CANCELLED]: 'Cancelled',
   };
@@ -44,6 +42,9 @@ function OFLProgressBar({
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Calculate processed count from imported + failed + skipped
+  const processedCount = status.importedCount + status.failedCount + status.skippedCount;
 
   return (
     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-3">
@@ -70,7 +71,7 @@ function OFLProgressBar({
       {/* Status details */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
         <div className="text-gray-600 dark:text-gray-400">
-          Progress: {status.processedFixtures} / {status.totalFixtures}
+          Progress: {processedCount} / {status.totalFixtures}
         </div>
         <div className="text-gray-600 dark:text-gray-400 text-right">
           {status.percentComplete.toFixed(1)}%
@@ -84,20 +85,20 @@ function OFLProgressBar({
         )}
 
         <div className="text-green-600 dark:text-green-400">
-          Imported: {status.successfulImports}
+          Imported: {status.importedCount}
         </div>
         <div className="text-gray-500 dark:text-gray-500 text-right">
           ETA: {formatTime(status.estimatedSecondsRemaining)}
         </div>
 
-        {status.failedImports > 0 && (
+        {status.failedCount > 0 && (
           <div className="text-red-600 dark:text-red-400">
-            Failed: {status.failedImports}
+            Failed: {status.failedCount}
           </div>
         )}
-        {status.skippedDuplicates > 0 && (
+        {status.skippedCount > 0 && (
           <div className="text-yellow-600 dark:text-yellow-400">
-            Skipped: {status.skippedDuplicates}
+            Skipped: {status.skippedCount}
           </div>
         )}
       </div>
@@ -113,10 +114,10 @@ function OFLProgressBar({
 
 // Update summary table
 function OFLUpdateTable({ result }: { result: OFLUpdateCheckResult }) {
-  const newFixtures = result.updates.filter(
+  const newFixtures = result.fixtureUpdates.filter(
     (u) => u.changeType === OFLFixtureChangeType.NEW
   );
-  const updatedFixtures = result.updates.filter(
+  const updatedFixtures = result.fixtureUpdates.filter(
     (u) => u.changeType === OFLFixtureChangeType.UPDATED
   );
 
@@ -126,19 +127,19 @@ function OFLUpdateTable({ result }: { result: OFLUpdateCheckResult }) {
       <div className="grid grid-cols-3 gap-4 text-center">
         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
           <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {result.totalNew}
+            {result.newFixtureCount}
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400">New Fixtures</div>
         </div>
         <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3">
           <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-            {result.totalUpdated}
+            {result.changedFixtureCount}
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400">Updated</div>
         </div>
         <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
           <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-            {result.totalInUse}
+            {result.changedInUseCount}
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400">In Use</div>
         </div>
@@ -161,8 +162,8 @@ function OFLUpdateTable({ result }: { result: OFLUpdateCheckResult }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {[...newFixtures, ...updatedFixtures].slice(0, 50).map((fixture, idx) => (
-                  <tr key={idx}>
+                {[...newFixtures, ...updatedFixtures].slice(0, 50).map((fixture) => (
+                  <tr key={fixture.fixtureKey}>
                     <td className="py-1 text-gray-900 dark:text-gray-100">
                       {fixture.manufacturer}
                     </td>
@@ -259,7 +260,7 @@ export default function OFLManagement() {
   // Refresh updates check when import completes
   useEffect(() => {
     if (
-      currentStatus?.phase === OFLImportPhase.COMPLETED ||
+      currentStatus?.phase === OFLImportPhase.COMPLETE ||
       currentStatus?.phase === OFLImportPhase.FAILED ||
       currentStatus?.phase === OFLImportPhase.CANCELLED
     ) {
@@ -292,9 +293,8 @@ export default function OFLManagement() {
     currentStatus?.isImporting ||
     currentStatus?.phase === OFLImportPhase.DOWNLOADING ||
     currentStatus?.phase === OFLImportPhase.EXTRACTING ||
-    currentStatus?.phase === OFLImportPhase.ANALYZING ||
-    currentStatus?.phase === OFLImportPhase.IMPORTING ||
-    currentStatus?.phase === OFLImportPhase.INITIALIZING;
+    currentStatus?.phase === OFLImportPhase.PARSING ||
+    currentStatus?.phase === OFLImportPhase.IMPORTING;
 
   if (statusLoading) {
     return (
@@ -395,7 +395,7 @@ export default function OFLManagement() {
       {/* Update check results */}
       {updateCheckResult && !isImporting && !lastResult && (
         <div>
-          {updateCheckResult.hasUpdates ? (
+          {updateCheckResult.newFixtureCount > 0 || updateCheckResult.changedFixtureCount > 0 ? (
             <OFLUpdateTable result={updateCheckResult} />
           ) : (
             <div className="text-center text-gray-500 dark:text-gray-400 py-4">

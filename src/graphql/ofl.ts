@@ -32,15 +32,16 @@ export const OFL_IMPORT_STATUS_FRAGMENT = gql`
     currentManufacturer
     currentFixture
     totalFixtures
-    processedFixtures
-    successfulImports
-    failedImports
-    skippedDuplicates
-    updatedFixtures
+    importedCount
+    failedCount
+    skippedCount
     percentComplete
     startedAt
+    completedAt
     estimatedSecondsRemaining
     errorMessage
+    oflVersion
+    usingBundledData
   }
 `;
 
@@ -50,6 +51,7 @@ export const OFL_IMPORT_STATUS_FRAGMENT = gql`
  */
 export const OFL_FIXTURE_UPDATE_FRAGMENT = gql`
   fragment OFLFixtureUpdateFields on OFLFixtureUpdate {
+    fixtureKey
     manufacturer
     model
     changeType
@@ -78,20 +80,20 @@ export const GET_OFL_IMPORT_STATUS = gql`
 /**
  * Checks for available updates from the Open Fixture Library.
  * Compares local fixture definitions against the latest OFL data.
- * @param manufacturerFilter - Optional array of manufacturer names to filter the check
  */
 export const CHECK_OFL_UPDATES = gql`
-  query CheckOFLUpdates($manufacturerFilter: [String!]) {
-    checkOFLUpdates(manufacturerFilter: $manufacturerFilter) {
-      hasUpdates
-      totalNew
-      totalUpdated
-      totalInUse
-      oflVersion
-      currentVersion
-      updates {
+  query CheckOFLUpdates {
+    checkOFLUpdates {
+      currentFixtureCount
+      oflFixtureCount
+      newFixtureCount
+      changedFixtureCount
+      changedInUseCount
+      fixtureUpdates {
         ...OFLFixtureUpdateFields
       }
+      oflVersion
+      checkedAt
     }
   }
   ${OFL_FIXTURE_UPDATE_FRAGMENT}

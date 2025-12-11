@@ -404,13 +404,11 @@ export interface UpdateSettingInput {
 // OFL (Open Fixture Library) Types
 export enum OFLImportPhase {
   IDLE = 'IDLE',
-  INITIALIZING = 'INITIALIZING',
   DOWNLOADING = 'DOWNLOADING',
   EXTRACTING = 'EXTRACTING',
-  ANALYZING = 'ANALYZING',
+  PARSING = 'PARSING',
   IMPORTING = 'IMPORTING',
-  FINALIZING = 'FINALIZING',
-  COMPLETED = 'COMPLETED',
+  COMPLETE = 'COMPLETE',
   FAILED = 'FAILED',
   CANCELLED = 'CANCELLED',
 }
@@ -436,18 +434,20 @@ export interface OFLImportStatus {
   currentManufacturer?: string;
   currentFixture?: string;
   totalFixtures: number;
-  processedFixtures: number;
-  successfulImports: number;
-  failedImports: number;
-  skippedDuplicates: number;
-  updatedFixtures: number;
+  importedCount: number;
+  failedCount: number;
+  skippedCount: number;
   percentComplete: number;
   startedAt?: string;
+  completedAt?: string;
   estimatedSecondsRemaining?: number;
   errorMessage?: string;
+  oflVersion?: string;
+  usingBundledData: boolean;
 }
 
 export interface OFLFixtureUpdate {
+  fixtureKey: string;
   manufacturer: string;
   model: string;
   changeType: OFLFixtureChangeType;
@@ -458,13 +458,14 @@ export interface OFLFixtureUpdate {
 }
 
 export interface OFLUpdateCheckResult {
-  hasUpdates: boolean;
-  totalNew: number;
-  totalUpdated: number;
-  totalInUse: number;
+  currentFixtureCount: number;
+  oflFixtureCount: number;
+  newFixtureCount: number;
+  changedFixtureCount: number;
+  changedInUseCount: number;
+  fixtureUpdates: OFLFixtureUpdate[];
   oflVersion: string;
-  currentVersion?: string;
-  updates: OFLFixtureUpdate[];
+  checkedAt: string;
 }
 
 export interface OFLImportResult {
