@@ -27,6 +27,7 @@ import ColorPickerModal from './ColorPickerModal';
 import { rgbToChannelValues, channelValuesToRgb, COLOR_CHANNEL_TYPES } from '@/utils/colorConversion';
 import ChannelSlider from './ChannelSlider';
 import { generateUUID } from '@/utils/uuid';
+import { sparseToDense, denseToSparse } from '@/utils/channelConversion';
 
 interface ChannelListEditorProps {
   sceneId: string;
@@ -196,7 +197,7 @@ function SortableFixtureRow({
 
   // Direct access to channels from the fixture
   const channels = fixtureValue.fixture.channels || [];
-  const currentChannelValues = channelValues.get(fixtureValue.fixture.id) || fixtureValue.channelValues || [];
+  const currentChannelValues = channelValues.get(fixtureValue.fixture.id) || sparseToDense(fixtureValue.channels || [], channels.length);
 
   // Helper function to get current channel value by index
   const getChannelValue = (channelIndex: number) => {
@@ -374,9 +375,12 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
         setSceneDescription(data.scene.description || '');
 
         // Initialize channel values map with fixture arrays
+        // Convert sparse format to dense for internal state
         const values = new Map<string, number[]>();
         data.scene.fixtureValues.forEach((fixtureValue: SceneFixtureValue) => {
-          values.set(fixtureValue.fixture.id, fixtureValue.channelValues || []);
+          const channelCount = fixtureValue.fixture.channels?.length || 0;
+          const denseValues = sparseToDense(fixtureValue.channels || [], channelCount);
+          values.set(fixtureValue.fixture.id, denseValues);
         });
         setChannelValues(values);
 
@@ -686,7 +690,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
           fixtures.push({
             id: `temp-${generateUUID()}-${fixtureId}`, // Temporary ID for new fixtures using browser-compatible UUID generator
             fixture: fixture,
-            channelValues: defaultValues,
+            channels: denseToSparse(defaultValues), // Store in sparse format
             sceneOrder: nextSceneOrder++, // Use unique incrementing order values
           });
         }
@@ -828,10 +832,14 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
     if (!scene) return;
 
     // Build fixture values from active fixtures
-    const fixtureValues = activeFixtureValues.map((fixtureValue: SceneFixtureValue) => ({
-      fixtureId: fixtureValue.fixture.id,
-      channelValues: channelValues.get(fixtureValue.fixture.id) || fixtureValue.channelValues || [],
-    }));
+    // Convert dense format to sparse for mutation
+    const fixtureValues = activeFixtureValues.map((fixtureValue: SceneFixtureValue) => {
+      const denseValues = channelValues.get(fixtureValue.fixture.id) || sparseToDense(fixtureValue.channels || [], fixtureValue.fixture.channels?.length || 0);
+      return {
+        fixtureId: fixtureValue.fixture.id,
+        channels: denseToSparse(denseValues),
+      };
+    });
 
     updateScene({
       variables: {

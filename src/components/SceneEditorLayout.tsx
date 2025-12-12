@@ -10,10 +10,11 @@ import {
   UPDATE_PREVIEW_CHANNEL,
   INITIALIZE_PREVIEW_WITH_SCENE,
 } from '@/graphql/scenes';
-import { FixtureValue, FixtureInstance } from '@/types';
+import { FixtureValue, FixtureInstance, ChannelValue } from '@/types';
 import ChannelListEditor from './ChannelListEditor';
 import LayoutCanvas from './LayoutCanvas';
 import MultiSelectControls from './MultiSelectControls';
+import { sparseToDense, denseToSparse } from '@/utils/channelConversion';
 
 interface SceneEditorLayoutProps {
   sceneId: string;
@@ -27,7 +28,7 @@ interface SceneEditorLayoutProps {
  */
 type FixtureChannelValues = {
   fixtureId: string;
-  channelValues: number[];
+  channels: ChannelValue[];
 };
 
 export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode }: SceneEditorLayoutProps) {
@@ -96,12 +97,13 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   const fixtureValues = useMemo(() => {
     const values = new Map<string, number[]>();
     if (scene) {
-      scene.fixtureValues.forEach((fv: { fixture: { id: string }; channelValues: number[] }) => {
+      scene.fixtureValues.forEach((fv: FixtureValue) => {
         const fixtureId = fv.fixture.id;
-        // Use local value if available, otherwise use server value
+        // Use local value if available, otherwise convert sparse to dense
+        const channelCount = fv.fixture.channels?.length || 0;
         const channelValues = localFixtureValues.has(fixtureId)
           ? localFixtureValues.get(fixtureId)!
-          : (fv.channelValues || []);
+          : sparseToDense(fv.channels || [], channelCount);
         values.set(fixtureId, channelValues);
       });
     }
@@ -295,23 +297,25 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
 
     scene.fixtureValues.forEach((fv: FixtureValue) => {
       const fixtureChanges = changesByFixture.get(fv.fixture.id);
+      const channelCount = fv.fixture.channels?.length || 0;
 
       if (fixtureChanges) {
         // Apply all changes to this fixture
-        const newChannelValues = [...(fv.channelValues || [])];
+        // Convert sparse to dense, apply changes, convert back to sparse
+        const denseValues = [...sparseToDense(fv.channels || [], channelCount)];
         fixtureChanges.forEach((value, channelIndex) => {
-          newChannelValues[channelIndex] = value;
+          denseValues[channelIndex] = value;
         });
         fixtureValuesMap.set(fv.fixture.id, {
           fixtureId: fv.fixture.id,
-          channelValues: newChannelValues,
+          channels: denseToSparse(denseValues),
         });
       } else {
         // Keep existing values from scene (only if not already in map)
         if (!fixtureValuesMap.has(fv.fixture.id)) {
           fixtureValuesMap.set(fv.fixture.id, {
             fixtureId: fv.fixture.id,
-            channelValues: fv.channelValues || [],
+            channels: fv.channels || [],
           });
         }
       }
@@ -452,9 +456,14 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       scene.fixtureValues.forEach((fv: FixtureValue) => {
         const localValues = localFixtureValues.get(fv.fixture.id);
 
+        // Convert dense local values or sparse server values to sparse format
+        const sparseChannels = localValues
+          ? denseToSparse(localValues)
+          : (fv.channels || []);
+
         fixtureValuesMap.set(fv.fixture.id, {
           fixtureId: fv.fixture.id,
-          channelValues: localValues || fv.channelValues || [],
+          channels: sparseChannels,
         });
       });
 

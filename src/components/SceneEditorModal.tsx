@@ -25,6 +25,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { ChannelType, InstanceChannel, FixtureInstance, FixtureValue } from '@/types';
 import ColorPickerModal from './ColorPickerModal';
 import { rgbToChannelValues, channelValuesToRgb, COLOR_CHANNEL_TYPES, UV_COLOR_HEX } from '@/utils/colorConversion';
+import { sparseToDense, denseToSparse } from '@/utils/channelConversion';
 
 interface SceneEditorModalProps {
   isOpen: boolean;
@@ -285,8 +286,8 @@ function SortableFixtureRow({
 
   // Direct access to channels from the fixture
   const channels = fixtureValue.fixture.channels || [];
-  const currentChannelValues = channelValues.get(fixtureValue.fixture.id) || fixtureValue.channelValues || [];
-  
+  const currentChannelValues = channelValues.get(fixtureValue.fixture.id) || sparseToDense(fixtureValue.channels || [], channels.length);
+
   // Helper function to get current channel value by index
   const getChannelValue = (channelIndex: number) => {
     return currentChannelValues[channelIndex] ?? 0;
@@ -400,14 +401,17 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
         // Initialize scene name and description
         setSceneName(data.scene.name);
         setSceneDescription(data.scene.description || '');
-        
+
         // Initialize channel values map with fixture arrays
+        // Convert sparse format to dense for internal state
         const values = new Map<string, number[]>();
         data.scene.fixtureValues.forEach((fixtureValue: SceneFixtureValue) => {
-          values.set(fixtureValue.fixture.id, fixtureValue.channelValues || []);
+          const channelCount = fixtureValue.fixture.channels?.length || 0;
+          const denseValues = sparseToDense(fixtureValue.channels || [], channelCount);
+          values.set(fixtureValue.fixture.id, denseValues);
         });
         setChannelValues(values);
-        
+
         // Reset fixture management state
         setRemovedFixtures(new Set());
         setSelectedFixturesToAdd(new Set());
@@ -659,7 +663,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
           fixtures.push({
             id: `temp-${counter++}-${fixtureId}`, // Temporary ID for new fixtures using counter
             fixture: fixture,
-            channelValues: defaultValues,
+            channels: denseToSparse(defaultValues), // Store in sparse format
             sceneOrder: nextSceneOrder++, // Use unique incrementing order values
           });
         }
@@ -805,10 +809,14 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     if (!scene) return;
 
     // Build fixture values from active fixtures
-    const fixtureValues = activeFixtureValues.map((fixtureValue: SceneFixtureValue) => ({
-      fixtureId: fixtureValue.fixture.id,
-      channelValues: channelValues.get(fixtureValue.fixture.id) || fixtureValue.channelValues || [],
-    }));
+    // Convert dense format to sparse for mutation
+    const fixtureValues = activeFixtureValues.map((fixtureValue: SceneFixtureValue) => {
+      const denseValues = channelValues.get(fixtureValue.fixture.id) || sparseToDense(fixtureValue.channels || [], fixtureValue.fixture.channels?.length || 0);
+      return {
+        fixtureId: fixtureValue.fixture.id,
+        channels: denseToSparse(denseValues),
+      };
+    });
 
     updateScene({
       variables: {

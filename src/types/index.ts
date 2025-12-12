@@ -92,6 +92,11 @@ export interface InstanceChannel {
   isDiscrete: boolean;
 }
 
+export interface ChannelValue {
+  offset: number;
+  value: number;
+}
+
 export interface Scene {
   id: string;
   name: string;
@@ -105,7 +110,7 @@ export interface Scene {
 export interface FixtureValue {
   id: string;
   fixture: FixtureInstance;
-  channelValues: number[]; // Array of 0-255 values, index = channel offset
+  channels: ChannelValue[]; // Sparse array of channel values
 }
 
 export interface SceneBoard {
@@ -383,9 +388,14 @@ export interface UpdateSceneInput {
   fixtureValues?: FixtureValueInput[];
 }
 
+export interface ChannelValueInput {
+  offset: number;
+  value: number;
+}
+
 export interface FixtureValueInput {
   fixtureId: string;
-  channelValues: number[]; // Array of 0-255 values, index = channel offset
+  channels: ChannelValueInput[]; // Sparse array of channel values
 }
 
 export interface FixtureDefinitionFilter {
