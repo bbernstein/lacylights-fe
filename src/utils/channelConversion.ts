@@ -9,7 +9,7 @@ import { ChannelValue } from '@/types';
 export function sparseToDense(channels: ChannelValue[], channelCount: number): number[] {
   const dense = new Array(channelCount).fill(0);
   channels.forEach((ch) => {
-    if (ch.offset < channelCount) {
+    if (ch.offset >= 0 && ch.offset < channelCount) {
       dense[ch.offset] = ch.value;
     }
   });
@@ -28,7 +28,24 @@ export function denseToSparse(values: number[]): ChannelValue[] {
 }
 
 /**
+ * Convert sparse channel array to a Map for O(1) lookups
+ * Use this when you need to look up multiple channels from the same sparse array.
+ * For single lookups, use getChannelValue instead.
+ * @param channels Sparse array of channel values
+ * @returns Map from offset to value
+ */
+export function sparseArrayToMap(channels: ChannelValue[]): Map<number, number> {
+  const map = new Map<number, number>();
+  channels.forEach((ch) => {
+    map.set(ch.offset, ch.value);
+  });
+  return map;
+}
+
+/**
  * Get value for a specific channel offset from sparse array
+ * For single lookups, this is fine. For multiple lookups from the same array,
+ * use sparseArrayToMap first for better performance.
  * @param channels Sparse array of channel values
  * @param offset Channel offset to look up
  * @returns Channel value or 0 if not found

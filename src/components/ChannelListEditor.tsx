@@ -834,10 +834,12 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
     // Build fixture values from active fixtures
     // Convert dense format to sparse for mutation
     const fixtureValues = activeFixtureValues.map((fixtureValue: SceneFixtureValue) => {
-      const denseValues = channelValues.get(fixtureValue.fixture.id) || sparseToDense(fixtureValue.channels || [], fixtureValue.fixture.channels?.length || 0);
+      const localDense = channelValues.get(fixtureValue.fixture.id);
       return {
         fixtureId: fixtureValue.fixture.id,
-        channels: denseToSparse(denseValues),
+        channels: localDense
+          ? denseToSparse(localDense)
+          : (fixtureValue.channels || []),
       };
     });
 

@@ -38,6 +38,18 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   // Local optimistic state for fixture channel values (prevents slider jumping)
   const [localFixtureValues, setLocalFixtureValues] = useState<Map<string, number[]>>(new Map());
 
+  // Cache converted sparse-to-dense values to avoid repeated conversions
+  const serverDenseValues = useMemo(() => {
+    const values = new Map<string, number[]>();
+    if (scene) {
+      scene.fixtureValues.forEach((fv: FixtureValue) => {
+        const channelCount = fv.fixture.channels?.length || 0;
+        values.set(fv.fixture.id, sparseToDense(fv.channels || [], channelCount));
+      });
+    }
+    return values;
+  }, [scene]);
+
   // Preview mode state
   const [previewMode, setPreviewMode] = useState(false);
   const [previewSessionId, setPreviewSessionId] = useState<string | null>(null);
@@ -99,16 +111,15 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     if (scene) {
       scene.fixtureValues.forEach((fv: FixtureValue) => {
         const fixtureId = fv.fixture.id;
-        // Use local value if available, otherwise convert sparse to dense
-        const channelCount = fv.fixture.channels?.length || 0;
+        // Use local value if available, otherwise use cached server value
         const channelValues = localFixtureValues.has(fixtureId)
           ? localFixtureValues.get(fixtureId)!
-          : sparseToDense(fv.channels || [], channelCount);
+          : (serverDenseValues.get(fixtureId) || []);
         values.set(fixtureId, channelValues);
       });
     }
     return values;
-  }, [scene, localFixtureValues]);
+  }, [scene, localFixtureValues, serverDenseValues]);
 
   // Get selected fixtures
   const selectedFixtures: FixtureInstance[] = [];
