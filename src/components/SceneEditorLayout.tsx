@@ -147,9 +147,10 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       const newMap = new Map(prev);
       changes.forEach(({fixtureId, channelIndex, value}) => {
         // Get current values from previous state, or fall back to scene data
+        const fixtureValue = scene.fixtureValues.find((fv: FixtureValue) => fv.fixture.id === fixtureId);
+        const channelCount = fixtureValue?.fixture.channels?.length || 0;
         const currentValues = newMap.get(fixtureId) ||
-          scene.fixtureValues.find((fv: FixtureValue) => fv.fixture.id === fixtureId)?.channelValues ||
-          [];
+          sparseToDense(fixtureValue?.channels || [], channelCount);
         const newValues = [...currentValues];
         newValues[channelIndex] = value;
         newMap.set(fixtureId, newValues);
@@ -258,9 +259,10 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       const newMap = new Map(prev);
       changes.forEach(({fixtureId, channelIndex, value}) => {
         // Get current values from previous state, or fall back to scene data
+        const fixtureValue = scene.fixtureValues.find((fv: FixtureValue) => fv.fixture.id === fixtureId);
+        const channelCount = fixtureValue?.fixture.channels?.length || 0;
         const currentValues = newMap.get(fixtureId) ||
-          scene.fixtureValues.find((fv: FixtureValue) => fv.fixture.id === fixtureId)?.channelValues ||
-          [];
+          sparseToDense(fixtureValue?.channels || [], channelCount);
         const newValues = [...currentValues];
         newValues[channelIndex] = value;
         newMap.set(fixtureId, newValues);

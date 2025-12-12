@@ -179,8 +179,8 @@ describe('GraphQL Integration Contract Tests', () => {
             const fixtureValue = scene.fixtureValues[0];
             expect(fixtureValue).toHaveProperty('id');
             expect(fixtureValue).toHaveProperty('fixture');
-            expect(fixtureValue).toHaveProperty('channelValues');
-            expect(Array.isArray(fixtureValue.channelValues)).toBe(true);
+            expect(fixtureValue).toHaveProperty('channels');
+            expect(Array.isArray(fixtureValue.channels)).toBe(true);
 
             // Validate fixture structure
             const fixture = fixtureValue.fixture;
