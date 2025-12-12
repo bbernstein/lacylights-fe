@@ -44,6 +44,8 @@ export interface ChannelDefinition {
   minValue: number;
   maxValue: number;
   defaultValue: number;
+  fadeBehavior: FadeBehavior;
+  isDiscrete: boolean;
 }
 
 export interface FixtureInstance {
@@ -86,6 +88,8 @@ export interface InstanceChannel {
   minValue: number;
   maxValue: number;
   defaultValue: number;
+  fadeBehavior: FadeBehavior;
+  isDiscrete: boolean;
 }
 
 export interface Scene {
@@ -301,6 +305,28 @@ export enum ChannelType {
   OTHER = 'OTHER'
 }
 
+/**
+ * Determines how a channel behaves during scene transitions.
+ *
+ * @example
+ * // FADE: Good for smooth transitions
+ * dimmer.fadeBehavior = FadeBehavior.FADE;
+ *
+ * // SNAP: Good for discrete values like gobo slots
+ * gobo.fadeBehavior = FadeBehavior.SNAP;
+ *
+ * // SNAP_END: Good for maintaining current value until fade completes
+ * colorWheel.fadeBehavior = FadeBehavior.SNAP_END;
+ */
+export enum FadeBehavior {
+  /** Smoothly interpolate between values during the transition. Best for intensity, colors, pan/tilt, zoom. */
+  FADE = 'FADE',
+  /** Jump instantly to target value at the START of the transition. Best for gobos, color wheels, macros, effects. */
+  SNAP = 'SNAP',
+  /** Hold the current value until the fade completes, then jump to target. Useful for discrete channels where you want the old value to remain visible throughout the crossfade. */
+  SNAP_END = 'SNAP_END'
+}
+
 export enum UserRole {
   ADMIN = 'ADMIN',
   USER = 'USER'
@@ -313,6 +339,11 @@ export enum ProjectRole {
 }
 
 // Input Types
+export interface ChannelFadeBehaviorInput {
+  channelId: string;
+  fadeBehavior: FadeBehavior;
+}
+
 export interface CreateProjectInput {
   name: string;
   description?: string;
@@ -368,4 +399,85 @@ export interface FixtureDefinitionFilter {
 export interface UpdateSettingInput {
   key: string;
   value: string;
+}
+
+// OFL (Open Fixture Library) Types
+export enum OFLImportPhase {
+  IDLE = 'IDLE',
+  DOWNLOADING = 'DOWNLOADING',
+  EXTRACTING = 'EXTRACTING',
+  PARSING = 'PARSING',
+  IMPORTING = 'IMPORTING',
+  COMPLETE = 'COMPLETE',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum OFLFixtureChangeType {
+  NEW = 'NEW',
+  UPDATED = 'UPDATED',
+  UNCHANGED = 'UNCHANGED',
+}
+
+export interface OFLImportStats {
+  totalProcessed: number;
+  successfulImports: number;
+  failedImports: number;
+  skippedDuplicates: number;
+  updatedFixtures: number;
+  durationSeconds: number;
+}
+
+export interface OFLImportStatus {
+  isImporting: boolean;
+  phase: OFLImportPhase;
+  currentManufacturer?: string;
+  currentFixture?: string;
+  totalFixtures: number;
+  importedCount: number;
+  failedCount: number;
+  skippedCount: number;
+  percentComplete: number;
+  startedAt?: string;
+  completedAt?: string;
+  estimatedSecondsRemaining?: number;
+  errorMessage?: string;
+  oflVersion?: string;
+  usingBundledData: boolean;
+}
+
+export interface OFLFixtureUpdate {
+  fixtureKey: string;
+  manufacturer: string;
+  model: string;
+  changeType: OFLFixtureChangeType;
+  isInUse: boolean;
+  instanceCount: number;
+  currentHash?: string;
+  newHash: string;
+}
+
+export interface OFLUpdateCheckResult {
+  currentFixtureCount: number;
+  oflFixtureCount: number;
+  newFixtureCount: number;
+  changedFixtureCount: number;
+  changedInUseCount: number;
+  fixtureUpdates: OFLFixtureUpdate[];
+  oflVersion: string;
+  checkedAt: string;
+}
+
+export interface OFLImportResult {
+  success: boolean;
+  stats: OFLImportStats;
+  errorMessage?: string;
+  oflVersion: string;
+}
+
+export interface OFLImportOptionsInput {
+  forceReimport?: boolean;
+  updateInUseFixtures?: boolean;
+  manufacturers?: string[];
+  preferBundled?: boolean;
 }

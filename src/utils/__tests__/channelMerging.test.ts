@@ -7,7 +7,7 @@ import {
   getPriorityChannelTypes,
   MergedChannel,
 } from '../channelMerging';
-import { FixtureInstance, ChannelType, FixtureType } from '@/types';
+import { FixtureInstance, ChannelType, FixtureType, FadeBehavior } from '@/types';
 
 describe('channelMerging', () => {
   const createMockFixture = (id: string, channels: unknown[]): FixtureInstance => ({
@@ -30,12 +30,12 @@ describe('channelMerging', () => {
   describe('mergeFixtureChannels', () => {
     it('should merge channels from multiple fixtures', () => {
       const fixture1 = createMockFixture('f1', [
-        { id: 'c1', name: 'Intensity', type: ChannelType.INTENSITY, offset: 0, minValue: 0, maxValue: 255, defaultValue: 0 },
-        { id: 'c2', name: 'Red', type: ChannelType.RED, offset: 1, minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: 'c1', name: 'Intensity', type: ChannelType.INTENSITY, offset: 0, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: 'c2', name: 'Red', type: ChannelType.RED, offset: 1, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
       ]);
       const fixture2 = createMockFixture('f2', [
-        { id: 'c3', name: 'Intensity', type: ChannelType.INTENSITY, offset: 0, minValue: 0, maxValue: 255, defaultValue: 0 },
-        { id: 'c4', name: 'Red', type: ChannelType.RED, offset: 1, minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: 'c3', name: 'Intensity', type: ChannelType.INTENSITY, offset: 0, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: 'c4', name: 'Red', type: ChannelType.RED, offset: 1, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
       ]);
 
       const fixtureValues = new Map([
@@ -64,8 +64,8 @@ describe('channelMerging', () => {
 
     it('should handle fixtures with different channel sets', () => {
       const fixture1 = createMockFixture('f1', [
-        { id: 'c1', name: 'Intensity', type: ChannelType.INTENSITY, offset: 0, minValue: 0, maxValue: 255, defaultValue: 0 },
-        { id: 'c2', name: 'Red', type: ChannelType.RED, offset: 1, minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: 'c1', name: 'Intensity', type: ChannelType.INTENSITY, offset: 0, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: 'c2', name: 'Red', type: ChannelType.RED, offset: 1, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
       ]);
       const fixture2 = createMockFixture('f2', [
         { id: 'c3', name: 'Pan', type: ChannelType.PAN, offset: 0, minValue: 0, maxValue: 255, defaultValue: 128 },

@@ -8,6 +8,7 @@ import {
   CREATE_FIXTURE_INSTANCE,
   GET_PROJECT_FIXTURES,
 } from '../../graphql/fixtures';
+import { FadeBehavior } from '../../types';
 
 // Mock the Autocomplete component to simplify testing
 jest.mock('../Autocomplete', () => {
@@ -80,10 +81,10 @@ const mockProjectFixtures = {
       modeName: 'Basic',
       channelCount: 4,
       channels: [
-        { id: 'ch-1', offset: 0, name: 'Red', type: 'red', minValue: 0, maxValue: 255, defaultValue: 0 },
-        { id: 'ch-2', offset: 1, name: 'Green', type: 'green', minValue: 0, maxValue: 255, defaultValue: 0 },
-        { id: 'ch-3', offset: 2, name: 'Blue', type: 'blue', minValue: 0, maxValue: 255, defaultValue: 0 },
-        { id: 'ch-4', offset: 3, name: 'White', type: 'white', minValue: 0, maxValue: 255, defaultValue: 0 },
+        { id: 'ch-1', offset: 0, name: 'Red', type: 'red', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: 'ch-2', offset: 1, name: 'Green', type: 'green', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: 'ch-3', offset: 2, name: 'Blue', type: 'blue', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: 'ch-4', offset: 3, name: 'White', type: 'white', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
       ],
     },
   ],

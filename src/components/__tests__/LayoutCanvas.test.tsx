@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MockedProvider } from "@apollo/client/testing";
 import LayoutCanvas from "../LayoutCanvas";
-import { ChannelType, FixtureType, FixtureInstance } from "../../types";
+import { ChannelType, FadeBehavior, FixtureType, FixtureInstance } from "../../types";
 import { UPDATE_FIXTURE_POSITIONS } from "../../graphql/fixtures";
 
 // Mock canvas context
@@ -87,6 +87,8 @@ const mockFixtures: FixtureInstance[] = [
         minValue: 0,
         maxValue: 255,
         defaultValue: 0,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
       },
       {
         id: "ch-2",
@@ -96,6 +98,8 @@ const mockFixtures: FixtureInstance[] = [
         minValue: 0,
         maxValue: 255,
         defaultValue: 0,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
       },
       {
         id: "ch-3",
@@ -105,6 +109,8 @@ const mockFixtures: FixtureInstance[] = [
         minValue: 0,
         maxValue: 255,
         defaultValue: 0,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
       },
       {
         id: "ch-4",
@@ -114,6 +120,8 @@ const mockFixtures: FixtureInstance[] = [
         minValue: 0,
         maxValue: 255,
         defaultValue: 255,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
       },
     ],
   },
@@ -142,6 +150,8 @@ const mockFixtures: FixtureInstance[] = [
         minValue: 0,
         maxValue: 255,
         defaultValue: 0,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
       },
       {
         id: "ch-6",
@@ -151,6 +161,8 @@ const mockFixtures: FixtureInstance[] = [
         minValue: 0,
         maxValue: 255,
         defaultValue: 0,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
       },
       {
         id: "ch-7",
@@ -160,6 +172,8 @@ const mockFixtures: FixtureInstance[] = [
         minValue: 0,
         maxValue: 255,
         defaultValue: 0,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
       },
     ],
   },
@@ -594,6 +608,8 @@ describe("LayoutCanvas", () => {
             minValue: 0,
             maxValue: 255,
             defaultValue: 0,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
           },
           {
             id: "ch-2",
@@ -603,6 +619,8 @@ describe("LayoutCanvas", () => {
             minValue: 0,
             maxValue: 255,
             defaultValue: 0,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
           },
           {
             id: "ch-3",
@@ -612,6 +630,8 @@ describe("LayoutCanvas", () => {
             minValue: 0,
             maxValue: 255,
             defaultValue: 0,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
           },
           {
             id: "ch-4",
@@ -621,6 +641,8 @@ describe("LayoutCanvas", () => {
             minValue: 0,
             maxValue: 255,
             defaultValue: 0,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
           },
           {
             id: "ch-5",
@@ -630,6 +652,8 @@ describe("LayoutCanvas", () => {
             minValue: 0,
             maxValue: 255,
             defaultValue: 0,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
           },
         ],
       };
@@ -659,6 +683,8 @@ describe("LayoutCanvas", () => {
             minValue: 0,
             maxValue: 255,
             defaultValue: 0,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
           },
           {
             id: "ch-2",
@@ -668,6 +694,8 @@ describe("LayoutCanvas", () => {
             minValue: 0,
             maxValue: 255,
             defaultValue: 0,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
           },
           {
             id: "ch-3",
@@ -677,6 +705,8 @@ describe("LayoutCanvas", () => {
             minValue: 0,
             maxValue: 255,
             defaultValue: 0,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
           },
           {
             id: "ch-4",
@@ -686,6 +716,8 @@ describe("LayoutCanvas", () => {
             minValue: 0,
             maxValue: 255,
             defaultValue: 0,
+        fadeBehavior: FadeBehavior.FADE,
+        isDiscrete: false,
           },
         ],
       };

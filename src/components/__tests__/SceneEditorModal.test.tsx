@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
 import SceneEditorModal from '../SceneEditorModal';
-import { ChannelType, FixtureType } from '../../types';
+import { ChannelType, FixtureType, FadeBehavior } from '../../types';
 import {
   GET_SCENE,
   UPDATE_SCENE,
@@ -110,10 +110,10 @@ const mockFixtures = [
     layoutY: null,
     layoutRotation: null,
     channels: [
-      { id: 'ch-1', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },
-      { id: 'ch-2', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
-      { id: 'ch-3', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0 },
-      { id: 'ch-4', offset: 3, name: 'Intensity', type: ChannelType.INTENSITY, minValue: 0, maxValue: 255, defaultValue: 255 },
+      { id: 'ch-1', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: 'ch-2', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: 'ch-3', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: 'ch-4', offset: 3, name: 'Intensity', type: ChannelType.INTENSITY, minValue: 0, maxValue: 255, defaultValue: 255, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
     ],
     __typename: 'FixtureInstance',
   },
@@ -137,9 +137,9 @@ const mockFixtures = [
     layoutY: null,
     layoutRotation: null,
     channels: [
-      { id: 'ch-5', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0 },
-      { id: 'ch-6', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0 },
-      { id: 'ch-7', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0 },
+      { id: 'ch-5', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: 'ch-6', offset: 1, name: 'Green', type: ChannelType.GREEN, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: 'ch-7', offset: 2, name: 'Blue', type: ChannelType.BLUE, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
     ],
     __typename: 'FixtureInstance',
   },
@@ -906,7 +906,7 @@ describe('SceneEditorModal', () => {
       const fixtureWithoutColor = {
         ...mockFixtures[0],
         channels: [
-          { id: 'ch-1', offset: 0, name: 'Intensity', type: ChannelType.INTENSITY, minValue: 0, maxValue: 255, defaultValue: 255 },
+          { id: 'ch-1', offset: 0, name: 'Intensity', type: ChannelType.INTENSITY, minValue: 0, maxValue: 255, defaultValue: 255, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
         ],
       };
 
