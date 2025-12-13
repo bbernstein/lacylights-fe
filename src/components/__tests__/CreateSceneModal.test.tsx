@@ -749,11 +749,11 @@ describe('CreateSceneModal', () => {
                 fixtureValues: [
                   {
                     fixtureId: '1',
-                    channelValues: [0, 0, 0, 255], // Using defaultValue from mockFixtures
+                    channels: [{ offset: 3, value: 255 }], // Using defaultValue from mockFixtures (sparse format)
                   },
                   {
                     fixtureId: '2',
-                    channelValues: [0, 0, 0, 0, 0, 0], // All default to 0
+                    channels: [], // All default to 0, so sparse array is empty
                   },
                 ],
               },
