@@ -17,7 +17,7 @@ export const GET_PROJECT_SCENES = gql`
             name
             universe
             startChannel
-            
+
             # Flattened fields
             manufacturer
             model
@@ -33,9 +33,12 @@ export const GET_PROJECT_SCENES = gql`
               maxValue
               defaultValue
             }
-            
+
           }
-          channelValues
+          channels {
+            offset
+            value
+          }
         }
       }
     }
@@ -83,7 +86,10 @@ export const GET_SCENE = gql`
           layoutY
           layoutRotation
         }
-        channelValues
+        channels {
+          offset
+          value
+        }
       }
     }
   }
@@ -101,7 +107,10 @@ export const CREATE_SCENE = gql`
           id
           name
         }
-        channelValues
+        channels {
+          offset
+          value
+        }
       }
     }
   }
@@ -119,7 +128,10 @@ export const UPDATE_SCENE = gql`
           id
           name
         }
-        channelValues
+        channels {
+          offset
+          value
+        }
       }
     }
   }
@@ -143,7 +155,10 @@ export const DUPLICATE_SCENE = gql`
           id
           name
         }
-        channelValues
+        channels {
+          offset
+          value
+        }
       }
     }
   }

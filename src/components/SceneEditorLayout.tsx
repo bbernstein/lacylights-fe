@@ -10,10 +10,11 @@ import {
   UPDATE_PREVIEW_CHANNEL,
   INITIALIZE_PREVIEW_WITH_SCENE,
 } from '@/graphql/scenes';
-import { FixtureValue, FixtureInstance } from '@/types';
+import { FixtureValue, FixtureInstance, ChannelValue } from '@/types';
 import ChannelListEditor from './ChannelListEditor';
 import LayoutCanvas from './LayoutCanvas';
 import MultiSelectControls from './MultiSelectControls';
+import { sparseToDense, denseToSparse } from '@/utils/channelConversion';
 
 interface SceneEditorLayoutProps {
   sceneId: string;
@@ -27,7 +28,7 @@ interface SceneEditorLayoutProps {
  */
 type FixtureChannelValues = {
   fixtureId: string;
-  channelValues: number[];
+  channels: ChannelValue[];
 };
 
 export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode }: SceneEditorLayoutProps) {
@@ -92,21 +93,33 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
 
   const scene = sceneData?.scene;
 
+  // Cache converted sparse-to-dense values to avoid repeated conversions
+  const serverDenseValues = useMemo(() => {
+    const values = new Map<string, number[]>();
+    if (scene) {
+      scene.fixtureValues.forEach((fv: FixtureValue) => {
+        const channelCount = fv.fixture.channels?.length || 0;
+        values.set(fv.fixture.id, sparseToDense(fv.channels || [], channelCount));
+      });
+    }
+    return values;
+  }, [scene]);
+
   // Build channel values map for layout canvas (merge server + local state)
   const fixtureValues = useMemo(() => {
     const values = new Map<string, number[]>();
     if (scene) {
-      scene.fixtureValues.forEach((fv: { fixture: { id: string }; channelValues: number[] }) => {
+      scene.fixtureValues.forEach((fv: FixtureValue) => {
         const fixtureId = fv.fixture.id;
-        // Use local value if available, otherwise use server value
+        // Use local value if available, otherwise use cached server value
         const channelValues = localFixtureValues.has(fixtureId)
           ? localFixtureValues.get(fixtureId)!
-          : (fv.channelValues || []);
+          : (serverDenseValues.get(fixtureId) || []);
         values.set(fixtureId, channelValues);
       });
     }
     return values;
-  }, [scene, localFixtureValues]);
+  }, [scene, localFixtureValues, serverDenseValues]);
 
   // Get selected fixtures
   const selectedFixtures: FixtureInstance[] = [];
@@ -144,17 +157,15 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     setLocalFixtureValues(prev => {
       const newMap = new Map(prev);
       changes.forEach(({fixtureId, channelIndex, value}) => {
-        // Get current values from previous state, or fall back to scene data
-        const currentValues = newMap.get(fixtureId) ||
-          scene.fixtureValues.find((fv: FixtureValue) => fv.fixture.id === fixtureId)?.channelValues ||
-          [];
+        // Get current values from previous state, or fall back to cached server values
+        const currentValues = newMap.get(fixtureId) || serverDenseValues.get(fixtureId) || [];
         const newValues = [...currentValues];
         newValues[channelIndex] = value;
         newMap.set(fixtureId, newValues);
       });
       return newMap;
     });
-  }, [scene]);
+  }, [scene, serverDenseValues]);
 
   // Debounced preview update for real-time drag updates (50ms debounce)
   const debouncedPreviewUpdate = useCallback((changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => {
@@ -255,10 +266,8 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     setLocalFixtureValues(prev => {
       const newMap = new Map(prev);
       changes.forEach(({fixtureId, channelIndex, value}) => {
-        // Get current values from previous state, or fall back to scene data
-        const currentValues = newMap.get(fixtureId) ||
-          scene.fixtureValues.find((fv: FixtureValue) => fv.fixture.id === fixtureId)?.channelValues ||
-          [];
+        // Get current values from previous state, or fall back to cached server values
+        const currentValues = newMap.get(fixtureId) || serverDenseValues.get(fixtureId) || [];
         const newValues = [...currentValues];
         newValues[channelIndex] = value;
         newMap.set(fixtureId, newValues);
@@ -295,23 +304,25 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
 
     scene.fixtureValues.forEach((fv: FixtureValue) => {
       const fixtureChanges = changesByFixture.get(fv.fixture.id);
+      const channelCount = fv.fixture.channels?.length || 0;
 
       if (fixtureChanges) {
         // Apply all changes to this fixture
-        const newChannelValues = [...(fv.channelValues || [])];
+        // Convert sparse to dense, apply changes, convert back to sparse
+        const denseValues = [...sparseToDense(fv.channels || [], channelCount)];
         fixtureChanges.forEach((value, channelIndex) => {
-          newChannelValues[channelIndex] = value;
+          denseValues[channelIndex] = value;
         });
         fixtureValuesMap.set(fv.fixture.id, {
           fixtureId: fv.fixture.id,
-          channelValues: newChannelValues,
+          channels: denseToSparse(denseValues),
         });
       } else {
         // Keep existing values from scene (only if not already in map)
         if (!fixtureValuesMap.has(fv.fixture.id)) {
           fixtureValuesMap.set(fv.fixture.id, {
             fixtureId: fv.fixture.id,
-            channelValues: fv.channelValues || [],
+            channels: fv.channels || [],
           });
         }
       }
@@ -343,7 +354,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         setSaveStatus('idle');
       }, 3000); // Hide error after 3 seconds
     }
-  }, [scene, sceneId, updateScene, previewMode, previewSessionId, batchedPreviewUpdate]);
+  }, [scene, sceneId, updateScene, previewMode, previewSessionId, batchedPreviewUpdate, serverDenseValues]);
 
   // Handle selection change
   const handleSelectionChange = useCallback((newSelection: Set<string>) => {
@@ -452,9 +463,14 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       scene.fixtureValues.forEach((fv: FixtureValue) => {
         const localValues = localFixtureValues.get(fv.fixture.id);
 
+        // Convert dense local values or sparse server values to sparse format
+        const sparseChannels = localValues
+          ? denseToSparse(localValues)
+          : (fv.channels || []);
+
         fixtureValuesMap.set(fv.fixture.id, {
           fixtureId: fv.fixture.id,
-          channelValues: localValues || fv.channelValues || [],
+          channels: sparseChannels,
         });
       });
 

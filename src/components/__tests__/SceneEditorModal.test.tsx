@@ -156,14 +156,23 @@ const mockScene = {
     {
       id: 'fv-1',
       fixture: mockFixtures[0],
-      channelValues: [255, 128, 64, 200],
+      channels: [
+        { offset: 0, value: 255 },
+        { offset: 1, value: 128 },
+        { offset: 2, value: 64 },
+        { offset: 3, value: 200 },
+      ],
       sceneOrder: 0,
       __typename: 'FixtureValue',
     },
     {
       id: 'fv-2',
       fixture: mockFixtures[1],
-      channelValues: [100, 150, 200],
+      channels: [
+        { offset: 0, value: 100 },
+        { offset: 1, value: 150 },
+        { offset: 2, value: 200 },
+      ],
       sceneOrder: 1,
       __typename: 'FixtureValue',
     },
@@ -215,7 +224,7 @@ const createMocks = () => [
           description: 'Test scene description',
           fixtureValues: mockScene.fixtureValues.map(fv => ({
             fixtureId: fv.fixture.id,
-            channelValues: fv.channelValues,
+            channels: fv.channels,
           })),
         },
       },
@@ -631,7 +640,7 @@ describe('SceneEditorModal', () => {
                 description: 'Test scene description',
                 fixtureValues: mockScene.fixtureValues.map(fv => ({
                   fixtureId: fv.fixture.id,
-                  channelValues: fv.channelValues,
+                  channels: fv.channels,
                 })),
               },
             },
@@ -679,7 +688,7 @@ describe('SceneEditorModal', () => {
                 description: 'Test scene description',
                 fixtureValues: mockScene.fixtureValues.map(fv => ({
                   fixtureId: fv.fixture.id,
-                  channelValues: fv.channelValues,
+                  channels: fv.channels,
                 })),
               },
             },
@@ -791,7 +800,7 @@ describe('SceneEditorModal', () => {
                 description: 'Test scene description',
                 fixtureValues: mockScene.fixtureValues.map(fv => ({
                   fixtureId: fv.fixture.id,
-                  channelValues: fv.channelValues,
+                  channels: fv.channels,
                 })),
               },
             },
@@ -916,7 +925,7 @@ describe('SceneEditorModal', () => {
           {
             id: 'fv-1',
             fixture: fixtureWithoutColor,
-            channelValues: [128],
+            channels: [{ offset: 0, value: 128 }],
             sceneOrder: 0,
             __typename: 'FixtureValue',
           },

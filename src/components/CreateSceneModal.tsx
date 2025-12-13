@@ -5,6 +5,7 @@ import { useMutation, useQuery } from '@apollo/client';
 import { CREATE_SCENE } from '@/graphql/scenes';
 import { GET_PROJECT_FIXTURES } from '@/graphql/fixtures';
 import { InstanceChannel, FixtureInstance } from '@/types';
+import { denseToSparse } from '@/utils/channelConversion';
 
 interface CreateSceneModalProps {
   isOpen: boolean;
@@ -40,17 +41,15 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
     setError(null);
 
     // Create scene with all fixtures at their default values
-    // For fixtures with modes, we need to get the channels from the mode, not the definition
-    // Create scene with all fixtures at their default values
-    // Now we can directly use the fixture's channels!
+    // Convert dense default values to sparse format for storage
     const fixtureValues = fixtures.map((fixture: FixtureInstance) => {
       // Direct access to channels - no more complex logic!
       const channels = fixture.channels || [];
-      const channelValues = channels.map((channel: InstanceChannel) => channel.defaultValue || 0);
-      
+      const denseValues = channels.map((channel: InstanceChannel) => channel.defaultValue || 0);
+
       return {
         fixtureId: fixture.id,
-        channelValues,
+        channels: denseToSparse(denseValues),
       };
     });
 

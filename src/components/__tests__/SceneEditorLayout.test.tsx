@@ -56,7 +56,12 @@ const mockScene = {
     {
       id: 'fv-1',
       fixture: mockFixture,
-      channelValues: [255, 128, 64, 200],
+      channels: [
+        { offset: 0, value: 255 },
+        { offset: 1, value: 128 },
+        { offset: 2, value: 64 },
+        { offset: 3, value: 200 },
+      ],
       __typename: 'FixtureValue',
     },
   ],
