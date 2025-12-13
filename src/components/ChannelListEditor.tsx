@@ -525,7 +525,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
     const fixtureValue = scene?.fixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
     if (!fixtureValue) return;
 
-    const channels = fixtureValue.fixture.channels.map((channelDef: InstanceChannel, index: number) => ({
+    const channels = (fixtureValue.fixture.channels || []).map((channelDef: InstanceChannel, index: number) => ({
       ...channelDef,
       value: channelValues.get(fixtureId)?.[index] ?? 0,
     }));
@@ -557,7 +557,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
     const fixtureValue = scene?.fixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
     if (!fixtureValue) return;
 
-    const channels = fixtureValue.fixture.channels.map((channelDef: InstanceChannel, index: number) => ({
+    const channels = (fixtureValue.fixture.channels || []).map((channelDef: InstanceChannel, index: number) => ({
       ...channelDef,
       value: channelValues.get(fixtureId)?.[index] ?? 0,
     }));
@@ -686,7 +686,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
         const fixture = projectFixturesData.project.fixtures.find((f: FixtureInstance) => f.id === fixtureId);
         if (fixture) {
           // Create a new fixture value with default channel values
-          const defaultValues = fixture.channels.map((ch: InstanceChannel) => ch.defaultValue || 0);
+          const defaultValues = (fixture.channels || []).map((ch: InstanceChannel) => ch.defaultValue || 0);
           fixtures.push({
             id: `temp-${generateUUID()}-${fixtureId}`, // Temporary ID for new fixtures using browser-compatible UUID generator
             fixture: fixture,
@@ -719,7 +719,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
           if (!newMap.has(fixtureId)) {
             const fixture = projectFixturesData.project.fixtures.find((f: FixtureInstance) => f.id === fixtureId);
             if (fixture) {
-              const defaultValues = fixture.channels.map((ch: InstanceChannel) => ch.defaultValue || 0);
+              const defaultValues = (fixture.channels || []).map((ch: InstanceChannel) => ch.defaultValue || 0);
               newMap.set(fixtureId, defaultValues);
             }
           }

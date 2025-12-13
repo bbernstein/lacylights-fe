@@ -285,7 +285,7 @@ function SortableFixtureRow({
   };
 
   // Direct access to channels from the fixture
-  const channels = fixtureValue.fixture.channels || [];
+  const channels = (fixtureValue.fixture.channels || []);
   const currentChannelValues = channelValues.get(fixtureValue.fixture.id) || sparseToDense(fixtureValue.channels || [], channels.length);
 
   // Helper function to get current channel value by index
@@ -550,7 +550,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     const fixtureValue = scene?.fixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
     if (!fixtureValue) return;
 
-    const channels = fixtureValue.fixture.channels.map((channelDef: InstanceChannel, index: number) => ({
+    const channels = (fixtureValue.fixture.channels || []).map((channelDef: InstanceChannel, index: number) => ({
       ...channelDef,
       value: channelValues.get(fixtureId)?.[index] ?? 0,
     }));
@@ -582,7 +582,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     const fixtureValue = scene?.fixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
     if (!fixtureValue) return;
 
-    const channels = fixtureValue.fixture.channels.map((channelDef: InstanceChannel, index: number) => ({
+    const channels = (fixtureValue.fixture.channels || []).map((channelDef: InstanceChannel, index: number) => ({
       ...channelDef,
       value: channelValues.get(fixtureId)?.[index] ?? 0,
     }));
@@ -659,7 +659,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
         const fixture = projectFixturesData.project.fixtures.find((f: FixtureInstance) => f.id === fixtureId);
         if (fixture) {
           // Create a new fixture value with default channel values
-          const defaultValues = fixture.channels.map((ch: InstanceChannel) => ch.defaultValue || 0);
+          const defaultValues = (fixture.channels || []).map((ch: InstanceChannel) => ch.defaultValue || 0);
           fixtures.push({
             id: `temp-${counter++}-${fixtureId}`, // Temporary ID for new fixtures using counter
             fixture: fixture,
@@ -692,7 +692,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
           if (!newMap.has(fixtureId)) {
             const fixture = projectFixturesData.project.fixtures.find((f: FixtureInstance) => f.id === fixtureId);
             if (fixture) {
-              const defaultValues = fixture.channels.map((ch: InstanceChannel) => ch.defaultValue || 0);
+              const defaultValues = (fixture.channels || []).map((ch: InstanceChannel) => ch.defaultValue || 0);
               newMap.set(fixtureId, defaultValues);
             }
           }

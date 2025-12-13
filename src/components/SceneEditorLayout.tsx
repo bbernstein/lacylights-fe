@@ -157,18 +157,15 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     setLocalFixtureValues(prev => {
       const newMap = new Map(prev);
       changes.forEach(({fixtureId, channelIndex, value}) => {
-        // Get current values from previous state, or fall back to scene data
-        const fixtureValue = scene.fixtureValues.find((fv: FixtureValue) => fv.fixture.id === fixtureId);
-        const channelCount = fixtureValue?.fixture.channels?.length || 0;
-        const currentValues = newMap.get(fixtureId) ||
-          sparseToDense(fixtureValue?.channels || [], channelCount);
+        // Get current values from previous state, or fall back to cached server values
+        const currentValues = newMap.get(fixtureId) || serverDenseValues.get(fixtureId) || [];
         const newValues = [...currentValues];
         newValues[channelIndex] = value;
         newMap.set(fixtureId, newValues);
       });
       return newMap;
     });
-  }, [scene]);
+  }, [scene, serverDenseValues]);
 
   // Debounced preview update for real-time drag updates (50ms debounce)
   const debouncedPreviewUpdate = useCallback((changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => {
@@ -269,11 +266,8 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     setLocalFixtureValues(prev => {
       const newMap = new Map(prev);
       changes.forEach(({fixtureId, channelIndex, value}) => {
-        // Get current values from previous state, or fall back to scene data
-        const fixtureValue = scene.fixtureValues.find((fv: FixtureValue) => fv.fixture.id === fixtureId);
-        const channelCount = fixtureValue?.fixture.channels?.length || 0;
-        const currentValues = newMap.get(fixtureId) ||
-          sparseToDense(fixtureValue?.channels || [], channelCount);
+        // Get current values from previous state, or fall back to cached server values
+        const currentValues = newMap.get(fixtureId) || serverDenseValues.get(fixtureId) || [];
         const newValues = [...currentValues];
         newValues[channelIndex] = value;
         newMap.set(fixtureId, newValues);
@@ -360,7 +354,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         setSaveStatus('idle');
       }, 3000); // Hide error after 3 seconds
     }
-  }, [scene, sceneId, updateScene, previewMode, previewSessionId, batchedPreviewUpdate]);
+  }, [scene, sceneId, updateScene, previewMode, previewSessionId, batchedPreviewUpdate, serverDenseValues]);
 
   // Handle selection change
   const handleSelectionChange = useCallback((newSelection: Set<string>) => {
