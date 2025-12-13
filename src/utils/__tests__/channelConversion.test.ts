@@ -181,12 +181,12 @@ describe('channelConversion', () => {
       expect(getChannelValue(sparse, 0)).toBe(0);
     });
 
-    it('returns first matching value for duplicates', () => {
+    it('returns last matching value for duplicates (matching Map behavior)', () => {
       const sparse: ChannelValue[] = [
         { offset: 0, value: 100 },
         { offset: 0, value: 200 },
       ];
-      expect(getChannelValue(sparse, 0)).toBe(100);
+      expect(getChannelValue(sparse, 0)).toBe(200);
     });
   });
 

@@ -46,13 +46,19 @@ export function sparseArrayToMap(channels: ChannelValue[]): Map<number, number> 
  * Get value for a specific channel offset from sparse array
  * For single lookups, this is fine. For multiple lookups from the same array,
  * use sparseArrayToMap first for better performance.
+ * If there are duplicate offsets, returns the last value (matching Map.set behavior).
  * @param channels Sparse array of channel values
  * @param offset Channel offset to look up
  * @returns Channel value or 0 if not found
  */
 export function getChannelValue(channels: ChannelValue[], offset: number): number {
-  const channel = channels.find((ch) => ch.offset === offset);
-  return channel ? channel.value : 0;
+  // Iterate from end to match Map.set behavior (last value wins for duplicates)
+  for (let i = channels.length - 1; i >= 0; i--) {
+    if (channels[i].offset === offset) {
+      return channels[i].value;
+    }
+  }
+  return 0;
 }
 
 /**
