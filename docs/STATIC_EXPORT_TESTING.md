@@ -40,7 +40,7 @@ npm run test:all
 
 ### 2. Updated nginx Configuration
 
-Added handlers for all dynamic routes in `lacylights-node/deploy/nginx/lacylights.conf`:
+Added handlers for all dynamic routes in `lacylights-rpi/config/nginx/lacylights.conf`:
 
 ```nginx
 # Scene editor: /scenes/{sceneId}/edit
@@ -100,12 +100,12 @@ The `serve-static.js` script mimics nginx behavior, so local testing catches rou
 - `src/app/(main)/scenes/[sceneId]/edit/page.tsx` - `dynamicParams: false`
 - `src/app/(standalone)/player/[cueListId]/page.tsx` - `dynamicParams: false`
 
-### Backend (lacylights-node)
-- `deploy/nginx/lacylights.conf` - Added dynamic route handlers
+### Backend (lacylights-go)
+Backend deployment is now handled by lacylights-rpi.
 
 ## Deployment
 
-The deployment script (`lacylights-node/deploy/deploy.sh`) automatically:
+The deployment scripts in `lacylights-rpi` automatically:
 1. Builds frontend with static export
 2. Copies nginx config
 3. Reloads nginx

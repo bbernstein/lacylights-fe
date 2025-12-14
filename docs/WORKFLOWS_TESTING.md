@@ -177,7 +177,7 @@ The contract tests workflow remains unchanged and should continue to work normal
 
 **Expected Behavior:**
 - ✓ Sets up PostgreSQL test database
-- ✓ Clones and configures lacylights-node backend
+- ✓ Clones and configures lacylights-go backend
 - ✓ Runs GraphQL contract tests
 - ✓ Validates frontend/backend integration
 

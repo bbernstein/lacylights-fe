@@ -136,4 +136,4 @@ The static server script (`scripts/serve-static.js`) replicates this behavior.
 
 After verifying locally with `npm run dev:static`, you can confidently deploy to Raspberry Pi knowing the routing behavior will be identical.
 
-See [DEPLOYMENT.md](https://github.com/bbernstein/lacylights-node/blob/main/deploy/DEPLOYMENT.md) for Raspberry Pi deployment instructions.
+See [lacylights-rpi](https://github.com/bbernstein/lacylights-rpi) for Raspberry Pi deployment instructions.

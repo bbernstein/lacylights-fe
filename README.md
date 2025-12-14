@@ -117,7 +117,7 @@ This generates a static site in the `out/` directory optimized for nginx deploym
 - Deployed via `lacylights-fe-static` artifact
 
 For complete Raspberry Pi deployment instructions, see:
-📖 **[Raspberry Pi Deployment Guide](https://github.com/bbernstein/lacylights-node/blob/main/deploy/DEPLOYMENT.md)**
+📖 **[Raspberry Pi Deployment Guide](https://github.com/bbernstein/lacylights-rpi)**
 
 ### 2. Server Mode (for Mac Application)
 

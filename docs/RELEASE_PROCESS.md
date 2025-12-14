@@ -423,7 +423,7 @@ gh release upload v[VERSION] \
 
 - [README.md](./README.md) - Project overview and getting started
 - [STATIC_TESTING.md](./STATIC_TESTING.md) - Testing static export locally
-- [Raspberry Pi Deployment Guide](https://github.com/bbernstein/lacylights-node/blob/main/deploy/DEPLOYMENT.md)
+- [Raspberry Pi Deployment Guide](https://github.com/bbernstein/lacylights-rpi)
 - [GitHub Actions Workflow](.github/workflows/release.yml) - Release automation
 
 ## Support
