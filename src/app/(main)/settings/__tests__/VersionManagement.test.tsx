@@ -20,7 +20,7 @@ const mockSystemVersionsSupported = {
       updateAvailable: true,
     },
     {
-      repository: 'lacylights-node',
+      repository: 'lacylights-go',
       installed: 'v2.0.0',
       latest: 'v2.0.0',
       updateAvailable: false,
@@ -163,7 +163,7 @@ describe('VersionManagement', () => {
       });
 
       expect(screen.getByText('lacylights-fe')).toBeInTheDocument();
-      expect(screen.getByText('lacylights-node')).toBeInTheDocument();
+      expect(screen.getByText('lacylights-go')).toBeInTheDocument();
       expect(screen.getByText('lacylights-mcp')).toBeInTheDocument();
     });
 
@@ -772,7 +772,7 @@ describe('VersionManagement', () => {
         {
           request: {
             query: GET_AVAILABLE_VERSIONS,
-            variables: { repository: 'lacylights-node' },
+            variables: { repository: 'lacylights-go' },
           },
           result: {
             data: {
@@ -789,7 +789,7 @@ describe('VersionManagement', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('lacylights-node')).toBeInTheDocument();
+        expect(screen.getByText('lacylights-go')).toBeInTheDocument();
       });
 
       expect(screen.getByText('Change Version')).toBeInTheDocument();
