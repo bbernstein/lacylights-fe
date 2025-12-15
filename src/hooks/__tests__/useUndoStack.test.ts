@@ -56,7 +56,7 @@ describe('useUndoStack', () => {
         });
       });
 
-      let undoneAction: ReturnType<typeof result.current.undo>;
+      let undoneAction: ReturnType<typeof result.current.undo> = null;
       act(() => {
         undoneAction = result.current.undo();
       });
@@ -72,7 +72,7 @@ describe('useUndoStack', () => {
     it('should return null when nothing to undo', () => {
       const { result } = renderHook(() => useUndoStack());
 
-      let undoneAction: ReturnType<typeof result.current.undo>;
+      let undoneAction: ReturnType<typeof result.current.undo> = null;
       act(() => {
         undoneAction = result.current.undo();
       });
@@ -101,7 +101,7 @@ describe('useUndoStack', () => {
 
       expect(result.current.canRedo).toBe(true);
 
-      let redoneAction: ReturnType<typeof result.current.redo>;
+      let redoneAction: ReturnType<typeof result.current.redo> = null;
       act(() => {
         redoneAction = result.current.redo();
       });
@@ -115,7 +115,7 @@ describe('useUndoStack', () => {
     it('should return null when nothing to redo', () => {
       const { result } = renderHook(() => useUndoStack());
 
-      let redoneAction: ReturnType<typeof result.current.redo>;
+      let redoneAction: ReturnType<typeof result.current.redo> = null;
       act(() => {
         redoneAction = result.current.redo();
       });
