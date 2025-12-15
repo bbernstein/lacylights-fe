@@ -343,8 +343,9 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
   const channelValues = useSharedState ? sharedState.channelValues : localChannelValues;
   const setChannelValues = useSharedState
     ? (_fn: (prev: Map<string, number[]>) => Map<string, number[]>) => {
-        // When using shared state, individual changes go through onChannelValueChange
-        // This setter is a no-op since changes are handled by the parent
+        // When using shared state, changes should go through onChannelValueChange callback
+        // This setter should never be called; throw an error to catch unintended usage
+        throw new Error('setChannelValues should not be called when using shared state. Use onChannelValueChange instead.');
       }
     : setLocalChannelValues;
 

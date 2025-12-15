@@ -382,11 +382,8 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   // Handle batched channel value changes from MultiSelectControls
   // Changes are saved locally only - user must click Save to persist
   // changes is an array of {fixtureId, channelIndex, value}
-  // _activeChannelsOverride allows callers to pass updated active channels state (for paste operations)
-  // Currently unused but kept for potential future undo/redo of active toggles
   const handleBatchedChannelChanges = useCallback((
-    changes: Array<{fixtureId: string, channelIndex: number, value: number}>,
-    _activeChannelsOverride?: Map<string, Set<number>>
+    changes: Array<{fixtureId: string, channelIndex: number, value: number}>
   ) => {
     if (!scene || changes.length === 0) return;
 
@@ -665,9 +662,9 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       setActiveChannels(newActiveChannels);
     }
 
-    // Apply all changes using the existing batched handler, passing the new active channels
+    // Apply all changes using the existing batched handler
     if (changes.length > 0) {
-      handleBatchedChannelChanges(changes, copiedActiveChannels !== null ? newActiveChannels : undefined);
+      handleBatchedChannelChanges(changes);
     }
   }, [mode, selectedFixtureIds, copiedChannelValues, copiedActiveChannels, fixtureValues, activeChannels, handleBatchedChannelChanges]);
 
