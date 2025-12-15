@@ -279,8 +279,15 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
 
   // Handle batched channel value changes from MultiSelectControls
   // changes is an array of {fixtureId, channelIndex, value}
-  const handleBatchedChannelChanges = useCallback(async (changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => {
+  // activeChannelsOverride allows callers to pass updated active channels state (for paste operations)
+  const handleBatchedChannelChanges = useCallback(async (
+    changes: Array<{fixtureId: string, channelIndex: number, value: number}>,
+    activeChannelsOverride?: Map<string, Set<number>>
+  ) => {
     if (!scene || changes.length === 0) return;
+
+    // Use override if provided, otherwise use current state
+    const effectiveActiveChannels = activeChannelsOverride || activeChannels;
 
     // Update local state immediately for responsive UI
     // Use state updater to avoid dependency on fixtureValues
@@ -326,7 +333,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     scene.fixtureValues.forEach((fv: FixtureValue) => {
       const fixtureChanges = changesByFixture.get(fv.fixture.id);
       const channelCount = fv.fixture.channels?.length || 0;
-      const fixtureActiveChannels = activeChannels.get(fv.fixture.id);
+      const fixtureActiveChannels = effectiveActiveChannels.get(fv.fixture.id);
 
       if (fixtureChanges) {
         // Apply all changes to this fixture
@@ -348,9 +355,10 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         // Keep existing values from scene (only if not already in map)
         if (!fixtureValuesMap.has(fv.fixture.id)) {
           const existingChannels = fv.channels || [];
-          // Filter by active channels
-          const filteredChannels = fixtureActiveChannels
-            ? existingChannels.filter((ch: ChannelValue) => fixtureActiveChannels.has(ch.offset))
+          // Filter by active channels (use effectiveActiveChannels which may be overridden)
+          const existingFixtureActiveChannels = effectiveActiveChannels.get(fv.fixture.id);
+          const filteredChannels = existingFixtureActiveChannels
+            ? existingChannels.filter((ch: ChannelValue) => existingFixtureActiveChannels.has(ch.offset))
             : existingChannels;
           fixtureValuesMap.set(fv.fixture.id, {
             fixtureId: fv.fixture.id,
@@ -448,6 +456,9 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     // Build changes array for all selected fixtures
     const changes: Array<{ fixtureId: string; channelIndex: number; value: number }> = [];
 
+    // Build new active channels map synchronously (to pass to handleBatchedChannelChanges)
+    const newActiveChannels = new Map(activeChannels);
+
     selectedFixtureIds.forEach((fixtureId) => {
       // Get the fixture to determine how many channels it has
       const currentValues = fixtureValues.get(fixtureId);
@@ -463,28 +474,29 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         });
       }
 
-      // Also paste active channels state if available
+      // Also build new active channels state if available
       if (copiedActiveChannels !== null) {
-        setActiveChannels(prev => {
-          const newMap = new Map(prev);
-          const newActiveSet = new Set<number>();
-          // Copy active state for channels that exist in destination fixture
-          for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
-            if (copiedActiveChannels.has(channelIndex)) {
-              newActiveSet.add(channelIndex);
-            }
+        const newActiveSet = new Set<number>();
+        // Copy active state for channels that exist in destination fixture
+        for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
+          if (copiedActiveChannels.has(channelIndex)) {
+            newActiveSet.add(channelIndex);
           }
-          newMap.set(fixtureId, newActiveSet);
-          return newMap;
-        });
+        }
+        newActiveChannels.set(fixtureId, newActiveSet);
       }
     });
 
-    // Apply all changes using the existing batched handler
-    if (changes.length > 0) {
-      handleBatchedChannelChanges(changes);
+    // Update active channels state
+    if (copiedActiveChannels !== null) {
+      setActiveChannels(newActiveChannels);
     }
-  }, [mode, selectedFixtureIds, copiedChannelValues, copiedActiveChannels, fixtureValues, handleBatchedChannelChanges]);
+
+    // Apply all changes using the existing batched handler, passing the new active channels
+    if (changes.length > 0) {
+      handleBatchedChannelChanges(changes, copiedActiveChannels !== null ? newActiveChannels : undefined);
+    }
+  }, [mode, selectedFixtureIds, copiedChannelValues, copiedActiveChannels, fixtureValues, activeChannels, handleBatchedChannelChanges]);
 
   // Keyboard event handler for copy/paste in layout mode
   useEffect(() => {
