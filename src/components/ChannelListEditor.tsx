@@ -354,6 +354,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
 
   // Copy/paste state
   const [copiedChannelValues, setCopiedChannelValues] = useState<number[] | null>(null);
+  const [copiedActiveChannels, setCopiedActiveChannels] = useState<Set<number> | null>(null);
   const [showCopiedFeedback, setShowCopiedFeedback] = useState(false);
   const copyFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -650,6 +651,9 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
     const values = channelValues.get(fixtureId);
     if (values) {
       setCopiedChannelValues([...values]);
+      // Also copy active channels state
+      const fixtureActiveChannels = activeChannels.get(fixtureId);
+      setCopiedActiveChannels(fixtureActiveChannels ? new Set(fixtureActiveChannels) : null);
 
       // Show visual feedback
       setShowCopiedFeedback(true);
@@ -660,7 +664,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
         setShowCopiedFeedback(false);
       }, 1500); // Hide after 1.5 seconds
     }
-  }, [channelValues]);
+  }, [channelValues, activeChannels]);
 
   const handlePasteFixture = useCallback((fixtureId: string) => {
     if (!copiedChannelValues) return;
@@ -676,12 +680,28 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
       newValues[channelIndex] = copiedChannelValues[channelIndex];
     }
 
-    // Update local state
+    // Update local state for channel values
     setChannelValues(prev => {
       const newMap = new Map(prev);
       newMap.set(fixtureId, newValues);
       return newMap;
     });
+
+    // Also paste active channels state if available
+    if (copiedActiveChannels !== null) {
+      setActiveChannels(prev => {
+        const newMap = new Map(prev);
+        // Create a new set with only the channels that exist in the target fixture
+        const newActiveSet = new Set<number>();
+        for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
+          if (copiedActiveChannels.has(channelIndex)) {
+            newActiveSet.add(channelIndex);
+          }
+        }
+        newMap.set(fixtureId, newActiveSet);
+        return newMap;
+      });
+    }
 
     // Send preview updates if in preview mode
     if (previewMode && previewSessionId) {
@@ -696,7 +716,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
         });
       }
     }
-  }, [copiedChannelValues, channelValues, previewMode, previewSessionId, updatePreviewChannel]);
+  }, [copiedChannelValues, copiedActiveChannels, channelValues, previewMode, previewSessionId, updatePreviewChannel]);
 
   // Helper to get available fixtures that aren't already in the scene
   const availableFixtures = useMemo(() => {

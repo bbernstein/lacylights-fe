@@ -51,6 +51,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
 
   // Copy/paste state
   const [copiedChannelValues, setCopiedChannelValues] = useState<number[] | null>(null);
+  const [copiedActiveChannels, setCopiedActiveChannels] = useState<Set<number> | null>(null);
   const [showCopiedFeedback, setShowCopiedFeedback] = useState(false);
   const copyFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -425,6 +426,10 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     if (channelValues) {
       setCopiedChannelValues([...channelValues]);
 
+      // Also copy active channels state
+      const fixtureActiveChannels = activeChannels.get(firstSelectedId);
+      setCopiedActiveChannels(fixtureActiveChannels ? new Set(fixtureActiveChannels) : null);
+
       // Show visual feedback
       setShowCopiedFeedback(true);
       if (copyFeedbackTimeoutRef.current) {
@@ -434,7 +439,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         setShowCopiedFeedback(false);
       }, 1500); // Hide after 1.5 seconds
     }
-  }, [mode, selectedFixtureIds, fixtureValues]);
+  }, [mode, selectedFixtureIds, fixtureValues, activeChannels]);
 
   // Handle paste fixture values (Cmd/Ctrl+V)
   const handlePasteFixtureValues = useCallback(() => {
@@ -457,13 +462,29 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
           value: copiedChannelValues[channelIndex],
         });
       }
+
+      // Also paste active channels state if available
+      if (copiedActiveChannels !== null) {
+        setActiveChannels(prev => {
+          const newMap = new Map(prev);
+          const newActiveSet = new Set<number>();
+          // Copy active state for channels that exist in destination fixture
+          for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
+            if (copiedActiveChannels.has(channelIndex)) {
+              newActiveSet.add(channelIndex);
+            }
+          }
+          newMap.set(fixtureId, newActiveSet);
+          return newMap;
+        });
+      }
     });
 
     // Apply all changes using the existing batched handler
     if (changes.length > 0) {
       handleBatchedChannelChanges(changes);
     }
-  }, [mode, selectedFixtureIds, copiedChannelValues, fixtureValues, handleBatchedChannelChanges]);
+  }, [mode, selectedFixtureIds, copiedChannelValues, copiedActiveChannels, fixtureValues, handleBatchedChannelChanges]);
 
   // Keyboard event handler for copy/paste in layout mode
   useEffect(() => {
