@@ -260,16 +260,20 @@ interface SortableFixtureRowProps {
   handleChannelValueChange: (fixtureId: string, channelIndex: number, value: number) => void;
   handleColorSwatchClick: (fixtureId: string) => void;
   handleRemoveFixture: (fixtureId: string) => void;
+  handleToggleFixtureActive: (fixtureId: string, activate: boolean) => void;
+  isFixtureActive: (fixtureId: string) => boolean;
 }
 
-function SortableFixtureRow({ 
-  fixtureValue, 
-  index: _index, 
-  channelValues, 
-  formatFixtureInfo, 
-  handleChannelValueChange, 
-  handleColorSwatchClick, 
-  handleRemoveFixture 
+function SortableFixtureRow({
+  fixtureValue,
+  index: _index,
+  channelValues,
+  formatFixtureInfo,
+  handleChannelValueChange,
+  handleColorSwatchClick,
+  handleRemoveFixture,
+  handleToggleFixtureActive,
+  isFixtureActive,
 }: SortableFixtureRowProps) {
   const {
     attributes,
@@ -312,9 +316,38 @@ function SortableFixtureRow({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
             </svg>
           </button>
+          {/* Active/Inactive toggle */}
+          <button
+            type="button"
+            onClick={() => handleToggleFixtureActive(fixtureValue.fixture.id, !isFixtureActive(fixtureValue.fixture.id))}
+            className={`mr-2 p-1 rounded transition-colors ${
+              isFixtureActive(fixtureValue.fixture.id)
+                ? 'text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300'
+                : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
+            }`}
+            title={isFixtureActive(fixtureValue.fixture.id)
+              ? 'Fixture is active in scene (click to deactivate)'
+              : 'Fixture is inactive (click to activate with current values)'
+            }
+          >
+            {isFixtureActive(fixtureValue.fixture.id) ? (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+          </button>
           <div>
             <h4 className="text-sm font-medium text-gray-900 dark:text-white">
               {fixtureValue.fixture.name}
+              {!isFixtureActive(fixtureValue.fixture.id) && (
+                <span className="ml-2 px-1.5 py-0.5 text-xs font-medium rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                  INACTIVE
+                </span>
+              )}
               <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                 {formatFixtureInfo(fixtureValue.fixture)}
               </span>
@@ -322,7 +355,7 @@ function SortableFixtureRow({
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <ColorSwatch 
+          <ColorSwatch
             channels={channels}
             getChannelValue={getChannelValue}
             onColorClick={() => handleColorSwatchClick(fixtureValue.fixture.id)}
@@ -378,6 +411,9 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   const [removedFixtures, setRemovedFixtures] = useState<Set<string>>(new Set());
   const [tempIdCounter, setTempIdCounter] = useState(0);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  // Track which fixtures are "active" (will have their channels saved)
+  // A fixture is active if it has channels defined in the scene
+  const [activeFixturesSet, setActiveFixturesSet] = useState<Set<string>>(new Set());
 
   // Helper function to format fixture information display
   const formatFixtureInfo = (fixture: FixtureInstance): string => {
@@ -405,12 +441,19 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
         // Initialize channel values map with fixture arrays
         // Convert sparse format to dense for internal state
         const values = new Map<string, number[]>();
+        // Track which fixtures have channels defined (are "active")
+        const activeSet = new Set<string>();
         data.scene.fixtureValues.forEach((fixtureValue: SceneFixtureValue) => {
           const channelCount = fixtureValue.fixture.channels?.length || 0;
           const denseValues = sparseToDense(fixtureValue.channels || [], channelCount);
           values.set(fixtureValue.fixture.id, denseValues);
+          // A fixture is active if it has any channels defined in the scene
+          if (fixtureValue.channels && fixtureValue.channels.length > 0) {
+            activeSet.add(fixtureValue.fixture.id);
+          }
         });
         setChannelValues(values);
+        setActiveFixturesSet(activeSet);
 
         // Reset fixture management state
         setRemovedFixtures(new Set());
@@ -544,6 +587,24 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
       debouncedPreviewUpdate(fixtureId, channelIndex, value);
     }
   };
+
+  // Check if a fixture is active (has channels that will be saved)
+  const isFixtureActive = useCallback((fixtureId: string): boolean => {
+    return activeFixturesSet.has(fixtureId);
+  }, [activeFixturesSet]);
+
+  // Toggle fixture active state
+  const handleToggleFixtureActive = useCallback((fixtureId: string, activate: boolean) => {
+    setActiveFixturesSet(prev => {
+      const newSet = new Set(prev);
+      if (activate) {
+        newSet.add(fixtureId);
+      } else {
+        newSet.delete(fixtureId);
+      }
+      return newSet;
+    });
+  }, []);
 
   // Color picker handlers
   const handleColorSwatchClick = (fixtureId: string) => {
@@ -699,6 +760,12 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
         });
         return newMap;
       });
+      // Mark newly added fixtures as active so their channels will be saved
+      setActiveFixturesSet(prev => {
+        const newSet = new Set(prev);
+        selectedFixturesToAdd.forEach(fixtureId => newSet.add(fixtureId));
+        return newSet;
+      });
       // Increment counter to ensure unique IDs for next batch
       setTempIdCounter(prev => prev + selectedFixturesToAdd.size);
     }
@@ -810,10 +877,23 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
 
     // Build fixture values from active fixtures
     // Convert dense format to sparse for mutation
+    // Only include channels for fixtures that are marked as "active"
     const fixtureValues = activeFixtureValues.map((fixtureValue: SceneFixtureValue) => {
-      const localDense = channelValues.get(fixtureValue.fixture.id);
+      const fixtureId = fixtureValue.fixture.id;
+      const isActive = activeFixturesSet.has(fixtureId);
+
+      if (!isActive) {
+        // Inactive fixtures have no channels (won't affect DMX output when scene is activated)
+        return {
+          fixtureId,
+          channels: [],
+        };
+      }
+
+      // Active fixtures include all channel values (including zeros for blackout support)
+      const localDense = channelValues.get(fixtureId);
       return {
-        fixtureId: fixtureValue.fixture.id,
+        fixtureId,
         channels: localDense
           ? denseToSparse(localDense)
           : (fixtureValue.channels || []),
@@ -875,7 +955,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
         variables: { sessionId: previewSessionId },
       });
     }
-    
+
     setChannelValues(new Map());
     setSceneName('');
     setSceneDescription('');
@@ -886,6 +966,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     setRemovedFixtures(new Set());
     setTempIdCounter(0);
     setShowSortDropdown(false);
+    setActiveFixturesSet(new Set());
     onClose();
   };
 
@@ -1225,6 +1306,8 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
                           handleChannelValueChange={handleChannelValueChange}
                           handleColorSwatchClick={handleColorSwatchClick}
                           handleRemoveFixture={handleRemoveFixture}
+                          handleToggleFixtureActive={handleToggleFixtureActive}
+                          isFixtureActive={isFixtureActive}
                         />
                       ))}
                     </div>
