@@ -824,15 +824,23 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     });
 
     // Apply all channel changes to state
-    setChannelValues(prev => {
-      const newValues = new Map(prev);
-      const fixtureValues = [...(newValues.get(fixtureId) || [])];
+    if (useSharedState && sharedState) {
+      // When using shared state, call the parent's handler for each channel
       channelUpdates.forEach(({ channelIndex, value }) => {
-        fixtureValues[channelIndex] = value;
+        sharedState.onChannelValueChange(fixtureId, channelIndex, value);
       });
-      newValues.set(fixtureId, fixtureValues);
-      return newValues;
-    });
+    } else {
+      // Using local state
+      setChannelValues(prev => {
+        const newValues = new Map(prev);
+        const fixtureValues = [...(newValues.get(fixtureId) || [])];
+        channelUpdates.forEach(({ channelIndex, value }) => {
+          fixtureValues[channelIndex] = value;
+        });
+        newValues.set(fixtureId, fixtureValues);
+        return newValues;
+      });
+    }
 
     // Send preview updates for all changed channels if in preview mode
     if (previewMode && previewSessionId) {
