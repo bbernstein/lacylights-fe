@@ -14,7 +14,9 @@ import { FixtureValue, FixtureInstance, ChannelValue } from '@/types';
 import ChannelListEditor from './ChannelListEditor';
 import LayoutCanvas from './LayoutCanvas';
 import MultiSelectControls from './MultiSelectControls';
+import UnsavedChangesModal from './UnsavedChangesModal';
 import { sparseToDense, denseToSparse } from '@/utils/channelConversion';
+import { useUndoStack, UndoDelta } from '@/hooks/useUndoStack';
 
 interface SceneEditorLayoutProps {
   sceneId: string;
@@ -58,6 +60,16 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   // Track which channels are active (will be saved) per fixture
   // Key: fixtureId, Value: Set of channel indices that are active
   const [activeChannels, setActiveChannels] = useState<Map<string, Set<number>>>(new Map());
+
+  // Undo/redo stack
+  const { pushAction, undo, redo, canUndo, canRedo, clearHistory } = useUndoStack({
+    maxStackSize: 50,
+    coalesceWindowMs: 500,
+  });
+
+  // Unsaved changes modal state
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'close' | 'switch' | null>(null);
 
   // Fetch scene data for 2D layout mode
   const { data: sceneData } = useQuery(GET_SCENE, {
@@ -151,6 +163,24 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       }
     });
   }
+
+  // Compute dirty state by comparing local values with server values
+  const isDirty = useMemo(() => {
+    // If no local changes, not dirty
+    if (localFixtureValues.size === 0) return false;
+
+    // Compare with server values
+    for (const [fixtureId, localValues] of localFixtureValues) {
+      const serverValues = serverDenseValues.get(fixtureId);
+      if (!serverValues) return true; // New fixture added locally
+      if (localValues.length !== serverValues.length) return true;
+      for (let i = 0; i < localValues.length; i++) {
+        if (localValues[i] !== serverValues[i]) return true;
+      }
+    }
+
+    return false;
+  }, [localFixtureValues, serverDenseValues]);
 
   // Cleanup preview on unmount or mode switch
   useEffect(() => {
@@ -278,19 +308,28 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   }, [previewMode, previewSessionId, scene, cancelPreviewSession, startPreviewSession, initializePreviewWithSceneValues]);
 
   // Handle batched channel value changes from MultiSelectControls
+  // Changes are saved locally only - user must click Save to persist
   // changes is an array of {fixtureId, channelIndex, value}
-  // activeChannelsOverride allows callers to pass updated active channels state (for paste operations)
-  const handleBatchedChannelChanges = useCallback(async (
+  // _activeChannelsOverride allows callers to pass updated active channels state (for paste operations)
+  // Currently unused but kept for potential future undo/redo of active toggles
+  const handleBatchedChannelChanges = useCallback((
     changes: Array<{fixtureId: string, channelIndex: number, value: number}>,
-    activeChannelsOverride?: Map<string, Set<number>>
+    _activeChannelsOverride?: Map<string, Set<number>>
   ) => {
     if (!scene || changes.length === 0) return;
 
-    // Use override if provided, otherwise use current state
-    const effectiveActiveChannels = activeChannelsOverride || activeChannels;
+    // Capture previous values for undo BEFORE updating state
+    const undoDeltas: UndoDelta[] = changes.map(({ fixtureId, channelIndex, value }) => {
+      const currentValues = localFixtureValues.get(fixtureId) || serverDenseValues.get(fixtureId) || [];
+      return {
+        fixtureId,
+        channelIndex,
+        previousValue: currentValues[channelIndex] ?? 0,
+        newValue: value,
+      };
+    });
 
     // Update local state immediately for responsive UI
-    // Use state updater to avoid dependency on fixtureValues
     setLocalFixtureValues(prev => {
       const newMap = new Map(prev);
       changes.forEach(({fixtureId, channelIndex, value}) => {
@@ -303,98 +342,23 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       return newMap;
     });
 
-    // In preview mode, send to preview session instead of updating scene
+    // Push to undo stack (will be coalesced if rapid changes)
+    pushAction({
+      type: 'BATCH_CHANGE',
+      channelDeltas: undoDeltas,
+      description: changes.length === 1
+        ? `Changed channel ${changes[0].channelIndex}`
+        : `Changed ${changes.length} channels`,
+    });
+
+    // In preview mode, send to preview session for real-time feedback
     if (previewMode && previewSessionId) {
       batchedPreviewUpdate(changes);
-      setHasUnsavedPreviewChanges(true);
-      return;
     }
 
-    // Show saving indicator
-    setSaveStatus('saving');
-    if (saveStatusTimeoutRef.current) {
-      clearTimeout(saveStatusTimeoutRef.current);
-    }
-
-    // Build a map of fixture changes for efficient lookup
-    const changesByFixture = new Map<string, Map<number, number>>();
-    changes.forEach(({fixtureId, channelIndex, value}) => {
-      if (!changesByFixture.has(fixtureId)) {
-        changesByFixture.set(fixtureId, new Map());
-      }
-      changesByFixture.get(fixtureId)!.set(channelIndex, value);
-    });
-
-    // Build updated fixture values array for server
-    // Use the changes map and scene data directly, not localFixtureValues
-    // Use a Map to deduplicate fixtures (in case scene data has duplicates)
-    const fixtureValuesMap = new Map<string, FixtureChannelValues>();
-
-    scene.fixtureValues.forEach((fv: FixtureValue) => {
-      const fixtureChanges = changesByFixture.get(fv.fixture.id);
-      const channelCount = fv.fixture.channels?.length || 0;
-      const fixtureActiveChannels = effectiveActiveChannels.get(fv.fixture.id);
-
-      if (fixtureChanges) {
-        // Apply all changes to this fixture
-        // Convert sparse to dense, apply changes, convert back to sparse
-        const denseValues = [...sparseToDense(fv.channels || [], channelCount)];
-        fixtureChanges.forEach((value, channelIndex) => {
-          denseValues[channelIndex] = value;
-        });
-        const allChannels = denseToSparse(denseValues);
-        // Filter to only include active channels
-        const filteredChannels = fixtureActiveChannels
-          ? allChannels.filter(ch => fixtureActiveChannels.has(ch.offset))
-          : allChannels;
-        fixtureValuesMap.set(fv.fixture.id, {
-          fixtureId: fv.fixture.id,
-          channels: filteredChannels,
-        });
-      } else {
-        // Keep existing values from scene (only if not already in map)
-        if (!fixtureValuesMap.has(fv.fixture.id)) {
-          const existingChannels = fv.channels || [];
-          // Filter by active channels (use effectiveActiveChannels which may be overridden)
-          const existingFixtureActiveChannels = effectiveActiveChannels.get(fv.fixture.id);
-          const filteredChannels = existingFixtureActiveChannels
-            ? existingChannels.filter((ch: ChannelValue) => existingFixtureActiveChannels.has(ch.offset))
-            : existingChannels;
-          fixtureValuesMap.set(fv.fixture.id, {
-            fixtureId: fv.fixture.id,
-            channels: filteredChannels,
-          });
-        }
-      }
-    });
-
-    // Convert Map to array
-    const updatedFixtureValues = Array.from(fixtureValuesMap.values());
-
-    // Update scene via GraphQL mutation (async, no refetch)
-    try {
-      await updateScene({
-        variables: {
-          id: sceneId,
-          input: {
-            fixtureValues: updatedFixtureValues,
-          },
-        },
-      });
-
-      // Show saved indicator
-      setSaveStatus('saved');
-      saveStatusTimeoutRef.current = setTimeout(() => {
-        setSaveStatus('idle');
-      }, 2000); // Hide after 2 seconds
-    } catch (error) {
-      console.error('Failed to update scene:', error);
-      setSaveStatus('error');
-      saveStatusTimeoutRef.current = setTimeout(() => {
-        setSaveStatus('idle');
-      }, 3000); // Hide error after 3 seconds
-    }
-  }, [scene, sceneId, updateScene, previewMode, previewSessionId, batchedPreviewUpdate, serverDenseValues, activeChannels]);
+    // Note: Save is now deferred - user must click "Save Changes" button
+    // The isDirty computed value will update to reflect unsaved changes
+  }, [scene, previewMode, previewSessionId, batchedPreviewUpdate, serverDenseValues, localFixtureValues, pushAction]);
 
   // Handle selection change
   const handleSelectionChange = useCallback((newSelection: Set<string>) => {
@@ -419,9 +383,143 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       newMap.set(fixtureId, fixtureSet);
       return newMap;
     });
-    // Mark as having unsaved changes
-    setHasUnsavedPreviewChanges(true);
+    // Note: isDirty is computed from local vs server values
+    // Toggling active channels affects what gets saved, but isn't tracked in isDirty
   }, []);
+
+  // Save current changes to the scene
+  const handleSaveScene = useCallback(async () => {
+    if (!scene) return;
+
+    setSaveStatus('saving');
+    if (saveStatusTimeoutRef.current) {
+      clearTimeout(saveStatusTimeoutRef.current);
+    }
+
+    try {
+      // Build updated fixture values from current local state
+      const fixtureValuesMap = new Map<string, FixtureChannelValues>();
+
+      scene.fixtureValues.forEach((fv: FixtureValue) => {
+        const localValues = localFixtureValues.get(fv.fixture.id);
+        const fixtureActiveChannels = activeChannels.get(fv.fixture.id);
+
+        // Convert dense local values or sparse server values to sparse format
+        const allChannels = localValues
+          ? denseToSparse(localValues)
+          : (fv.channels || []);
+
+        // Filter to only include active channels
+        const sparseChannels = fixtureActiveChannels
+          ? allChannels.filter(ch => fixtureActiveChannels.has(ch.offset))
+          : allChannels;
+
+        fixtureValuesMap.set(fv.fixture.id, {
+          fixtureId: fv.fixture.id,
+          channels: sparseChannels,
+        });
+      });
+
+      const updatedFixtureValues = Array.from(fixtureValuesMap.values());
+
+      await updateScene({
+        variables: {
+          id: sceneId,
+          input: {
+            fixtureValues: updatedFixtureValues,
+          },
+        },
+      });
+
+      // Clear undo history after save
+      clearHistory();
+
+      // Reset local state to match server (will be refreshed on next query)
+      setLocalFixtureValues(new Map());
+
+      // Show saved indicator
+      setSaveStatus('saved');
+      saveStatusTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to save scene:', error);
+      setSaveStatus('error');
+      saveStatusTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, 3000);
+    }
+  }, [scene, sceneId, updateScene, localFixtureValues, activeChannels, clearHistory]);
+
+  // Handle undo
+  const handleUndo = useCallback(() => {
+    const action = undo();
+    if (!action) return;
+
+    // Apply reverse of the action
+    if (action.channelDeltas) {
+      setLocalFixtureValues(prev => {
+        const newMap = new Map(prev);
+        action.channelDeltas!.forEach(delta => {
+          const currentValues = newMap.get(delta.fixtureId) || serverDenseValues.get(delta.fixtureId) || [];
+          const newValues = [...currentValues];
+          newValues[delta.channelIndex] = delta.previousValue;
+          newMap.set(delta.fixtureId, newValues);
+
+          // Also update preview if active
+          if (previewMode && previewSessionId) {
+            updatePreviewChannel({
+              variables: {
+                sessionId: previewSessionId,
+                fixtureId: delta.fixtureId,
+                channelIndex: delta.channelIndex,
+                value: delta.previousValue,
+              },
+            });
+          }
+        });
+        return newMap;
+      });
+    }
+  }, [undo, previewMode, previewSessionId, updatePreviewChannel, serverDenseValues]);
+
+  // Handle redo
+  const handleRedo = useCallback(() => {
+    const action = redo();
+    if (!action) return;
+
+    // Re-apply the action
+    if (action.channelDeltas) {
+      setLocalFixtureValues(prev => {
+        const newMap = new Map(prev);
+        action.channelDeltas!.forEach(delta => {
+          const currentValues = newMap.get(delta.fixtureId) || serverDenseValues.get(delta.fixtureId) || [];
+          const newValues = [...currentValues];
+          newValues[delta.channelIndex] = delta.newValue;
+          newMap.set(delta.fixtureId, newValues);
+
+          // Also update preview if active
+          if (previewMode && previewSessionId) {
+            updatePreviewChannel({
+              variables: {
+                sessionId: previewSessionId,
+                fixtureId: delta.fixtureId,
+                channelIndex: delta.channelIndex,
+                value: delta.newValue,
+              },
+            });
+          }
+        });
+        return newMap;
+      });
+    }
+  }, [redo, previewMode, previewSessionId, updatePreviewChannel, serverDenseValues]);
+
+  // Discard local changes and reset to server state
+  const handleDiscardChanges = useCallback(() => {
+    setLocalFixtureValues(new Map());
+    clearHistory();
+  }, [clearHistory]);
 
   // Handle copy fixture values (Cmd/Ctrl+C)
   const handleCopyFixtureValues = useCallback(() => {
@@ -498,7 +596,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     }
   }, [mode, selectedFixtureIds, copiedChannelValues, copiedActiveChannels, fixtureValues, activeChannels, handleBatchedChannelChanges]);
 
-  // Keyboard event handler for copy/paste in layout mode
+  // Keyboard event handler for copy/paste and undo/redo in layout mode
   useEffect(() => {
     if (mode !== 'layout') return;
 
@@ -518,6 +616,20 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       } else if (isCmdOrCtrl && e.key === 'v') {
         e.preventDefault();
         handlePasteFixtureValues();
+      } else if (isCmdOrCtrl && e.key === 'z' && !e.shiftKey) {
+        // Undo: Cmd+Z or Ctrl+Z
+        e.preventDefault();
+        handleUndo();
+      } else if (isCmdOrCtrl && e.key === 'z' && e.shiftKey) {
+        // Redo: Cmd+Shift+Z or Ctrl+Shift+Z
+        e.preventDefault();
+        handleRedo();
+      } else if (isCmdOrCtrl && e.key === 's') {
+        // Save: Cmd+S or Ctrl+S
+        e.preventDefault();
+        if (isDirty) {
+          handleSaveScene();
+        }
       }
     };
 
@@ -525,7 +637,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [mode, handleCopyFixtureValues, handlePasteFixtureValues]);
+  }, [mode, handleCopyFixtureValues, handlePasteFixtureValues, handleUndo, handleRedo, isDirty, handleSaveScene]);
 
   // Apply preview changes to scene
   const handleApplyToScene = useCallback(async () => {
@@ -586,16 +698,55 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     }
   }, [scene, previewMode, localFixtureValues, activeChannels, sceneId, updateScene]);
 
-  // Handle close with warning for unsaved preview changes
+  // Handle close with unsaved changes modal
   const handleClose = useCallback(() => {
-    if (hasUnsavedPreviewChanges) {
-      const confirmed = window.confirm(
-        'You have unsaved preview changes. These changes will be lost if you close without applying them to the scene. Do you want to close anyway?'
-      );
-      if (!confirmed) return;
+    if (isDirty || hasUnsavedPreviewChanges) {
+      setPendingAction('close');
+      setShowUnsavedModal(true);
+      return;
     }
     onClose();
-  }, [hasUnsavedPreviewChanges, onClose]);
+  }, [isDirty, hasUnsavedPreviewChanges, onClose]);
+
+  // Handle mode switch with unsaved changes check
+  const handleModeSwitch = useCallback(() => {
+    if (isDirty) {
+      setPendingAction('switch');
+      setShowUnsavedModal(true);
+      return;
+    }
+    onToggleMode();
+  }, [isDirty, onToggleMode]);
+
+  // Handle modal save action
+  const handleModalSave = useCallback(async () => {
+    await handleSaveScene();
+    setShowUnsavedModal(false);
+    if (pendingAction === 'close') {
+      onClose();
+    } else if (pendingAction === 'switch') {
+      onToggleMode();
+    }
+    setPendingAction(null);
+  }, [handleSaveScene, pendingAction, onClose, onToggleMode]);
+
+  // Handle modal discard action
+  const handleModalDiscard = useCallback(() => {
+    handleDiscardChanges();
+    setShowUnsavedModal(false);
+    if (pendingAction === 'close') {
+      onClose();
+    } else if (pendingAction === 'switch') {
+      onToggleMode();
+    }
+    setPendingAction(null);
+  }, [handleDiscardChanges, pendingAction, onClose, onToggleMode]);
+
+  // Handle modal cancel action
+  const handleModalCancel = useCallback(() => {
+    setShowUnsavedModal(false);
+    setPendingAction(null);
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-gray-900 flex flex-col">
@@ -618,7 +769,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
             <div className="flex items-center space-x-1 bg-gray-700 rounded-lg p-1">
               <button
                 onClick={() => {
-                  if (mode !== 'channels') onToggleMode();
+                  if (mode !== 'channels') handleModeSwitch();
                 }}
                 className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                   mode === 'channels'
@@ -630,7 +781,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
               </button>
               <button
                 onClick={() => {
-                  if (mode !== 'layout') onToggleMode();
+                  if (mode !== 'layout') handleModeSwitch();
                 }}
                 className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                   mode === 'layout'
@@ -714,6 +865,51 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
                     )}
                   </div>
                 )}
+
+                {/* Undo/Redo buttons */}
+                <div className="flex items-center space-x-1">
+                  <button
+                    onClick={handleUndo}
+                    disabled={!canUndo}
+                    className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Undo (Cmd+Z)"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={handleRedo}
+                    disabled={!canRedo}
+                    className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Redo (Cmd+Shift+Z)"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Dirty indicator and Save button */}
+                {isDirty && (
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                      <span className="text-sm text-yellow-400">Unsaved changes</span>
+                    </div>
+                    <button
+                      onClick={handleSaveScene}
+                      disabled={saveStatus === 'saving'}
+                      className="inline-flex items-center px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Save changes (Cmd+S)"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                      </svg>
+                      Save Changes
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -768,6 +964,15 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
           </div>
         )}
       </div>
+
+      {/* Unsaved changes modal */}
+      <UnsavedChangesModal
+        isOpen={showUnsavedModal}
+        onSave={handleModalSave}
+        onDiscard={handleModalDiscard}
+        onCancel={handleModalCancel}
+        saveInProgress={saveStatus === 'saving'}
+      />
     </div>
   );
 }
