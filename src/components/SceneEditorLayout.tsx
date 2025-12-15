@@ -54,6 +54,10 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   const [showCopiedFeedback, setShowCopiedFeedback] = useState(false);
   const copyFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Track which channels are active (will be saved) per fixture
+  // Key: fixtureId, Value: Set of channel indices that are active
+  const [activeChannels, setActiveChannels] = useState<Map<string, Set<number>>>(new Map());
+
   // Fetch scene data for 2D layout mode
   const { data: sceneData } = useQuery(GET_SCENE, {
     variables: { id: sceneId },
@@ -103,6 +107,22 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       });
     }
     return values;
+  }, [scene]);
+
+  // Initialize active channels from scene data when scene loads
+  useEffect(() => {
+    if (scene) {
+      const active = new Map<string, Set<number>>();
+      scene.fixtureValues.forEach((fv: FixtureValue) => {
+        // Build set of active channel indices from sparse array
+        const activeSet = new Set<number>();
+        (fv.channels || []).forEach((ch: ChannelValue) => {
+          activeSet.add(ch.offset);
+        });
+        active.set(fv.fixture.id, activeSet);
+      });
+      setActiveChannels(active);
+    }
   }, [scene]);
 
   // Build channel values map for layout canvas (merge server + local state)
@@ -305,6 +325,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     scene.fixtureValues.forEach((fv: FixtureValue) => {
       const fixtureChanges = changesByFixture.get(fv.fixture.id);
       const channelCount = fv.fixture.channels?.length || 0;
+      const fixtureActiveChannels = activeChannels.get(fv.fixture.id);
 
       if (fixtureChanges) {
         // Apply all changes to this fixture
@@ -313,16 +334,26 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         fixtureChanges.forEach((value, channelIndex) => {
           denseValues[channelIndex] = value;
         });
+        const allChannels = denseToSparse(denseValues);
+        // Filter to only include active channels
+        const filteredChannels = fixtureActiveChannels
+          ? allChannels.filter(ch => fixtureActiveChannels.has(ch.offset))
+          : allChannels;
         fixtureValuesMap.set(fv.fixture.id, {
           fixtureId: fv.fixture.id,
-          channels: denseToSparse(denseValues),
+          channels: filteredChannels,
         });
       } else {
         // Keep existing values from scene (only if not already in map)
         if (!fixtureValuesMap.has(fv.fixture.id)) {
+          const existingChannels = fv.channels || [];
+          // Filter by active channels
+          const filteredChannels = fixtureActiveChannels
+            ? existingChannels.filter((ch: ChannelValue) => fixtureActiveChannels.has(ch.offset))
+            : existingChannels;
           fixtureValuesMap.set(fv.fixture.id, {
             fixtureId: fv.fixture.id,
-            channels: fv.channels || [],
+            channels: filteredChannels,
           });
         }
       }
@@ -354,7 +385,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         setSaveStatus('idle');
       }, 3000); // Hide error after 3 seconds
     }
-  }, [scene, sceneId, updateScene, previewMode, previewSessionId, batchedPreviewUpdate, serverDenseValues]);
+  }, [scene, sceneId, updateScene, previewMode, previewSessionId, batchedPreviewUpdate, serverDenseValues, activeChannels]);
 
   // Handle selection change
   const handleSelectionChange = useCallback((newSelection: Set<string>) => {
@@ -364,6 +395,23 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   // Handle deselect all
   const handleDeselectAll = useCallback(() => {
     setSelectedFixtureIds(new Set());
+  }, []);
+
+  // Toggle a channel's active state
+  const handleToggleChannelActive = useCallback((fixtureId: string, channelIndex: number, isActive: boolean) => {
+    setActiveChannels(prev => {
+      const newMap = new Map(prev);
+      const fixtureSet = new Set(newMap.get(fixtureId) || []);
+      if (isActive) {
+        fixtureSet.add(channelIndex);
+      } else {
+        fixtureSet.delete(channelIndex);
+      }
+      newMap.set(fixtureId, fixtureSet);
+      return newMap;
+    });
+    // Mark as having unsaved changes
+    setHasUnsavedPreviewChanges(true);
   }, []);
 
   // Handle copy fixture values (Cmd/Ctrl+C)
@@ -462,11 +510,17 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
 
       scene.fixtureValues.forEach((fv: FixtureValue) => {
         const localValues = localFixtureValues.get(fv.fixture.id);
+        const fixtureActiveChannels = activeChannels.get(fv.fixture.id);
 
         // Convert dense local values or sparse server values to sparse format
-        const sparseChannels = localValues
+        const allChannels = localValues
           ? denseToSparse(localValues)
           : (fv.channels || []);
+
+        // Filter to only include active channels
+        const sparseChannels = fixtureActiveChannels
+          ? allChannels.filter(ch => fixtureActiveChannels.has(ch.offset))
+          : allChannels; // If no active tracking, include all
 
         fixtureValuesMap.set(fv.fixture.id, {
           fixtureId: fv.fixture.id,
@@ -497,7 +551,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         setSaveStatus('idle');
       }, 3000);
     }
-  }, [scene, previewMode, localFixtureValues, sceneId, updateScene]);
+  }, [scene, previewMode, localFixtureValues, activeChannels, sceneId, updateScene]);
 
   // Handle close with warning for unsaved preview changes
   const handleClose = useCallback(() => {
@@ -659,6 +713,8 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
                 onBatchedChannelChanges={handleBatchedChannelChanges}
                 onDebouncedPreviewUpdate={debouncedPreviewUpdate}
                 onDeselectAll={handleDeselectAll}
+                activeChannels={activeChannels}
+                onToggleChannelActive={handleToggleChannelActive}
               />
             )}
 

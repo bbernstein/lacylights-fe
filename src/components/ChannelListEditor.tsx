@@ -166,6 +166,8 @@ interface SortableFixtureRowProps {
   hasCopiedValues: boolean;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  isChannelActive: (fixtureId: string, channelIndex: number) => boolean;
+  handleToggleChannelActive: (fixtureId: string, channelIndex: number, isActive: boolean) => void;
 }
 
 function SortableFixtureRow({
@@ -179,6 +181,8 @@ function SortableFixtureRow({
   handlePasteFixture,
   handleRemoveFixture,
   hasCopiedValues,
+  isChannelActive,
+  handleToggleChannelActive,
   isExpanded,
   onToggleExpand
 }: SortableFixtureRowProps) {
@@ -311,6 +315,8 @@ function SortableFixtureRow({
               channel={channel}
               value={getChannelValue(channelIndex)}
               onChange={(value) => handleChannelValueChange(fixtureValue.fixture.id, channelIndex, value)}
+              isActive={isChannelActive(fixtureValue.fixture.id, channelIndex)}
+              onToggleActive={(active) => handleToggleChannelActive(fixtureValue.fixture.id, channelIndex, active)}
             />
           ))}
         </div>
@@ -351,6 +357,10 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
   const [showCopiedFeedback, setShowCopiedFeedback] = useState(false);
   const copyFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Track which channels are active (will be saved) per fixture
+  // Key: fixtureId, Value: Set of channel indices that are active
+  const [activeChannels, setActiveChannels] = useState<Map<string, Set<number>>>(new Map());
+
   // Helper function to format fixture information display
   const formatFixtureInfo = (fixture: FixtureInstance): string => {
     const parts = [
@@ -377,12 +387,22 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
         // Initialize channel values map with fixture arrays
         // Convert sparse format to dense for internal state
         const values = new Map<string, number[]>();
+        // Track which channels are active (present in the sparse array)
+        const active = new Map<string, Set<number>>();
         data.scene.fixtureValues.forEach((fixtureValue: SceneFixtureValue) => {
           const channelCount = fixtureValue.fixture.channels?.length || 0;
           const denseValues = sparseToDense(fixtureValue.channels || [], channelCount);
           values.set(fixtureValue.fixture.id, denseValues);
+
+          // Build set of active channel indices from sparse array
+          const activeSet = new Set<number>();
+          (fixtureValue.channels || []).forEach((ch: { offset: number }) => {
+            activeSet.add(ch.offset);
+          });
+          active.set(fixtureValue.fixture.id, activeSet);
         });
         setChannelValues(values);
+        setActiveChannels(active);
 
         // Reset fixture management state
         setRemovedFixtures(new Set());
@@ -552,6 +572,29 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
       applyColorToFixture(selectedFixtureId, color, true);
     }
   };
+
+  // Check if a specific channel is active (will be saved to the scene)
+  const isChannelActive = useCallback((fixtureId: string, channelIndex: number): boolean => {
+    const fixtureActiveChannels = activeChannels.get(fixtureId);
+    // If no active channels tracked for this fixture, default to all active
+    if (!fixtureActiveChannels) return true;
+    return fixtureActiveChannels.has(channelIndex);
+  }, [activeChannels]);
+
+  // Toggle a channel's active state
+  const handleToggleChannelActive = useCallback((fixtureId: string, channelIndex: number, isActive: boolean) => {
+    setActiveChannels(prev => {
+      const newMap = new Map(prev);
+      const fixtureSet = new Set(newMap.get(fixtureId) || []);
+      if (isActive) {
+        fixtureSet.add(channelIndex);
+      } else {
+        fixtureSet.delete(channelIndex);
+      }
+      newMap.set(fixtureId, fixtureSet);
+      return newMap;
+    });
+  }, []);
 
   const applyColorToFixture = (fixtureId: string, color: { r: number; g: number; b: number }, _final: boolean) => {
     const fixtureValue = scene?.fixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
@@ -832,15 +875,33 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
     if (!scene) return;
 
     // Build fixture values from active fixtures
-    // Convert dense format to sparse for mutation
+    // Convert dense format to sparse for mutation, but only include active channels
     const fixtureValues = activeFixtureValues.map((fixtureValue: SceneFixtureValue) => {
-      const localDense = channelValues.get(fixtureValue.fixture.id);
-      return {
-        fixtureId: fixtureValue.fixture.id,
-        channels: localDense
-          ? denseToSparse(localDense)
-          : (fixtureValue.channels || []),
-      };
+      const fixtureId = fixtureValue.fixture.id;
+      const localDense = channelValues.get(fixtureId);
+      const fixtureActiveChannels = activeChannels.get(fixtureId);
+
+      if (localDense) {
+        // Convert dense to sparse, but filter to only include active channels
+        const allChannels = denseToSparse(localDense);
+        const filteredChannels = fixtureActiveChannels
+          ? allChannels.filter(ch => fixtureActiveChannels.has(ch.offset))
+          : allChannels; // If no active tracking, include all
+        return {
+          fixtureId,
+          channels: filteredChannels,
+        };
+      } else {
+        // Fall back to existing channels, filtered by active state
+        const existingChannels = fixtureValue.channels || [];
+        const filteredChannels = fixtureActiveChannels
+          ? existingChannels.filter((ch: { offset: number }) => fixtureActiveChannels.has(ch.offset))
+          : existingChannels;
+        return {
+          fixtureId,
+          channels: filteredChannels,
+        };
+      }
     });
 
     updateScene({
@@ -1335,6 +1396,8 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                           return newSet;
                         });
                       }}
+                      isChannelActive={isChannelActive}
+                      handleToggleChannelActive={handleToggleChannelActive}
                     />
                   ))}
                 </div>

@@ -45,6 +45,10 @@ interface ChannelSliderProps {
   fixtureId: string;
   channelIndex: number;
   onValueChange: (fixtureId: string, channelIndex: number, value: number) => void;
+  /** Whether this channel is active (will be saved to the scene). If undefined, no toggle is shown. */
+  isActive?: boolean;
+  /** Callback when user toggles the active state. If provided, shows a checkbox. */
+  onToggleActive?: (isActive: boolean) => void;
 }
 
 interface ColorSwatchProps {
@@ -161,13 +165,13 @@ function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchPro
   );
 }
 
-function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange }: ChannelSliderProps) {
+function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange, isActive, onToggleActive }: ChannelSliderProps) {
   const [localValue, setLocalValue] = useState(value);
-  
+
   useEffect(() => {
     setLocalValue(value);
   }, [value]);
-  
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = parseInt(e.target.value);
     setLocalValue(newValue);
@@ -183,7 +187,7 @@ function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange 
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     let newValue = localValue;
-    
+
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       newValue = Math.min((channel.maxValue || 255), localValue + (e.shiftKey ? 10 : 1));
@@ -191,13 +195,13 @@ function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange 
       e.preventDefault();
       newValue = Math.max((channel.minValue || 0), localValue - (e.shiftKey ? 10 : 1));
     }
-    
+
     if (newValue !== localValue) {
       setLocalValue(newValue);
       onValueChange(fixtureId, channelIndex, newValue);
     }
   };
-  
+
   // Get color for color channels
   const getChannelColor = () => {
     switch (channel.type) {
@@ -213,11 +217,28 @@ function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange 
 
   const channelColor = getChannelColor();
 
+  // Show toggle checkbox only when onToggleActive is provided
+  const showToggle = onToggleActive !== undefined;
+  // If isActive is undefined and toggle is shown, default to true
+  const effectiveIsActive = isActive ?? true;
+  // Apply dimmed styling when inactive
+  const isInactive = showToggle && !effectiveIsActive;
+
   return (
-    <div className="flex items-center space-x-3 py-1.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded">
+    <div className={`flex items-center space-x-3 py-1.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded ${isInactive ? 'opacity-50' : ''}`}>
+      {/* Channel active toggle checkbox */}
+      {showToggle && (
+        <input
+          type="checkbox"
+          checked={effectiveIsActive}
+          onChange={(e) => onToggleActive(e.target.checked)}
+          className="w-3 h-3 flex-shrink-0 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-1 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+          title={effectiveIsActive ? 'Channel active (will be saved)' : 'Channel inactive (will not be saved)'}
+        />
+      )}
       <label className="text-sm text-gray-700 dark:text-gray-300 w-20 flex-shrink-0 flex items-center space-x-1" title={`Type: ${channel.type}`}>
         {channelColor && (
-          <div 
+          <div
             className="w-3 h-3 rounded-full border border-gray-300 dark:border-gray-600"
             style={{ backgroundColor: channelColor }}
           />
@@ -230,13 +251,15 @@ function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange 
         max={channel.maxValue || 255}
         value={localValue}
         onChange={handleChange}
-        className="flex-1 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-600
-                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 
-                   [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer
+        disabled={isInactive}
+        className={`flex-1 h-1.5 bg-gray-200 rounded-lg appearance-none dark:bg-gray-600
+                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
+                   [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:rounded-full
                    [&::-webkit-slider-thumb]:hover:bg-blue-700 [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-all
-                   [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:bg-blue-600 
-                   [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer
-                   [&::-moz-range-thumb]:hover:bg-blue-700 [&::-moz-range-thumb]:hover:scale-125 [&::-moz-range-thumb]:transition-all"
+                   [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:bg-blue-600
+                   [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0
+                   [&::-moz-range-thumb]:hover:bg-blue-700 [&::-moz-range-thumb]:hover:scale-125 [&::-moz-range-thumb]:transition-all
+                   ${isInactive ? 'cursor-not-allowed' : 'cursor-pointer [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:cursor-pointer'}`}
       />
       <input
         type="number"
@@ -245,7 +268,8 @@ function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange 
         value={localValue}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
-        className="w-14 text-sm text-center font-mono bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        disabled={isInactive}
+        className={`w-14 text-sm text-center font-mono bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 ${isInactive ? 'cursor-not-allowed' : ''}`}
         title="Use arrow keys to adjust. Hold Shift for ±10"
       />
     </div>
@@ -260,8 +284,8 @@ interface SortableFixtureRowProps {
   handleChannelValueChange: (fixtureId: string, channelIndex: number, value: number) => void;
   handleColorSwatchClick: (fixtureId: string) => void;
   handleRemoveFixture: (fixtureId: string) => void;
-  handleToggleFixtureActive: (fixtureId: string, activate: boolean) => void;
-  isFixtureActive: (fixtureId: string) => boolean;
+  isChannelActive: (fixtureId: string, channelIndex: number) => boolean;
+  handleToggleChannelActive: (fixtureId: string, channelIndex: number, isActive: boolean) => void;
 }
 
 function SortableFixtureRow({
@@ -272,8 +296,8 @@ function SortableFixtureRow({
   handleChannelValueChange,
   handleColorSwatchClick,
   handleRemoveFixture,
-  handleToggleFixtureActive,
-  isFixtureActive,
+  isChannelActive,
+  handleToggleChannelActive,
 }: SortableFixtureRowProps) {
   const {
     attributes,
@@ -298,9 +322,9 @@ function SortableFixtureRow({
   };
 
   return (
-    <div 
-      ref={setNodeRef} 
-      style={style} 
+    <div
+      ref={setNodeRef}
+      style={style}
       className="p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
       {...attributes}
     >
@@ -316,38 +340,9 @@ function SortableFixtureRow({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
             </svg>
           </button>
-          {/* Active/Inactive toggle */}
-          <button
-            type="button"
-            onClick={() => handleToggleFixtureActive(fixtureValue.fixture.id, !isFixtureActive(fixtureValue.fixture.id))}
-            className={`mr-2 p-1 rounded transition-colors ${
-              isFixtureActive(fixtureValue.fixture.id)
-                ? 'text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300'
-                : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
-            }`}
-            title={isFixtureActive(fixtureValue.fixture.id)
-              ? 'Fixture is active in scene (click to deactivate)'
-              : 'Fixture is inactive (click to activate with current values)'
-            }
-          >
-            {isFixtureActive(fixtureValue.fixture.id) ? (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
-          </button>
           <div>
             <h4 className="text-sm font-medium text-gray-900 dark:text-white">
               {fixtureValue.fixture.name}
-              {!isFixtureActive(fixtureValue.fixture.id) && (
-                <span className="ml-2 px-1.5 py-0.5 text-xs font-medium rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                  INACTIVE
-                </span>
-              )}
               <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                 {formatFixtureInfo(fixtureValue.fixture)}
               </span>
@@ -381,6 +376,8 @@ function SortableFixtureRow({
             fixtureId={fixtureValue.fixture.id}
             channelIndex={channelIndex}
             onValueChange={handleChannelValueChange}
+            isActive={isChannelActive(fixtureValue.fixture.id, channelIndex)}
+            onToggleActive={(active) => handleToggleChannelActive(fixtureValue.fixture.id, channelIndex, active)}
           />
         ))}
       </div>
@@ -411,9 +408,9 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
   const [removedFixtures, setRemovedFixtures] = useState<Set<string>>(new Set());
   const [tempIdCounter, setTempIdCounter] = useState(0);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
-  // Track which fixtures are "active" (will have their channels saved)
-  // A fixture is active if it has channels defined in the scene
-  const [activeFixturesSet, setActiveFixturesSet] = useState<Set<string>>(new Set());
+  // Track which channels are "active" (will be saved to the scene) per fixture
+  // Key: fixtureId, Value: Set of channel indices that are active
+  const [activeChannels, setActiveChannels] = useState<Map<string, Set<number>>>(new Map());
 
   // Helper function to format fixture information display
   const formatFixtureInfo = (fixture: FixtureInstance): string => {
@@ -441,19 +438,21 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
         // Initialize channel values map with fixture arrays
         // Convert sparse format to dense for internal state
         const values = new Map<string, number[]>();
-        // Track which fixtures have channels defined (are "active")
-        const activeSet = new Set<string>();
+        // Track which channels are active (present in the sparse array)
+        const active = new Map<string, Set<number>>();
         data.scene.fixtureValues.forEach((fixtureValue: SceneFixtureValue) => {
           const channelCount = fixtureValue.fixture.channels?.length || 0;
           const denseValues = sparseToDense(fixtureValue.channels || [], channelCount);
           values.set(fixtureValue.fixture.id, denseValues);
-          // A fixture is active if it has any channels defined in the scene
-          if (fixtureValue.channels && fixtureValue.channels.length > 0) {
-            activeSet.add(fixtureValue.fixture.id);
-          }
+          // Build set of active channel indices from sparse array
+          const activeSet = new Set<number>();
+          (fixtureValue.channels || []).forEach((ch: { offset: number }) => {
+            activeSet.add(ch.offset);
+          });
+          active.set(fixtureValue.fixture.id, activeSet);
         });
         setChannelValues(values);
-        setActiveFixturesSet(activeSet);
+        setActiveChannels(active);
 
         // Reset fixture management state
         setRemovedFixtures(new Set());
@@ -588,21 +587,26 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     }
   };
 
-  // Check if a fixture is active (has channels that will be saved)
-  const isFixtureActive = useCallback((fixtureId: string): boolean => {
-    return activeFixturesSet.has(fixtureId);
-  }, [activeFixturesSet]);
+  // Check if a specific channel is active (will be saved to the scene)
+  const isChannelActive = useCallback((fixtureId: string, channelIndex: number): boolean => {
+    const fixtureActiveChannels = activeChannels.get(fixtureId);
+    // If no active channels tracked for this fixture, default to all active
+    if (!fixtureActiveChannels) return true;
+    return fixtureActiveChannels.has(channelIndex);
+  }, [activeChannels]);
 
-  // Toggle fixture active state
-  const handleToggleFixtureActive = useCallback((fixtureId: string, activate: boolean) => {
-    setActiveFixturesSet(prev => {
-      const newSet = new Set(prev);
-      if (activate) {
-        newSet.add(fixtureId);
+  // Toggle a channel's active state
+  const handleToggleChannelActive = useCallback((fixtureId: string, channelIndex: number, isActive: boolean) => {
+    setActiveChannels(prev => {
+      const newMap = new Map(prev);
+      const fixtureSet = new Set(newMap.get(fixtureId) || []);
+      if (isActive) {
+        fixtureSet.add(channelIndex);
       } else {
-        newSet.delete(fixtureId);
+        fixtureSet.delete(channelIndex);
       }
-      return newSet;
+      newMap.set(fixtureId, fixtureSet);
+      return newMap;
     });
   }, []);
 
@@ -760,11 +764,21 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
         });
         return newMap;
       });
-      // Mark newly added fixtures as active so their channels will be saved
-      setActiveFixturesSet(prev => {
-        const newSet = new Set(prev);
-        selectedFixturesToAdd.forEach(fixtureId => newSet.add(fixtureId));
-        return newSet;
+      // Mark all channels of newly added fixtures as active so they will be saved
+      setActiveChannels(prev => {
+        const newMap = new Map(prev);
+        selectedFixturesToAdd.forEach(fixtureId => {
+          const fixture = projectFixturesData.project.fixtures.find((f: FixtureInstance) => f.id === fixtureId);
+          if (fixture) {
+            const channelCount = fixture.channels?.length || 0;
+            const activeSet = new Set<number>();
+            for (let i = 0; i < channelCount; i++) {
+              activeSet.add(i);
+            }
+            newMap.set(fixtureId, activeSet);
+          }
+        });
+        return newMap;
       });
       // Increment counter to ensure unique IDs for next batch
       setTempIdCounter(prev => prev + selectedFixturesToAdd.size);
@@ -876,28 +890,33 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     if (!scene) return;
 
     // Build fixture values from active fixtures
-    // Convert dense format to sparse for mutation
-    // Only include channels for fixtures that are marked as "active"
+    // Convert dense format to sparse for mutation, but only include active channels
     const fixtureValues = activeFixtureValues.map((fixtureValue: SceneFixtureValue) => {
       const fixtureId = fixtureValue.fixture.id;
-      const isActive = activeFixturesSet.has(fixtureId);
+      const localDense = channelValues.get(fixtureId);
+      const fixtureActiveChannels = activeChannels.get(fixtureId);
 
-      if (!isActive) {
-        // Inactive fixtures have no channels (won't affect DMX output when scene is activated)
+      if (localDense) {
+        // Convert dense to sparse, but filter to only include active channels
+        const allChannels = denseToSparse(localDense);
+        const filteredChannels = fixtureActiveChannels
+          ? allChannels.filter(ch => fixtureActiveChannels.has(ch.offset))
+          : allChannels; // If no active tracking, include all
         return {
           fixtureId,
-          channels: [],
+          channels: filteredChannels,
+        };
+      } else {
+        // Fall back to existing channels, filtered by active state
+        const existingChannels = fixtureValue.channels || [];
+        const filteredChannels = fixtureActiveChannels
+          ? existingChannels.filter((ch: { offset: number }) => fixtureActiveChannels.has(ch.offset))
+          : existingChannels;
+        return {
+          fixtureId,
+          channels: filteredChannels,
         };
       }
-
-      // Active fixtures include all channel values (including zeros for blackout support)
-      const localDense = channelValues.get(fixtureId);
-      return {
-        fixtureId,
-        channels: localDense
-          ? denseToSparse(localDense)
-          : (fixtureValue.channels || []),
-      };
     });
 
     updateScene({
@@ -966,7 +985,7 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
     setRemovedFixtures(new Set());
     setTempIdCounter(0);
     setShowSortDropdown(false);
-    setActiveFixturesSet(new Set());
+    setActiveChannels(new Map());
     onClose();
   };
 
@@ -1306,8 +1325,8 @@ export default function SceneEditorModal({ isOpen, onClose, sceneId, onSceneUpda
                           handleChannelValueChange={handleChannelValueChange}
                           handleColorSwatchClick={handleColorSwatchClick}
                           handleRemoveFixture={handleRemoveFixture}
-                          handleToggleFixtureActive={handleToggleFixtureActive}
-                          isFixtureActive={isFixtureActive}
+                          isChannelActive={isChannelActive}
+                          handleToggleChannelActive={handleToggleChannelActive}
                         />
                       ))}
                     </div>
