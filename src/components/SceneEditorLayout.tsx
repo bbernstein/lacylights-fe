@@ -97,7 +97,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   const [pendingAction, setPendingAction] = useState<'close' | 'switch' | null>(null);
 
   // Fetch scene data for both modes (shared state)
-  const { data: sceneData, loading: sceneLoading, refetch: _refetchScene } = useQuery(GET_SCENE, {
+  const { data: sceneData, loading: sceneLoading, refetch: refetchScene } = useQuery(GET_SCENE, {
     variables: { id: sceneId },
   });
 
@@ -503,10 +503,13 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         },
       });
 
+      // Refetch scene data to update serverDenseValues with saved values
+      await refetchScene();
+
       // Clear undo history after save
       clearHistory();
 
-      // Reset local state to match server (will be refreshed on next query)
+      // Reset local state - initialization effect will repopulate from fresh server data
       setLocalFixtureValues(new Map());
 
       // Show saved indicator
@@ -521,7 +524,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         setSaveStatus('idle');
       }, 3000);
     }
-  }, [scene, sceneId, updateScene, localFixtureValues, activeChannels, clearHistory]);
+  }, [scene, sceneId, updateScene, localFixtureValues, activeChannels, clearHistory, refetchScene]);
 
   // Handle undo
   const handleUndo = useCallback(() => {
