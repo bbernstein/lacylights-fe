@@ -234,6 +234,7 @@ function ChannelSlider({ channel, value, fixtureId, channelIndex, onValueChange,
           onChange={(e) => onToggleActive(e.target.checked)}
           className="w-3 h-3 flex-shrink-0 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-1 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
           title={effectiveIsActive ? 'Channel active (will be saved)' : 'Channel inactive (will not be saved)'}
+          aria-label={`Toggle active for channel ${channel.name}`}
         />
       )}
       <label className="text-sm text-gray-700 dark:text-gray-300 w-20 flex-shrink-0 flex items-center space-x-1" title={`Type: ${channel.type}`}>

@@ -106,7 +106,7 @@ export function useUndoStack(options?: UseUndoStackOptions): UseUndoStackReturn 
 
   // Use state to trigger re-renders when canUndo/canRedo changes
   // The version value isn't used directly, but updating it forces re-render
-  const [, setVersion] = useState(0);
+  const [_version, setVersion] = useState(0);
 
   /**
    * Push a new action to the undo stack.
