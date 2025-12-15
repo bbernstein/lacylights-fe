@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { useCurrentActiveScene } from '@/hooks/useCurrentActiveScene';
 import { GET_SCENE, UPDATE_SCENE, START_PREVIEW_SESSION, CANCEL_PREVIEW_SESSION, UPDATE_PREVIEW_CHANNEL, INITIALIZE_PREVIEW_WITH_SCENE } from '@/graphql/scenes';
@@ -24,10 +24,12 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ChannelType, InstanceChannel, FixtureInstance, FixtureValue } from '@/types';
 import ColorPickerModal from './ColorPickerModal';
+import UnsavedChangesModal from './UnsavedChangesModal';
 import { rgbToChannelValues, channelValuesToRgb, COLOR_CHANNEL_TYPES } from '@/utils/colorConversion';
 import ChannelSlider from './ChannelSlider';
 import { generateUUID } from '@/utils/uuid';
 import { sparseToDense, denseToSparse } from '@/utils/channelConversion';
+import { useUndoStack, UndoDelta } from '@/hooks/useUndoStack';
 
 interface ChannelListEditorProps {
   sceneId: string;
@@ -362,6 +364,20 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
   // Key: fixtureId, Value: Set of channel indices that are active
   const [activeChannels, setActiveChannels] = useState<Map<string, Set<number>>>(new Map());
 
+  // Initial state for dirty tracking (set from server data)
+  const [initialChannelValues, setInitialChannelValues] = useState<Map<string, number[]>>(new Map());
+  const [initialSceneName, setInitialSceneName] = useState('');
+  const [initialSceneDescription, setInitialSceneDescription] = useState('');
+
+  // Undo/redo stack
+  const { pushAction, undo, redo, canUndo, canRedo, clearHistory } = useUndoStack({
+    maxStackSize: 50,
+    coalesceWindowMs: 500,
+  });
+
+  // Unsaved changes modal state
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+
   // Helper function to format fixture information display
   const formatFixtureInfo = (fixture: FixtureInstance): string => {
     const parts = [
@@ -385,6 +401,10 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
         setSceneName(data.scene.name);
         setSceneDescription(data.scene.description || '');
 
+        // Store initial values for dirty tracking
+        setInitialSceneName(data.scene.name);
+        setInitialSceneDescription(data.scene.description || '');
+
         // Initialize channel values map with fixture arrays
         // Convert sparse format to dense for internal state
         const values = new Map<string, number[]>();
@@ -405,14 +425,42 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
         setChannelValues(values);
         setActiveChannels(active);
 
+        // Store initial values for dirty tracking
+        setInitialChannelValues(new Map(values.entries()));
+
         // Reset fixture management state
         setRemovedFixtures(new Set());
         setSelectedFixturesToAdd(new Set());
+
+        // Clear undo history on fresh load
+        clearHistory();
       }
     },
   });
 
   const scene = sceneData?.scene;
+
+  // Compute dirty state by comparing current values with initial values
+  const isDirty = useMemo(() => {
+    // Check if name or description changed
+    if (sceneName !== initialSceneName) return true;
+    if (sceneDescription !== initialSceneDescription) return true;
+
+    // Check if any fixtures were added or removed
+    if (selectedFixturesToAdd.size > 0 || removedFixtures.size > 0) return true;
+
+    // Check if channel values changed
+    for (const [fixtureId, currentValues] of channelValues) {
+      const initialValues = initialChannelValues.get(fixtureId);
+      if (!initialValues) return true; // New fixture
+      if (currentValues.length !== initialValues.length) return true;
+      for (let i = 0; i < currentValues.length; i++) {
+        if (currentValues[i] !== initialValues[i]) return true;
+      }
+    }
+
+    return false;
+  }, [sceneName, sceneDescription, initialSceneName, initialSceneDescription, selectedFixturesToAdd, removedFixtures, channelValues, initialChannelValues]);
 
   // Get all project fixtures to show available fixtures for adding
   const { data: projectFixturesData } = useQuery(GET_PROJECT_FIXTURES, {
@@ -526,7 +574,10 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
     }, 50); // 50ms debounce for smooth real-time updates
   }, [previewMode, previewSessionId, updatePreviewChannel]);
 
-  const handleChannelValueChange = (fixtureId: string, channelIndex: number, value: number) => {
+  const handleChannelValueChange = useCallback((fixtureId: string, channelIndex: number, value: number) => {
+    // Capture previous value for undo
+    const previousValue = channelValues.get(fixtureId)?.[channelIndex] ?? 0;
+
     setChannelValues(prev => {
       const newValues = new Map(prev);
       const fixtureValues = [...(newValues.get(fixtureId) || [])];
@@ -535,11 +586,24 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
       return newValues;
     });
 
+    // Push to undo stack
+    const undoDelta: UndoDelta = {
+      fixtureId,
+      channelIndex,
+      previousValue,
+      newValue: value,
+    };
+    pushAction({
+      type: 'CHANNEL_CHANGE',
+      channelDeltas: [undoDelta],
+      description: `Changed channel ${channelIndex}`,
+    });
+
     // Send real-time update if preview mode is active
     if (previewMode && previewSessionId) {
       debouncedPreviewUpdate(fixtureId, channelIndex, value);
     }
-  };
+  }, [channelValues, previewMode, previewSessionId, debouncedPreviewUpdate, pushAction]);
 
   // Color picker handlers
   const handleColorSwatchClick = (fixtureId: string) => {
@@ -596,6 +660,68 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
       return newMap;
     });
   }, []);
+
+  // Handle undo
+  const handleUndo = useCallback(() => {
+    const action = undo();
+    if (!action) return;
+
+    // Apply reverse of the action
+    if (action.channelDeltas) {
+      setChannelValues(prev => {
+        const newValues = new Map(prev);
+        action.channelDeltas!.forEach(delta => {
+          const fixtureValues = [...(newValues.get(delta.fixtureId) || [])];
+          fixtureValues[delta.channelIndex] = delta.previousValue;
+          newValues.set(delta.fixtureId, fixtureValues);
+
+          // Also update preview if active
+          if (previewMode && previewSessionId) {
+            updatePreviewChannel({
+              variables: {
+                sessionId: previewSessionId,
+                fixtureId: delta.fixtureId,
+                channelIndex: delta.channelIndex,
+                value: delta.previousValue,
+              },
+            });
+          }
+        });
+        return newValues;
+      });
+    }
+  }, [undo, previewMode, previewSessionId, updatePreviewChannel]);
+
+  // Handle redo
+  const handleRedo = useCallback(() => {
+    const action = redo();
+    if (!action) return;
+
+    // Re-apply the action
+    if (action.channelDeltas) {
+      setChannelValues(prev => {
+        const newValues = new Map(prev);
+        action.channelDeltas!.forEach(delta => {
+          const fixtureValues = [...(newValues.get(delta.fixtureId) || [])];
+          fixtureValues[delta.channelIndex] = delta.newValue;
+          newValues.set(delta.fixtureId, fixtureValues);
+
+          // Also update preview if active
+          if (previewMode && previewSessionId) {
+            updatePreviewChannel({
+              variables: {
+                sessionId: previewSessionId,
+                fixtureId: delta.fixtureId,
+                channelIndex: delta.channelIndex,
+                value: delta.newValue,
+              },
+            });
+          }
+        });
+        return newValues;
+      });
+    }
+  }, [redo, previewMode, previewSessionId, updatePreviewChannel]);
 
   const applyColorToFixture = (fixtureId: string, color: { r: number; g: number; b: number }, _final: boolean) => {
     const fixtureValue = scene?.fixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
@@ -972,7 +1098,8 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
     }
   };
 
-  const handleClose = async () => {
+  // Actually perform the close action
+  const performClose = useCallback(async () => {
     // Cancel preview session if active
     if (previewMode && previewSessionId) {
       await cancelPreviewSession({
@@ -994,11 +1121,70 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
     setSelectedFixturesToAdd(new Set());
     setRemovedFixtures(new Set());
     setShowSortDropdown(false);
+    clearHistory();
 
     if (onClose) {
       onClose();
     }
-  };
+  }, [previewMode, previewSessionId, cancelPreviewSession, clearHistory, onClose]);
+
+  // Close handler - checks for unsaved changes
+  const handleClose = useCallback(() => {
+    if (isDirty) {
+      setShowUnsavedModal(true);
+      return;
+    }
+    performClose();
+  }, [isDirty, performClose]);
+
+  // Modal handlers for unsaved changes dialog
+  const handleModalSave = useCallback(async () => {
+    // Trigger the form submit
+    const form = document.querySelector('form');
+    if (form) {
+      form.requestSubmit();
+    }
+    setShowUnsavedModal(false);
+    // Note: handleSubmit will call handleClose after successful save
+  }, []);
+
+  const handleModalDiscard = useCallback(async () => {
+    setShowUnsavedModal(false);
+    await performClose();
+  }, [performClose]);
+
+  const handleModalCancel = useCallback(() => {
+    setShowUnsavedModal(false);
+  }, []);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Cmd (Mac) or Ctrl (Windows/Linux)
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+
+      // Ignore if user is typing in an input field
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      if (isCmdOrCtrl && e.key === 'z' && !e.shiftKey) {
+        // Undo: Cmd+Z or Ctrl+Z
+        e.preventDefault();
+        handleUndo();
+      } else if (isCmdOrCtrl && e.key === 'z' && e.shiftKey) {
+        // Redo: Cmd+Shift+Z or Ctrl+Shift+Z
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleUndo, handleRedo]);
 
   if (loading) {
     return (
@@ -1065,15 +1251,50 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
                 />
               </div>
 
-              {/* Save Changes button moved to top for easy access */}
-              <div className="flex justify-end pt-2">
-                <button
-                  type="submit"
-                  disabled={updating || !sceneName.trim()}
-                  className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {updating ? 'Saving...' : 'Save Changes'}
-                </button>
+              {/* Actions bar with undo/redo, dirty indicator, and save button */}
+              <div className="flex items-center justify-between pt-2">
+                {/* Undo/Redo buttons */}
+                <div className="flex items-center space-x-1">
+                  <button
+                    type="button"
+                    onClick={handleUndo}
+                    disabled={!canUndo}
+                    className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Undo (Cmd+Z)"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRedo}
+                    disabled={!canRedo}
+                    className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Redo (Cmd+Shift+Z)"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Dirty indicator and Save button */}
+                <div className="flex items-center space-x-3">
+                  {isDirty && (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                      <span className="text-sm text-yellow-600 dark:text-yellow-400">Unsaved changes</span>
+                    </div>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={updating || !sceneName.trim()}
+                    className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {updating ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
               </div>
 
               {/* Preview Mode Toggle */}
@@ -1447,6 +1668,15 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
         currentColor={tempColor}
         onColorChange={handleColorChange}
         onColorSelect={handleColorSelect}
+      />
+
+      {/* Unsaved Changes Modal */}
+      <UnsavedChangesModal
+        isOpen={showUnsavedModal}
+        onSave={handleModalSave}
+        onDiscard={handleModalDiscard}
+        onCancel={handleModalCancel}
+        saveInProgress={updating}
       />
     </div>
   );
