@@ -68,6 +68,26 @@ const defaultProps = {
   onSceneCreated: mockOnSceneCreated,
 };
 
+// Helper: Expected channel values for fixture '1' (4 channels, defaults: 0, 0, 0, 255)
+// With the fix to include zeros in sparse format for proper blackout scene support
+const fixture1DefaultChannels = [
+  { offset: 0, value: 0 },
+  { offset: 1, value: 0 },
+  { offset: 2, value: 0 },
+  { offset: 3, value: 255 },
+];
+
+// Helper: Expected channel values for fixture '2' (6 channels, all default to 0)
+// With the fix to include zeros in sparse format for proper blackout scene support
+const fixture2ZeroChannels = [
+  { offset: 0, value: 0 },
+  { offset: 1, value: 0 },
+  { offset: 2, value: 0 },
+  { offset: 3, value: 0 },
+  { offset: 4, value: 0 },
+  { offset: 5, value: 0 },
+];
+
 describe('CreateSceneModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -521,11 +541,11 @@ describe('CreateSceneModal', () => {
                 fixtureValues: [
                   {
                     fixtureId: '1',
-                    channels: [{ offset: 3, value: 255 }],
+                    channels: fixture1DefaultChannels,
                   },
                   {
                     fixtureId: '2',
-                    channels: [],
+                    channels: fixture2ZeroChannels,
                   },
                 ],
               },
@@ -599,11 +619,11 @@ describe('CreateSceneModal', () => {
                 fixtureValues: [
                   {
                     fixtureId: '1',
-                    channels: [{ offset: 3, value: 255 }],
+                    channels: fixture1DefaultChannels,
                   },
                   {
                     fixtureId: '2',
-                    channels: [],
+                    channels: fixture2ZeroChannels,
                   },
                 ],
               },
@@ -674,11 +694,11 @@ describe('CreateSceneModal', () => {
                 fixtureValues: [
                   {
                     fixtureId: '1',
-                    channels: [{ offset: 3, value: 255 }],
+                    channels: fixture1DefaultChannels,
                   },
                   {
                     fixtureId: '2',
-                    channels: [],
+                    channels: fixture2ZeroChannels,
                   },
                 ],
               },
@@ -749,11 +769,13 @@ describe('CreateSceneModal', () => {
                 fixtureValues: [
                   {
                     fixtureId: '1',
-                    channels: [{ offset: 3, value: 255 }], // Using defaultValue from mockFixtures (sparse format)
+                    // All 4 channels included (zeros for proper blackout scene support)
+                    channels: fixture1DefaultChannels,
                   },
                   {
                     fixtureId: '2',
-                    channels: [], // All default to 0, so sparse array is empty
+                    // Zeros now included in sparse format for proper blackout scene support
+                    channels: fixture2ZeroChannels,
                   },
                 ],
               },
@@ -826,11 +848,11 @@ describe('CreateSceneModal', () => {
                 fixtureValues: [
                   {
                     fixtureId: '1',
-                    channels: [{ offset: 3, value: 255 }],
+                    channels: fixture1DefaultChannels,
                   },
                   {
                     fixtureId: '2',
-                    channels: [],
+                    channels: fixture2ZeroChannels,
                   },
                 ],
               },
@@ -899,11 +921,11 @@ describe('CreateSceneModal', () => {
                 fixtureValues: [
                   {
                     fixtureId: '1',
-                    channels: [{ offset: 3, value: 255 }],
+                    channels: fixture1DefaultChannels,
                   },
                   {
                     fixtureId: '2',
-                    channels: [],
+                    channels: fixture2ZeroChannels,
                   },
                 ],
               },
@@ -974,11 +996,11 @@ describe('CreateSceneModal', () => {
                 fixtureValues: [
                   {
                     fixtureId: '1',
-                    channels: [{ offset: 3, value: 255 }],
+                    channels: fixture1DefaultChannels,
                   },
                   {
                     fixtureId: '2',
-                    channels: [],
+                    channels: fixture2ZeroChannels,
                   },
                 ],
               },
@@ -1036,11 +1058,11 @@ describe('CreateSceneModal', () => {
                 fixtureValues: [
                   {
                     fixtureId: '1',
-                    channels: [{ offset: 3, value: 255 }],
+                    channels: fixture1DefaultChannels,
                   },
                   {
                     fixtureId: '2',
-                    channels: [],
+                    channels: fixture2ZeroChannels,
                   },
                 ],
               },
@@ -1104,11 +1126,11 @@ describe('CreateSceneModal', () => {
                 fixtureValues: [
                   {
                     fixtureId: '1',
-                    channels: [{ offset: 3, value: 255 }],
+                    channels: fixture1DefaultChannels,
                   },
                   {
                     fixtureId: '2',
-                    channels: [],
+                    channels: fixture2ZeroChannels,
                   },
                 ],
               },
@@ -1127,11 +1149,11 @@ describe('CreateSceneModal', () => {
                 fixtureValues: [
                   {
                     fixtureId: '1',
-                    channels: [{ offset: 3, value: 255 }],
+                    channels: fixture1DefaultChannels,
                   },
                   {
                     fixtureId: '2',
-                    channels: [],
+                    channels: fixture2ZeroChannels,
                   },
                 ],
               },
@@ -1331,11 +1353,11 @@ describe('CreateSceneModal', () => {
                 fixtureValues: [
                   {
                     fixtureId: '1',
-                    channels: [{ offset: 3, value: 255 }],
+                    channels: fixture1DefaultChannels,
                   },
                   {
                     fixtureId: '2',
-                    channels: [],
+                    channels: fixture2ZeroChannels,
                   },
                 ],
               },
@@ -1404,11 +1426,11 @@ describe('CreateSceneModal', () => {
                 fixtureValues: [
                   {
                     fixtureId: '1',
-                    channels: [{ offset: 3, value: 255 }],
+                    channels: fixture1DefaultChannels,
                   },
                   {
                     fixtureId: '2',
-                    channels: [],
+                    channels: fixture2ZeroChannels,
                   },
                 ],
               },
@@ -1697,7 +1719,11 @@ describe('CreateSceneModal', () => {
                 fixtureValues: [
                   {
                     fixtureId: '1',
-                    channels: [], // Should default to 0 when defaultValue is null/undefined, sparse format
+                    // Zero values are now included in sparse format for proper blackout scene support
+                    channels: [
+                      { offset: 0, value: 0 },
+                      { offset: 1, value: 0 },
+                    ],
                   },
                 ],
               },
