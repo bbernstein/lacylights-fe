@@ -526,8 +526,10 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     onCompleted: () => {
       // Refetch to get latest data
       refetchScene();
-      // Close the editor if callback provided
-      if (onClose) {
+      // When using shared state, don't close after saving - just save and stay in editor
+      // This prevents the confusing behavior of showing the unsaved changes modal
+      // User can manually switch views or close when ready
+      if (!useSharedState && onClose) {
         handleClose();
       }
     },
