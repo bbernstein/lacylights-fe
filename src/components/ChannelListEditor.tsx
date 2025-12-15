@@ -30,10 +30,15 @@ import ChannelSlider from './ChannelSlider';
 import { generateUUID } from '@/utils/uuid';
 import { sparseToDense, denseToSparse } from '@/utils/channelConversion';
 import { useUndoStack, UndoDelta } from '@/hooks/useUndoStack';
+import { SharedEditorState } from './SceneEditorLayout';
 
 interface ChannelListEditorProps {
   sceneId: string;
   onClose?: () => void;
+  /** Shared state from parent SceneEditorLayout for coordinated editing */
+  sharedState?: SharedEditorState;
+  /** Callback when local dirty state changes (for name/description) */
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
 // Extended FixtureValue interface with sceneOrder for sorting
@@ -327,9 +332,22 @@ function SortableFixtureRow({
   );
 }
 
-export default function ChannelListEditor({ sceneId, onClose }: ChannelListEditorProps) {
-  // Use a composite key: fixtureId-channelIndex to ensure uniqueness
-  const [channelValues, setChannelValues] = useState<Map<string, number[]>>(new Map());
+export default function ChannelListEditor({ sceneId, onClose, sharedState, onDirtyChange: _onDirtyChange }: ChannelListEditorProps) {
+  // Determine if we're using shared state from parent
+  const useSharedState = !!sharedState;
+
+  // Local state for channel values (only used when not using shared state)
+  const [localChannelValues, setLocalChannelValues] = useState<Map<string, number[]>>(new Map());
+
+  // Use shared state's channel values if provided, otherwise use local state
+  const channelValues = useSharedState ? sharedState.channelValues : localChannelValues;
+  const setChannelValues = useSharedState
+    ? (_fn: (prev: Map<string, number[]>) => Map<string, number[]>) => {
+        // When using shared state, individual changes go through onChannelValueChange
+        // This setter is a no-op since changes are handled by the parent
+      }
+    : setLocalChannelValues;
+
   const [sceneName, setSceneName] = useState('');
   const [sceneDescription, setSceneDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -360,20 +378,33 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
   const [showCopiedFeedback, setShowCopiedFeedback] = useState(false);
   const copyFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Track which channels are active (will be saved) per fixture
-  // Key: fixtureId, Value: Set of channel indices that are active
-  const [activeChannels, setActiveChannels] = useState<Map<string, Set<number>>>(new Map());
+  // Track which channels are active (will be saved) per fixture (local state when not using shared)
+  const [localActiveChannels, setLocalActiveChannels] = useState<Map<string, Set<number>>>(new Map());
+
+  // Use shared state's active channels if provided, otherwise use local state
+  const activeChannels = useSharedState ? sharedState.activeChannels : localActiveChannels;
+  // Note: setActiveChannels is not used directly anymore - we use handleToggleChannelActive instead
+  // This is kept for type compatibility but the actual toggling goes through the handler
 
   // Initial state for dirty tracking (set from server data)
   const [initialChannelValues, setInitialChannelValues] = useState<Map<string, number[]>>(new Map());
   const [initialSceneName, setInitialSceneName] = useState('');
   const [initialSceneDescription, setInitialSceneDescription] = useState('');
 
-  // Undo/redo stack
-  const { pushAction, undo, redo, canUndo, canRedo, clearHistory } = useUndoStack({
+  // Local undo/redo stack (only used when not using shared state)
+  const localUndoStack = useUndoStack({
     maxStackSize: 50,
     coalesceWindowMs: 500,
   });
+
+  // Use shared undo/redo if provided
+  const canUndo = useSharedState ? sharedState.canUndo : localUndoStack.canUndo;
+  const canRedo = useSharedState ? sharedState.canRedo : localUndoStack.canRedo;
+  // Memoize clearHistory to avoid changing identity on every render
+  const clearHistory = useMemo(
+    () => (useSharedState ? () => {} : localUndoStack.clearHistory),
+    [useSharedState, localUndoStack.clearHistory]
+  );
 
   // Unsaved changes modal state
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
@@ -394,7 +425,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
 
   const { data: sceneData, loading, refetch: refetchScene } = useQuery(GET_SCENE, {
     variables: { id: sceneId },
-    skip: !sceneId,
+    skip: !sceneId, // Always fetch scene data for fixture list and name/description
     onCompleted: (data) => {
       if (data.scene) {
         // Initialize scene name and description
@@ -405,49 +436,66 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
         setInitialSceneName(data.scene.name);
         setInitialSceneDescription(data.scene.description || '');
 
-        // Initialize channel values map with fixture arrays
-        // Convert sparse format to dense for internal state
-        const values = new Map<string, number[]>();
-        // Track which channels are active (present in the sparse array)
-        const active = new Map<string, Set<number>>();
-        data.scene.fixtureValues.forEach((fixtureValue: SceneFixtureValue) => {
-          const channelCount = fixtureValue.fixture.channels?.length || 0;
-          const denseValues = sparseToDense(fixtureValue.channels || [], channelCount);
-          values.set(fixtureValue.fixture.id, denseValues);
+        // Only initialize channel values when NOT using shared state
+        // When using shared state, the parent (SceneEditorLayout) manages these
+        if (!useSharedState) {
+          // Initialize channel values map with fixture arrays
+          // Convert sparse format to dense for internal state
+          const values = new Map<string, number[]>();
+          // Track which channels are active (present in the sparse array)
+          const active = new Map<string, Set<number>>();
+          data.scene.fixtureValues.forEach((fixtureValue: SceneFixtureValue) => {
+            const channelCount = fixtureValue.fixture.channels?.length || 0;
+            const denseValues = sparseToDense(fixtureValue.channels || [], channelCount);
+            values.set(fixtureValue.fixture.id, denseValues);
 
-          // Build set of active channel indices from sparse array
-          const activeSet = new Set<number>();
-          (fixtureValue.channels || []).forEach((ch: { offset: number }) => {
-            activeSet.add(ch.offset);
+            // Build set of active channel indices from sparse array
+            const activeSet = new Set<number>();
+            (fixtureValue.channels || []).forEach((ch: { offset: number }) => {
+              activeSet.add(ch.offset);
+            });
+            active.set(fixtureValue.fixture.id, activeSet);
           });
-          active.set(fixtureValue.fixture.id, activeSet);
-        });
-        setChannelValues(values);
-        setActiveChannels(active);
+          setLocalChannelValues(values);
+          setLocalActiveChannels(active);
 
-        // Store initial values for dirty tracking
-        setInitialChannelValues(new Map(values.entries()));
+          // Store initial values for dirty tracking
+          setInitialChannelValues(new Map(values.entries()));
+
+          // Clear undo history on fresh load
+          localUndoStack.clearHistory();
+        }
 
         // Reset fixture management state
         setRemovedFixtures(new Set());
         setSelectedFixturesToAdd(new Set());
-
-        // Clear undo history on fresh load
-        clearHistory();
       }
     },
   });
 
   const scene = sceneData?.scene;
 
-  // Compute dirty state by comparing current values with initial values
-  const isDirty = useMemo(() => {
+  // Compute local dirty state (name/description changes, fixture add/remove)
+  const localDirtyState = useMemo(() => {
     // Check if name or description changed
     if (sceneName !== initialSceneName) return true;
     if (sceneDescription !== initialSceneDescription) return true;
 
     // Check if any fixtures were added or removed
     if (selectedFixturesToAdd.size > 0 || removedFixtures.size > 0) return true;
+
+    return false;
+  }, [sceneName, sceneDescription, initialSceneName, initialSceneDescription, selectedFixturesToAdd, removedFixtures]);
+
+  // Combined dirty state - when using shared state, combine local dirty with parent's isDirty
+  const isDirty = useMemo(() => {
+    if (useSharedState && sharedState) {
+      // Dirty if either parent has unsaved channel changes or local has name/description changes
+      return sharedState.isDirty || localDirtyState;
+    }
+
+    // Local-only mode: check everything
+    if (localDirtyState) return true;
 
     // Check if channel values changed
     for (const [fixtureId, currentValues] of channelValues) {
@@ -460,7 +508,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
     }
 
     return false;
-  }, [sceneName, sceneDescription, initialSceneName, initialSceneDescription, selectedFixturesToAdd, removedFixtures, channelValues, initialChannelValues]);
+  }, [useSharedState, sharedState, localDirtyState, channelValues, initialChannelValues]);
 
   // Get all project fixtures to show available fixtures for adding
   const { data: projectFixturesData } = useQuery(GET_PROJECT_FIXTURES, {
@@ -575,10 +623,17 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
   }, [previewMode, previewSessionId, updatePreviewChannel]);
 
   const handleChannelValueChange = useCallback((fixtureId: string, channelIndex: number, value: number) => {
+    // If using shared state, delegate to parent's handler
+    if (useSharedState && sharedState) {
+      sharedState.onChannelValueChange(fixtureId, channelIndex, value);
+      return;
+    }
+
+    // Local state management (when not using shared state)
     // Capture previous value for undo
     const previousValue = channelValues.get(fixtureId)?.[channelIndex] ?? 0;
 
-    setChannelValues(prev => {
+    setLocalChannelValues(prev => {
       const newValues = new Map(prev);
       const fixtureValues = [...(newValues.get(fixtureId) || [])];
       fixtureValues[channelIndex] = value;
@@ -593,7 +648,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
       previousValue,
       newValue: value,
     };
-    pushAction({
+    localUndoStack.pushAction({
       type: 'CHANNEL_CHANGE',
       channelDeltas: [undoDelta],
       description: `Changed channel ${channelIndex}`,
@@ -603,7 +658,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
     if (previewMode && previewSessionId) {
       debouncedPreviewUpdate(fixtureId, channelIndex, value);
     }
-  }, [channelValues, previewMode, previewSessionId, debouncedPreviewUpdate, pushAction]);
+  }, [useSharedState, sharedState, channelValues, previewMode, previewSessionId, debouncedPreviewUpdate, localUndoStack]);
 
   // Color picker handlers
   const handleColorSwatchClick = (fixtureId: string) => {
@@ -648,7 +703,14 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
 
   // Toggle a channel's active state
   const handleToggleChannelActive = useCallback((fixtureId: string, channelIndex: number, isActive: boolean) => {
-    setActiveChannels(prev => {
+    // If using shared state, delegate to parent's handler
+    if (useSharedState && sharedState) {
+      sharedState.onToggleChannelActive(fixtureId, channelIndex, isActive);
+      return;
+    }
+
+    // Local state management
+    setLocalActiveChannels(prev => {
       const newMap = new Map(prev);
       const fixtureSet = new Set(newMap.get(fixtureId) || []);
       if (isActive) {
@@ -659,16 +721,23 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
       newMap.set(fixtureId, fixtureSet);
       return newMap;
     });
-  }, []);
+  }, [useSharedState, sharedState]);
 
   // Handle undo
   const handleUndo = useCallback(() => {
-    const action = undo();
+    // If using shared state, delegate to parent
+    if (useSharedState && sharedState) {
+      sharedState.onUndo();
+      return;
+    }
+
+    // Local undo
+    const action = localUndoStack.undo();
     if (!action) return;
 
     // Apply reverse of the action
     if (action.channelDeltas) {
-      setChannelValues(prev => {
+      setLocalChannelValues(prev => {
         const newValues = new Map(prev);
         action.channelDeltas!.forEach(delta => {
           const fixtureValues = [...(newValues.get(delta.fixtureId) || [])];
@@ -690,16 +759,23 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
         return newValues;
       });
     }
-  }, [undo, previewMode, previewSessionId, updatePreviewChannel]);
+  }, [useSharedState, sharedState, localUndoStack, previewMode, previewSessionId, updatePreviewChannel]);
 
   // Handle redo
   const handleRedo = useCallback(() => {
-    const action = redo();
+    // If using shared state, delegate to parent
+    if (useSharedState && sharedState) {
+      sharedState.onRedo();
+      return;
+    }
+
+    // Local redo
+    const action = localUndoStack.redo();
     if (!action) return;
 
     // Re-apply the action
     if (action.channelDeltas) {
-      setChannelValues(prev => {
+      setLocalChannelValues(prev => {
         const newValues = new Map(prev);
         action.channelDeltas!.forEach(delta => {
           const fixtureValues = [...(newValues.get(delta.fixtureId) || [])];
@@ -721,7 +797,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
         return newValues;
       });
     }
-  }, [redo, previewMode, previewSessionId, updatePreviewChannel]);
+  }, [useSharedState, sharedState, localUndoStack, previewMode, previewSessionId, updatePreviewChannel]);
 
   const applyColorToFixture = (fixtureId: string, color: { r: number; g: number; b: number }, _final: boolean) => {
     const fixtureValue = scene?.fixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
@@ -800,14 +876,29 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
 
     // Paste values for each channel (up to the minimum of copied values or current fixture channels)
     const channelCount = Math.min(copiedChannelValues.length, currentValues.length);
-    const newValues = [...currentValues];
 
+    // If using shared state, delegate channel changes to parent
+    if (useSharedState && sharedState) {
+      for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
+        sharedState.onChannelValueChange(fixtureId, channelIndex, copiedChannelValues[channelIndex]);
+      }
+      // Also paste active channels state if available
+      if (copiedActiveChannels !== null) {
+        for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
+          sharedState.onToggleChannelActive(fixtureId, channelIndex, copiedActiveChannels.has(channelIndex));
+        }
+      }
+      return;
+    }
+
+    // Local state management
+    const newValues = [...currentValues];
     for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
       newValues[channelIndex] = copiedChannelValues[channelIndex];
     }
 
     // Update local state for channel values
-    setChannelValues(prev => {
+    setLocalChannelValues(prev => {
       const newMap = new Map(prev);
       newMap.set(fixtureId, newValues);
       return newMap;
@@ -815,7 +906,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
 
     // Also paste active channels state if available
     if (copiedActiveChannels !== null) {
-      setActiveChannels(prev => {
+      setLocalActiveChannels(prev => {
         const newMap = new Map(prev);
         // Create a new set with only the channels that exist in the target fixture
         const newActiveSet = new Set<number>();
@@ -842,7 +933,7 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
         });
       }
     }
-  }, [copiedChannelValues, copiedActiveChannels, channelValues, previewMode, previewSessionId, updatePreviewChannel]);
+  }, [copiedChannelValues, copiedActiveChannels, channelValues, useSharedState, sharedState, previewMode, previewSessionId, updatePreviewChannel]);
 
   // Helper to get available fixtures that aren't already in the scene
   const availableFixtures = useMemo(() => {
@@ -1112,7 +1203,9 @@ export default function ChannelListEditor({ sceneId, onClose }: ChannelListEdito
       clearTimeout(copyFeedbackTimeoutRef.current);
     }
 
-    setChannelValues(new Map());
+    // Reset local state (only affects local state, not shared state managed by parent)
+    setLocalChannelValues(new Map());
+    setLocalActiveChannels(new Map());
     setSceneName('');
     setSceneDescription('');
     setError(null);

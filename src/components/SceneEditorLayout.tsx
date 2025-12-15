@@ -26,6 +26,31 @@ interface SceneEditorLayoutProps {
 }
 
 /**
+ * Shared state passed to ChannelListEditor for coordinated editing
+ */
+export interface SharedEditorState {
+  /** Channel values map (fixtureId -> array of channel values) */
+  channelValues: Map<string, number[]>;
+  /** Active channels map (fixtureId -> set of active channel indices) */
+  activeChannels: Map<string, Set<number>>;
+  /** Whether there are unsaved changes */
+  isDirty: boolean;
+  /** Undo stack controls */
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+  /** Channel value change handler */
+  onChannelValueChange: (fixtureId: string, channelIndex: number, value: number) => void;
+  /** Toggle channel active state */
+  onToggleChannelActive: (fixtureId: string, channelIndex: number, isActive: boolean) => void;
+  /** Save changes */
+  onSave: () => Promise<void>;
+  /** Save status */
+  saveStatus: 'idle' | 'saving' | 'saved' | 'error';
+}
+
+/**
  * Type for fixture channel values used in scene updates
  */
 type FixtureChannelValues = {
@@ -71,10 +96,9 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<'close' | 'switch' | null>(null);
 
-  // Fetch scene data for 2D layout mode
-  const { data: sceneData } = useQuery(GET_SCENE, {
+  // Fetch scene data for both modes (shared state)
+  const { data: sceneData, loading: sceneLoading, refetch: _refetchScene } = useQuery(GET_SCENE, {
     variables: { id: sceneId },
-    skip: mode !== 'layout',
   });
 
   // Mutation for updating scene (no refetch - we use optimistic local state)
@@ -122,9 +146,10 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
     return values;
   }, [scene]);
 
-  // Initialize active channels from scene data when scene loads
+  // Initialize local state from scene data when scene loads
   useEffect(() => {
     if (scene) {
+      // Initialize active channels
       const active = new Map<string, Set<number>>();
       scene.fixtureValues.forEach((fv: FixtureValue) => {
         // Build set of active channel indices from sparse array
@@ -135,8 +160,19 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         active.set(fv.fixture.id, activeSet);
       });
       setActiveChannels(active);
+
+      // Initialize channel values from scene (only if not already set)
+      // This ensures we don't overwrite values when switching between modes
+      if (localFixtureValues.size === 0) {
+        const values = new Map<string, number[]>();
+        scene.fixtureValues.forEach((fv: FixtureValue) => {
+          const channelCount = fv.fixture.channels?.length || 0;
+          values.set(fv.fixture.id, sparseToDense(fv.channels || [], channelCount));
+        });
+        setLocalFixtureValues(values);
+      }
     }
-  }, [scene]);
+  }, [scene, localFixtureValues.size]);
 
   // Build channel values map for layout canvas (merge server + local state)
   const fixtureValues = useMemo(() => {
@@ -306,6 +342,42 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       }
     }
   }, [previewMode, previewSessionId, scene, cancelPreviewSession, startPreviewSession, initializePreviewWithSceneValues]);
+
+  // Handle single channel value change (used by ChannelListEditor)
+  const handleSingleChannelChange = useCallback((fixtureId: string, channelIndex: number, value: number) => {
+    if (!scene) return;
+
+    // Capture previous value for undo
+    const currentValues = localFixtureValues.get(fixtureId) || serverDenseValues.get(fixtureId) || [];
+    const previousValue = currentValues[channelIndex] ?? 0;
+
+    // Update local state
+    setLocalFixtureValues(prev => {
+      const newMap = new Map(prev);
+      const values = newMap.get(fixtureId) || serverDenseValues.get(fixtureId) || [];
+      const newValues = [...values];
+      newValues[channelIndex] = value;
+      newMap.set(fixtureId, newValues);
+      return newMap;
+    });
+
+    // Push to undo stack
+    pushAction({
+      type: 'CHANNEL_CHANGE',
+      channelDeltas: [{
+        fixtureId,
+        channelIndex,
+        previousValue,
+        newValue: value,
+      }],
+      description: `Changed channel ${channelIndex}`,
+    });
+
+    // Update preview if active
+    if (previewMode && previewSessionId) {
+      debouncedPreviewUpdate([{ fixtureId, channelIndex, value }]);
+    }
+  }, [scene, localFixtureValues, serverDenseValues, pushAction, previewMode, previewSessionId, debouncedPreviewUpdate]);
 
   // Handle batched channel value changes from MultiSelectControls
   // Changes are saved locally only - user must click Save to persist
@@ -921,8 +993,32 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
 
       {/* Editor content area */}
       <div className="flex-1 overflow-hidden relative">
-        {mode === 'channels' ? (
-          <ChannelListEditor sceneId={sceneId} onClose={onClose} />
+        {sceneLoading ? (
+          <div className="h-full flex items-center justify-center text-gray-400">
+            Loading scene...
+          </div>
+        ) : mode === 'channels' ? (
+          <ChannelListEditor
+            sceneId={sceneId}
+            onClose={onClose}
+            sharedState={{
+              channelValues: localFixtureValues.size > 0 ? localFixtureValues : serverDenseValues,
+              activeChannels,
+              isDirty,
+              canUndo,
+              canRedo,
+              onUndo: handleUndo,
+              onRedo: handleRedo,
+              onChannelValueChange: handleSingleChannelChange,
+              onToggleChannelActive: handleToggleChannelActive,
+              onSave: handleSaveScene,
+              saveStatus,
+            }}
+            onDirtyChange={(_dirty) => {
+              // ChannelListEditor can report additional dirty state (name/description changes)
+              // This will be handled by the shared isDirty computation
+            }}
+          />
         ) : scene ? (
           <>
             <LayoutCanvas

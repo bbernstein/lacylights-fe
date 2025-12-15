@@ -93,7 +93,7 @@ describe('SceneEditorLayout', () => {
   });
 
   describe('rendering', () => {
-    it('renders with channels mode', () => {
+    it('renders with channels mode', async () => {
       render(
         <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
           <SceneEditorLayout {...defaultProps} />
@@ -103,10 +103,12 @@ describe('SceneEditorLayout', () => {
       expect(screen.getByText('Back to Scenes')).toBeInTheDocument();
       expect(screen.getByText('Channel List')).toBeInTheDocument();
       expect(screen.getByText('2D Layout')).toBeInTheDocument();
+      // Wait for scene data to load before checking for channel list editor
+      await screen.findByTestId('channel-list-editor');
       expect(screen.getByTestId('channel-list-editor')).toBeInTheDocument();
     });
 
-    it('renders with layout mode', () => {
+    it('renders with layout mode', async () => {
       render(
         <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
           <SceneEditorLayout {...defaultProps} mode="layout" />
@@ -116,6 +118,8 @@ describe('SceneEditorLayout', () => {
       expect(screen.getByText('Back to Scenes')).toBeInTheDocument();
       expect(screen.getByText('Channel List')).toBeInTheDocument();
       expect(screen.getByText('2D Layout')).toBeInTheDocument();
+      // Wait for scene data to load
+      await screen.findByTestId('layout-canvas');
     });
 
     it('shows loading state in layout mode before data loads', () => {
@@ -217,15 +221,19 @@ describe('SceneEditorLayout', () => {
   });
 
   describe('GraphQL data loading', () => {
-    it('skips query when in channels mode', () => {
+    it('fetches scene data in both modes for shared state', async () => {
+      // Scene data is now fetched in all modes to support shared state between views
       const { container } = render(
         <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
           <SceneEditorLayout {...defaultProps} mode="channels" />
         </MockedProvider>
       );
 
-      // Query is skipped, so no loading state or layout canvas
-      expect(screen.queryByText('Loading scene...')).not.toBeInTheDocument();
+      // Shows loading initially while fetching scene data
+      expect(screen.getByText('Loading scene...')).toBeInTheDocument();
+
+      // After data loads, shows channel list editor
+      await screen.findByTestId('channel-list-editor');
       expect(screen.getByTestId('channel-list-editor')).toBeInTheDocument();
       expect(container.querySelector('[data-testid="layout-canvas"]')).not.toBeInTheDocument();
     });
