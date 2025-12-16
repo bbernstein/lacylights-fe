@@ -71,6 +71,9 @@ export default function SettingsPage() {
   );
 
   const validateFadeUpdateRate = (value: string): string | null => {
+    if (value.trim() === '') {
+      return 'Please enter a value';
+    }
     const num = Number(value);
     if (isNaN(num)) {
       return 'Please enter a valid number';
