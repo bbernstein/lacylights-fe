@@ -61,20 +61,30 @@ describe('channelConversion', () => {
   });
 
   describe('denseToSparse', () => {
-    it('converts dense array to sparse array', () => {
+    it('converts dense array to sparse array including zeros', () => {
       const dense = [255, 0, 128, 0, 64, 0];
       const result = denseToSparse(dense);
+      // Now includes all values including zeros for proper blackout scene support
       expect(result).toEqual([
         { offset: 0, value: 255 },
+        { offset: 1, value: 0 },
         { offset: 2, value: 128 },
+        { offset: 3, value: 0 },
         { offset: 4, value: 64 },
+        { offset: 5, value: 0 },
       ]);
     });
 
-    it('handles all-zero dense array', () => {
+    it('handles all-zero dense array (for blackout scenes)', () => {
       const dense = [0, 0, 0, 0];
       const result = denseToSparse(dense);
-      expect(result).toEqual([]);
+      // Now includes zeros so blackout scenes work correctly
+      expect(result).toEqual([
+        { offset: 0, value: 0 },
+        { offset: 1, value: 0 },
+        { offset: 2, value: 0 },
+        { offset: 3, value: 0 },
+      ]);
     });
 
     it('handles empty dense array', () => {
@@ -83,7 +93,7 @@ describe('channelConversion', () => {
       expect(result).toEqual([]);
     });
 
-    it('includes all non-zero values', () => {
+    it('includes all values', () => {
       const dense = [1, 2, 3, 4, 5];
       const result = denseToSparse(dense);
       expect(result).toEqual([
@@ -95,18 +105,19 @@ describe('channelConversion', () => {
       ]);
     });
 
-    it('preserves value 255', () => {
+    it('preserves value 255 and zeros', () => {
       const dense = [255, 0, 255];
       const result = denseToSparse(dense);
       expect(result).toEqual([
         { offset: 0, value: 255 },
+        { offset: 1, value: 0 },
         { offset: 2, value: 255 },
       ]);
     });
   });
 
   describe('round-trip conversions', () => {
-    it('sparse -> dense -> sparse preserves data', () => {
+    it('sparse -> dense -> sparse includes all channels', () => {
       const original: ChannelValue[] = [
         { offset: 0, value: 255 },
         { offset: 2, value: 128 },
@@ -114,7 +125,15 @@ describe('channelConversion', () => {
       ];
       const dense = sparseToDense(original, 6);
       const result = denseToSparse(dense);
-      expect(result).toEqual(original);
+      // Result now includes all channels (including zeros)
+      expect(result).toEqual([
+        { offset: 0, value: 255 },
+        { offset: 1, value: 0 },
+        { offset: 2, value: 128 },
+        { offset: 3, value: 0 },
+        { offset: 4, value: 64 },
+        { offset: 5, value: 0 },
+      ]);
     });
 
     it('dense -> sparse -> dense preserves data', () => {
@@ -214,24 +233,28 @@ describe('channelConversion', () => {
       ]);
     });
 
-    it('removes channel when value is 0', () => {
+    it('includes channel when value is 0 (for blackout support)', () => {
       const sparse: ChannelValue[] = [
         { offset: 0, value: 255 },
         { offset: 2, value: 128 },
       ];
       const result = updateChannelValue(sparse, 2, 0);
+      // Zero values are now included to support blackout scenes
       expect(result).toEqual([
         { offset: 0, value: 255 },
+        { offset: 2, value: 0 },
       ]);
     });
 
-    it('does nothing when setting non-existing channel to 0', () => {
+    it('adds channel with value 0 for explicit zero setting', () => {
       const sparse: ChannelValue[] = [
         { offset: 0, value: 255 },
       ];
       const result = updateChannelValue(sparse, 2, 0);
+      // Zero values are now included to support blackout scenes
       expect(result).toEqual([
         { offset: 0, value: 255 },
+        { offset: 2, value: 0 },
       ]);
     });
 
@@ -256,10 +279,13 @@ describe('channelConversion', () => {
       ]);
     });
 
-    it('handles setting to 0 on empty array', () => {
+    it('handles setting to 0 on empty array (includes zero for blackout)', () => {
       const sparse: ChannelValue[] = [];
       const result = updateChannelValue(sparse, 0, 0);
-      expect(result).toEqual([]);
+      // Zero values are now included to support blackout scenes
+      expect(result).toEqual([
+        { offset: 0, value: 0 },
+      ]);
     });
 
     it('does not mutate original array', () => {

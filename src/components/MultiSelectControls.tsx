@@ -22,6 +22,10 @@ interface MultiSelectControlsProps {
     changes: Array<{ fixtureId: string; channelIndex: number; value: number }>,
   ) => void;
   onDeselectAll: () => void;
+  /** Optional: Track which channels are active per fixture (for scene editing). Key: fixtureId, Value: Set of active channel indices */
+  activeChannels?: Map<string, Set<number>>;
+  /** Optional: Callback when channel active state changes */
+  onToggleChannelActive?: (fixtureId: string, channelIndex: number, isActive: boolean) => void;
 }
 
 export default function MultiSelectControls({
@@ -30,6 +34,8 @@ export default function MultiSelectControls({
   onBatchedChannelChanges,
   onDebouncedPreviewUpdate,
   onDeselectAll,
+  activeChannels,
+  onToggleChannelActive,
 }: MultiSelectControlsProps) {
   const [mergedChannels, setMergedChannels] = useState<MergedChannel[]>([]);
   const [rgbColor, setRgbColor] = useState<{
@@ -332,6 +338,32 @@ export default function MultiSelectControls({
     return `${channel.name} (${channel.type})${countInfo}`;
   };
 
+  // Check if a merged channel is fully active (all underlying fixture/channel pairs are active)
+  const isMergedChannelActive = useCallback(
+    (channel: MergedChannel): boolean => {
+      if (!activeChannels) return true; // If no tracking, all are active
+      // A merged channel is active if ALL its underlying channels are active
+      return channel.fixtureIds.every((fixtureId, index) => {
+        const fixtureActiveChannels = activeChannels.get(fixtureId);
+        if (!fixtureActiveChannels) return true; // No tracking for this fixture means all active
+        return fixtureActiveChannels.has(channel.channelIndices[index]);
+      });
+    },
+    [activeChannels],
+  );
+
+  // Handle toggling active state for a merged channel (toggles all underlying channels)
+  const handleToggleMergedChannelActive = useCallback(
+    (channel: MergedChannel, isActive: boolean) => {
+      if (!onToggleChannelActive) return;
+      // Toggle all underlying fixture/channel pairs
+      channel.fixtureIds.forEach((fixtureId, index) => {
+        onToggleChannelActive(fixtureId, channel.channelIndices[index], isActive);
+      });
+    },
+    [onToggleChannelActive],
+  );
+
   if (selectedFixtures.length === 0) {
     return null;
   }
@@ -415,6 +447,8 @@ export default function MultiSelectControls({
               onChange={(value) => handleSliderInput(channel, value)}
               onChangeComplete={(value) => handleSliderMouseUp(channel, value)}
               tooltip={getChannelTooltip(channel)}
+              isActive={onToggleChannelActive ? isMergedChannelActive(channel) : undefined}
+              onToggleActive={onToggleChannelActive ? (active) => handleToggleMergedChannelActive(channel, active) : undefined}
             />
             {channel.hasVariation && (
               <div

@@ -28,6 +28,10 @@ interface ChannelSliderProps {
   tooltip?: string;
   showFadeBehavior?: boolean;
   onFadeBehaviorClick?: () => void;
+  /** Whether this channel is active (will be saved to the scene). If undefined, no toggle is shown. */
+  isActive?: boolean;
+  /** Callback when user toggles the active state. If provided, shows a checkbox. */
+  onToggleActive?: (isActive: boolean) => void;
 }
 
 /**
@@ -41,7 +45,9 @@ export default function ChannelSlider({
   onChangeComplete,
   tooltip,
   showFadeBehavior = false,
-  onFadeBehaviorClick
+  onFadeBehaviorClick,
+  isActive,
+  onToggleActive,
 }: ChannelSliderProps) {
   const [localValue, setLocalValue] = useState(value);
 
@@ -119,8 +125,26 @@ export default function ChannelSlider({
   const channelColor = getChannelColor();
   const displayTooltip = tooltip || `${channel.name} (${channel.type})`;
 
+  // Show toggle checkbox only when onToggleActive is provided
+  const showToggle = onToggleActive !== undefined;
+  // If isActive is undefined and toggle is shown, default to true
+  const effectiveIsActive = isActive ?? true;
+  // Apply dimmed styling when inactive
+  const isInactive = showToggle && !effectiveIsActive;
+
   return (
-    <div className="flex items-center space-x-2 py-0.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded">
+    <div className={`flex items-center space-x-2 py-0.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded ${isInactive ? 'opacity-50' : ''}`}>
+      {/* Channel active toggle checkbox */}
+      {showToggle && (
+        <input
+          type="checkbox"
+          checked={effectiveIsActive}
+          onChange={(e) => onToggleActive(e.target.checked)}
+          className="w-3 h-3 flex-shrink-0 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-1 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+          title={effectiveIsActive ? 'Channel active (will be saved)' : 'Channel inactive (will not be saved)'}
+          aria-label={`Toggle active for ${channel.name}`}
+        />
+      )}
       <label
         className="text-xs text-gray-700 dark:text-gray-300 w-12 flex-shrink-0 flex items-center space-x-1"
         title={displayTooltip}
@@ -141,13 +165,15 @@ export default function ChannelSlider({
         onChange={handleSliderChange}
         onMouseUp={handleSliderMouseUp}
         onTouchEnd={handleSliderTouchEnd}
-        className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-600
+        disabled={isInactive}
+        className={`flex-1 h-1 bg-gray-200 rounded-lg appearance-none dark:bg-gray-600
                    [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5
-                   [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer
+                   [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:rounded-full
                    [&::-webkit-slider-thumb]:hover:bg-blue-700 [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-all
                    [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:bg-blue-600
-                   [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer
-                   [&::-moz-range-thumb]:hover:bg-blue-700 [&::-moz-range-thumb]:hover:scale-125 [&::-moz-range-thumb]:transition-all"
+                   [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0
+                   [&::-moz-range-thumb]:hover:bg-blue-700 [&::-moz-range-thumb]:hover:scale-125 [&::-moz-range-thumb]:transition-all
+                   ${isInactive ? 'cursor-not-allowed' : 'cursor-pointer [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:cursor-pointer'}`}
       />
       <input
         type="number"
@@ -156,7 +182,8 @@ export default function ChannelSlider({
         value={localValue}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
-        className="w-12 text-xs text-center font-mono text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        disabled={isInactive}
+        className={`w-12 text-xs text-center font-mono text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0 focus:outline-none focus:ring-1 focus:ring-blue-500 ${isInactive ? 'cursor-not-allowed' : ''}`}
         title="Use arrow keys to adjust. Hold Shift for ±10"
       />
       {showFadeBehavior && channel.fadeBehavior && (

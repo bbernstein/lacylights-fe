@@ -19,12 +19,14 @@ export function sparseToDense(channels: ChannelValue[], channelCount: number): n
 /**
  * Convert dense array to sparse format for saving
  * @param values Dense array of channel values
- * @returns Sparse array containing only non-zero values
+ * @returns Sparse array containing all channel values (including zeros)
+ *
+ * Note: We include zero values because scenes need to be able to explicitly set channels to zero.
+ * When fading to a scene, only channels present in the sparse array are faded. Omitting zeros
+ * would cause those channels to retain their previous values instead of fading to zero.
  */
 export function denseToSparse(values: number[]): ChannelValue[] {
-  return values
-    .map((value, offset) => ({ offset, value }))
-    .filter((ch) => ch.value !== 0);
+  return values.map((value, offset) => ({ offset, value }));
 }
 
 /**
@@ -67,6 +69,9 @@ export function getChannelValue(channels: ChannelValue[], offset: number): numbe
  * @param offset Channel offset to update
  * @param value New value
  * @returns New sparse array with updated value
+ *
+ * Note: We always include the value even if it's zero, because scenes need to be able
+ * to explicitly set channels to zero for proper fade behavior.
  */
 export function updateChannelValue(
   channels: ChannelValue[],
@@ -76,10 +81,8 @@ export function updateChannelValue(
   // Remove the channel if it exists
   const filtered = channels.filter((ch) => ch.offset !== offset);
 
-  // Add it back if the value is non-zero
-  if (value !== 0) {
-    filtered.push({ offset, value });
-  }
+  // Always add the value (including zero) to support blackout scenes
+  filtered.push({ offset, value });
 
   // Sort by offset for consistency
   return filtered.sort((a, b) => a.offset - b.offset);
