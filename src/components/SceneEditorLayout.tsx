@@ -40,8 +40,10 @@ export interface SharedEditorState {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
-  /** Channel value change handler */
+  /** Channel value change handler (single channel) */
   onChannelValueChange: (fixtureId: string, channelIndex: number, value: number) => void;
+  /** Batch channel value change handler (multiple channels at once) */
+  onBatchChannelValueChange: (changes: Array<{fixtureId: string, channelIndex: number, value: number}>) => void;
   /** Toggle channel active state */
   onToggleChannelActive: (fixtureId: string, channelIndex: number, isActive: boolean) => void;
   /** Save changes */
@@ -1010,6 +1012,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
               onUndo: handleUndo,
               onRedo: handleRedo,
               onChannelValueChange: handleSingleChannelChange,
+              onBatchChannelValueChange: handleBatchedChannelChanges,
               onToggleChannelActive: handleToggleChannelActive,
               onSave: handleSaveScene,
               saveStatus,

@@ -379,6 +379,9 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
   const [showCopiedFeedback, setShowCopiedFeedback] = useState(false);
   const copyFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Form ref for programmatic submission
+  const formRef = useRef<HTMLFormElement>(null);
+
   // Track which channels are active (will be saved) per fixture (local state when not using shared)
   const [localActiveChannels, setLocalActiveChannels] = useState<Map<string, Set<number>>>(new Map());
 
@@ -826,10 +829,13 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
 
     // Apply all channel changes to state
     if (useSharedState && sharedState) {
-      // When using shared state, call the parent's handler for each channel
-      channelUpdates.forEach(({ channelIndex, value }) => {
-        sharedState.onChannelValueChange(fixtureId, channelIndex, value);
-      });
+      // When using shared state, use the batch handler to avoid multiple re-renders and undo entries
+      const changes = channelUpdates.map(({ channelIndex, value }) => ({
+        fixtureId,
+        channelIndex,
+        value,
+      }));
+      sharedState.onBatchChannelValueChange(changes);
     } else {
       // Using local state
       setChannelValues(prev => {
@@ -888,11 +894,15 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     // Paste values for each channel (up to the minimum of copied values or current fixture channels)
     const channelCount = Math.min(copiedChannelValues.length, currentValues.length);
 
-    // If using shared state, delegate channel changes to parent
+    // If using shared state, delegate channel changes to parent using batch handler
     if (useSharedState && sharedState) {
+      // Batch all channel value changes to avoid multiple re-renders and undo entries
+      const changes: Array<{fixtureId: string, channelIndex: number, value: number}> = [];
       for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
-        sharedState.onChannelValueChange(fixtureId, channelIndex, copiedChannelValues[channelIndex]);
+        changes.push({ fixtureId, channelIndex, value: copiedChannelValues[channelIndex] });
       }
+      sharedState.onBatchChannelValueChange(changes);
+
       // Also paste active channels state if available
       if (copiedActiveChannels !== null) {
         for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
@@ -1243,10 +1253,9 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
 
   // Modal handlers for unsaved changes dialog
   const handleModalSave = useCallback(async () => {
-    // Trigger the form submit
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
+    // Trigger the form submit using the form ref
+    if (formRef.current) {
+      formRef.current.requestSubmit();
     }
     setShowUnsavedModal(false);
     // Note: handleSubmit will call handleClose after successful save
@@ -1309,7 +1318,7 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
   return (
     <div className="h-full overflow-y-auto bg-white dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <form onSubmit={handleSubmit}>
+        <form ref={formRef} onSubmit={handleSubmit}>
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
