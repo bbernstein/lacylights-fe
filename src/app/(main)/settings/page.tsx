@@ -71,9 +71,12 @@ export default function SettingsPage() {
   );
 
   const validateFadeUpdateRate = (value: string): string | null => {
-    const num = parseInt(value, 10);
+    const num = Number(value);
     if (isNaN(num)) {
       return 'Please enter a valid number';
+    }
+    if (!Number.isInteger(num)) {
+      return 'Fade update rate must be a whole number';
     }
     if (num < 10 || num > 120) {
       return 'Fade update rate must be between 10 and 120 Hz';
@@ -180,6 +183,7 @@ export default function SettingsPage() {
                                   setManualEntry(true);
                                 } else {
                                   setEditingValue(e.target.value);
+                                  setValidationError(null);
                                 }
                               }}
                               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
@@ -199,11 +203,21 @@ export default function SettingsPage() {
                             <input
                               type="text"
                               value={editingValue}
-                              onChange={(e) => setEditingValue(e.target.value)}
+                              onChange={(e) => {
+                                setEditingValue(e.target.value);
+                                setValidationError(null);
+                              }}
                               placeholder="e.g., 192.168.1.255"
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${
+                                validationError
+                                  ? 'border-red-500 dark:border-red-500'
+                                  : 'border-gray-300 dark:border-gray-600'
+                              }`}
                               autoFocus
                             />
+                            {validationError && (
+                              <p className="text-sm text-red-600 dark:text-red-400">{validationError}</p>
+                            )}
                             <button
                               onClick={() => setManualEntry(false)}
                               className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
@@ -211,6 +225,9 @@ export default function SettingsPage() {
                               ← Back to dropdown
                             </button>
                           </div>
+                        )}
+                        {validationError && !manualEntry && (
+                          <p className="text-sm text-red-600 dark:text-red-400">{validationError}</p>
                         )}
                       </div>
                     ) : setting.key === 'fade_update_rate' ? (
@@ -224,6 +241,8 @@ export default function SettingsPage() {
                           }}
                           min="10"
                           max="120"
+                          step="1"
+                          inputMode="numeric"
                           placeholder="60"
                           className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${
                             validationError
@@ -238,13 +257,25 @@ export default function SettingsPage() {
                         <p className="text-xs text-gray-500 dark:text-gray-400">Valid range: 10-120 Hz</p>
                       </div>
                     ) : (
-                      <input
-                        type="text"
-                        value={editingValue}
-                        onChange={(e) => setEditingValue(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                        autoFocus
-                      />
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          value={editingValue}
+                          onChange={(e) => {
+                            setEditingValue(e.target.value);
+                            setValidationError(null);
+                          }}
+                          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${
+                            validationError
+                              ? 'border-red-500 dark:border-red-500'
+                              : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                          autoFocus
+                        />
+                        {validationError && (
+                          <p className="text-sm text-red-600 dark:text-red-400">{validationError}</p>
+                        )}
+                      </div>
                     )
                   ) : (
                     setting.value
