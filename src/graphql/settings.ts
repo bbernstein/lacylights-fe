@@ -41,6 +41,7 @@ export const GET_SYSTEM_INFO = gql`
     systemInfo {
       artnetBroadcastAddress
       artnetEnabled
+      fadeUpdateRate
     }
   }
 `;
@@ -62,6 +63,7 @@ export const SYSTEM_INFO_UPDATED = gql`
     systemInfoUpdated {
       artnetBroadcastAddress
       artnetEnabled
+      fadeUpdateRate
     }
   }
 `;
