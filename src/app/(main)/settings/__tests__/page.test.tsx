@@ -312,11 +312,35 @@ describe('SettingsPage - Fade Update Rate Validation', () => {
     }
   });
 
-  it('accepts boundary values (10 and 120)', async () => {
-    const mocks = createMocks(true);
+  it('accepts minimum boundary value (10)', async () => {
+    const mocksWithBoundary = [
+      ...createMocks(false).slice(0, 3),
+      {
+        request: {
+          query: UPDATE_SETTING,
+          variables: {
+            input: {
+              key: 'fade_update_rate',
+              value: '10',
+            },
+          },
+        },
+        result: {
+          data: {
+            updateSetting: {
+              id: '2',
+              key: 'fade_update_rate',
+              value: '10',
+              createdAt: '2024-01-01',
+              updatedAt: '2024-01-01',
+            },
+          },
+        },
+      },
+    ];
 
     render(
-      <MockedProvider mocks={mocks} addTypename={false}>
+      <MockedProvider mocks={mocksWithBoundary} addTypename={false}>
         <SettingsPage />
       </MockedProvider>
     );
@@ -339,42 +363,78 @@ describe('SettingsPage - Fade Update Rate Validation', () => {
         expect(input).toBeInTheDocument();
       });
 
-      // Test minimum boundary
       const input = screen.getByPlaceholderText('60') as HTMLInputElement;
       fireEvent.change(input, { target: { value: '10' } });
 
-      let saveButton = screen.getByText('Save');
+      const saveButton = screen.getByText('Save');
       fireEvent.click(saveButton);
 
       await waitFor(() => {
         expect(screen.queryByText(/must be between/i)).not.toBeInTheDocument();
       });
+    }
+  });
 
-      // Re-open for editing and test maximum boundary
-      const editButtons2 = screen.getAllByText('Edit');
-      const fadeRateEditButton2 = editButtons2.find((btn) => {
-        const row = btn.closest('tr');
-        return row?.textContent?.includes('Fade Update Rate');
+  it('accepts maximum boundary value (120)', async () => {
+    const mocksWithBoundary = [
+      ...createMocks(false).slice(0, 3),
+      {
+        request: {
+          query: UPDATE_SETTING,
+          variables: {
+            input: {
+              key: 'fade_update_rate',
+              value: '120',
+            },
+          },
+        },
+        result: {
+          data: {
+            updateSetting: {
+              id: '2',
+              key: 'fade_update_rate',
+              value: '120',
+              createdAt: '2024-01-01',
+              updatedAt: '2024-01-01',
+            },
+          },
+        },
+      },
+    ];
+
+    render(
+      <MockedProvider mocks={mocksWithBoundary} addTypename={false}>
+        <SettingsPage />
+      </MockedProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Fade Update Rate (Hz)')).toBeInTheDocument();
+    });
+
+    const editButtons = screen.getAllByText('Edit');
+    const fadeRateEditButton = editButtons.find((btn) => {
+      const row = btn.closest('tr');
+      return row?.textContent?.includes('Fade Update Rate');
+    });
+
+    if (fadeRateEditButton) {
+      fireEvent.click(fadeRateEditButton);
+
+      await waitFor(() => {
+        const input = screen.getByPlaceholderText('60');
+        expect(input).toBeInTheDocument();
       });
 
-      if (fadeRateEditButton2) {
-        fireEvent.click(fadeRateEditButton2);
+      const input = screen.getByPlaceholderText('60') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '120' } });
 
-        await waitFor(() => {
-          const input2 = screen.getByPlaceholderText('60');
-          expect(input2).toBeInTheDocument();
-        });
+      const saveButton = screen.getByText('Save');
+      fireEvent.click(saveButton);
 
-        const input2 = screen.getByPlaceholderText('60') as HTMLInputElement;
-        fireEvent.change(input2, { target: { value: '120' } });
-
-        saveButton = screen.getByText('Save');
-        fireEvent.click(saveButton);
-
-        await waitFor(() => {
-          expect(screen.queryByText(/must be between/i)).not.toBeInTheDocument();
-        });
-      }
+      await waitFor(() => {
+        expect(screen.queryByText(/must be between/i)).not.toBeInTheDocument();
+      });
     }
   });
 
