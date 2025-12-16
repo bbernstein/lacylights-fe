@@ -220,7 +220,7 @@ export interface Setting {
 export interface SystemInfo {
   artnetBroadcastAddress: string;
   artnetEnabled: boolean;
-  fadeUpdateRate: number;
+  fadeUpdateRateHz: number;
 }
 
 export interface NetworkInterfaceOption {

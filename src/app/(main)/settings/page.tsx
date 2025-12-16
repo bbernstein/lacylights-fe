@@ -26,7 +26,7 @@ const KNOWN_SETTINGS: SettingDefinition[] = [
     key: 'fade_update_rate',
     displayName: 'Fade Update Rate (Hz)',
     description: 'The frequency at which fade transitions are updated, in Hertz (Hz). Higher values provide smoother transitions but use more CPU. Valid range: 10-120 Hz. Default: 60 Hz.',
-    getCurrentValue: (systemInfo) => systemInfo?.fadeUpdateRate?.toString() || '60',
+    getCurrentValue: (systemInfo) => systemInfo?.fadeUpdateRateHz?.toString() || '60',
   },
 ];
 
