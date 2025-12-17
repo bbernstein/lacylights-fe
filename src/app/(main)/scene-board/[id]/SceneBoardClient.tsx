@@ -828,7 +828,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
       // Build complete button positions list for recalibration
       const allButtonPositions: ButtonPosition[] =
-        board?.buttons.map((btn) => {
+        board?.buttons.map((btn: SceneBoardButton) => {
           const draggingData = draggingButtons.get(btn.id);
           return {
             buttonId: btn.id,
