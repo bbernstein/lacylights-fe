@@ -256,6 +256,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
   // Selection helper functions - defined before useEffects that use them
   const clearButtonSelection = useCallback(() => {
+    console.log('[CLEAR SELECTION] Clearing all selection');
     setSelectedButtonIds(new Set());
   }, []);
 
@@ -334,6 +335,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   }, []);
 
   const selectSingleButton = useCallback((buttonId: string) => {
+    console.log('[SELECT SINGLE] Clearing selection and selecting only:', buttonId);
     setSelectedButtonIds(new Set([buttonId]));
   }, []);
 
@@ -654,6 +656,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         // Crossed the threshold, now we're actually dragging
         // Set the flag immediately to prevent onClick from clearing selection
         // even if the user releases the mouse before the state update completes
+        console.log('[DRAG] Crossed threshold, setting lastInteractionWasDrag = true');
         lastInteractionWasDrag.current = true;
         setActuallyDragging(true);
       }
@@ -779,6 +782,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
     // Only save position if we actually dragged (crossed the threshold)
     if (actuallyDragging && draggingButtons.size > 0) {
+      console.log('[DRAG END] Saving positions, actuallyDragging:', actuallyDragging, 'draggingButtons.size:', draggingButtons.size);
       lastInteractionWasDrag.current = true;
 
       // Build complete button positions list for recalibration
@@ -883,6 +887,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     }
 
     // Clear dragging state
+    console.log('[DRAG END] Clearing dragging state, lastInteractionWasDrag:', lastInteractionWasDrag.current);
     setDraggingButton(null);
     setDraggingButtons(new Map());
     setActuallyDragging(false);
@@ -1694,8 +1699,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     (e: React.MouseEvent, button: SceneBoardButton) => {
       if (mode !== "layout") return;
 
+      console.log('[BUTTON CLICK] Called for button:', button.id, 'lastInteractionWasDrag:', lastInteractionWasDrag.current, 'selectedButtonIds.size:', selectedButtonIds.size);
+
       // Don't handle click if the last interaction was a drag
       if (lastInteractionWasDrag.current) {
+        console.log('[BUTTON CLICK] Was a drag, returning early');
         lastInteractionWasDrag.current = false;
         return;
       }
@@ -1706,13 +1714,15 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       // Check for multi-select modifiers
       if (e.shiftKey || e.metaKey || e.ctrlKey) {
         // Toggle selection
+        console.log('[BUTTON CLICK] Toggle selection with modifier');
         toggleButtonSelection(button.id);
       } else {
         // Single select (clear others)
+        console.log('[BUTTON CLICK] Single select, clearing others');
         selectSingleButton(button.id);
       }
     },
-    [mode, toggleButtonSelection, selectSingleButton],
+    [mode, toggleButtonSelection, selectSingleButton, selectedButtonIds.size],
   );
 
   // Handle canvas click to clear selection
