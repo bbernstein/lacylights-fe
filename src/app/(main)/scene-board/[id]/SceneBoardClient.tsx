@@ -316,6 +316,12 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         if ("vibrate" in navigator) {
           navigator.vibrate(50);
         }
+
+        // If long-pressing a button, toggle it in the selection (multi-select behavior)
+        if (button) {
+          toggleButtonSelection(button.id);
+        }
+
         setContextMenu({
           x,
           y,
@@ -324,7 +330,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         });
       }, 500);
     },
-    [mode],
+    [mode, toggleButtonSelection],
   );
 
   const cancelLongPress = useCallback(() => {
@@ -972,14 +978,19 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           handleSceneClick(touchStart.button);
         }
       } else if (mode === "layout") {
-        // In layout mode, complete the drag
-        handleDragEnd();
+        if (isTap && touchStart.button) {
+          // In layout mode, tap selects the button (single selection, clears others)
+          selectSingleButton(touchStart.button.id);
+        } else {
+          // Complete the drag if there was one
+          handleDragEnd();
+        }
       }
 
       // Reset touch start ref
       touchStartRef.current = { time: 0, x: 0, y: 0, button: null };
     },
-    [handleDragEnd, handleSceneClick, mode, cancelLongPress, longPressActive],
+    [handleDragEnd, handleSceneClick, mode, cancelLongPress, longPressActive, selectSingleButton],
   );
 
   // Touch gesture handlers for pinch-to-zoom, two-finger pan, and single-finger pan
