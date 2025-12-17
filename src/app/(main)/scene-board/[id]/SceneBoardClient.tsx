@@ -30,10 +30,12 @@ import ContextMenu from "@/components/ContextMenu";
 const GRID_SIZE = 10; // Fine grid for flexible button placement
 const AUTO_PLACEMENT_GRID_SIZE = 250; // Grid step for auto-placement (matches findAvailablePosition gridStep)
 const AUTO_PLACEMENT_PADDING = 20; // Grid offset for auto-placement (matches findAvailablePosition padding)
-const MIN_ZOOM = 0.2; // Allow zooming out to 20% for fitting many buttons on mobile
+const MIN_ZOOM = 0.1; // Allow zooming out to 10% to fit 4000x4000 canvas on screen
 const MAX_ZOOM = 3.0;
 const DEFAULT_BUTTON_WIDTH = 200;
 const DEFAULT_BUTTON_HEIGHT = 120;
+const DEFAULT_CANVAS_WIDTH = 4000;
+const DEFAULT_CANVAS_HEIGHT = 4000;
 
 // Touch gesture thresholds
 const TAP_THRESHOLD_TIME = 300; // ms - max time for a tap
@@ -790,8 +792,8 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       // Check if recalibration is needed
       const recalibrationResult = recalibrateButtonPositions(
         allButtonPositions,
-        board?.canvasWidth || 2000,
-        board?.canvasHeight || 2000,
+        board?.canvasWidth || DEFAULT_CANVAS_WIDTH,
+        board?.canvasHeight || DEFAULT_CANVAS_HEIGHT,
       );
 
       if (!recalibrationResult) {

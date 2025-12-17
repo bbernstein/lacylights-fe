@@ -142,9 +142,9 @@ export interface RecalibrationResult {
 }
 
 /**
- * Calculate coordinate recalibration when buttons are dragged beyond canvas bounds.
- * Returns adjusted positions for all buttons to fit within canvas while maintaining
- * relative positions.
+ * Calculate coordinate recalibration to normalize button positions.
+ * ALWAYS recalibrates so leftmost button is at X=0 and topmost button is at Y=0.
+ * This prevents buttons from spreading too far across the canvas.
  *
  * @param buttons All button positions (including dragged ones)
  * @param canvasWidth Canvas width in pixels
@@ -178,40 +178,18 @@ export function recalibrateButtonPositions(
     maxY = Math.max(maxY, btn.layoutY + btn.height);
   });
 
-  // Calculate required offsets to bring everything within bounds
-  let offsetX = 0;
-  let offsetY = 0;
+  // ALWAYS normalize: shift so leftmost button is at X=0 and topmost is at Y=0
+  // This prevents buttons from spreading too far across the canvas
+  const offsetX = -minX; // Shift to bring leftmost to 0
+  const offsetY = -minY; // Shift to bring topmost to 0
 
-  // Check if any button is beyond left edge (x < 0)
-  if (minX < 0) {
-    offsetX = -minX; // Shift right by the negative amount
-  }
+  // Check if buttons fit within canvas after normalization
+  const normalizedMaxX = maxX + offsetX;
+  const normalizedMaxY = maxY + offsetY;
 
-  // Check if any button is beyond top edge (y < 0)
-  if (minY < 0) {
-    offsetY = -minY; // Shift down by the negative amount
-  }
-
-  // Check if any button is beyond right edge
-  if (maxX > canvasWidth) {
-    const excessRight = maxX - canvasWidth;
-    // Can we shift left?
-    if (minX - excessRight < 0) {
-      // Would push buttons beyond left edge - doesn't fit
-      return null;
-    }
-    offsetX = -excessRight; // Shift left by excess amount
-  }
-
-  // Check if any button is beyond bottom edge
-  if (maxY > canvasHeight) {
-    const excessBottom = maxY - canvasHeight;
-    // Can we shift up?
-    if (minY - excessBottom < 0) {
-      // Would push buttons beyond top edge - doesn't fit
-      return null;
-    }
-    offsetY = -excessBottom; // Shift up by excess amount
+  if (normalizedMaxX > canvasWidth || normalizedMaxY > canvasHeight) {
+    // Buttons are too spread out to fit within canvas
+    return null;
   }
 
   const needsRecalibration = offsetX !== 0 || offsetY !== 0;

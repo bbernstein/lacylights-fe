@@ -181,12 +181,12 @@ describe("canvasUtils", () => {
   });
 
   describe("recalibrateButtonPositions", () => {
-    const CANVAS_WIDTH = 2000;
-    const CANVAS_HEIGHT = 2000;
+    const CANVAS_WIDTH = 4000;
+    const CANVAS_HEIGHT = 4000;
     const BUTTON_WIDTH = 200;
     const BUTTON_HEIGHT = 120;
 
-    it("should return no recalibration when all buttons are within bounds", () => {
+    it("should always normalize so leftmost button is at X=0 and topmost is at Y=0", () => {
       const buttons: ButtonPosition[] = [
         {
           buttonId: "1",
@@ -211,10 +211,25 @@ describe("canvasUtils", () => {
       );
 
       expect(result).not.toBeNull();
-      expect(result?.needsRecalibration).toBe(false);
-      expect(result?.offsetX).toBe(0);
-      expect(result?.offsetY).toBe(0);
-      expect(result?.positions).toEqual(buttons);
+      expect(result?.needsRecalibration).toBe(true); // Always recalibrates to normalize
+      expect(result?.offsetX).toBe(-100); // Shift left by 100 to bring leftmost to 0
+      expect(result?.offsetY).toBe(-100); // Shift up by 100 to bring topmost to 0
+      expect(result?.positions).toEqual([
+        {
+          buttonId: "1",
+          layoutX: 0,
+          layoutY: 0,
+          width: BUTTON_WIDTH,
+          height: BUTTON_HEIGHT,
+        },
+        {
+          buttonId: "2",
+          layoutX: 400,
+          layoutY: 200,
+          width: BUTTON_WIDTH,
+          height: BUTTON_HEIGHT,
+        },
+      ]);
     });
 
     it("should recalibrate when button is dragged left beyond origin", () => {
@@ -250,27 +265,27 @@ describe("canvasUtils", () => {
 
       expect(result).not.toBeNull();
       expect(result?.needsRecalibration).toBe(true);
-      expect(result?.offsetX).toBe(150); // Shift right by 150
-      expect(result?.offsetY).toBe(0);
+      expect(result?.offsetX).toBe(150); // Shift right by 150 to bring leftmost to 0
+      expect(result?.offsetY).toBe(-200); // Shift up by 200 to bring topmost to 0
       expect(result?.positions).toEqual([
         {
           buttonId: "1",
           layoutX: 0,
-          layoutY: 500,
+          layoutY: 300,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
         },
         {
           buttonId: "2",
           layoutX: 450,
-          layoutY: 500,
+          layoutY: 300,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
         },
         {
           buttonId: "3",
           layoutX: 650,
-          layoutY: 200,
+          layoutY: 0,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
         },
@@ -281,11 +296,11 @@ describe("canvasUtils", () => {
       const buttons: ButtonPosition[] = [
         {
           buttonId: "1",
-          layoutX: 1900,
+          layoutX: 3900,
           layoutY: 300,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
-        }, // Right edge at 2100
+        }, // Right edge at 4100 (beyond 4000 canvas)
         {
           buttonId: "2",
           layoutX: 200,
@@ -303,20 +318,20 @@ describe("canvasUtils", () => {
 
       expect(result).not.toBeNull();
       expect(result?.needsRecalibration).toBe(true);
-      expect(result?.offsetX).toBe(-100); // Shift left by 100
-      expect(result?.offsetY).toBe(0);
+      expect(result?.offsetX).toBe(-200); // Normalize to leftmost at 0
+      expect(result?.offsetY).toBe(-300); // Normalize to topmost at 0
       expect(result?.positions).toEqual([
         {
           buttonId: "1",
-          layoutX: 1800,
-          layoutY: 300,
+          layoutX: 3700,
+          layoutY: 0,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
-        }, // At right edge
+        }, // Normalized, fits within 4000
         {
           buttonId: "2",
-          layoutX: 100,
-          layoutY: 500,
+          layoutX: 0,
+          layoutY: 200,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
         },
@@ -349,19 +364,19 @@ describe("canvasUtils", () => {
 
       expect(result).not.toBeNull();
       expect(result?.needsRecalibration).toBe(true);
-      expect(result?.offsetX).toBe(0);
-      expect(result?.offsetY).toBe(100); // Shift down by 100
+      expect(result?.offsetX).toBe(-300); // Shift left by 300 to bring leftmost to 0
+      expect(result?.offsetY).toBe(100); // Shift down by 100 to bring topmost to 0
       expect(result?.positions).toEqual([
         {
           buttonId: "1",
-          layoutX: 500,
+          layoutX: 200,
           layoutY: 0,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
         },
         {
           buttonId: "2",
-          layoutX: 300,
+          layoutX: 0,
           layoutY: 600,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
@@ -374,10 +389,10 @@ describe("canvasUtils", () => {
         {
           buttonId: "1",
           layoutX: 500,
-          layoutY: 1950,
+          layoutY: 3950,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
-        }, // Bottom edge at 2070
+        }, // Bottom edge at 4070 (beyond 4000 canvas)
         {
           buttonId: "2",
           layoutX: 300,
@@ -395,20 +410,20 @@ describe("canvasUtils", () => {
 
       expect(result).not.toBeNull();
       expect(result?.needsRecalibration).toBe(true);
-      expect(result?.offsetX).toBe(0);
-      expect(result?.offsetY).toBe(-70); // Shift up by 70
+      expect(result?.offsetX).toBe(-300); // Shift left by 300 to bring leftmost to 0
+      expect(result?.offsetY).toBe(-100); // Shift up by 100 to bring topmost to 0
       expect(result?.positions).toEqual([
         {
           buttonId: "1",
-          layoutX: 500,
-          layoutY: 1880,
+          layoutX: 200,
+          layoutY: 3850,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
-        }, // At bottom edge
+        }, // Normalized
         {
           buttonId: "2",
-          layoutX: 300,
-          layoutY: 30,
+          layoutX: 0,
+          layoutY: 0,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
         },
@@ -504,14 +519,14 @@ describe("canvasUtils", () => {
         },
         {
           buttonId: "2",
-          layoutX: 1900,
+          layoutX: 4100,
           layoutY: 100,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
-        }, // Right edge at 2100
+        }, // Right edge at 4300
       ];
 
-      // Total spread is 2100 + 500 = 2600 > 2000 canvas width
+      // Total spread is 4300 + 500 = 4800 > 4000 canvas width
       const result = recalibrateButtonPositions(
         buttons,
         CANVAS_WIDTH,
@@ -554,13 +569,13 @@ describe("canvasUtils", () => {
 
       expect(result).not.toBeNull();
       expect(result?.needsRecalibration).toBe(true);
-      expect(result?.offsetX).toBe(100);
-      expect(result?.offsetY).toBe(0);
+      expect(result?.offsetX).toBe(100); // Shift right to bring leftmost to 0
+      expect(result?.offsetY).toBe(-500); // Shift up to bring topmost to 0
       expect(result?.positions).toEqual([
         {
           buttonId: "1",
           layoutX: 0,
-          layoutY: 500,
+          layoutY: 0,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
         },
@@ -571,11 +586,11 @@ describe("canvasUtils", () => {
       const buttons: ButtonPosition[] = [
         {
           buttonId: "1",
-          layoutX: 1900,
+          layoutX: 4100,
           layoutY: 500,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
-        }, // Right edge at 2100
+        }, // Right edge at 4300 (beyond 4000)
       ];
 
       const result = recalibrateButtonPositions(
@@ -586,16 +601,16 @@ describe("canvasUtils", () => {
 
       expect(result).not.toBeNull();
       expect(result?.needsRecalibration).toBe(true);
-      expect(result?.offsetX).toBe(-100);
-      expect(result?.offsetY).toBe(0);
+      expect(result?.offsetX).toBe(-4100); // Normalize leftmost to 0
+      expect(result?.offsetY).toBe(-500); // Normalize topmost to 0
       expect(result?.positions).toEqual([
         {
           buttonId: "1",
-          layoutX: 1800,
-          layoutY: 500,
+          layoutX: 0,
+          layoutY: 0,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
-        }, // At right edge
+        }, // Normalized to 0,0
       ]);
     });
   });
