@@ -105,6 +105,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   );
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+  const dragStartScale = useRef<number>(1); // Track scale at drag start for accurate viewport compensation
   const [actuallyDragging, setActuallyDragging] = useState(false);
   const lastInteractionWasDrag = useRef(false);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -629,6 +630,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         x: canvasPos.x - button.layoutX,
         y: canvasPos.y - button.layoutY,
       });
+      dragStartScale.current = viewport.scale; // Store scale at drag start
       setActuallyDragging(false);
     },
     [mode, viewport, board, selectedButtonIds],
@@ -893,9 +895,10 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           setViewport((prev) => ({
             ...prev,
             // Compensate for coordinate shift by adjusting viewport in opposite direction
-            // If buttons shifted right (+offsetX), viewport shifts left (-offsetX * scale)
-            offsetX: prev.offsetX - recalibrationResult.offsetX * prev.scale,
-            offsetY: prev.offsetY - recalibrationResult.offsetY * prev.scale,
+            // Use the scale at drag start to ensure correct compensation even if user zoomed during drag
+            // If buttons shifted right (+offsetX), viewport shifts left (-offsetX * dragStartScale)
+            offsetX: prev.offsetX - recalibrationResult.offsetX * dragStartScale.current,
+            offsetY: prev.offsetY - recalibrationResult.offsetY * dragStartScale.current,
           }));
         }
 
@@ -1074,6 +1077,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           x: canvasPos.x - button.layoutX,
           y: canvasPos.y - button.layoutY,
         });
+        dragStartScale.current = viewport.scale; // Store scale at drag start
       }
     },
     [mode, viewport, startLongPress, selectedButtonIds, board],

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 
 export interface ContextMenuOption {
   label: string;
@@ -28,6 +28,36 @@ export default function ContextMenu({
   onDismiss,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Calculate initial position estimate to avoid flash
+  // Use conservative estimates for menu size to prevent most off-screen cases
+  const initialPosition = useMemo(() => {
+    const estimatedMenuWidth = 200; // Slightly larger than min-w-[160px]
+    const estimatedMenuHeight = 50 + options.length * 40; // Rough estimate based on options
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
+
+    let adjustedX = x;
+    let adjustedY = y;
+
+    // Check if menu would go off right edge
+    if (x + estimatedMenuWidth > viewportWidth) {
+      adjustedX = Math.max(10, viewportWidth - estimatedMenuWidth - 10);
+    }
+
+    // Check if menu would go off bottom edge
+    if (y + estimatedMenuHeight > viewportHeight) {
+      adjustedY = Math.max(10, viewportHeight - estimatedMenuHeight - 10);
+    }
+
+    // Ensure menu doesn't go off left or top edge
+    adjustedX = Math.max(10, adjustedX);
+    adjustedY = Math.max(10, adjustedY);
+
+    return { x: adjustedX, y: adjustedY };
+  }, [x, y, options.length]);
+
+  const [position, setPosition] = useState(initialPosition);
 
   // Handle click outside to close menu
   useEffect(() => {
@@ -58,7 +88,7 @@ export default function ContextMenu({
     };
   }, [onDismiss]);
 
-  // Adjust position if menu would go off-screen
+  // Fine-tune position after actual render to handle size differences
   useEffect(() => {
     if (menuRef.current) {
       const rect = menuRef.current.getBoundingClientRect();
@@ -82,18 +112,18 @@ export default function ContextMenu({
       adjustedX = Math.max(10, adjustedX);
       adjustedY = Math.max(10, adjustedY);
 
-      if (adjustedX !== x || adjustedY !== y) {
-        menuRef.current.style.left = `${adjustedX}px`;
-        menuRef.current.style.top = `${adjustedY}px`;
+      // Only update if position needs adjustment from initial estimate
+      if (adjustedX !== position.x || adjustedY !== position.y) {
+        setPosition({ x: adjustedX, y: adjustedY });
       }
     }
-  }, [x, y]);
+  }, [x, y, position.x, position.y]);
 
   return (
     <div
       ref={menuRef}
       className="fixed z-[9999] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[160px]"
-      style={{ left: x, top: y }}
+      style={{ left: position.x, top: position.y }}
       role="menu"
     >
       {options.map((option) => (
