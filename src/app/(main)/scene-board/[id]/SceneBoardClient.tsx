@@ -164,6 +164,21 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     startOffsetY: 0,
   });
 
+  // Mouse pan state (for panning canvas with mouse drag)
+  const [mousePan, setMousePan] = useState<{
+    isPanning: boolean;
+    startX: number;
+    startY: number;
+    startOffsetX: number;
+    startOffsetY: number;
+  }>({
+    isPanning: false,
+    startX: 0,
+    startY: 0,
+    startOffsetX: 0,
+    startOffsetY: 0,
+  });
+
   // Canvas long-press state for marquee selection on touch
   const canvasLongPressTimer = useRef<number | null>(null);
   const canvasLongPressStart = useRef<{
@@ -619,7 +634,23 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   // Handle drag move
   const handleDragMove = useCallback(
     (e: React.MouseEvent) => {
-      if (mode !== "layout" || !canvasRef.current) return;
+      if (!canvasRef.current) return;
+
+      // Handle mouse pan (works in both layout and play modes)
+      if (mousePan.isPanning) {
+        const deltaX = e.clientX - mousePan.startX;
+        const deltaY = e.clientY - mousePan.startY;
+
+        setViewport((prev) => ({
+          ...prev,
+          offsetX: mousePan.startOffsetX + deltaX,
+          offsetY: mousePan.startOffsetY + deltaY,
+        }));
+        return;
+      }
+
+      // Layout mode only: marquee selection and button dragging
+      if (mode !== "layout") return;
 
       // Handle marquee selection
       if (marquee) {
@@ -715,12 +746,26 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       actuallyDragging,
       marquee,
       draggingButtons,
+      mousePan,
       DRAG_THRESHOLD,
     ],
   );
 
   // Handle drag end
   const handleDragEnd = useCallback(() => {
+    // Stop mouse pan (works in both layout and play modes)
+    if (mousePan.isPanning) {
+      setMousePan({
+        isPanning: false,
+        startX: 0,
+        startY: 0,
+        startOffsetX: 0,
+        startOffsetY: 0,
+      });
+      return;
+    }
+
+    // Layout mode only: handle marquee and button dragging end
     if (mode !== "layout") return;
 
     // Handle marquee selection end
@@ -896,6 +941,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     marquee,
     board,
     draggingButtons,
+    mousePan,
   ]);
 
   // Handle scene click (activate in play mode)
@@ -1739,13 +1785,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     [mode, selectedButtonIds, marquee, clearButtonSelection],
   );
 
-  // Handle canvas mouse down for marquee selection
+  // Handle canvas mouse down for marquee selection or panning
   const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      if (mode !== "layout") return;
-
-      // Only start marquee if Shift is pressed
-      if (e.shiftKey) {
+      // In layout mode with Shift key: start marquee selection
+      if (mode === "layout" && e.shiftKey) {
         e.preventDefault();
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -1763,6 +1807,20 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           endX: canvasPos.x,
           endY: canvasPos.y,
           isTouch: false, // Mouse marquee
+        });
+        return;
+      }
+
+      // Otherwise: start canvas pan (works in both layout and play modes)
+      // Left-click (button 0) or middle-click (button 1)
+      if (e.button === 0 || e.button === 1) {
+        e.preventDefault();
+        setMousePan({
+          isPanning: true,
+          startX: e.clientX,
+          startY: e.clientY,
+          startOffsetX: viewport.offsetX,
+          startOffsetY: viewport.offsetY,
         });
       }
     },
