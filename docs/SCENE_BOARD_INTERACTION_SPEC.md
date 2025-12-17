@@ -20,6 +20,156 @@ The interaction model should match the 2D Layout view in the Scene Editor for co
 - **Zoom Range**: 0.2x - 3.0x
 - **Transform-Based**: CSS transforms for GPU-accelerated rendering
 
+### Dynamic Coordinate Recalibration
+
+The canvas uses a **flexible origin system** that automatically recalibrates when buttons are dragged beyond the current canvas bounds. This allows users to freely position buttons without being constrained by hard boundaries.
+
+#### Current Limitation (Before Recalibration)
+
+Currently, buttons are hard-clamped to the canvas boundaries:
+- Minimum X: 0px
+- Minimum Y: 0px
+- Maximum X: canvasWidth - buttonWidth (e.g., 2000 - 200 = 1800px)
+- Maximum Y: canvasHeight - buttonHeight (e.g., 2000 - 120 = 1880px)
+
+When dragging a button to the left or top edge, it stops at position 0. This feels restrictive and unnatural.
+
+#### New Behavior (With Recalibration)
+
+When a button is dragged beyond the current canvas bounds, the system automatically **recalibrates all button coordinates** to shift everything back onto the canvas while maintaining relative positions.
+
+**Example 1: Dragging Left Beyond Origin**
+
+Initial state:
+```
+Button A: (100, 500)
+Button B: (300, 500)
+Button C: (500, 200)
+```
+
+User drags Button A to (-150, 500):
+1. System detects that x=-150 is beyond the left edge (x < 0)
+2. Calculates offset needed: 150px shift right
+3. Recalibrates ALL button coordinates:
+   ```
+   Button A: (0, 500)     // was (-150, 500), shifted +150
+   Button B: (450, 500)   // was (300, 500), shifted +150
+   Button C: (650, 200)   // was (500, 200), shifted +150
+   ```
+4. Saves the new coordinates to the backend
+5. Canvas content remains visually unchanged for the user
+
+**Example 2: Dragging Right Beyond Canvas**
+
+Canvas width: 2000px, Button width: 200px
+Initial state:
+```
+Button A: (1700, 300)
+Button B: (200, 500)
+```
+
+User drags Button A to (2100, 300) - this would put the button at 2100-2300px:
+1. System detects rightmost edge at 2300px exceeds canvas width (2000px)
+2. Excess: 2300 - 2000 = 300px
+3. Check if we can shift everything left by 300px
+4. Find leftmost button: Button B at x=0 (after considering its position)
+5. Recalibrates ALL button coordinates:
+   ```
+   Button A: (1800, 300)  // now at right edge (2000 - 200)
+   Button B: (0, 500)     // shifted to left edge if needed
+   ```
+
+**Example 3: Multi-Button Drag Beyond Bounds**
+
+When dragging multiple selected buttons, the same recalibration applies to the group:
+
+Initial state:
+```
+Button A: (50, 100) - SELECTED
+Button B: (200, 100) - SELECTED
+Button C: (1800, 500)
+```
+
+User drags the selected buttons 100px to the left:
+1. Button A would be at (-50, 100)
+2. Button B would be at (100, 100)
+3. System detects x=-50 is beyond left edge
+4. Recalibrates ALL buttons (including non-selected ones):
+   ```
+   Button A: (0, 100)      // shifted +50
+   Button B: (150, 100)    // shifted +50
+   Button C: (1850, 100)   // shifted +50
+   ```
+
+#### Canvas Size Constraints
+
+While the origin is flexible, the **canvas size remains fixed** at the configured dimensions (e.g., 2000x2000px):
+
+- **Minimum Canvas Usage**: The bounding box of all buttons must fit within the canvas dimensions
+- **Maximum Spread**: If buttons are spread too far apart, recalibration will fail and the drag will be limited
+- **Maximum Bounds**: The system will prevent dragging if recalibration would cause any button to exceed the canvas size
+
+**Example: Maximum Spread Limit**
+
+Canvas: 2000x2000px, Button dimensions: 200x120px
+```
+Button A: (0, 0)
+Button B: (1800, 0)    // rightmost position (2000 - 200)
+```
+
+Total horizontal spread: 2000px (0 to 2000) - this is at maximum capacity.
+
+If the user tries to drag Button A further left (to x=-100):
+1. System calculates required shift: +100 for all buttons
+2. Button B would need to be at: 1800 + 100 = 1900px
+3. Button B right edge: 1900 + 200 = 2100px (exceeds 2000px canvas width)
+4. **Drag is limited**: Button A can only go to x=0 (current position)
+
+#### When Recalibration Occurs
+
+Recalibration happens **on drag end** (when the user releases the mouse/finger):
+
+1. User drags button(s) beyond canvas bounds
+2. During drag: visual feedback shows the button(s) at the desired position (may be off-canvas)
+3. On drag end:
+   - System detects coordinates outside bounds
+   - Calculates minimum recalibration offset needed
+   - Updates ALL button coordinates atomically
+   - Saves to backend in a single transaction
+   - UI updates to show recalibrated positions
+
+#### Edge Cases
+
+1. **Empty Canvas**: If there's only one button and it's dragged beyond bounds, it simply snaps to the nearest edge (no recalibration needed)
+
+2. **Insufficient Space**: If recalibration would require shifting buttons beyond the canvas size, the drag is constrained to the maximum allowed position
+
+3. **Multi-Axis Recalibration**: If a button is dragged beyond both X and Y bounds, recalibration happens on both axes simultaneously:
+   ```
+   Drag to (-50, -100)
+   → Shift all buttons: +50 on X axis, +100 on Y axis
+   ```
+
+4. **Undo/Redo**: Recalibration is treated as a single atomic operation in the undo stack, affecting all buttons at once
+
+#### Visual Feedback
+
+During drag (before recalibration):
+- Buttons being dragged can visually appear beyond canvas edges
+- A subtle visual indicator (e.g., dashed outline or shadow) shows the canvas boundary
+- No other buttons move yet
+
+On drag end (after recalibration):
+- All buttons animate smoothly to their new recalibrated positions
+- Animation duration: 200ms with easing
+- The dragged button(s) appear to "settle" into place as other buttons shift
+
+#### Backend Considerations
+
+- **Atomic Updates**: All button position updates happen in a single database transaction
+- **Conflict Resolution**: If another user modifies button positions simultaneously, last-write-wins with full recalibration on next sync
+- **Performance**: Recalibration calculations happen client-side; only final coordinates are sent to backend
+
 ---
 
 ## Mode Summary
