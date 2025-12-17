@@ -60,6 +60,16 @@ export default function ContextMenu({
 
   const [position, setPosition] = useState(initialPosition);
 
+  // Reset justOpenedRef when menu position changes (new menu instance)
+  useEffect(() => {
+    justOpenedRef.current = true;
+  }, [x, y]);
+
+  // Sync position state when initialPosition changes
+  useEffect(() => {
+    setPosition(initialPosition);
+  }, [initialPosition]);
+
   // Handle click outside to close menu
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
@@ -90,6 +100,7 @@ export default function ContextMenu({
 
     return () => {
       cancelAnimationFrame(rafId);
+      // Always remove event listeners, even if RAF callback hasn't executed yet
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
       document.removeEventListener("keydown", handleEscape);

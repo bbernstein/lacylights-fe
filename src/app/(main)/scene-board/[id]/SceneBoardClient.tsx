@@ -764,7 +764,10 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
   /**
    * Helper: Handle marquee selection end
-   * Finds all buttons within the marquee rectangle and adds them to selection
+   * Finds all buttons within the marquee rectangle and adds them to selection.
+   * Calculates button intersection with the marquee using bounding box collision detection.
+   *
+   * @returns {boolean} True if marquee selection was processed, false if no marquee exists
    */
   const handleMarqueeSelectionEnd = useCallback(() => {
     if (!board || !marquee) return false;
@@ -814,7 +817,13 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
   /**
    * Helper: Handle button drag end with recalibration
-   * Saves button positions after drag, applying recalibration if needed
+   * Saves button positions after drag, applying recalibration if needed.
+   * Attempts to recalibrate coordinates to normalize positions (leftmost at X=0, topmost at Y=0)
+   * when buttons are out of bounds or have drifted significantly. If recalibration fails
+   * (buttons too spread out), clamps positions to canvas bounds instead.
+   * Applies viewport compensation to keep buttons visually stable during recalibration.
+   *
+   * @returns {boolean} True if button drag was processed, false if no drag operation exists
    */
   const handleButtonDragEnd = useCallback(() => {
     if (!draggingButton || !actuallyDragging || draggingButtons.size === 0) {
@@ -844,7 +853,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     );
 
     if (!recalibrationResult) {
-      // Buttons don't fit - clamp and save
+      // Buttons don't fit even with recalibration - clamp and save
       const canvasWidth = board?.canvasWidth || DEFAULT_CANVAS_WIDTH;
       const canvasHeight = board?.canvasHeight || DEFAULT_CANVAS_HEIGHT;
 
@@ -998,6 +1007,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     setDraggingButton,
     setDraggingButtons,
     setActuallyDragging,
+    dragStartPos,
   ]);
 
   // Handle scene click (activate in play mode)
