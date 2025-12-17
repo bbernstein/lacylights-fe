@@ -1267,11 +1267,10 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     }
   }, [board, zoomToFit]); // Run when board or zoomToFit changes
 
-  // Add document-level mouseup listener when marquee is active
+  // Add document-level mouseup listener to handle marquee selection completion
   // This ensures selection completes even when releasing over a button
+  // Listener must be always active (not conditional) to avoid timing issues
   useEffect(() => {
-    if (!marquee) return;
-
     const handleDocumentMouseUp = () => {
       handleDragEnd();
     };
@@ -1280,7 +1279,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     return () => {
       document.removeEventListener("mouseup", handleDocumentMouseUp);
     };
-  }, [marquee, handleDragEnd]);
+  }, [handleDragEnd]);
 
   // Add native touch event listeners with passive: false to prevent browser handling
   useEffect(() => {
