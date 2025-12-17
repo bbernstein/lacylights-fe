@@ -64,6 +64,8 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [editedFadeTime, setEditedFadeTime] = useState(3.0);
+  const [editedCanvasWidth, setEditedCanvasWidth] = useState(DEFAULT_CANVAS_WIDTH);
+  const [editedCanvasHeight, setEditedCanvasHeight] = useState(DEFAULT_CANVAS_HEIGHT);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -1897,14 +1899,18 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         input: {
           name: editedName,
           defaultFadeTime: editedFadeTime,
+          canvasWidth: editedCanvasWidth,
+          canvasHeight: editedCanvasHeight,
         },
       },
     });
-  }, [boardId, editedName, editedFadeTime, updateBoard]);
+  }, [boardId, editedName, editedFadeTime, editedCanvasWidth, editedCanvasHeight, updateBoard]);
 
   const openEditSettings = useCallback(() => {
     setEditedName(board?.name || "");
     setEditedFadeTime(board?.defaultFadeTime || 3.0);
+    setEditedCanvasWidth(board?.canvasWidth || DEFAULT_CANVAS_WIDTH);
+    setEditedCanvasHeight(board?.canvasHeight || DEFAULT_CANVAS_HEIGHT);
     setIsEditingSettings(true);
   }, [board]);
 
@@ -2610,6 +2616,38 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                   className="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                   min="0"
                   step="0.1"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-gray-300">
+                  Canvas Width (pixels)
+                </label>
+                <input
+                  type="number"
+                  value={editedCanvasWidth}
+                  onChange={(e) =>
+                    setEditedCanvasWidth(parseInt(e.target.value, 10) || DEFAULT_CANVAS_WIDTH)
+                  }
+                  className="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  min="1000"
+                  max="10000"
+                  step="100"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-gray-300">
+                  Canvas Height (pixels)
+                </label>
+                <input
+                  type="number"
+                  value={editedCanvasHeight}
+                  onChange={(e) =>
+                    setEditedCanvasHeight(parseInt(e.target.value, 10) || DEFAULT_CANVAS_HEIGHT)
+                  }
+                  className="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  min="1000"
+                  max="10000"
+                  step="100"
                 />
               </div>
             </div>
