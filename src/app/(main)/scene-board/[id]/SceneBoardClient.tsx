@@ -931,6 +931,25 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       e.stopPropagation();
 
       const touch = e.touches[0];
+
+      // Check if we've moved past the drag threshold
+      if (!actuallyDragging && dragStartPos.current) {
+        const dx = touch.clientX - dragStartPos.current.x;
+        const dy = touch.clientY - dragStartPos.current.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < DRAG_THRESHOLD) {
+          // Haven't moved far enough yet
+          return;
+        }
+
+        // Crossed the threshold, now we're actually dragging
+        setActuallyDragging(true);
+      }
+
+      // Only update position if we're actually dragging
+      if (!actuallyDragging) return;
+
       const canvasPos = screenToCanvas(
         touch.clientX,
         touch.clientY,
@@ -1003,6 +1022,8 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       cancelLongPress,
       draggingButtons,
       longPressActive,
+      actuallyDragging,
+      DRAG_THRESHOLD,
     ],
   );
 
