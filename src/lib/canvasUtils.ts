@@ -37,6 +37,15 @@ export function pixelToPercent(pixel: number, canvasSize: number): number {
 /**
  * Convert screen coordinates to canvas coordinates
  * accounting for zoom and pan
+ *
+ * The canvas is rendered with: transform: translate(offsetX, offsetY) scale(scale)
+ * So a canvas point (cx, cy) appears at screen position:
+ *   screenX = cx * scale + offsetX + rect.left
+ *   screenY = cy * scale + offsetY + rect.top
+ *
+ * To reverse this transformation:
+ *   cx = (screenX - rect.left - offsetX) / scale
+ *   cy = (screenY - rect.top - offsetY) / scale
  */
 export function screenToCanvas(
   screenX: number,
@@ -45,8 +54,8 @@ export function screenToCanvas(
   canvasElement: HTMLElement
 ): Point {
   const rect = canvasElement.getBoundingClientRect();
-  const canvasX = (screenX - rect.left) / transform.scale - transform.offsetX;
-  const canvasY = (screenY - rect.top) / transform.scale - transform.offsetY;
+  const canvasX = (screenX - rect.left - transform.offsetX) / transform.scale;
+  const canvasY = (screenY - rect.top - transform.offsetY) / transform.scale;
   return { x: canvasX, y: canvasY };
 }
 

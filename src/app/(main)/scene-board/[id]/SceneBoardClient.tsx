@@ -817,6 +817,14 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       // Stop propagation to prevent canvas-level touch handlers from interfering
       e.stopPropagation();
 
+      // Clear any canvas long-press state to prevent conflicts
+      if (canvasLongPressTimer.current) {
+        window.clearTimeout(canvasLongPressTimer.current);
+        canvasLongPressTimer.current = null;
+      }
+      canvasLongPressStart.current = null;
+      setCanvasLongPressActive(false);
+
       const touch = e.touches[0];
 
       // Record touch start for tap detection
@@ -953,15 +961,16 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   // Touch gesture handlers for pinch-to-zoom, two-finger pan, and single-finger pan
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
+      // Always reset canvas long-press state at start of new touch
+      if (canvasLongPressTimer.current) {
+        window.clearTimeout(canvasLongPressTimer.current);
+        canvasLongPressTimer.current = null;
+      }
+      canvasLongPressStart.current = null;
+      setCanvasLongPressActive(false);
+
       if (e.touches.length === 2) {
         // Two-finger gesture: pinch-to-zoom and pan
-        // Cancel any canvas long-press in progress
-        if (canvasLongPressTimer.current) {
-          window.clearTimeout(canvasLongPressTimer.current);
-          canvasLongPressTimer.current = null;
-        }
-        canvasLongPressStart.current = null;
-        setCanvasLongPressActive(false);
 
         // End any single-finger pan in progress
         setSingleFingerPan({
@@ -1195,6 +1204,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   );
 
   const handleTouchEnd = useCallback(() => {
+    // Check if this was a quick tap (not a long-press, not a marquee)
+    const wasTap = !canvasLongPressActive && !marquee && canvasLongPressStart.current;
+
     // If long-press was active and no marquee started, show context menu
     if (canvasLongPressActive && !marquee && canvasLongPressStart.current && mode === "layout") {
       setContextMenu({
@@ -1202,6 +1214,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         y: canvasLongPressStart.current.y,
         type: "canvas",
       });
+    } else if (wasTap && mode === "layout" && selectedButtonIds.size > 0) {
+      // Quick tap on empty canvas clears selection
+      clearButtonSelection();
     }
 
     // If marquee was active, complete the selection (handleDragEnd will do this)
@@ -1235,7 +1250,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       startOffsetX: 0,
       startOffsetY: 0,
     });
-  }, [viewport.scale, viewport.offsetX, viewport.offsetY, canvasLongPressActive, marquee, mode, handleDragEnd]);
+  }, [viewport.scale, viewport.offsetX, viewport.offsetY, canvasLongPressActive, marquee, mode, handleDragEnd, selectedButtonIds, clearButtonSelection]);
 
   // Set initial zoom to fit on mount or when board ID changes
   useEffect(() => {
@@ -1252,6 +1267,21 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       return () => clearTimeout(timer);
     }
   }, [board, zoomToFit]); // Run when board or zoomToFit changes
+
+  // Add document-level mouseup listener when marquee is active
+  // This ensures selection completes even when releasing over a button
+  useEffect(() => {
+    if (!marquee) return;
+
+    const handleDocumentMouseUp = () => {
+      handleDragEnd();
+    };
+
+    document.addEventListener("mouseup", handleDocumentMouseUp);
+    return () => {
+      document.removeEventListener("mouseup", handleDocumentMouseUp);
+    };
+  }, [marquee, handleDragEnd]);
 
   // Add native touch event listeners with passive: false to prevent browser handling
   useEffect(() => {
