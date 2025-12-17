@@ -120,12 +120,11 @@ export default function ContextMenu({
       adjustedX = Math.max(10, adjustedX);
       adjustedY = Math.max(10, adjustedY);
 
-      // Only update if position needs adjustment from initial estimate
-      if (adjustedX !== position.x || adjustedY !== position.y) {
-        setPosition({ x: adjustedX, y: adjustedY });
-      }
+      // Update position after render to fine-tune based on actual size
+      // React will optimize away unnecessary re-renders if position hasn't changed
+      setPosition({ x: adjustedX, y: adjustedY });
     }
-  }, [x, y, position.x, position.y]);
+  }, [x, y]);
 
   return (
     <div

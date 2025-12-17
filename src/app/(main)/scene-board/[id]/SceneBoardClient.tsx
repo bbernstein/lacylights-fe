@@ -810,7 +810,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     setMarquee(null);
     marqueeStartCanvas.current = null;
     return true;
-  }, [board, marquee]);
+  }, [board, marquee, setSelectedButtonIds, setMarquee]);
 
   /**
    * Helper: Handle button drag end with recalibration
@@ -944,6 +944,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     board,
     updatePositions,
     boardId,
+    setViewport,
   ]);
 
   // Handle drag end
@@ -992,6 +993,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     mousePan,
     handleMarqueeSelectionEnd,
     handleButtonDragEnd,
+    setMousePan,
+    setMarquee,
+    setDraggingButton,
+    setDraggingButtons,
+    setActuallyDragging,
   ]);
 
   // Handle scene click (activate in play mode)
