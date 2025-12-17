@@ -74,6 +74,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     startY: number;
     endX: number;
     endY: number;
+    isTouch?: boolean; // Track if marquee was started by touch
   } | null>(null);
   const marqueeStartCanvas = useRef<{ x: number; y: number } | null>(null);
 
@@ -146,6 +147,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     startOffsetX: 0,
     startOffsetY: 0,
   });
+
+  // Canvas long-press state for marquee selection on touch
+  const canvasLongPressTimer = useRef<number | null>(null);
+  const canvasLongPressStart = useRef<{ x: number; y: number; canvasX: number; canvasY: number } | null>(null);
+  const [canvasLongPressActive, setCanvasLongPressActive] = useState(false);
 
   const {
     data: boardData,
@@ -515,6 +521,12 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   const handleDragStart = useCallback(
     (e: React.MouseEvent, button: SceneBoardButton) => {
       if (mode !== "layout" || !board) return;
+
+      // If Shift key is pressed, let the canvas handle marquee selection
+      if (e.shiftKey) {
+        return;
+      }
+
       e.stopPropagation();
 
       const canvas = canvasRef.current;
@@ -943,6 +955,14 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     (e: React.TouchEvent) => {
       if (e.touches.length === 2) {
         // Two-finger gesture: pinch-to-zoom and pan
+        // Cancel any canvas long-press in progress
+        if (canvasLongPressTimer.current) {
+          window.clearTimeout(canvasLongPressTimer.current);
+          canvasLongPressTimer.current = null;
+        }
+        canvasLongPressStart.current = null;
+        setCanvasLongPressActive(false);
+
         // End any single-finger pan in progress
         setSingleFingerPan({
           isPanning: false,
@@ -991,9 +1011,36 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           canvasRect: canvasRect, // Store canvas rect for stable coordinate space
         });
       } else if (e.touches.length === 1) {
-        // Single-finger touch on the canvas (not on a button) - start panning
-        // This is only triggered when touch starts directly on canvas, not on buttons
+        // Single-finger touch on the canvas (not on a button)
         const touch = e.touches[0];
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        // Prevent default to stop text selection
+        e.preventDefault();
+
+        // Get canvas coordinates for marquee selection
+        const canvasPos = screenToCanvas(touch.clientX, touch.clientY, viewport, canvas);
+
+        // Start long-press timer for context menu or marquee selection (layout mode only)
+        if (mode === "layout") {
+          canvasLongPressStart.current = {
+            x: touch.clientX,
+            y: touch.clientY,
+            canvasX: canvasPos.x,
+            canvasY: canvasPos.y,
+          };
+
+          canvasLongPressTimer.current = window.setTimeout(() => {
+            setCanvasLongPressActive(true);
+            // Trigger haptic feedback if available
+            if ("vibrate" in navigator) {
+              navigator.vibrate(50);
+            }
+          }, 500);
+        }
+
+        // Also start panning state (will be used if they move before long-press)
         setSingleFingerPan({
           isPanning: true,
           startX: touch.clientX,
@@ -1003,7 +1050,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         });
       }
     },
-    [viewport.scale, viewport.offsetX, viewport.offsetY],
+    [viewport, mode],
   );
 
   const handleTouchMove = useCallback(
@@ -1079,25 +1126,97 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           offsetX: newOffsetX,
           offsetY: newOffsetY,
         });
-      } else if (e.touches.length === 1 && singleFingerPan.isPanning) {
-        // Single-finger pan on canvas
+      } else if (e.touches.length === 1) {
         e.preventDefault();
 
         const touch = e.touches[0];
-        const deltaX = touch.clientX - singleFingerPan.startX;
-        const deltaY = touch.clientY - singleFingerPan.startY;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
 
-        setViewport((prev) => ({
-          ...prev,
-          offsetX: singleFingerPan.startOffsetX + deltaX,
-          offsetY: singleFingerPan.startOffsetY + deltaY,
-        }));
+        // Check if we should cancel long-press timer (user moved before it completed)
+        if (canvasLongPressTimer.current && canvasLongPressStart.current) {
+          const dx = touch.clientX - canvasLongPressStart.current.x;
+          const dy = touch.clientY - canvasLongPressStart.current.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          // If moved more than 10px, cancel long-press and do normal pan
+          if (distance > 10) {
+            window.clearTimeout(canvasLongPressTimer.current);
+            canvasLongPressTimer.current = null;
+          }
+        }
+
+        // If long-press is active, start or continue marquee selection
+        if (canvasLongPressActive && canvasLongPressStart.current && mode === "layout") {
+          const canvasPos = screenToCanvas(touch.clientX, touch.clientY, viewport, canvas);
+
+          // If marquee not started yet, check if moved enough to start it
+          if (!marquee) {
+            const dx = touch.clientX - canvasLongPressStart.current.x;
+            const dy = touch.clientY - canvasLongPressStart.current.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Start marquee if moved at least 10px after long-press
+            if (distance > 10) {
+              setMarquee({
+                startX: canvasLongPressStart.current.canvasX,
+                startY: canvasLongPressStart.current.canvasY,
+                endX: canvasPos.x,
+                endY: canvasPos.y,
+                isTouch: true, // Touch marquee
+              });
+              marqueeStartCanvas.current = {
+                x: canvasLongPressStart.current.canvasX,
+                y: canvasLongPressStart.current.canvasY,
+              };
+            }
+          } else {
+            // Update marquee end position
+            setMarquee({
+              ...marquee,
+              endX: canvasPos.x,
+              endY: canvasPos.y,
+            });
+          }
+        } else if (singleFingerPan.isPanning && !canvasLongPressActive) {
+          // Normal single-finger pan (no long-press active)
+          const deltaX = touch.clientX - singleFingerPan.startX;
+          const deltaY = touch.clientY - singleFingerPan.startY;
+
+          setViewport((prev) => ({
+            ...prev,
+            offsetX: singleFingerPan.startOffsetX + deltaX,
+            offsetY: singleFingerPan.startOffsetY + deltaY,
+          }));
+        }
       }
     },
-    [touchState, singleFingerPan],
+    [touchState, singleFingerPan, canvasLongPressActive, mode, marquee, viewport],
   );
 
   const handleTouchEnd = useCallback(() => {
+    // If long-press was active and no marquee started, show context menu
+    if (canvasLongPressActive && !marquee && canvasLongPressStart.current && mode === "layout") {
+      setContextMenu({
+        x: canvasLongPressStart.current.x,
+        y: canvasLongPressStart.current.y,
+        type: "canvas",
+      });
+    }
+
+    // If marquee was active, complete the selection (handleDragEnd will do this)
+    if (marquee) {
+      handleDragEnd();
+    }
+
+    // Clear canvas long-press timer and state
+    if (canvasLongPressTimer.current) {
+      window.clearTimeout(canvasLongPressTimer.current);
+      canvasLongPressTimer.current = null;
+    }
+    canvasLongPressStart.current = null;
+    setCanvasLongPressActive(false);
+
     // Reset two-finger gesture state
     setTouchState({
       initialDistance: null,
@@ -1116,7 +1235,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       startOffsetX: 0,
       startOffsetY: 0,
     });
-  }, [viewport.scale, viewport.offsetX, viewport.offsetY]);
+  }, [viewport.scale, viewport.offsetX, viewport.offsetY, canvasLongPressActive, marquee, mode, handleDragEnd]);
 
   // Set initial zoom to fit on mount or when board ID changes
   useEffect(() => {
@@ -1374,6 +1493,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           startY: canvasPos.y,
           endX: canvasPos.x,
           endY: canvasPos.y,
+          isTouch: false, // Mouse marquee
         });
       }
     },
@@ -2004,7 +2124,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
             {/* Marquee selection rectangle */}
             {marquee && mode === "layout" && (
               <div
-                className="absolute border-2 border-blue-400 bg-blue-400 bg-opacity-20 pointer-events-none"
+                className={`absolute border-2 pointer-events-none ${
+                  marquee.isTouch
+                    ? "border-green-400 bg-green-400 bg-opacity-20"
+                    : "border-blue-400 bg-blue-400 bg-opacity-20"
+                }`}
                 style={{
                   left: `${Math.min(marquee.startX, marquee.endX)}px`,
                   top: `${Math.min(marquee.startY, marquee.endY)}px`,
