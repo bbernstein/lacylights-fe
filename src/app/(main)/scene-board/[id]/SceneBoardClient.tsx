@@ -678,10 +678,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
     // Handle marquee selection end
     if (marquee) {
-      console.log("[DEBUG] handleDragEnd: Marquee active", marquee);
-
       if (!board) {
-        console.log("[DEBUG] handleDragEnd: No board, clearing marquee");
         setMarquee(null);
         return;
       }
@@ -692,30 +689,18 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       const minY = Math.min(marquee.startY, marquee.endY);
       const maxY = Math.max(marquee.startY, marquee.endY);
 
-      console.log("[DEBUG] handleDragEnd: Marquee rect", { minX, maxX, minY, maxY });
-
       // Find all buttons that intersect with the marquee
       const buttonsInMarquee = board.buttons.filter((button: SceneBoardButton) => {
         const buttonRight = button.layoutX + (button.width || DEFAULT_BUTTON_WIDTH);
         const buttonBottom = button.layoutY + (button.height || DEFAULT_BUTTON_HEIGHT);
 
-        const intersects = !(
+        return !(
           button.layoutX > maxX ||
           buttonRight < minX ||
           button.layoutY > maxY ||
           buttonBottom < minY
         );
-
-        console.log("[DEBUG] Button check:", {
-          button: button.scene.name,
-          pos: { x: button.layoutX, y: button.layoutY, right: buttonRight, bottom: buttonBottom },
-          intersects
-        });
-
-        return intersects;
       });
-
-      console.log("[DEBUG] handleDragEnd: Buttons in marquee", buttonsInMarquee.length);
 
       // Add these buttons to selection (don't replace)
       setSelectedButtonIds((prev) => {
@@ -723,7 +708,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         buttonsInMarquee.forEach((button: SceneBoardButton) => {
           newSet.add(button.id);
         });
-        console.log("[DEBUG] handleDragEnd: New selection size", newSet.size);
         return newSet;
       });
 
@@ -731,8 +715,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       setMarquee(null);
       marqueeStartCanvas.current = null;
       return;
-    } else {
-      console.log("[DEBUG] handleDragEnd: No marquee active");
     }
 
     // Handle button dragging end
@@ -1525,7 +1507,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   // Handle canvas mouse down for marquee selection
   const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      console.log("[DEBUG] handleCanvasMouseDown: mode=", mode, "shiftKey=", e.shiftKey);
       if (mode !== "layout") return;
 
       // Only start marquee if Shift is pressed
@@ -1536,7 +1517,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
         const canvasPos = screenToCanvas(e.clientX, e.clientY, viewport, canvas);
         marqueeStartCanvas.current = canvasPos;
-        console.log("[DEBUG] handleCanvasMouseDown: Starting marquee at", canvasPos);
         setMarquee({
           startX: canvasPos.x,
           startY: canvasPos.y,
@@ -2068,7 +2048,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           onClick={handleCanvasClick}
           onMouseDown={handleCanvasMouseDown}
           onMouseMove={handleDragMove}
-          onMouseUp={handleDragEnd}
           onMouseLeave={handleDragEnd}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
