@@ -1701,15 +1701,16 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
       console.log('[BUTTON CLICK] Called for button:', button.id, 'lastInteractionWasDrag:', lastInteractionWasDrag.current, 'selectedButtonIds.size:', selectedButtonIds.size);
 
+      // Stop propagation FIRST so canvas click doesn't fire
+      // (must be before early return to prevent event bubbling)
+      e.stopPropagation();
+
       // Don't handle click if the last interaction was a drag
       if (lastInteractionWasDrag.current) {
         console.log('[BUTTON CLICK] Was a drag, returning early');
         lastInteractionWasDrag.current = false;
         return;
       }
-
-      // Stop propagation so canvas click doesn't fire
-      e.stopPropagation();
 
       // Check for multi-select modifiers
       if (e.shiftKey || e.metaKey || e.ctrlKey) {
