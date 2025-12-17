@@ -44,13 +44,14 @@ export default function ContextMenu({
     };
 
     // Add slight delay to prevent immediate dismissal from the same click that opened the menu
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       document.addEventListener("mousedown", handleClickOutside);
       document.addEventListener("touchstart", handleClickOutside);
       document.addEventListener("keydown", handleEscape);
     }, 10);
 
     return () => {
+      clearTimeout(timeoutId);
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
       document.removeEventListener("keydown", handleEscape);
@@ -95,9 +96,9 @@ export default function ContextMenu({
       style={{ left: x, top: y }}
       role="menu"
     >
-      {options.map((option, index) => (
+      {options.map((option) => (
         <button
-          key={index}
+          key={option.label}
           onClick={() => {
             if (!option.disabled) {
               option.onClick();

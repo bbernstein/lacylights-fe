@@ -143,13 +143,19 @@ export interface RecalibrationResult {
 
 /**
  * Calculate coordinate recalibration to normalize button positions.
- * ALWAYS recalibrates so leftmost button is at X=0 and topmost button is at Y=0.
- * This prevents buttons from spreading too far across the canvas.
+ * Recalibrates only when buttons are out of bounds (minX < 0, minY < 0,
+ * maxX > canvasWidth, maxY > canvasHeight) or have drifted significantly
+ * from the origin (minX or minY > drift threshold).
+ * When recalibration is needed, shifts buttons so leftmost is at X=0 and topmost is at Y=0.
+ * This prevents buttons from spreading too far across the canvas while avoiding
+ * unnecessary database writes when buttons are already in a valid position.
  *
  * @param buttons All button positions (including dragged ones)
  * @param canvasWidth Canvas width in pixels
  * @param canvasHeight Canvas height in pixels
- * @returns Recalibration result with offsets and adjusted positions, or null if buttons don't fit
+ * @returns Recalibration result with offsets and adjusted positions, or null if buttons don't fit.
+ *          When null is returned, the caller should clamp button positions to fit within canvas bounds
+ *          and save those clamped positions to preserve user intent as much as possible.
  */
 export function recalibrateButtonPositions(
   buttons: ButtonPosition[],
@@ -178,8 +184,28 @@ export function recalibrateButtonPositions(
     maxY = Math.max(maxY, btn.layoutY + btn.height);
   });
 
-  // ALWAYS normalize: shift so leftmost button is at X=0 and topmost is at Y=0
-  // This prevents buttons from spreading too far across the canvas
+  // Only normalize when buttons are out of bounds or have drifted significantly from origin
+  // This avoids unnecessary database writes when buttons are already in a valid position
+  const DRIFT_THRESHOLD = 100;
+
+  const isOutOfBounds =
+    minX < 0 || minY < 0 || maxX > canvasWidth || maxY > canvasHeight;
+
+  const hasSignificantDrift = minX > DRIFT_THRESHOLD || minY > DRIFT_THRESHOLD;
+
+  // If everything is already within bounds and close to the origin, skip recalibration
+  if (!isOutOfBounds && !hasSignificantDrift) {
+    return {
+      needsRecalibration: false,
+      offsetX: 0,
+      offsetY: 0,
+      positions: buttons,
+    };
+  }
+
+  // Normalize: shift so leftmost button is at X=0 and topmost is at Y=0
+  // This prevents buttons from spreading too far across the canvas when
+  // they are out of bounds or have drifted significantly
   const offsetX = -minX; // Shift to bring leftmost to 0
   const offsetY = -minY; // Shift to bring topmost to 0
 
@@ -192,7 +218,7 @@ export function recalibrateButtonPositions(
     return null;
   }
 
-  const needsRecalibration = offsetX !== 0 || offsetY !== 0;
+  const needsRecalibration = true; // If we get here, we need to recalibrate
 
   // Apply offsets to all buttons
   const recalibratedPositions = buttons.map((btn) => ({

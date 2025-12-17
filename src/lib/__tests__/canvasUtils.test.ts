@@ -186,7 +186,7 @@ describe("canvasUtils", () => {
     const BUTTON_WIDTH = 200;
     const BUTTON_HEIGHT = 120;
 
-    it("should always normalize so leftmost button is at X=0 and topmost is at Y=0", () => {
+    it("should not recalibrate when buttons are within bounds and close to origin", () => {
       const buttons: ButtonPosition[] = [
         {
           buttonId: "1",
@@ -211,9 +211,40 @@ describe("canvasUtils", () => {
       );
 
       expect(result).not.toBeNull();
-      expect(result?.needsRecalibration).toBe(true); // Always recalibrates to normalize
-      expect(result?.offsetX).toBe(-100); // Shift left by 100 to bring leftmost to 0
-      expect(result?.offsetY).toBe(-100); // Shift up by 100 to bring topmost to 0
+      expect(result?.needsRecalibration).toBe(false); // No recalibration needed when within bounds and close to origin
+      expect(result?.offsetX).toBe(0);
+      expect(result?.offsetY).toBe(0);
+      expect(result?.positions).toEqual(buttons); // Positions unchanged
+    });
+
+    it("should recalibrate when buttons have drifted significantly from origin", () => {
+      const buttons: ButtonPosition[] = [
+        {
+          buttonId: "1",
+          layoutX: 150, // > 100 drift threshold
+          layoutY: 150,
+          width: BUTTON_WIDTH,
+          height: BUTTON_HEIGHT,
+        },
+        {
+          buttonId: "2",
+          layoutX: 500,
+          layoutY: 300,
+          width: BUTTON_WIDTH,
+          height: BUTTON_HEIGHT,
+        },
+      ];
+
+      const result = recalibrateButtonPositions(
+        buttons,
+        CANVAS_WIDTH,
+        CANVAS_HEIGHT,
+      );
+
+      expect(result).not.toBeNull();
+      expect(result?.needsRecalibration).toBe(true); // Recalibrate due to drift
+      expect(result?.offsetX).toBe(-150); // Shift to bring leftmost to 0
+      expect(result?.offsetY).toBe(-150); // Shift to bring topmost to 0
       expect(result?.positions).toEqual([
         {
           buttonId: "1",
@@ -224,8 +255,8 @@ describe("canvasUtils", () => {
         },
         {
           buttonId: "2",
-          layoutX: 400,
-          layoutY: 200,
+          layoutX: 350,
+          layoutY: 150,
           width: BUTTON_WIDTH,
           height: BUTTON_HEIGHT,
         },

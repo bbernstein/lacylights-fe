@@ -64,8 +64,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [editedFadeTime, setEditedFadeTime] = useState(3.0);
-  const [editedCanvasWidth, setEditedCanvasWidth] = useState(DEFAULT_CANVAS_WIDTH);
-  const [editedCanvasHeight, setEditedCanvasHeight] = useState(DEFAULT_CANVAS_HEIGHT);
+  const [editedCanvasWidth, setEditedCanvasWidth] =
+    useState(DEFAULT_CANVAS_WIDTH);
+  const [editedCanvasHeight, setEditedCanvasHeight] = useState(
+    DEFAULT_CANVAS_HEIGHT,
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -834,8 +837,8 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
             buttonId: btn.id,
             layoutX: draggingData ? draggingData.currentX : btn.layoutX,
             layoutY: draggingData ? draggingData.currentY : btn.layoutY,
-            width: DEFAULT_BUTTON_WIDTH,
-            height: DEFAULT_BUTTON_HEIGHT,
+            width: btn.width ?? DEFAULT_BUTTON_WIDTH,
+            height: btn.height ?? DEFAULT_BUTTON_HEIGHT,
           };
         }) || [];
 
@@ -849,8 +852,41 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       if (!recalibrationResult) {
         // Buttons don't fit within canvas even with recalibration
         // This shouldn't happen since we constrain during drag, but handle it gracefully
-        console.warn("Cannot recalibrate: buttons do not fit within canvas");
-        // Fall through to clear dragging state without saving
+        // Clamp dragged buttons to fit within bounds and save those positions
+        const canvasWidth = board?.canvasWidth || DEFAULT_CANVAS_WIDTH;
+        const canvasHeight = board?.canvasHeight || DEFAULT_CANVAS_HEIGHT;
+
+        const clampedPositions = Array.from(draggingButtons.entries()).map(
+          ([buttonId, buttonData]) => {
+            const btn = board?.buttons.find(
+              (b: SceneBoardButton) => b.id === buttonId,
+            );
+            const width = btn?.width ?? DEFAULT_BUTTON_WIDTH;
+            const height = btn?.height ?? DEFAULT_BUTTON_HEIGHT;
+
+            return {
+              buttonId,
+              layoutX: Math.max(
+                0,
+                Math.min(buttonData.currentX, canvasWidth - width),
+              ),
+              layoutY: Math.max(
+                0,
+                Math.min(buttonData.currentY, canvasHeight - height),
+              ),
+            };
+          },
+        );
+
+        // Save clamped positions
+        updatePositions({
+          variables: {
+            positions: clampedPositions,
+          },
+          optimisticResponse: {
+            updateSceneBoardButtonPositions: true,
+          },
+        });
       } else {
         // If recalibration occurred, adjust viewport to keep buttons visually stationary
         if (recalibrationResult.needsRecalibration) {
@@ -1969,7 +2005,14 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         },
       },
     });
-  }, [boardId, editedName, editedFadeTime, editedCanvasWidth, editedCanvasHeight, updateBoard]);
+  }, [
+    boardId,
+    editedName,
+    editedFadeTime,
+    editedCanvasWidth,
+    editedCanvasHeight,
+    updateBoard,
+  ]);
 
   const openEditSettings = useCallback(() => {
     setEditedName(board?.name || "");
@@ -2651,9 +2694,16 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                 <input
                   type="number"
                   value={editedCanvasWidth}
-                  onChange={(e) =>
-                    setEditedCanvasWidth(parseInt(e.target.value, 10) || DEFAULT_CANVAS_WIDTH)
-                  }
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value, 10);
+                    if (isNaN(value)) {
+                      setEditedCanvasWidth(DEFAULT_CANVAS_WIDTH);
+                    } else {
+                      setEditedCanvasWidth(
+                        Math.max(1000, Math.min(10000, value)),
+                      );
+                    }
+                  }}
                   className="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                   min="1000"
                   max="10000"
@@ -2667,9 +2717,16 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                 <input
                   type="number"
                   value={editedCanvasHeight}
-                  onChange={(e) =>
-                    setEditedCanvasHeight(parseInt(e.target.value, 10) || DEFAULT_CANVAS_HEIGHT)
-                  }
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value, 10);
+                    if (isNaN(value)) {
+                      setEditedCanvasHeight(DEFAULT_CANVAS_HEIGHT);
+                    } else {
+                      setEditedCanvasHeight(
+                        Math.max(1000, Math.min(10000, value)),
+                      );
+                    }
+                  }}
                   className="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                   min="1000"
                   max="10000"
