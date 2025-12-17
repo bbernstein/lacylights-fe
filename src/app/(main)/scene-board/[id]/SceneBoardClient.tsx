@@ -728,6 +728,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         return newSet;
       });
 
+      // Mark that we just completed a marquee selection
+      // This prevents handleCanvasClick from clearing the selection
+      lastInteractionWasDrag.current = true;
+      console.log("[MARQUEE] Set lastInteractionWasDrag to prevent click clearing selection");
+
       // Clear marquee
       console.log("[MARQUEE] Clearing marquee");
       setMarquee(null);
@@ -1517,14 +1522,23 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   // Handle canvas click to clear selection
   const handleCanvasClick = useCallback(
     (_e: React.MouseEvent) => {
+      console.log("[MARQUEE] handleCanvasClick - lastInteractionWasDrag:", lastInteractionWasDrag.current);
       if (mode !== "layout") return;
 
-      // Don't clear if we just finished a marquee selection
+      // Don't clear if we just finished a drag or marquee selection
+      if (lastInteractionWasDrag.current) {
+        console.log("[MARQUEE] Skipping canvas click because last interaction was drag/marquee");
+        lastInteractionWasDrag.current = false;
+        return;
+      }
+
+      // Don't clear if we're actively dragging a marquee
       if (marquee) return;
 
       // Only clear selection if clicking directly on the canvas, not on a button
       // Buttons will stopPropagation, so this only fires for empty canvas clicks
       if (selectedButtonIds.size > 0) {
+        console.log("[MARQUEE] Canvas click clearing selection");
         clearButtonSelection();
       }
     },
