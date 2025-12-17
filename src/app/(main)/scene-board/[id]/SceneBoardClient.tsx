@@ -251,17 +251,40 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         return;
       }
 
-      // Don't handle other shortcuts if in input field or in play mode
+      // Zoom shortcuts work in both layout and play mode
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        setViewport((prev) => ({
+          ...prev,
+          scale: clamp(prev.scale + 0.1, MIN_ZOOM, MAX_ZOOM),
+        }));
+        return;
+      }
+      if (e.key === "-") {
+        e.preventDefault();
+        setViewport((prev) => ({
+          ...prev,
+          scale: clamp(prev.scale - 0.1, MIN_ZOOM, MAX_ZOOM),
+        }));
+        return;
+      }
+      if (e.key === "0") {
+        e.preventDefault();
+        zoomToFit();
+        return;
+      }
+
+      // Don't handle editing shortcuts if in input field or in play mode
       if (isInputField || mode === "play") return;
 
-      // Select All (Cmd/Ctrl + A)
+      // Select All (Cmd/Ctrl + A) - Layout mode only
       if ((e.metaKey || e.ctrlKey) && e.key === "a") {
         e.preventDefault();
         selectAllButtons();
         return;
       }
 
-      // Delete selected buttons (Delete or Backspace)
+      // Delete selected buttons (Delete or Backspace) - Layout mode only
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
         selectedButtonIds.size > 0
@@ -289,30 +312,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         return;
       }
 
-      // Zoom shortcuts
-      if (e.key === "+" || e.key === "=") {
-        e.preventDefault();
-        setViewport((prev) => ({
-          ...prev,
-          scale: clamp(prev.scale + 0.1, MIN_ZOOM, MAX_ZOOM),
-        }));
-        return;
-      }
-      if (e.key === "-") {
-        e.preventDefault();
-        setViewport((prev) => ({
-          ...prev,
-          scale: clamp(prev.scale - 0.1, MIN_ZOOM, MAX_ZOOM),
-        }));
-        return;
-      }
-      if (e.key === "0") {
-        e.preventDefault();
-        zoomToFit();
-        return;
-      }
-
-      // Nudge selected buttons with arrow keys
+      // Nudge selected buttons with arrow keys - Layout mode only
       if (
         selectedButtonIds.size > 0 &&
         ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
@@ -400,6 +400,13 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       setMode("play");
     }
   }, [isFocusMode, mode]);
+
+  // Clear selection when entering play mode
+  useEffect(() => {
+    if (mode === "play" && selectedButtonIds.size > 0) {
+      clearButtonSelection();
+    }
+  }, [mode, selectedButtonIds.size, clearButtonSelection]);
 
   // Handle drag start
   const handleDragStart = useCallback(

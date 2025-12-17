@@ -52,36 +52,36 @@
   - [ ] Update button styles to remove space for remove link
 
 ### Phase 3: Multi-Select Support
-- [ ] Mouse multi-select
-  - [ ] Shift+click to toggle selection
-  - [ ] Cmd/Ctrl+click to toggle selection
-  - [ ] Click on selected button keeps selection (for multi-drag)
-  - [ ] Click on empty canvas clears selection
+- [x] Mouse multi-select
+  - [x] Shift+click to toggle selection
+  - [x] Cmd/Ctrl+click to toggle selection
+  - [x] Click on selected button keeps selection (for multi-drag)
+  - [x] Click on empty canvas clears selection
 
 - [ ] Touch multi-select
   - [ ] Long-press on button (500ms) to toggle selection
   - [ ] Haptic feedback on long-press (if available)
   - [ ] Prevent drag when long-press menu appears
 
-- [ ] Marquee selection
-  - [ ] Detect Shift+drag on empty canvas (mouse/trackpad)
+- [x] Marquee selection
+  - [x] Detect Shift+drag on empty canvas (mouse/trackpad)
   - [ ] Detect long-press then drag on empty canvas (touch)
-  - [ ] Draw selection rectangle (blue for mouse, green for touch)
-  - [ ] Update selection as marquee is dragged
-  - [ ] Add to existing selection (not replace)
-  - [ ] Select all buttons intersecting rectangle
+  - [x] Draw selection rectangle (blue for mouse, green for touch)
+  - [x] Update selection as marquee is dragged
+  - [x] Add to existing selection (not replace)
+  - [x] Select all buttons intersecting rectangle
 
-- [ ] Multi-button drag
-  - [ ] When dragging a selected button, move all selected buttons
-  - [ ] Maintain relative positions between buttons
-  - [ ] Clamp all buttons to canvas boundaries
-  - [ ] Update all button positions in backend
+- [x] Multi-button drag
+  - [x] When dragging a selected button, move all selected buttons
+  - [x] Maintain relative positions between buttons
+  - [x] Clamp all buttons to canvas boundaries
+  - [x] Update all button positions in backend
 
 ### Phase 4: Keyboard Shortcuts
-- [ ] Selection shortcuts
-  - [ ] `Escape` - Clear selection
-  - [ ] `Cmd/Ctrl + A` - Select all buttons
-  - [ ] `Delete` / `Backspace` - Remove selected buttons
+- [x] Selection shortcuts
+  - [x] `Escape` - Clear selection
+  - [x] `Cmd/Ctrl + A` - Select all buttons
+  - [x] `Delete` / `Backspace` - Remove selected buttons
 
 - [ ] Undo/Redo
   - [ ] `Cmd/Ctrl + Z` - Undo
@@ -89,14 +89,14 @@
   - [ ] Implement undo stack for position changes
   - [ ] Implement undo stack for button removal
 
-- [ ] Zoom shortcuts
-  - [ ] `+` / `=` - Zoom in (centered on viewport)
-  - [ ] `-` - Zoom out (centered on viewport)
-  - [ ] `0` - Fit all buttons in view
+- [x] Zoom shortcuts
+  - [x] `+` / `=` - Zoom in (centered on viewport)
+  - [x] `-` - Zoom out (centered on viewport)
+  - [x] `0` - Fit all buttons in view
 
-- [ ] Nudge shortcuts
-  - [ ] Arrow keys - Nudge selected buttons 10px
-  - [ ] Shift + Arrow keys - Nudge selected buttons 1px
+- [x] Nudge shortcuts
+  - [x] Arrow keys - Nudge selected buttons 10px
+  - [x] Shift + Arrow keys - Nudge selected buttons 1px
 
 ### Phase 5: Toolbar Controls
 - [ ] Add toolbar above canvas
@@ -115,17 +115,17 @@
   - [ ] Visual indicator of current mode
 
 ### Phase 6: Play Mode Restrictions
-- [ ] Disable editing in Play Mode
-  - [ ] Disable selection (clicks don't select)
-  - [ ] Disable drag-to-move (drag on buttons pans viewport instead)
-  - [ ] Disable context menus
-  - [ ] Disable keyboard shortcuts (except zoom)
-  - [ ] Hide mode-specific UI (selection indicators)
+- [x] Disable editing in Play Mode
+  - [x] Disable selection (clicks don't select)
+  - [x] Disable drag-to-move (drag on buttons pans viewport instead)
+  - [x] Disable context menus
+  - [x] Disable keyboard shortcuts (except zoom)
+  - [x] Hide mode-specific UI (selection indicators)
 
-- [ ] Enable performance features in Play Mode
-  - [ ] Single-finger drag anywhere pans (including on buttons)
-  - [ ] Scene activation on tap/click (no selection)
-  - [ ] Keep zoom/pan gestures working
+- [x] Enable performance features in Play Mode
+  - [x] Single-finger drag anywhere pans (including on buttons)
+  - [x] Scene activation on tap/click (no selection)
+  - [x] Keep zoom/pan gestures working
 
 ### Phase 7: Gesture Conflict Resolution
 - [ ] Touch gesture priorities
@@ -175,7 +175,7 @@
 
 ## Current Status
 
-**Phase:** Phase 3 Complete - Multi-Select Support Implemented
+**Phase:** Phase 6 Complete - Play Mode Restrictions Implemented
 
 **Last Updated:** 2025-12-17
 
@@ -202,10 +202,20 @@
   - Updated positions saved to backend for all buttons at once
   - Added drag threshold to distinguish clicks from drags
 
+- ✅ Phase 6: Play Mode Restrictions (Complete)
+  - Disabled selection in Play Mode (clicks activate scenes only)
+  - Disabled drag-to-move in Play Mode
+  - Disabled context menus in Play Mode
+  - Restructured keyboard shortcuts: zoom works in both modes, editing only in Layout
+  - Auto-clear selection when entering Play Mode
+  - Selection indicators already hidden by existing mode-aware styling
+  - All existing pan/zoom gestures work in Play Mode
+
 **Next Steps:**
-1. Continue with Phase 4 - Test all interactions on different input devices
-2. Polish visual feedback and animations
+1. Touch multi-select support (long-press)
+2. Touch marquee selection (long-press + drag)
 3. Add undo/redo support for position changes
+4. Polish and testing
 
 ---
 
