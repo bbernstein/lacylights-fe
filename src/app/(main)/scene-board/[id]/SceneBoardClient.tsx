@@ -293,6 +293,43 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     });
   }, [board]);
 
+  // Long-press helper functions
+  const startLongPress = useCallback(
+    (x: number, y: number, button: SceneBoardButton | null) => {
+      if (mode !== "layout") return;
+
+      // Clear any existing timer
+      if (longPressTimer.current) {
+        window.clearTimeout(longPressTimer.current);
+      }
+
+      // Set timer for long-press detection (500ms)
+      longPressTimer.current = window.setTimeout(() => {
+        setLongPressActive(true);
+        // Trigger haptic feedback if available
+        if ("vibrate" in navigator) {
+          navigator.vibrate(50);
+        }
+        setContextMenu({
+          x,
+          y,
+          type: button ? "button" : "canvas",
+          button: button || undefined,
+        });
+      }, 500);
+    },
+    [mode],
+  );
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimer.current) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    // Reset long-press active state after a short delay
+    setTimeout(() => setLongPressActive(false), 100);
+  }, []);
+
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1374,43 +1411,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
   const dismissContextMenu = useCallback(() => {
     setContextMenu(null);
-  }, []);
-
-  // Long-press handlers for touch devices
-  const startLongPress = useCallback(
-    (x: number, y: number, button: SceneBoardButton | null) => {
-      if (mode !== "layout") return;
-
-      // Clear any existing timer
-      if (longPressTimer.current) {
-        window.clearTimeout(longPressTimer.current);
-      }
-
-      // Set timer for long-press detection (500ms)
-      longPressTimer.current = window.setTimeout(() => {
-        setLongPressActive(true);
-        // Trigger haptic feedback if available
-        if ("vibrate" in navigator) {
-          navigator.vibrate(50);
-        }
-        setContextMenu({
-          x,
-          y,
-          type: button ? "button" : "canvas",
-          button: button || undefined,
-        });
-      }, 500);
-    },
-    [mode],
-  );
-
-  const cancelLongPress = useCallback(() => {
-    if (longPressTimer.current) {
-      window.clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    // Reset long-press active state after a short delay
-    setTimeout(() => setLongPressActive(false), 100);
   }, []);
 
   const handleAddScenes = useCallback(async () => {
