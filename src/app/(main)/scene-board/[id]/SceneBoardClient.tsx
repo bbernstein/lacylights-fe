@@ -227,6 +227,18 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     [availableScenes, buttonsOnBoard],
   );
 
+  // Selection helper functions - defined before useEffects that use them
+  const clearButtonSelection = useCallback(() => {
+    setSelectedButtonIds(new Set());
+  }, []);
+
+  const selectAllButtons = useCallback(() => {
+    if (!board) return;
+    setSelectedButtonIds(
+      new Set(board.buttons.map((b: SceneBoardButton) => b.id)),
+    );
+  }, [board]);
+
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1247,18 +1259,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     setSelectedSceneIds(new Set());
   }, []);
 
-  // Selection helper functions
-  const clearButtonSelection = useCallback(() => {
-    setSelectedButtonIds(new Set());
-  }, []);
-
-  const selectAllButtons = useCallback(() => {
-    if (!board) return;
-    setSelectedButtonIds(
-      new Set(board.buttons.map((b: SceneBoardButton) => b.id)),
-    );
-  }, [board]);
-
+  // Additional selection helper functions
   const toggleButtonSelection = useCallback((buttonId: string) => {
     setSelectedButtonIds((prev) => {
       const newSet = new Set(prev);
