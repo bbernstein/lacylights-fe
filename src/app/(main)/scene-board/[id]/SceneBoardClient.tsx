@@ -604,7 +604,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           viewport,
           canvasRef.current,
         );
-        console.log("[MARQUEE] Updating marquee end position:", canvasPos);
         setMarquee({
           ...marquee,
           endX: canvasPos.x,
@@ -698,14 +697,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
   // Handle drag end
   const handleDragEnd = useCallback(() => {
-    console.log("[MARQUEE] handleDragEnd called - mode:", mode, "marquee:", marquee);
     if (mode !== "layout") return;
 
     // Handle marquee selection end
     if (marquee) {
-      console.log("[MARQUEE] Processing marquee selection");
       if (!board) {
-        console.log("[MARQUEE] No board, clearing marquee");
         setMarquee(null);
         return;
       }
@@ -715,8 +711,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       const maxX = Math.max(marquee.startX, marquee.endX);
       const minY = Math.min(marquee.startY, marquee.endY);
       const maxY = Math.max(marquee.startY, marquee.endY);
-
-      console.log("[MARQUEE] Marquee bounds:", { minX, maxX, minY, maxY });
 
       // Find all buttons that intersect with the marquee
       const buttonsInMarquee = board.buttons.filter((button: SceneBoardButton) => {
@@ -730,16 +724,8 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           buttonBottom < minY
         );
 
-        console.log("[MARQUEE] Button check:", {
-          button: button.scene.name,
-          bounds: { x: button.layoutX, y: button.layoutY, right: buttonRight, bottom: buttonBottom },
-          intersects
-        });
-
         return intersects;
       });
-
-      console.log("[MARQUEE] Found", buttonsInMarquee.length, "buttons in marquee");
 
       // Add these buttons to selection (don't replace)
       setSelectedButtonIds((prev) => {
@@ -747,22 +733,17 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         buttonsInMarquee.forEach((button: SceneBoardButton) => {
           newSet.add(button.id);
         });
-        console.log("[MARQUEE] Setting selection size to:", newSet.size);
         return newSet;
       });
 
       // Mark that we just completed a marquee selection
       // This prevents handleCanvasClick from clearing the selection
       lastInteractionWasDrag.current = true;
-      console.log("[MARQUEE] Set lastInteractionWasDrag to prevent click clearing selection");
 
       // Clear marquee
-      console.log("[MARQUEE] Clearing marquee");
       setMarquee(null);
       marqueeStartCanvas.current = null;
       return;
-    } else {
-      console.log("[MARQUEE] No marquee to process");
     }
 
     // Handle button dragging end
@@ -896,6 +877,28 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           canvas,
         );
 
+        // Record the start position for tap/drag detection
+        dragStartPos.current = { x: touch.clientX, y: touch.clientY };
+        lastInteractionWasDrag.current = false;
+
+        // Check if this button is selected - if so, we'll drag all selected buttons
+        const isSelected = selectedButtonIds.has(button.id);
+        const buttonsToDrag = isSelected
+          ? board.buttons.filter((b: SceneBoardButton) => selectedButtonIds.has(b.id))
+          : [button];
+
+        // Initialize multi-button drag state
+        const dragMap = new Map();
+        buttonsToDrag.forEach((btn: SceneBoardButton) => {
+          dragMap.set(btn.id, {
+            originalX: btn.layoutX,
+            originalY: btn.layoutY,
+            currentX: btn.layoutX,
+            currentY: btn.layoutY,
+          });
+        });
+        setDraggingButtons(dragMap);
+
         setDraggingButton(button);
         setDragOffset({
           x: canvasPos.x - button.layoutX,
@@ -903,7 +906,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         });
       }
     },
-    [mode, viewport, startLongPress],
+    [mode, viewport, startLongPress, selectedButtonIds, board],
   );
 
   const handleTouchMoveButton = useCallback(
@@ -923,8 +926,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         return;
       }
 
-      // Prevent scrolling while dragging
+      // Prevent scrolling while dragging and stop propagation to canvas
       e.preventDefault();
+      e.stopPropagation();
 
       const touch = e.touches[0];
       const canvasPos = screenToCanvas(
@@ -941,6 +945,47 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       const snappedX = snapToGrid(newX, GRID_SIZE);
       const snappedY = snapToGrid(newY, GRID_SIZE);
 
+      // Update all dragging buttons if we're dragging multiple
+      if (draggingButtons.size > 0) {
+        // Calculate the delta from the original position of the main dragging button
+        const mainButtonData = draggingButtons.get(draggingButton.id);
+        if (!mainButtonData) return;
+
+        const deltaX = snappedX - mainButtonData.originalX;
+        const deltaY = snappedY - mainButtonData.originalY;
+
+        // Update all dragging buttons with the same delta
+        const newDraggingButtons = new Map(draggingButtons);
+        draggingButtons.forEach((buttonData, buttonId) => {
+          const newPosX = buttonData.originalX + deltaX;
+          const newPosY = buttonData.originalY + deltaY;
+
+          // Clamp to canvas boundaries
+          const clampedX = Math.max(
+            0,
+            Math.min(
+              (board?.canvasWidth || 2000) - (DEFAULT_BUTTON_WIDTH),
+              newPosX,
+            ),
+          );
+          const clampedY = Math.max(
+            0,
+            Math.min(
+              (board?.canvasHeight || 2000) - (DEFAULT_BUTTON_HEIGHT),
+              newPosY,
+            ),
+          );
+
+          newDraggingButtons.set(buttonId, {
+            ...buttonData,
+            currentX: clampedX,
+            currentY: clampedY,
+          });
+        });
+
+        setDraggingButtons(newDraggingButtons);
+      }
+
       // Update the dragging button state to trigger re-render
       setDraggingButton({
         ...draggingButton,
@@ -956,6 +1001,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       board,
       handleDragEnd,
       cancelLongPress,
+      draggingButtons,
       longPressActive,
     ],
   );
@@ -1239,8 +1285,8 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
               endY: canvasPos.y,
             });
           }
-        } else if (singleFingerPan.isPanning && !canvasLongPressActive) {
-          // Normal single-finger pan (no long-press active)
+        } else if (singleFingerPan.isPanning && !canvasLongPressActive && !draggingButton) {
+          // Normal single-finger pan (no long-press active, not dragging a button)
           const deltaX = touch.clientX - singleFingerPan.startX;
           const deltaY = touch.clientY - singleFingerPan.startY;
 
@@ -1252,7 +1298,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         }
       }
     },
-    [touchState, singleFingerPan, canvasLongPressActive, mode, marquee, viewport],
+    [touchState, singleFingerPan, canvasLongPressActive, mode, marquee, viewport, draggingButton],
   );
 
   const handleTouchEnd = useCallback(() => {
@@ -1325,22 +1371,14 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   // Listener must be always active (not conditional) to avoid timing issues
   useEffect(() => {
     const handleDocumentMouseUp = () => {
-      console.log("[MARQUEE] Document mouseup fired");
       handleDragEnd();
     };
 
-    console.log("[MARQUEE] Adding document mouseup listener");
     document.addEventListener("mouseup", handleDocumentMouseUp);
     return () => {
-      console.log("[MARQUEE] Removing document mouseup listener");
       document.removeEventListener("mouseup", handleDocumentMouseUp);
     };
   }, [handleDragEnd]);
-
-  // Debug: Log selection changes
-  useEffect(() => {
-    console.log("[MARQUEE] Selection changed - size:", selectedButtonIds.size, "ids:", Array.from(selectedButtonIds));
-  }, [selectedButtonIds]);
 
   // Add native touch event listeners with passive: false to prevent browser handling
   useEffect(() => {
@@ -1533,12 +1571,10 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   // Handle canvas click to clear selection
   const handleCanvasClick = useCallback(
     (_e: React.MouseEvent) => {
-      console.log("[MARQUEE] handleCanvasClick - lastInteractionWasDrag:", lastInteractionWasDrag.current);
       if (mode !== "layout") return;
 
       // Don't clear if we just finished a drag or marquee selection
       if (lastInteractionWasDrag.current) {
-        console.log("[MARQUEE] Skipping canvas click because last interaction was drag/marquee");
         lastInteractionWasDrag.current = false;
         return;
       }
@@ -1549,7 +1585,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       // Only clear selection if clicking directly on the canvas, not on a button
       // Buttons will stopPropagation, so this only fires for empty canvas clicks
       if (selectedButtonIds.size > 0) {
-        console.log("[MARQUEE] Canvas click clearing selection");
         clearButtonSelection();
       }
     },
@@ -1559,7 +1594,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   // Handle canvas mouse down for marquee selection
   const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      console.log("[MARQUEE] handleCanvasMouseDown - mode:", mode, "shiftKey:", e.shiftKey);
       if (mode !== "layout") return;
 
       // Only start marquee if Shift is pressed
@@ -1570,7 +1604,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
         const canvasPos = screenToCanvas(e.clientX, e.clientY, viewport, canvas);
         marqueeStartCanvas.current = canvasPos;
-        console.log("[MARQUEE] Starting marquee at canvas position:", canvasPos);
         setMarquee({
           startX: canvasPos.x,
           startY: canvasPos.y,
@@ -1578,7 +1611,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           endY: canvasPos.y,
           isTouch: false, // Mouse marquee
         });
-        console.log("[MARQUEE] setMarquee called with start position:", canvasPos);
       }
     },
     [mode, viewport],
