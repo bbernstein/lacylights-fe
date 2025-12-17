@@ -2488,44 +2488,46 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           </div>
         </div>
 
-        {/* Zoom Controls */}
-        <div className="fixed bottom-4 right-4 flex flex-col gap-2 bg-gray-800 rounded-lg p-2 shadow-lg">
-          <button
-            onClick={() =>
-              setViewport((prev) => ({
-                ...prev,
-                scale: clamp(prev.scale + 0.1, MIN_ZOOM, MAX_ZOOM),
-              }))
-            }
-            className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-500 font-bold"
-            aria-label="Zoom in"
-          >
-            +
-          </button>
-          <div className="text-center text-sm text-white px-2">
-            {Math.round(viewport.scale * 100)}%
+        {/* Zoom Controls - Layout Mode Only */}
+        {mode === "layout" && (
+          <div className="fixed bottom-4 right-4 flex flex-col gap-2 bg-gray-800 rounded-lg p-2 shadow-lg">
+            <button
+              onClick={() =>
+                setViewport((prev) => ({
+                  ...prev,
+                  scale: clamp(prev.scale + 0.1, MIN_ZOOM, MAX_ZOOM),
+                }))
+              }
+              className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-500 font-bold"
+              aria-label="Zoom in"
+            >
+              +
+            </button>
+            <div className="text-center text-sm text-white px-2">
+              {Math.round(viewport.scale * 100)}%
+            </div>
+            <button
+              onClick={() =>
+                setViewport((prev) => ({
+                  ...prev,
+                  scale: clamp(prev.scale - 0.1, MIN_ZOOM, MAX_ZOOM),
+                }))
+              }
+              className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-500 font-bold"
+              aria-label="Zoom out"
+            >
+              −
+            </button>
+            <button
+              onClick={zoomToFit}
+              className="px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 text-xs"
+              aria-label="Zoom to fit all scenes"
+              title="Fit all scenes in view"
+            >
+              Fit All
+            </button>
           </div>
-          <button
-            onClick={() =>
-              setViewport((prev) => ({
-                ...prev,
-                scale: clamp(prev.scale - 0.1, MIN_ZOOM, MAX_ZOOM),
-              }))
-            }
-            className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-500 font-bold"
-            aria-label="Zoom out"
-          >
-            −
-          </button>
-          <button
-            onClick={zoomToFit}
-            className="px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 text-xs"
-            aria-label="Zoom to fit all scenes"
-            title="Fit all scenes in view"
-          >
-            Fit All
-          </button>
-        </div>
+        )}
       </div>
 
       {/* Mode indicator */}
