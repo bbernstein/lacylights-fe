@@ -545,8 +545,10 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     (e: React.MouseEvent, button: SceneBoardButton) => {
       if (mode !== "layout" || !board) return;
 
-      // If Shift key is pressed, let the canvas handle marquee selection
+      // If Shift key is pressed, stop propagation to prevent canvas marquee,
+      // but don't start a drag - let the click handler toggle selection instead
       if (e.shiftKey) {
+        e.stopPropagation();
         return;
       }
 
