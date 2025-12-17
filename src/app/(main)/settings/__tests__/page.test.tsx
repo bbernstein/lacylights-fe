@@ -132,28 +132,27 @@ describe('SettingsPage - Fade Update Rate Validation', () => {
       return row?.textContent?.includes('Fade Update Rate');
     });
 
-    if (fadeRateEditButton) {
-      fireEvent.click(fadeRateEditButton);
+    expect(fadeRateEditButton).toBeDefined();
+    fireEvent.click(fadeRateEditButton!);
 
-      // Wait for input to appear
-      await waitFor(() => {
-        const input = screen.getByPlaceholderText('60');
-        expect(input).toBeInTheDocument();
-      });
+    // Wait for input to appear
+    await waitFor(() => {
+      const input = screen.getByPlaceholderText('60');
+      expect(input).toBeInTheDocument();
+    });
 
-      // Enter valid value
-      const input = screen.getByPlaceholderText('60') as HTMLInputElement;
-      fireEvent.change(input, { target: { value: '80' } });
+    // Enter valid value
+    const input = screen.getByPlaceholderText('60') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '80' } });
 
-      // Click save
-      const saveButton = screen.getByText('Save');
-      fireEvent.click(saveButton);
+    // Click save
+    const saveButton = screen.getByText('Save');
+    fireEvent.click(saveButton);
 
-      // Should not show any validation error
-      await waitFor(() => {
-        expect(screen.queryByText(/must be between/i)).not.toBeInTheDocument();
-      });
-    }
+    // Should not show any validation error
+    await waitFor(() => {
+      expect(screen.queryByText(/must be between/i)).not.toBeInTheDocument();
+    });
   });
 
   it('rejects values below minimum (10)', async () => {
@@ -175,24 +174,23 @@ describe('SettingsPage - Fade Update Rate Validation', () => {
       return row?.textContent?.includes('Fade Update Rate');
     });
 
-    if (fadeRateEditButton) {
-      fireEvent.click(fadeRateEditButton);
+    expect(fadeRateEditButton).toBeDefined();
+    fireEvent.click(fadeRateEditButton!);
 
-      await waitFor(() => {
-        const input = screen.getByPlaceholderText('60');
-        expect(input).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      const input = screen.getByPlaceholderText('60');
+      expect(input).toBeInTheDocument();
+    });
 
-      const input = screen.getByPlaceholderText('60') as HTMLInputElement;
-      fireEvent.change(input, { target: { value: '5' } });
+    const input = screen.getByPlaceholderText('60') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '5' } });
 
-      const saveButton = screen.getByText('Save');
-      fireEvent.click(saveButton);
+    const saveButton = screen.getByText('Save');
+    fireEvent.click(saveButton);
 
-      await waitFor(() => {
-        expect(screen.getByText('Fade update rate must be between 10 and 120 Hz')).toBeInTheDocument();
-      });
-    }
+    await waitFor(() => {
+      expect(screen.getByText('Fade update rate must be between 10 and 120 Hz')).toBeInTheDocument();
+    });
   });
 
   it('rejects values above maximum (120)', async () => {
@@ -214,24 +212,23 @@ describe('SettingsPage - Fade Update Rate Validation', () => {
       return row?.textContent?.includes('Fade Update Rate');
     });
 
-    if (fadeRateEditButton) {
-      fireEvent.click(fadeRateEditButton);
+    expect(fadeRateEditButton).toBeDefined();
+    fireEvent.click(fadeRateEditButton!);
 
-      await waitFor(() => {
-        const input = screen.getByPlaceholderText('60');
-        expect(input).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      const input = screen.getByPlaceholderText('60');
+      expect(input).toBeInTheDocument();
+    });
 
-      const input = screen.getByPlaceholderText('60') as HTMLInputElement;
-      fireEvent.change(input, { target: { value: '150' } });
+    const input = screen.getByPlaceholderText('60') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '150' } });
 
-      const saveButton = screen.getByText('Save');
-      fireEvent.click(saveButton);
+    const saveButton = screen.getByText('Save');
+    fireEvent.click(saveButton);
 
-      await waitFor(() => {
-        expect(screen.getByText('Fade update rate must be between 10 and 120 Hz')).toBeInTheDocument();
-      });
-    }
+    await waitFor(() => {
+      expect(screen.getByText('Fade update rate must be between 10 and 120 Hz')).toBeInTheDocument();
+    });
   });
 
   it('handles whitespace-only input as empty', async () => {
@@ -253,24 +250,23 @@ describe('SettingsPage - Fade Update Rate Validation', () => {
       return row?.textContent?.includes('Fade Update Rate');
     });
 
-    if (fadeRateEditButton) {
-      fireEvent.click(fadeRateEditButton);
+    expect(fadeRateEditButton).toBeDefined();
+    fireEvent.click(fadeRateEditButton!);
 
-      await waitFor(() => {
-        const input = screen.getByPlaceholderText('60');
-        expect(input).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      const input = screen.getByPlaceholderText('60');
+      expect(input).toBeInTheDocument();
+    });
 
-      const input = screen.getByPlaceholderText('60') as HTMLInputElement;
-      fireEvent.change(input, { target: { value: '   ' } });
+    const input = screen.getByPlaceholderText('60') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '   ' } });
 
-      const saveButton = screen.getByText('Save');
-      fireEvent.click(saveButton);
+    const saveButton = screen.getByText('Save');
+    fireEvent.click(saveButton);
 
-      await waitFor(() => {
-        expect(screen.getByText('Please enter a value')).toBeInTheDocument();
-      });
-    }
+    await waitFor(() => {
+      expect(screen.getByText('Please enter a value')).toBeInTheDocument();
+    });
   });
 
   it('rejects decimal values', async () => {
@@ -292,24 +288,23 @@ describe('SettingsPage - Fade Update Rate Validation', () => {
       return row?.textContent?.includes('Fade Update Rate');
     });
 
-    if (fadeRateEditButton) {
-      fireEvent.click(fadeRateEditButton);
+    expect(fadeRateEditButton).toBeDefined();
+    fireEvent.click(fadeRateEditButton!);
 
-      await waitFor(() => {
-        const input = screen.getByPlaceholderText('60');
-        expect(input).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      const input = screen.getByPlaceholderText('60');
+      expect(input).toBeInTheDocument();
+    });
 
-      const input = screen.getByPlaceholderText('60') as HTMLInputElement;
-      fireEvent.change(input, { target: { value: '60.5' } });
+    const input = screen.getByPlaceholderText('60') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '60.5' } });
 
-      const saveButton = screen.getByText('Save');
-      fireEvent.click(saveButton);
+    const saveButton = screen.getByText('Save');
+    fireEvent.click(saveButton);
 
-      await waitFor(() => {
-        expect(screen.getByText('Fade update rate must be a whole number')).toBeInTheDocument();
-      });
-    }
+    await waitFor(() => {
+      expect(screen.getByText('Fade update rate must be a whole number')).toBeInTheDocument();
+    });
   });
 
   it('accepts minimum boundary value (10)', async () => {
@@ -355,24 +350,23 @@ describe('SettingsPage - Fade Update Rate Validation', () => {
       return row?.textContent?.includes('Fade Update Rate');
     });
 
-    if (fadeRateEditButton) {
-      fireEvent.click(fadeRateEditButton);
+    expect(fadeRateEditButton).toBeDefined();
+    fireEvent.click(fadeRateEditButton!);
 
-      await waitFor(() => {
-        const input = screen.getByPlaceholderText('60');
-        expect(input).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      const input = screen.getByPlaceholderText('60');
+      expect(input).toBeInTheDocument();
+    });
 
-      const input = screen.getByPlaceholderText('60') as HTMLInputElement;
-      fireEvent.change(input, { target: { value: '10' } });
+    const input = screen.getByPlaceholderText('60') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '10' } });
 
-      const saveButton = screen.getByText('Save');
-      fireEvent.click(saveButton);
+    const saveButton = screen.getByText('Save');
+    fireEvent.click(saveButton);
 
-      await waitFor(() => {
-        expect(screen.queryByText(/must be between/i)).not.toBeInTheDocument();
-      });
-    }
+    await waitFor(() => {
+      expect(screen.queryByText(/must be between/i)).not.toBeInTheDocument();
+    });
   });
 
   it('accepts maximum boundary value (120)', async () => {
@@ -418,24 +412,23 @@ describe('SettingsPage - Fade Update Rate Validation', () => {
       return row?.textContent?.includes('Fade Update Rate');
     });
 
-    if (fadeRateEditButton) {
-      fireEvent.click(fadeRateEditButton);
+    expect(fadeRateEditButton).toBeDefined();
+    fireEvent.click(fadeRateEditButton!);
 
-      await waitFor(() => {
-        const input = screen.getByPlaceholderText('60');
-        expect(input).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      const input = screen.getByPlaceholderText('60');
+      expect(input).toBeInTheDocument();
+    });
 
-      const input = screen.getByPlaceholderText('60') as HTMLInputElement;
-      fireEvent.change(input, { target: { value: '120' } });
+    const input = screen.getByPlaceholderText('60') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '120' } });
 
-      const saveButton = screen.getByText('Save');
-      fireEvent.click(saveButton);
+    const saveButton = screen.getByText('Save');
+    fireEvent.click(saveButton);
 
-      await waitFor(() => {
-        expect(screen.queryByText(/must be between/i)).not.toBeInTheDocument();
-      });
-    }
+    await waitFor(() => {
+      expect(screen.queryByText(/must be between/i)).not.toBeInTheDocument();
+    });
   });
 
   it('rejects empty string input', async () => {
@@ -457,24 +450,23 @@ describe('SettingsPage - Fade Update Rate Validation', () => {
       return row?.textContent?.includes('Fade Update Rate');
     });
 
-    if (fadeRateEditButton) {
-      fireEvent.click(fadeRateEditButton);
+    expect(fadeRateEditButton).toBeDefined();
+    fireEvent.click(fadeRateEditButton!);
 
-      await waitFor(() => {
-        const input = screen.getByPlaceholderText('60');
-        expect(input).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      const input = screen.getByPlaceholderText('60');
+      expect(input).toBeInTheDocument();
+    });
 
-      const input = screen.getByPlaceholderText('60') as HTMLInputElement;
-      fireEvent.change(input, { target: { value: '' } });
+    const input = screen.getByPlaceholderText('60') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '' } });
 
-      const saveButton = screen.getByText('Save');
-      fireEvent.click(saveButton);
+    const saveButton = screen.getByText('Save');
+    fireEvent.click(saveButton);
 
-      await waitFor(() => {
-        expect(screen.getByText('Please enter a value')).toBeInTheDocument();
-      });
-    }
+    await waitFor(() => {
+      expect(screen.getByText('Please enter a value')).toBeInTheDocument();
+    });
   });
 
   it('clears validation error when input changes', async () => {
@@ -496,32 +488,31 @@ describe('SettingsPage - Fade Update Rate Validation', () => {
       return row?.textContent?.includes('Fade Update Rate');
     });
 
-    if (fadeRateEditButton) {
-      fireEvent.click(fadeRateEditButton);
+    expect(fadeRateEditButton).toBeDefined();
+    fireEvent.click(fadeRateEditButton!);
 
-      await waitFor(() => {
-        const input = screen.getByPlaceholderText('60');
-        expect(input).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      const input = screen.getByPlaceholderText('60');
+      expect(input).toBeInTheDocument();
+    });
 
-      // Enter invalid value
-      const input = screen.getByPlaceholderText('60') as HTMLInputElement;
-      fireEvent.change(input, { target: { value: '5' } });
+    // Enter invalid value
+    const input = screen.getByPlaceholderText('60') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '5' } });
 
-      const saveButton = screen.getByText('Save');
-      fireEvent.click(saveButton);
+    const saveButton = screen.getByText('Save');
+    fireEvent.click(saveButton);
 
-      // Error should appear
-      await waitFor(() => {
-        expect(screen.getByText('Fade update rate must be between 10 and 120 Hz')).toBeInTheDocument();
-      });
+    // Error should appear
+    await waitFor(() => {
+      expect(screen.getByText('Fade update rate must be between 10 and 120 Hz')).toBeInTheDocument();
+    });
 
-      // Change input - error should clear
-      fireEvent.change(input, { target: { value: '60' } });
+    // Change input - error should clear
+    fireEvent.change(input, { target: { value: '60' } });
 
-      await waitFor(() => {
-        expect(screen.queryByText('Fade update rate must be between 10 and 120 Hz')).not.toBeInTheDocument();
-      });
-    }
+    await waitFor(() => {
+      expect(screen.queryByText('Fade update rate must be between 10 and 120 Hz')).not.toBeInTheDocument();
+    });
   });
 });
