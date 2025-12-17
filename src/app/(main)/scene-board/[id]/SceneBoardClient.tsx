@@ -800,6 +800,17 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         console.warn("Cannot recalibrate: buttons do not fit within canvas");
         // Fall through to clear dragging state without saving
       } else {
+        // If recalibration occurred, adjust viewport to keep buttons visually stationary
+        if (recalibrationResult.needsRecalibration) {
+          setViewport((prev) => ({
+            ...prev,
+            // Compensate for coordinate shift by adjusting viewport in opposite direction
+            // If buttons shifted right (+offsetX), viewport shifts left (-offsetX * scale)
+            offsetX: prev.offsetX - recalibrationResult.offsetX * prev.scale,
+            offsetY: prev.offsetY - recalibrationResult.offsetY * prev.scale,
+          }));
+        }
+
         // Determine which positions to update
         const positions = recalibrationResult.needsRecalibration
           ? // Recalibration needed: update ALL buttons

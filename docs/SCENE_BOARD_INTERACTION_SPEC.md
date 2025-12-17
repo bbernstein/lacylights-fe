@@ -5,6 +5,7 @@ This document details all interactions for the Scene Board component, covering b
 ## Overview
 
 The Scene Board provides a 2D canvas for arranging and activating scene buttons. It operates in two modes:
+
 - **Layout Mode**: Edit button positions, add/remove buttons, configure the board
 - **Play Mode**: Activate scenes during performance (read-only layout)
 
@@ -27,6 +28,7 @@ The canvas uses a **flexible origin system** that automatically recalibrates whe
 #### Current Limitation (Before Recalibration)
 
 Currently, buttons are hard-clamped to the canvas boundaries:
+
 - Minimum X: 0px
 - Minimum Y: 0px
 - Maximum X: canvasWidth - buttonWidth (e.g., 2000 - 200 = 1800px)
@@ -41,6 +43,7 @@ When a button is dragged beyond the current canvas bounds, the system automatica
 **Example 1: Dragging Left Beyond Origin**
 
 Initial state:
+
 ```
 Button A: (100, 500)
 Button B: (300, 500)
@@ -48,6 +51,7 @@ Button C: (500, 200)
 ```
 
 User drags Button A to (-150, 500):
+
 1. System detects that x=-150 is beyond the left edge (x < 0)
 2. Calculates offset needed: 150px shift right
 3. Recalibrates ALL button coordinates:
@@ -63,12 +67,14 @@ User drags Button A to (-150, 500):
 
 Canvas width: 2000px, Button width: 200px
 Initial state:
+
 ```
 Button A: (1700, 300)
 Button B: (200, 500)
 ```
 
 User drags Button A to (2100, 300) - this would put the button at 2100-2300px:
+
 1. System detects rightmost edge at 2300px exceeds canvas width (2000px)
 2. Excess: 2300 - 2000 = 300px
 3. Check if we can shift everything left by 300px
@@ -84,6 +90,7 @@ User drags Button A to (2100, 300) - this would put the button at 2100-2300px:
 When dragging multiple selected buttons, the same recalibration applies to the group:
 
 Initial state:
+
 ```
 Button A: (50, 100) - SELECTED
 Button B: (200, 100) - SELECTED
@@ -91,6 +98,7 @@ Button C: (1800, 500)
 ```
 
 User drags the selected buttons 100px to the left:
+
 1. Button A would be at (-50, 100)
 2. Button B would be at (100, 100)
 3. System detects x=-50 is beyond left edge
@@ -112,6 +120,7 @@ While the origin is flexible, the **canvas size remains fixed** at the configure
 **Example: Maximum Spread Limit**
 
 Canvas: 2000x2000px, Button dimensions: 200x120px
+
 ```
 Button A: (0, 0)
 Button B: (1800, 0)    // rightmost position (2000 - 200)
@@ -120,6 +129,7 @@ Button B: (1800, 0)    // rightmost position (2000 - 200)
 Total horizontal spread: 2000px (0 to 2000) - this is at maximum capacity.
 
 If the user tries to drag Button A further left (to x=-100):
+
 1. System calculates required shift: +100 for all buttons
 2. Button B would need to be at: 1800 + 100 = 1900px
 3. Button B right edge: 1900 + 200 = 2100px (exceeds 2000px canvas width)
@@ -145,6 +155,7 @@ Recalibration happens **on drag end** (when the user releases the mouse/finger):
 2. **Insufficient Space**: If recalibration would require shifting buttons beyond the canvas size, the drag is constrained to the maximum allowed position
 
 3. **Multi-Axis Recalibration**: If a button is dragged beyond both X and Y bounds, recalibration happens on both axes simultaneously:
+
    ```
    Drag to (-50, -100)
    → Shift all buttons: +50 on X axis, +100 on Y axis
@@ -155,14 +166,22 @@ Recalibration happens **on drag end** (when the user releases the mouse/finger):
 #### Visual Feedback
 
 During drag (before recalibration):
+
 - Buttons being dragged can visually appear beyond canvas edges
-- A subtle visual indicator (e.g., dashed outline or shadow) shows the canvas boundary
 - No other buttons move yet
 
 On drag end (after recalibration):
-- All buttons animate smoothly to their new recalibrated positions
-- Animation duration: 200ms with easing
-- The dragged button(s) appear to "settle" into place as other buttons shift
+
+- Button coordinates are updated to bring everything within canvas bounds
+- Viewport pan is adjusted to compensate for coordinate changes
+- **Result: Buttons remain visually stationary on screen** - the coordinate system shifts underneath
+- No animation needed - user sees the button exactly where they placed it
+- Example:
+  - User drags button to screen position where canvas Y=-10
+  - Button coordinate updated to Y=0 (shift +10)
+  - All buttons shift +10 in Y coordinates
+  - Viewport offsetY adjusted by -10 \* scale
+  - Button appears at same screen position where user released it
 
 #### Backend Considerations
 
@@ -174,16 +193,16 @@ On drag end (after recalibration):
 
 ## Mode Summary
 
-| Feature | Layout Mode | Play Mode |
-|---------|-------------|-----------|
-| Zoom/Pan | ✅ Yes | ✅ Yes |
-| Select Button | ✅ Yes | ❌ No |
-| Multi-Select | ✅ Yes | ❌ No |
-| Move Button | ✅ Yes | ❌ No |
+| Feature        | Layout Mode        | Play Mode          |
+| -------------- | ------------------ | ------------------ |
+| Zoom/Pan       | ✅ Yes             | ✅ Yes             |
+| Select Button  | ✅ Yes             | ❌ No              |
+| Multi-Select   | ✅ Yes             | ❌ No              |
+| Move Button    | ✅ Yes             | ❌ No              |
 | Activate Scene | ✅ Yes (tap/click) | ✅ Yes (tap/click) |
-| Context Menu | ✅ Yes | ❌ No |
-| Add Buttons | ✅ Yes (via menu) | ❌ No |
-| Remove Buttons | ✅ Yes (via menu) | ❌ No |
+| Context Menu   | ✅ Yes             | ❌ No              |
+| Add Buttons    | ✅ Yes (via menu)  | ❌ No              |
+| Remove Buttons | ✅ Yes (via menu)  | ❌ No              |
 
 ---
 
@@ -193,17 +212,18 @@ On drag end (after recalibration):
 
 #### Zooming
 
-| Input Method | Action | Behavior |
-|--------------|--------|----------|
-| **Mouse Wheel** | Scroll wheel up/down | Zoom in/out centered on cursor |
+| Input Method       | Action                   | Behavior                            |
+| ------------------ | ------------------------ | ----------------------------------- |
+| **Mouse Wheel**    | Scroll wheel up/down     | Zoom in/out centered on cursor      |
 | **Trackpad Pinch** | Two-finger pinch gesture | Zoom in/out centered on pinch point |
-| **Touchscreen** | Two-finger pinch | Zoom in/out centered on midpoint |
-| **Keyboard** | `+`/`=` or `-` | Zoom in/out centered on viewport |
-| **Keyboard** | `0` | Fit all buttons in view |
-| **Toolbar** | Magnifying glass icon | Opens zoom control (slider or +/-) |
-| **Toolbar** | Fit button | Auto-zoom to fit all buttons |
+| **Touchscreen**    | Two-finger pinch         | Zoom in/out centered on midpoint    |
+| **Keyboard**       | `+`/`=` or `-`           | Zoom in/out centered on viewport    |
+| **Keyboard**       | `0`                      | Fit all buttons in view             |
+| **Toolbar**        | Magnifying glass icon    | Opens zoom control (slider or +/-)  |
+| **Toolbar**        | Fit button               | Auto-zoom to fit all buttons        |
 
 **Technical Details:**
+
 - Trackpad pinch detected via `wheel` event with `e.ctrlKey === true`
 - Zoom center maintained throughout continuous gesture
 - Zoom limits: 0.2x minimum, 3.0x maximum
@@ -212,16 +232,17 @@ On drag end (after recalibration):
 
 #### Panning
 
-| Input Method | Action | Behavior |
-|--------------|--------|----------|
-| **Mouse** | Click + drag on empty canvas | Pan viewport |
-| **Mouse** | Middle-click + drag anywhere | Pan viewport (overrides other gestures) |
-| **Trackpad** | Two-finger scroll | Pan viewport |
-| **Trackpad** | Two-finger drag during pinch | Pan while zooming |
-| **Touchscreen** | Single-finger drag on empty canvas | Pan viewport |
-| **Touchscreen** | Two-finger drag | Pan viewport (with or without zoom) |
+| Input Method    | Action                             | Behavior                                |
+| --------------- | ---------------------------------- | --------------------------------------- |
+| **Mouse**       | Click + drag on empty canvas       | Pan viewport                            |
+| **Mouse**       | Middle-click + drag anywhere       | Pan viewport (overrides other gestures) |
+| **Trackpad**    | Two-finger scroll                  | Pan viewport                            |
+| **Trackpad**    | Two-finger drag during pinch       | Pan while zooming                       |
+| **Touchscreen** | Single-finger drag on empty canvas | Pan viewport                            |
+| **Touchscreen** | Two-finger drag                    | Pan viewport (with or without zoom)     |
 
 **Technical Details:**
+
 - Pan threshold: 5px before pan activates (prevents accidental movement)
 - Simultaneous pan during pinch-to-zoom (tracks midpoint movement)
 - Canvas boundaries are soft (can pan past content)
@@ -232,51 +253,54 @@ On drag end (after recalibration):
 
 #### Single Selection
 
-| Input Method | Action | Behavior |
-|--------------|--------|----------|
-| **Mouse** | Click on button | Select button (clears other selection) |
-| **Trackpad** | Click on button | Select button (clears other selection) |
-| **Touchscreen** | Tap on button | Select button (clears other selection) |
+| Input Method    | Action          | Behavior                               |
+| --------------- | --------------- | -------------------------------------- |
+| **Mouse**       | Click on button | Select button (clears other selection) |
+| **Trackpad**    | Click on button | Select button (clears other selection) |
+| **Touchscreen** | Tap on button   | Select button (clears other selection) |
 
 **Technical Details:**
+
 - Tap detection: <300ms duration AND <10px movement
 - Visual indicator: highlight/border on selected button
 
 #### Multi-Selection (Add to Selection)
 
-| Input Method | Action | Behavior |
-|--------------|--------|----------|
-| **Mouse** | Shift + click on button | Toggle button in selection |
-| **Mouse** | Cmd/Ctrl + click on button | Toggle button in selection |
-| **Trackpad** | Shift + click on button | Toggle button in selection |
-| **Touchscreen** | Long-press on button | Add button to selection (toggle) |
+| Input Method    | Action                     | Behavior                         |
+| --------------- | -------------------------- | -------------------------------- |
+| **Mouse**       | Shift + click on button    | Toggle button in selection       |
+| **Mouse**       | Cmd/Ctrl + click on button | Toggle button in selection       |
+| **Trackpad**    | Shift + click on button    | Toggle button in selection       |
+| **Touchscreen** | Long-press on button       | Add button to selection (toggle) |
 
 **Technical Details:**
+
 - Long-press threshold: 500ms
 - Haptic feedback on long-press (if available)
 - Long-press does NOT trigger drag
 
 #### Marquee Selection (Rectangle Select)
 
-| Input Method | Action | Behavior |
-|--------------|--------|----------|
-| **Mouse** | Shift + drag on empty canvas | Draw selection rectangle |
-| **Trackpad** | Shift + drag on empty canvas | Draw selection rectangle |
+| Input Method    | Action                                | Behavior                 |
+| --------------- | ------------------------------------- | ------------------------ |
+| **Mouse**       | Shift + drag on empty canvas          | Draw selection rectangle |
+| **Trackpad**    | Shift + drag on empty canvas          | Draw selection rectangle |
 | **Touchscreen** | Long-press on empty canvas, then drag | Draw selection rectangle |
 
 **Technical Details:**
+
 - Marquee adds to existing selection (doesn't clear)
 - Touch marquee shows green dashed rectangle (differentiates from mouse)
 - All buttons intersecting rectangle are selected
 
 #### Clear Selection
 
-| Input Method | Action | Behavior |
-|--------------|--------|----------|
-| **Mouse** | Click on empty canvas | Clear all selection |
-| **Trackpad** | Click on empty canvas | Clear all selection |
-| **Touchscreen** | Tap on empty canvas | Clear all selection |
-| **Keyboard** | Press Escape | Clear all selection |
+| Input Method    | Action                | Behavior            |
+| --------------- | --------------------- | ------------------- |
+| **Mouse**       | Click on empty canvas | Clear all selection |
+| **Trackpad**    | Click on empty canvas | Clear all selection |
+| **Touchscreen** | Tap on empty canvas   | Clear all selection |
+| **Keyboard**    | Press Escape          | Clear all selection |
 
 ---
 
@@ -284,13 +308,14 @@ On drag end (after recalibration):
 
 #### Single Button Drag
 
-| Input Method | Action | Behavior |
-|--------------|--------|----------|
-| **Mouse** | Click + drag on button | Move button to new position |
-| **Trackpad** | Click + drag on button | Move button to new position |
+| Input Method    | Action                 | Behavior                    |
+| --------------- | ---------------------- | --------------------------- |
+| **Mouse**       | Click + drag on button | Move button to new position |
+| **Trackpad**    | Click + drag on button | Move button to new position |
 | **Touchscreen** | Touch + drag on button | Move button to new position |
 
 **Technical Details:**
+
 - Drag threshold: 10px before drag starts (prevents accidental moves)
 - Grid snapping: 10px during drag
 - Real-time position update (optimistic UI)
@@ -298,13 +323,14 @@ On drag end (after recalibration):
 
 #### Multi-Button Drag
 
-| Input Method | Action | Behavior |
-|--------------|--------|----------|
-| **Mouse** | Drag any selected button | Move all selected buttons together |
-| **Trackpad** | Drag any selected button | Move all selected buttons together |
+| Input Method    | Action                   | Behavior                           |
+| --------------- | ------------------------ | ---------------------------------- |
+| **Mouse**       | Drag any selected button | Move all selected buttons together |
+| **Trackpad**    | Drag any selected button | Move all selected buttons together |
 | **Touchscreen** | Drag any selected button | Move all selected buttons together |
 
 **Technical Details:**
+
 - All selected buttons maintain relative positions
 - Positions clamped to canvas boundaries
 - Undo/redo support for position changes
@@ -325,10 +351,12 @@ Context menus appear on right-click (mouse) or long-press (touch). They replace 
 | **Touchscreen** | Long-press on button (500ms) |
 
 **Menu Options:**
+
 - **Remove** - Delete the button from the board
 - (Future options can be added here)
 
 **Technical Details:**
+
 - Menu appears at cursor/touch position
 - Click/tap outside menu dismisses it
 - Long-press on touchscreen shows menu without triggering drag
@@ -344,12 +372,14 @@ Context menus appear on right-click (mouse) or long-press (touch). They replace 
 | **Touchscreen** | Long-press on empty canvas (500ms) |
 
 **Menu Options:**
+
 - **Add Scenes...** - Open scene picker to add buttons
 - **Rename Board** - Change the board name
 - **Select All** - Select all buttons
 - (Future options can be added here)
 
 **Technical Details:**
+
 - Menu appears at cursor/touch position
 - "Add Scenes" opens a modal/picker for scene selection
 
@@ -359,11 +389,11 @@ Context menus appear on right-click (mouse) or long-press (touch). They replace 
 
 Even in Layout Mode, users can activate scenes for testing purposes.
 
-| Input Method | Action | Behavior |
-|--------------|--------|----------|
-| **Mouse** | Click on button | Select button AND activate scene |
-| **Trackpad** | Click on button | Select button AND activate scene |
-| **Touchscreen** | Tap on button | Select button AND activate scene |
+| Input Method    | Action          | Behavior                         |
+| --------------- | --------------- | -------------------------------- |
+| **Mouse**       | Click on button | Select button AND activate scene |
+| **Trackpad**    | Click on button | Select button AND activate scene |
+| **Touchscreen** | Tap on button   | Select button AND activate scene |
 
 **Note:** Scene activation happens on tap/click, not on selection. This allows users to test scenes while editing.
 
@@ -379,22 +409,22 @@ Identical to Layout Mode:
 
 #### Zooming
 
-| Input Method | Action | Behavior |
-|--------------|--------|----------|
-| **Mouse Wheel** | Scroll wheel | Zoom centered on cursor |
-| **Trackpad Pinch** | Two-finger pinch | Zoom centered on pinch point |
-| **Touchscreen** | Two-finger pinch | Zoom centered on midpoint |
-| **Keyboard** | `+`/`=` or `-` | Zoom in/out centered on viewport |
-| **Keyboard** | `0` | Fit all buttons in view |
-| **Toolbar** | Magnifying glass icon | Opens zoom control |
-| **Toolbar** | Fit button | Auto-zoom to fit all buttons |
+| Input Method       | Action                | Behavior                         |
+| ------------------ | --------------------- | -------------------------------- |
+| **Mouse Wheel**    | Scroll wheel          | Zoom centered on cursor          |
+| **Trackpad Pinch** | Two-finger pinch      | Zoom centered on pinch point     |
+| **Touchscreen**    | Two-finger pinch      | Zoom centered on midpoint        |
+| **Keyboard**       | `+`/`=` or `-`        | Zoom in/out centered on viewport |
+| **Keyboard**       | `0`                   | Fit all buttons in view          |
+| **Toolbar**        | Magnifying glass icon | Opens zoom control               |
+| **Toolbar**        | Fit button            | Auto-zoom to fit all buttons     |
 
 #### Panning
 
-| Input Method | Action | Behavior |
-|--------------|--------|----------|
-| **Mouse** | Click + drag anywhere | Pan viewport |
-| **Trackpad** | Two-finger scroll | Pan viewport |
+| Input Method    | Action                      | Behavior     |
+| --------------- | --------------------------- | ------------ |
+| **Mouse**       | Click + drag anywhere       | Pan viewport |
+| **Trackpad**    | Two-finger scroll           | Pan viewport |
 | **Touchscreen** | Single-finger drag anywhere | Pan viewport |
 
 **Note:** In Play Mode, drag on buttons also pans (since move is disabled).
@@ -403,13 +433,14 @@ Identical to Layout Mode:
 
 ### 2. Scene Activation
 
-| Input Method | Action | Behavior |
-|--------------|--------|----------|
-| **Mouse** | Click on button | Activate scene |
-| **Trackpad** | Click on button | Activate scene |
-| **Touchscreen** | Tap on button | Activate scene |
+| Input Method    | Action          | Behavior       |
+| --------------- | --------------- | -------------- |
+| **Mouse**       | Click on button | Activate scene |
+| **Trackpad**    | Click on button | Activate scene |
+| **Touchscreen** | Tap on button   | Activate scene |
 
 **Technical Details:**
+
 - Tap detection: <300ms duration AND <10px movement
 - Visual feedback: button press animation
 - No selection highlight (selection is disabled)
@@ -448,20 +479,24 @@ When multiple gestures could apply, priority determines behavior:
 ## Visual Feedback
 
 ### Selection States
+
 - **Not selected**: Default button appearance
 - **Selected**: Highlight border (e.g., 2px blue border)
 - **Multi-selected**: Same highlight on all selected buttons
 - **Drag in progress**: Slight opacity change or shadow
 
 ### Context Menu Indicators
+
 - **Long-press in progress**: Subtle pulse animation on touch point
 - **Menu open**: Dropdown menu with shadow
 
 ### Activation Feedback
+
 - **Button press**: Scale down briefly (press effect)
 - **Active scene**: Button glows or shows active state
 
 ### Marquee Selection
+
 - **Mouse marquee**: Blue dashed rectangle
 - **Touch marquee**: Green dashed rectangle (differentiated for clarity)
 
@@ -469,24 +504,25 @@ When multiple gestures could apply, priority determines behavior:
 
 ## Keyboard Shortcuts (Layout Mode)
 
-| Shortcut | Action |
-|----------|--------|
-| `Escape` | Clear selection |
-| `Cmd/Ctrl + A` | Select all buttons |
-| `Delete` / `Backspace` | Remove selected buttons |
-| `Cmd/Ctrl + Z` | Undo |
-| `Cmd/Ctrl + Shift + Z` | Redo |
-| `+` / `=` | Zoom in |
-| `-` | Zoom out |
-| `0` | Fit to view |
-| Arrow keys | Nudge selected buttons (10px) |
-| Shift + Arrow keys | Nudge selected buttons (1px fine) |
+| Shortcut               | Action                            |
+| ---------------------- | --------------------------------- |
+| `Escape`               | Clear selection                   |
+| `Cmd/Ctrl + A`         | Select all buttons                |
+| `Delete` / `Backspace` | Remove selected buttons           |
+| `Cmd/Ctrl + Z`         | Undo                              |
+| `Cmd/Ctrl + Shift + Z` | Redo                              |
+| `+` / `=`              | Zoom in                           |
+| `-`                    | Zoom out                          |
+| `0`                    | Fit to view                       |
+| Arrow keys             | Nudge selected buttons (10px)     |
+| Shift + Arrow keys     | Nudge selected buttons (1px fine) |
 
 ---
 
 ## Platform-Specific Considerations
 
 ### Desktop (macOS/Windows/Linux)
+
 - Full keyboard shortcut support
 - Right-click for context menus
 - Two-finger click = right-click on macOS trackpad
@@ -494,6 +530,7 @@ When multiple gestures could apply, priority determines behavior:
 - Trackpad pinch-to-zoom support
 
 ### Mobile (iOS/Android)
+
 - No keyboard shortcuts
 - Long-press for context menus
 - Two-finger pinch for zoom
@@ -502,6 +539,7 @@ When multiple gestures could apply, priority determines behavior:
 - Haptic feedback on long-press
 
 ### Tablet (iPad/Android Tablet)
+
 - Hybrid: supports both touch and keyboard (with external keyboard)
 - Apple Pencil: treated as single-finger touch
 - Mouse support (iPadOS): enables right-click context menus
@@ -511,12 +549,14 @@ When multiple gestures could apply, priority determines behavior:
 ## Implementation Notes
 
 ### Event Handling
+
 - Use `addEventListener` with `{ passive: false }` for touch events to allow `preventDefault()`
 - Prevent default touch scrolling on canvas
 - Use `pointerdown`/`pointermove`/`pointerup` for unified mouse/touch handling where possible
 - Fall back to separate touch/mouse events for complex gesture handling
 
 ### State Management
+
 ```typescript
 interface GestureState {
   // Two-finger gesture state
@@ -537,24 +577,25 @@ interface GestureState {
 
   // Long-press state
   longPressTimer: number | null;
-  longPressTarget: 'button' | 'canvas' | null;
+  longPressTarget: "button" | "canvas" | null;
   longPressPosition: { x: number; y: number } | null;
 
   // Context menu state
   contextMenuOpen: boolean;
   contextMenuPosition: { x: number; y: number } | null;
-  contextMenuType: 'button' | 'canvas' | null;
+  contextMenuType: "button" | "canvas" | null;
 }
 ```
 
 ### Coordinate Conversion
+
 ```typescript
 // Screen coordinates to canvas coordinates
 function screenToCanvas(
   screenX: number,
   screenY: number,
   viewport: { scale: number; offsetX: number; offsetY: number },
-  canvasRect: DOMRect
+  canvasRect: DOMRect,
 ): { x: number; y: number } {
   const x = (screenX - canvasRect.left) / viewport.scale - viewport.offsetX;
   const y = (screenY - canvasRect.top) / viewport.scale - viewport.offsetY;
@@ -567,6 +608,7 @@ function screenToCanvas(
 ## Testing Checklist
 
 ### Layout Mode - Mouse
+
 - [ ] Click button to select
 - [ ] Shift+click to multi-select
 - [ ] Click canvas to deselect
@@ -581,12 +623,14 @@ function screenToCanvas(
 - [ ] Add scenes via context menu
 
 ### Layout Mode - Trackpad
+
 - [ ] Click button to select
 - [ ] Two-finger scroll to pan
 - [ ] Pinch to zoom
 - [ ] Two-finger click for context menu
 
 ### Layout Mode - Touchscreen
+
 - [ ] Tap button to select
 - [ ] Long-press button for context menu
 - [ ] Long-press button to add to selection
@@ -601,6 +645,7 @@ function screenToCanvas(
 - [ ] Add scenes via context menu
 
 ### Play Mode - All Input Methods
+
 - [ ] Zoom works (all methods)
 - [ ] Pan works (all methods)
 - [ ] Tap/click activates scene
@@ -614,6 +659,7 @@ function screenToCanvas(
 ## Migration from Current Implementation
 
 The current Scene Board implementation already supports:
+
 - ✅ Pixel-based coordinates (2000x2000px)
 - ✅ Transform-based rendering
 - ✅ Two-finger pinch-to-zoom with pan
@@ -622,6 +668,7 @@ The current Scene Board implementation already supports:
 - ✅ Trackpad zoom/pan
 
 Changes needed:
+
 - ❌ → ✅ Add context menus (right-click/long-press)
 - ❌ → ✅ Remove visible "remove" links on buttons
 - ❌ → ✅ Add multi-select support (Shift+click, long-press toggle)

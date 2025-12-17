@@ -9,6 +9,7 @@
 ## Implementation Status
 
 ### Phase 1: Core Infrastructure
+
 - [ ] Add mode state (Layout Mode vs Play Mode)
   - [ ] Add `isLayoutMode` prop/state to SceneBoardClient
   - [ ] Add mode toggle UI in toolbar (above canvas)
@@ -25,6 +26,7 @@
   - [ ] Handle modifier keys (Shift, Cmd/Ctrl)
 
 ### Phase 2: Context Menus
+
 - [ ] Create context menu component
   - [ ] Build generic ContextMenu component (position, options, onSelect, onDismiss)
   - [ ] Add click-outside detection to close menu
@@ -52,6 +54,7 @@
   - [ ] Update button styles to remove space for remove link
 
 ### Phase 3: Multi-Select Support
+
 - [x] Mouse multi-select
   - [x] Shift+click to toggle selection
   - [x] Cmd/Ctrl+click to toggle selection
@@ -81,6 +84,7 @@
   - [x] Prevent canvas pan when dragging buttons (touch)
 
 ### Phase 4: Keyboard Shortcuts
+
 - [x] Selection shortcuts
   - [x] `Escape` - Clear selection
   - [x] `Cmd/Ctrl + A` - Select all buttons
@@ -102,6 +106,7 @@
   - [x] Shift + Arrow keys - Nudge selected buttons 1px
 
 ### Phase 5: Toolbar Controls
+
 - [ ] Add toolbar above canvas
   - [ ] Create toolbar component/section
   - [ ] Position above canvas (not floating)
@@ -118,6 +123,7 @@
   - [ ] Visual indicator of current mode
 
 ### Phase 6: Play Mode Restrictions
+
 - [x] Disable editing in Play Mode
   - [x] Disable selection (clicks don't select)
   - [x] Disable drag-to-move (drag on buttons pans viewport instead)
@@ -131,6 +137,7 @@
   - [x] Keep zoom/pan gestures working
 
 ### Phase 7: Gesture Conflict Resolution
+
 - [ ] Touch gesture priorities
   - [ ] Two-finger gesture always triggers zoom/pan
   - [ ] Long-press cancels drag and shows menu
@@ -144,6 +151,7 @@
   - [ ] Drag on button moves if selected
 
 ### Phase 8: Testing & Polish
+
 - [ ] Test all mouse interactions (per checklist in spec)
 - [ ] Test all trackpad interactions (per checklist in spec)
 - [ ] Test all touchscreen interactions (per checklist in spec)
@@ -162,6 +170,7 @@
   - [ ] Test on mobile devices
 
 ### Phase 9: Documentation & Cleanup
+
 - [ ] Update component documentation
 - [ ] Add JSDoc comments to new functions
 - [ ] Write unit tests for new functionality
@@ -183,6 +192,7 @@
 **Last Updated:** 2025-12-17
 
 **Completed in this session:**
+
 - ✅ Phase 3: Multi-Select Support (Complete - All Input Methods)
   - **Mouse/Trackpad Multi-Select** (from previous sessions):
     - Shift+click and Cmd/Ctrl+click to toggle button selection
@@ -217,14 +227,16 @@
   - Removed clamping from drag handlers to allow temporary out-of-bounds positioning
   - All button positions update atomically when recalibration occurs
   - Maintains relative positions between buttons during recalibration
+  - **Viewport pan adjusts automatically** to keep buttons visually stationary on screen
+  - User sees button exactly where they placed it - coordinate system shifts underneath
   - Handles edge cases: single button, multi-axis recalibration, buttons too spread out
 
 **Next Steps:**
-1. Add animation for smooth recalibration transition (200ms with easing)
-2. Add undo/redo support for position changes (Phase 4 remaining item)
-3. Add toolbar controls (Phase 5 - zoom controls, mode toggle)
-4. Comprehensive testing and polish (Phase 8)
-5. Documentation cleanup (Phase 9)
+
+1. Add undo/redo support for position changes (Phase 4 remaining item)
+2. Add toolbar controls (Phase 5 - zoom controls, mode toggle)
+3. Comprehensive testing and polish (Phase 8)
+4. Documentation cleanup (Phase 9)
 
 ---
 
@@ -241,6 +253,7 @@
 ## Testing Checklist Reference
 
 See `SCENE_BOARD_INTERACTION_SPEC.md` section "Testing Checklist" for complete test matrix covering:
+
 - Layout Mode - Mouse
 - Layout Mode - Trackpad
 - Layout Mode - Touchscreen
