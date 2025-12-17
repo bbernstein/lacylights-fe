@@ -28,6 +28,7 @@ export default function ContextMenu({
   onDismiss,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const justOpenedRef = useRef(true); // Track if menu was just opened
 
   // Calculate initial position estimate to avoid flash
   // Use conservative estimates for menu size to prevent most off-screen cases
@@ -62,6 +63,12 @@ export default function ContextMenu({
   // Handle click outside to close menu
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      // Ignore clicks if menu was just opened (prevents immediate dismissal)
+      if (justOpenedRef.current) {
+        justOpenedRef.current = false;
+        return;
+      }
+
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onDismiss();
       }
@@ -73,15 +80,16 @@ export default function ContextMenu({
       }
     };
 
-    // Add slight delay to prevent immediate dismissal from the same click that opened the menu
-    const timeoutId = setTimeout(() => {
+    // Use requestAnimationFrame to add listeners on next frame
+    // This ensures the opening event has finished processing
+    const rafId = requestAnimationFrame(() => {
       document.addEventListener("mousedown", handleClickOutside);
       document.addEventListener("touchstart", handleClickOutside);
       document.addEventListener("keydown", handleEscape);
-    }, 10);
+    });
 
     return () => {
-      clearTimeout(timeoutId);
+      cancelAnimationFrame(rafId);
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
       document.removeEventListener("keydown", handleEscape);
