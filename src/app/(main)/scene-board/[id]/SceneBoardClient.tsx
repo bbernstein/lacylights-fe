@@ -239,6 +239,60 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     );
   }, [board]);
 
+  // Zoom to fit helper function
+  const zoomToFit = useCallback(() => {
+    if (!board || board.buttons.length === 0 || !canvasRef.current) return;
+
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    const viewportWidth = canvasRect.width;
+    const viewportHeight = canvasRect.height;
+
+    // Calculate bounding box of all buttons
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    board.buttons.forEach((button: SceneBoardButton) => {
+      const x = button.layoutX;
+      const y = button.layoutY;
+      const width = button.width || DEFAULT_BUTTON_WIDTH;
+      const height = button.height || DEFAULT_BUTTON_HEIGHT;
+
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + width);
+      maxY = Math.max(maxY, y + height);
+    });
+
+    // Add padding around buttons (10% of canvas size)
+    const PADDING = 100;
+    minX -= PADDING;
+    minY -= PADDING;
+    maxX += PADDING;
+    maxY += PADDING;
+
+    // Calculate required scale to fit all buttons
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
+    const scaleX = viewportWidth / contentWidth;
+    const scaleY = viewportHeight / contentHeight;
+    const newScale = clamp(Math.min(scaleX, scaleY), MIN_ZOOM, MAX_ZOOM);
+
+    // Calculate offset to center the content
+    const scaledContentWidth = contentWidth * newScale;
+    const scaledContentHeight = contentHeight * newScale;
+    const offsetX = (viewportWidth - scaledContentWidth) / 2 - minX * newScale;
+    const offsetY =
+      (viewportHeight - scaledContentHeight) / 2 - minY * newScale;
+
+    setViewport({
+      scale: newScale,
+      offsetX,
+      offsetY,
+    });
+  }, [board]);
+
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1026,60 +1080,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       startOffsetY: 0,
     });
   }, [viewport.scale, viewport.offsetX, viewport.offsetY]);
-
-  // Calculate zoom to fit all buttons within the viewport
-  const zoomToFit = useCallback(() => {
-    if (!board || board.buttons.length === 0 || !canvasRef.current) return;
-
-    const canvasRect = canvasRef.current.getBoundingClientRect();
-    const viewportWidth = canvasRect.width;
-    const viewportHeight = canvasRect.height;
-
-    // Calculate bounding box of all buttons
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    board.buttons.forEach((button: SceneBoardButton) => {
-      const x = button.layoutX;
-      const y = button.layoutY;
-      const width = button.width || DEFAULT_BUTTON_WIDTH;
-      const height = button.height || DEFAULT_BUTTON_HEIGHT;
-
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x + width);
-      maxY = Math.max(maxY, y + height);
-    });
-
-    // Add padding around buttons (10% of canvas size)
-    const PADDING = 100;
-    minX -= PADDING;
-    minY -= PADDING;
-    maxX += PADDING;
-    maxY += PADDING;
-
-    // Calculate required scale to fit all buttons
-    const contentWidth = maxX - minX;
-    const contentHeight = maxY - minY;
-    const scaleX = viewportWidth / contentWidth;
-    const scaleY = viewportHeight / contentHeight;
-    const newScale = clamp(Math.min(scaleX, scaleY), MIN_ZOOM, MAX_ZOOM);
-
-    // Calculate offset to center the content
-    const scaledContentWidth = contentWidth * newScale;
-    const scaledContentHeight = contentHeight * newScale;
-    const offsetX = (viewportWidth - scaledContentWidth) / 2 - minX * newScale;
-    const offsetY =
-      (viewportHeight - scaledContentHeight) / 2 - minY * newScale;
-
-    setViewport({
-      scale: newScale,
-      offsetX,
-      offsetY,
-    });
-  }, [board]);
 
   // Set initial zoom to fit on mount or when board ID changes
   useEffect(() => {
