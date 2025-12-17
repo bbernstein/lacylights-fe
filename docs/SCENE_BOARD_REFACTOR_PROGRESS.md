@@ -58,24 +58,27 @@
   - [x] Click on selected button keeps selection (for multi-drag)
   - [x] Click on empty canvas clears selection
 
-- [ ] Touch multi-select
-  - [ ] Long-press on button (500ms) to toggle selection
-  - [ ] Haptic feedback on long-press (if available)
-  - [ ] Prevent drag when long-press menu appears
+- [x] Touch multi-select
+  - [x] Long-press on button (500ms) to toggle selection
+  - [x] Haptic feedback on long-press (if available)
+  - [x] Prevent drag when long-press menu appears
+  - [x] Tap on button for single selection (clears others)
 
 - [x] Marquee selection
   - [x] Detect Shift+drag on empty canvas (mouse/trackpad)
-  - [ ] Detect long-press then drag on empty canvas (touch)
+  - [x] Detect long-press then drag on empty canvas (touch)
   - [x] Draw selection rectangle (blue for mouse, green for touch)
   - [x] Update selection as marquee is dragged
   - [x] Add to existing selection (not replace)
   - [x] Select all buttons intersecting rectangle
 
 - [x] Multi-button drag
-  - [x] When dragging a selected button, move all selected buttons
+  - [x] When dragging a selected button (mouse), move all selected buttons
+  - [x] When dragging a selected button (touch), move all selected buttons
   - [x] Maintain relative positions between buttons
   - [x] Clamp all buttons to canvas boundaries
   - [x] Update all button positions in backend
+  - [x] Prevent canvas pan when dragging buttons (touch)
 
 ### Phase 4: Keyboard Shortcuts
 - [x] Selection shortcuts
@@ -175,47 +178,43 @@
 
 ## Current Status
 
-**Phase:** Phase 6 Complete - Play Mode Restrictions Implemented
+**Phase:** Phase 3 Complete - Multi-Select Support Fully Implemented (Mouse + Touch)
 
 **Last Updated:** 2025-12-17
 
 **Completed in this session:**
-- ✅ Phase 1: Core Infrastructure (Complete - from previous session)
-  - Mode state already existed, confirmed working
-  - Added selection state management with helper functions
-  - Enhanced keyboard event listener with full shortcut support
-  - Created ContextMenu component
-  - Added button context menu (right-click/long-press)
-  - Added canvas context menu (right-click/long-press)
-  - Removed inline "remove" links from buttons
-  - All keyboard shortcuts implemented (Escape, Ctrl+A, Delete, arrows, zoom)
+- ✅ Phase 3: Multi-Select Support (Complete - All Input Methods)
+  - **Mouse/Trackpad Multi-Select** (from previous sessions):
+    - Shift+click and Cmd/Ctrl+click to toggle button selection
+    - Click on button to select (clears others unless modifier pressed)
+    - Click on empty canvas to clear selection
+    - Shift+drag for marquee selection with blue rectangle
 
-- ✅ Phase 3: Multi-Select Support (Complete)
-  - Implemented Shift+click and Cmd/Ctrl+click to toggle button selection
-  - Implemented click on button to select (clears others unless modifier pressed)
-  - Implemented click on empty canvas to clear selection
-  - Implemented marquee selection with Shift+drag on canvas
-  - Visual marquee rectangle with blue border and transparent fill
-  - Marquee adds to existing selection (doesn't replace)
-  - Implemented multi-button drag - all selected buttons move together
-  - Maintained relative positions during multi-button drag
-  - Updated positions saved to backend for all buttons at once
-  - Added drag threshold to distinguish clicks from drags
+  - **Touchscreen Multi-Select** (completed this session):
+    - Tap on button for single selection (clears others)
+    - Long-press on button (500ms) to toggle multi-selection
+    - Haptic feedback on long-press
+    - Long-press on canvas + drag for marquee selection (green rectangle)
+    - Touch tap on canvas to clear selection
 
-- ✅ Phase 6: Play Mode Restrictions (Complete)
-  - Disabled selection in Play Mode (clicks activate scenes only)
-  - Disabled drag-to-move in Play Mode
-  - Disabled context menus in Play Mode
-  - Restructured keyboard shortcuts: zoom works in both modes, editing only in Layout
-  - Auto-clear selection when entering Play Mode
-  - Selection indicators already hidden by existing mode-aware styling
-  - All existing pan/zoom gestures work in Play Mode
+  - **Multi-Button Drag** (both mouse and touch):
+    - When dragging a selected button, all selected buttons move together
+    - Maintained relative positions during multi-button drag
+    - Canvas pan properly blocked when dragging buttons on touch
+    - Updated positions saved to backend for all buttons at once
+
+  - **Bug Fixes**:
+    - Fixed marquee selection not persisting on mouse release
+    - Fixed React hooks ordering issues (toggleButtonSelection, startLongPress)
+    - Fixed canvas pan conflict with button drag on touchscreen
+    - Fixed touch state conflicts between button and canvas handlers
+    - Removed all debug console.log statements
 
 **Next Steps:**
-1. Touch multi-select support (long-press)
-2. Touch marquee selection (long-press + drag)
-3. Add undo/redo support for position changes
-4. Polish and testing
+1. Add undo/redo support for position changes (Phase 4 remaining item)
+2. Add toolbar controls (Phase 5 - zoom controls, mode toggle)
+3. Comprehensive testing and polish (Phase 8)
+4. Documentation cleanup (Phase 9)
 
 ---
 
