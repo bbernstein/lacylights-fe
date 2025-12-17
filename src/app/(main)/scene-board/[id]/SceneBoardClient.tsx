@@ -299,6 +299,23 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     });
   }, [board]);
 
+  // Button selection helper functions (must be before startLongPress)
+  const toggleButtonSelection = useCallback((buttonId: string) => {
+    setSelectedButtonIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(buttonId)) {
+        newSet.delete(buttonId);
+      } else {
+        newSet.add(buttonId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const selectSingleButton = useCallback((buttonId: string) => {
+    setSelectedButtonIds(new Set([buttonId]));
+  }, []);
+
   // Long-press helper functions
   const startLongPress = useCallback(
     (x: number, y: number, button: SceneBoardButton | null) => {
@@ -1485,23 +1502,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
   const deselectAllScenes = useCallback(() => {
     setSelectedSceneIds(new Set());
-  }, []);
-
-  // Additional selection helper functions
-  const toggleButtonSelection = useCallback((buttonId: string) => {
-    setSelectedButtonIds((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(buttonId)) {
-        newSet.delete(buttonId);
-      } else {
-        newSet.add(buttonId);
-      }
-      return newSet;
-    });
-  }, []);
-
-  const selectSingleButton = useCallback((buttonId: string) => {
-    setSelectedButtonIds(new Set([buttonId]));
   }, []);
 
   // Handle button click for selection (layout mode only)
