@@ -652,6 +652,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         }
 
         // Crossed the threshold, now we're actually dragging
+        // Set the flag immediately to prevent onClick from clearing selection
+        // even if the user releases the mouse before the state update completes
+        lastInteractionWasDrag.current = true;
         setActuallyDragging(true);
       }
 
@@ -1029,6 +1032,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         }
 
         // Crossed the threshold, now we're actually dragging
+        // Set the flag immediately to prevent onClick from clearing selection
+        // even if the user releases before the state update completes
+        lastInteractionWasDrag.current = true;
         setActuallyDragging(true);
       }
 
