@@ -187,7 +187,7 @@
 
 ## Current Status
 
-**Phase:** Phase 3 Complete + Dynamic Coordinate Recalibration Implemented
+**Phase:** Phase 3 Complete + Dynamic Coordinate Recalibration + Canvas Size Settings
 
 **Last Updated:** 2025-12-17
 
@@ -220,7 +220,7 @@
     - Fixed touch state conflicts between button and canvas handlers
     - Removed all debug console.log statements
 
-- ✅ Dynamic Coordinate Recalibration (NEW)
+- ✅ Dynamic Coordinate Recalibration
   - Added flexible origin system to allow buttons to be dragged beyond canvas bounds
   - Implemented automatic recalibration on drag end to bring all buttons back within bounds
   - Added `recalibrateButtonPositions` utility function with comprehensive unit tests
@@ -230,6 +230,15 @@
   - **Viewport pan adjusts automatically** to keep buttons visually stationary on screen
   - User sees button exactly where they placed it - coordinate system shifts underneath
   - Handles edge cases: single button, multi-axis recalibration, buttons too spread out
+
+- ✅ Canvas Size Configuration
+  - Expanded canvas from 2000x2000 to 4000x4000 pixels (4x more space)
+  - Updated MIN_ZOOM from 0.2 to 0.1 to fit entire 4000x4000 canvas on screen
+  - Modified recalibration to ALWAYS normalize (leftmost button at X=0, topmost at Y=0)
+  - Added canvas width/height fields to board settings modal
+  - Enables updating existing boards from 2000x2000 to 4000x4000
+  - Supports custom canvas sizes from 1000-10000 pixels
+  - Canvas size persists in database per board
 
 **Next Steps:**
 
