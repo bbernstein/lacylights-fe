@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface ContextMenuOption {
   label: string;
@@ -28,10 +28,26 @@ export default function ContextMenu({
   onDismiss,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const justOpenedRef = useRef(true); // Track if menu was just opened
+
+  // Calculate position to avoid menu going off-screen
+  const [position, setPosition] = useState({ x, y });
+
+  // Reset justOpenedRef and position when menu coordinates change (new menu instance)
+  useEffect(() => {
+    justOpenedRef.current = true;
+    setPosition({ x, y });
+  }, [x, y]);
 
   // Handle click outside to close menu
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      // Ignore clicks if menu was just opened (prevents immediate dismissal)
+      if (justOpenedRef.current) {
+        justOpenedRef.current = false;
+        return;
+      }
+
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onDismiss();
       }
@@ -43,22 +59,25 @@ export default function ContextMenu({
       }
     };
 
-    // Add slight delay to prevent immediate dismissal from the same click that opened the menu
-    const timeoutId = setTimeout(() => {
+    // Use requestAnimationFrame to add listeners on next frame
+    // This ensures the opening event has finished processing
+    // cancelAnimationFrame in cleanup prevents callback execution if unmounted
+    const rafId = requestAnimationFrame(() => {
       document.addEventListener("mousedown", handleClickOutside);
       document.addEventListener("touchstart", handleClickOutside);
       document.addEventListener("keydown", handleEscape);
-    }, 10);
+    });
 
     return () => {
-      clearTimeout(timeoutId);
+      cancelAnimationFrame(rafId);
+      // Always remove event listeners
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
       document.removeEventListener("keydown", handleEscape);
     };
   }, [onDismiss]);
 
-  // Adjust position if menu would go off-screen
+  // Adjust position after render based on actual menu size to prevent off-screen display
   useEffect(() => {
     if (menuRef.current) {
       const rect = menuRef.current.getBoundingClientRect();
@@ -82,10 +101,13 @@ export default function ContextMenu({
       adjustedX = Math.max(10, adjustedX);
       adjustedY = Math.max(10, adjustedY);
 
-      if (adjustedX !== x || adjustedY !== y) {
-        menuRef.current.style.left = `${adjustedX}px`;
-        menuRef.current.style.top = `${adjustedY}px`;
-      }
+      // Only update position if it actually changed to avoid unnecessary re-renders
+      setPosition((prevPosition) => {
+        if (prevPosition.x === adjustedX && prevPosition.y === adjustedY) {
+          return prevPosition;
+        }
+        return { x: adjustedX, y: adjustedY };
+      });
     }
   }, [x, y]);
 
@@ -93,7 +115,7 @@ export default function ContextMenu({
     <div
       ref={menuRef}
       className="fixed z-[9999] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[160px]"
-      style={{ left: x, top: y }}
+      style={{ left: position.x, top: position.y }}
       role="menu"
     >
       {options.map((option) => (

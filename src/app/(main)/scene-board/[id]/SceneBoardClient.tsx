@@ -105,7 +105,14 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   );
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+  const dragStartScale = useRef<number>(1); // Track scale at drag start for accurate viewport compensation
   const [actuallyDragging, setActuallyDragging] = useState(false);
+  /**
+   * Track if the last interaction was a drag/marquee to prevent click handlers from firing.
+   * Uses a ref instead of state to avoid re-renders and allow synchronous read/write across event handlers.
+   * The flag is set to true after drag/marquee completes and reset to false when the next click is handled.
+   * This prevents canvas clicks from clearing selection immediately after a drag operation.
+   */
   const lastInteractionWasDrag = useRef(false);
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -629,6 +636,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         x: canvasPos.x - button.layoutX,
         y: canvasPos.y - button.layoutY,
       });
+      dragStartScale.current = viewport.scale; // Store scale at drag start
       setActuallyDragging(false);
     },
     [mode, viewport, board, selectedButtonIds],
@@ -754,6 +762,200 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     ],
   );
 
+  /**
+   * Helper: Handle marquee selection end
+   * Finds all buttons within the marquee rectangle and adds them to selection.
+   * Calculates button intersection with the marquee using bounding box collision detection.
+   *
+   * @returns {boolean} True if marquee selection was processed, false if no marquee exists
+   */
+  const handleMarqueeSelectionEnd = useCallback(() => {
+    if (!board || !marquee) return false;
+
+    // Calculate the marquee rectangle (normalized)
+    const minX = Math.min(marquee.startX, marquee.endX);
+    const maxX = Math.max(marquee.startX, marquee.endX);
+    const minY = Math.min(marquee.startY, marquee.endY);
+    const maxY = Math.max(marquee.startY, marquee.endY);
+
+    // Find all buttons that intersect with the marquee
+    const buttonsInMarquee = board.buttons.filter(
+      (button: SceneBoardButton) => {
+        const buttonRight =
+          button.layoutX + (button.width || DEFAULT_BUTTON_WIDTH);
+        const buttonBottom =
+          button.layoutY + (button.height || DEFAULT_BUTTON_HEIGHT);
+
+        const intersects = !(
+          button.layoutX > maxX ||
+          buttonRight < minX ||
+          button.layoutY > maxY ||
+          buttonBottom < minY
+        );
+
+        return intersects;
+      },
+    );
+
+    // Add these buttons to selection (don't replace)
+    setSelectedButtonIds((prev) => {
+      const newSet = new Set(prev);
+      buttonsInMarquee.forEach((button: SceneBoardButton) => {
+        newSet.add(button.id);
+      });
+      return newSet;
+    });
+
+    // Mark that we just completed a marquee selection
+    lastInteractionWasDrag.current = true;
+
+    // Clear marquee
+    setMarquee(null);
+    marqueeStartCanvas.current = null; // Reset ref (not in deps - refs don't trigger re-renders)
+    return true;
+  }, [board, marquee, setSelectedButtonIds, setMarquee]);
+
+  /**
+   * Helper: Handle button drag end with recalibration
+   * Saves button positions after drag, applying recalibration if needed.
+   * Attempts to recalibrate coordinates to normalize positions (leftmost at X=0, topmost at Y=0)
+   * when buttons are out of bounds or have drifted significantly. If recalibration fails
+   * (buttons too spread out), clamps positions to canvas bounds instead.
+   * Applies viewport compensation after recalibration to keep buttons visually stable.
+   *
+   * @returns {boolean} True if button drag was processed, false if no drag operation exists
+   */
+  const handleButtonDragEnd = useCallback(() => {
+    if (!draggingButton || !actuallyDragging || draggingButtons.size === 0) {
+      return false;
+    }
+
+    lastInteractionWasDrag.current = true;
+
+    // Build complete button positions list for recalibration
+    const allButtonPositions: ButtonPosition[] =
+      board?.buttons.map((btn: SceneBoardButton) => {
+        const draggingData = draggingButtons.get(btn.id);
+        return {
+          buttonId: btn.id,
+          layoutX: draggingData ? draggingData.currentX : btn.layoutX,
+          layoutY: draggingData ? draggingData.currentY : btn.layoutY,
+          width: btn.width ?? DEFAULT_BUTTON_WIDTH,
+          height: btn.height ?? DEFAULT_BUTTON_HEIGHT,
+        };
+      }) || [];
+
+    // Check if recalibration is needed
+    const recalibrationResult = recalibrateButtonPositions(
+      allButtonPositions,
+      board?.canvasWidth || DEFAULT_CANVAS_WIDTH,
+      board?.canvasHeight || DEFAULT_CANVAS_HEIGHT,
+    );
+
+    if (!recalibrationResult) {
+      // Buttons don't fit even with recalibration - clamp and save
+      const canvasWidth = board?.canvasWidth || DEFAULT_CANVAS_WIDTH;
+      const canvasHeight = board?.canvasHeight || DEFAULT_CANVAS_HEIGHT;
+
+      const clampedPositions = Array.from(draggingButtons.entries()).map(
+        ([buttonId, buttonData]) => {
+          const btn = board?.buttons.find(
+            (b: SceneBoardButton) => b.id === buttonId,
+          );
+          const width = btn?.width ?? DEFAULT_BUTTON_WIDTH;
+          const height = btn?.height ?? DEFAULT_BUTTON_HEIGHT;
+
+          return {
+            buttonId,
+            layoutX: Math.max(
+              0,
+              Math.min(buttonData.currentX, canvasWidth - width),
+            ),
+            layoutY: Math.max(
+              0,
+              Math.min(buttonData.currentY, canvasHeight - height),
+            ),
+          };
+        },
+      );
+
+      updatePositions({
+        variables: { positions: clampedPositions },
+        optimisticResponse: { updateSceneBoardButtonPositions: true },
+      });
+    } else {
+      // Apply viewport compensation if recalibration occurred
+      if (recalibrationResult.needsRecalibration) {
+        setViewport((prev) => ({
+          ...prev,
+          offsetX: prev.offsetX - recalibrationResult.offsetX * dragStartScale.current,
+          offsetY: prev.offsetY - recalibrationResult.offsetY * dragStartScale.current,
+        }));
+      }
+
+      // Determine which positions to update
+      const positions = recalibrationResult.needsRecalibration
+        ? recalibrationResult.positions.map((pos) => ({
+            buttonId: pos.buttonId,
+            layoutX: pos.layoutX,
+            layoutY: pos.layoutY,
+          }))
+        : Array.from(draggingButtons.entries()).map(
+            ([buttonId, buttonData]) => ({
+              buttonId,
+              layoutX: buttonData.currentX,
+              layoutY: buttonData.currentY,
+            }),
+          );
+
+      // Save positions with cache update
+      updatePositions({
+        variables: { positions },
+        optimisticResponse: { updateSceneBoardButtonPositions: true },
+        update: (cache) => {
+          const existingData = cache.readQuery<{ sceneBoard: typeof board }>({
+            query: GET_SCENE_BOARD,
+            variables: { id: boardId },
+          });
+
+          if (existingData?.sceneBoard) {
+            const positionsMap = new Map(
+              positions.map((p) => [p.buttonId, { x: p.layoutX, y: p.layoutY }]),
+            );
+
+            cache.writeQuery({
+              query: GET_SCENE_BOARD,
+              variables: { id: boardId },
+              data: {
+                sceneBoard: {
+                  ...existingData.sceneBoard,
+                  buttons: existingData.sceneBoard.buttons.map(
+                    (btn: SceneBoardButton) => {
+                      const newPos = positionsMap.get(btn.id);
+                      return newPos
+                        ? { ...btn, layoutX: newPos.x, layoutY: newPos.y }
+                        : btn;
+                    },
+                  ),
+                },
+              },
+            });
+          }
+        },
+      });
+    }
+
+    return true;
+  }, [
+    draggingButton,
+    actuallyDragging,
+    draggingButtons,
+    board,
+    updatePositions,
+    boardId,
+    setViewport,
+  ]);
+
   // Handle drag end
   const handleDragEnd = useCallback(() => {
     // Stop mouse pan (works in both layout and play modes)
@@ -777,207 +979,34 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         setMarquee(null);
         return;
       }
-
-      // Calculate the marquee rectangle (normalized)
-      const minX = Math.min(marquee.startX, marquee.endX);
-      const maxX = Math.max(marquee.startX, marquee.endX);
-      const minY = Math.min(marquee.startY, marquee.endY);
-      const maxY = Math.max(marquee.startY, marquee.endY);
-
-      // Find all buttons that intersect with the marquee
-      const buttonsInMarquee = board.buttons.filter(
-        (button: SceneBoardButton) => {
-          const buttonRight =
-            button.layoutX + (button.width || DEFAULT_BUTTON_WIDTH);
-          const buttonBottom =
-            button.layoutY + (button.height || DEFAULT_BUTTON_HEIGHT);
-
-          const intersects = !(
-            button.layoutX > maxX ||
-            buttonRight < minX ||
-            button.layoutY > maxY ||
-            buttonBottom < minY
-          );
-
-          return intersects;
-        },
-      );
-
-      // Add these buttons to selection (don't replace)
-      setSelectedButtonIds((prev) => {
-        const newSet = new Set(prev);
-        buttonsInMarquee.forEach((button: SceneBoardButton) => {
-          newSet.add(button.id);
-        });
-        return newSet;
-      });
-
-      // Mark that we just completed a marquee selection
-      // This prevents handleCanvasClick from clearing the selection
-      lastInteractionWasDrag.current = true;
-
-      // Clear marquee
-      setMarquee(null);
-      marqueeStartCanvas.current = null;
+      handleMarqueeSelectionEnd();
       return;
     }
 
     // Handle button dragging end
     if (!draggingButton) return;
 
-    // Only save position if we actually dragged (crossed the threshold)
-    if (actuallyDragging && draggingButtons.size > 0) {
-      lastInteractionWasDrag.current = true;
-
-      // Build complete button positions list for recalibration
-      const allButtonPositions: ButtonPosition[] =
-        board?.buttons.map((btn: SceneBoardButton) => {
-          const draggingData = draggingButtons.get(btn.id);
-          return {
-            buttonId: btn.id,
-            layoutX: draggingData ? draggingData.currentX : btn.layoutX,
-            layoutY: draggingData ? draggingData.currentY : btn.layoutY,
-            width: btn.width ?? DEFAULT_BUTTON_WIDTH,
-            height: btn.height ?? DEFAULT_BUTTON_HEIGHT,
-          };
-        }) || [];
-
-      // Check if recalibration is needed
-      const recalibrationResult = recalibrateButtonPositions(
-        allButtonPositions,
-        board?.canvasWidth || DEFAULT_CANVAS_WIDTH,
-        board?.canvasHeight || DEFAULT_CANVAS_HEIGHT,
-      );
-
-      if (!recalibrationResult) {
-        // Buttons don't fit within canvas even with recalibration
-        // This shouldn't happen since we constrain during drag, but handle it gracefully
-        // Clamp dragged buttons to fit within bounds and save those positions
-        const canvasWidth = board?.canvasWidth || DEFAULT_CANVAS_WIDTH;
-        const canvasHeight = board?.canvasHeight || DEFAULT_CANVAS_HEIGHT;
-
-        const clampedPositions = Array.from(draggingButtons.entries()).map(
-          ([buttonId, buttonData]) => {
-            const btn = board?.buttons.find(
-              (b: SceneBoardButton) => b.id === buttonId,
-            );
-            const width = btn?.width ?? DEFAULT_BUTTON_WIDTH;
-            const height = btn?.height ?? DEFAULT_BUTTON_HEIGHT;
-
-            return {
-              buttonId,
-              layoutX: Math.max(
-                0,
-                Math.min(buttonData.currentX, canvasWidth - width),
-              ),
-              layoutY: Math.max(
-                0,
-                Math.min(buttonData.currentY, canvasHeight - height),
-              ),
-            };
-          },
-        );
-
-        // Save clamped positions
-        updatePositions({
-          variables: {
-            positions: clampedPositions,
-          },
-          optimisticResponse: {
-            updateSceneBoardButtonPositions: true,
-          },
-        });
-      } else {
-        // If recalibration occurred, adjust viewport to keep buttons visually stationary
-        if (recalibrationResult.needsRecalibration) {
-          setViewport((prev) => ({
-            ...prev,
-            // Compensate for coordinate shift by adjusting viewport in opposite direction
-            // If buttons shifted right (+offsetX), viewport shifts left (-offsetX * scale)
-            offsetX: prev.offsetX - recalibrationResult.offsetX * prev.scale,
-            offsetY: prev.offsetY - recalibrationResult.offsetY * prev.scale,
-          }));
-        }
-
-        // Determine which positions to update
-        const positions = recalibrationResult.needsRecalibration
-          ? // Recalibration needed: update ALL buttons
-            recalibrationResult.positions.map((pos) => ({
-              buttonId: pos.buttonId,
-              layoutX: pos.layoutX,
-              layoutY: pos.layoutY,
-            }))
-          : // No recalibration: only update dragged buttons
-            Array.from(draggingButtons.entries()).map(
-              ([buttonId, buttonData]) => ({
-                buttonId,
-                layoutX: buttonData.currentX,
-                layoutY: buttonData.currentY,
-              }),
-            );
-
-        // Save all positions to the server with optimistic update
-        updatePositions({
-          variables: {
-            positions,
-          },
-          optimisticResponse: {
-            updateSceneBoardButtonPositions: true,
-          },
-          update: (cache) => {
-            // Update the cache immediately with the new positions
-            const existingData = cache.readQuery<{ sceneBoard: typeof board }>({
-              query: GET_SCENE_BOARD,
-              variables: { id: boardId },
-            });
-
-            if (existingData?.sceneBoard) {
-              // Create a map for quick lookup
-              const positionsMap = new Map(
-                positions.map((p) => [
-                  p.buttonId,
-                  { x: p.layoutX, y: p.layoutY },
-                ]),
-              );
-
-              cache.writeQuery({
-                query: GET_SCENE_BOARD,
-                variables: { id: boardId },
-                data: {
-                  sceneBoard: {
-                    ...existingData.sceneBoard,
-                    buttons: existingData.sceneBoard.buttons.map(
-                      (btn: SceneBoardButton) => {
-                        const newPos = positionsMap.get(btn.id);
-                        return newPos
-                          ? { ...btn, layoutX: newPos.x, layoutY: newPos.y }
-                          : btn;
-                      },
-                    ),
-                  },
-                },
-              });
-            }
-          },
-        });
-      }
-    }
+    // Delegate to helper function for button drag handling
+    handleButtonDragEnd();
 
     // Clear dragging state
     setDraggingButton(null);
     setDraggingButtons(new Map());
     setActuallyDragging(false);
-    dragStartPos.current = null;
+    dragStartPos.current = null; // Reset ref (not in deps - refs don't trigger re-renders)
   }, [
     draggingButton,
     mode,
-    actuallyDragging,
-    updatePositions,
-    boardId,
     marquee,
     board,
-    draggingButtons,
     mousePan,
+    handleMarqueeSelectionEnd,
+    handleButtonDragEnd,
+    setMousePan,
+    setMarquee,
+    setDraggingButton,
+    setDraggingButtons,
+    setActuallyDragging,
   ]);
 
   // Handle scene click (activate in play mode)
@@ -1074,6 +1103,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           x: canvasPos.x - button.layoutX,
           y: canvasPos.y - button.layoutY,
         });
+        dragStartScale.current = viewport.scale; // Store scale at drag start
       }
     },
     [mode, viewport, startLongPress, selectedButtonIds, board],
