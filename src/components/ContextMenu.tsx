@@ -29,7 +29,6 @@ export default function ContextMenu({
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const justOpenedRef = useRef(true); // Track if menu was just opened
-  const mountedRef = useRef(true); // Track if component is mounted
 
   // Calculate position to avoid menu going off-screen
   const [position, setPosition] = useState({ x, y });
@@ -42,8 +41,6 @@ export default function ContextMenu({
 
   // Handle click outside to close menu
   useEffect(() => {
-    mountedRef.current = true;
-
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       // Ignore clicks if menu was just opened (prevents immediate dismissal)
       if (justOpenedRef.current) {
@@ -64,17 +61,14 @@ export default function ContextMenu({
 
     // Use requestAnimationFrame to add listeners on next frame
     // This ensures the opening event has finished processing
+    // cancelAnimationFrame in cleanup prevents callback execution if unmounted
     const rafId = requestAnimationFrame(() => {
-      // Only add listeners if component is still mounted
-      if (mountedRef.current) {
-        document.addEventListener("mousedown", handleClickOutside);
-        document.addEventListener("touchstart", handleClickOutside);
-        document.addEventListener("keydown", handleEscape);
-      }
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
     });
 
     return () => {
-      mountedRef.current = false;
       cancelAnimationFrame(rafId);
       // Always remove event listeners
       document.removeEventListener("mousedown", handleClickOutside);
@@ -107,7 +101,13 @@ export default function ContextMenu({
       adjustedX = Math.max(10, adjustedX);
       adjustedY = Math.max(10, adjustedY);
 
-      setPosition({ x: adjustedX, y: adjustedY });
+      // Only update position if it actually changed to avoid unnecessary re-renders
+      setPosition((prevPosition) => {
+        if (prevPosition.x === adjustedX && prevPosition.y === adjustedY) {
+          return prevPosition;
+        }
+        return { x: adjustedX, y: adjustedY };
+      });
     }
   }, [x, y]);
 

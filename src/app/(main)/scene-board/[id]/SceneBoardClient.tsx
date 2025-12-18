@@ -821,7 +821,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
    * Attempts to recalibrate coordinates to normalize positions (leftmost at X=0, topmost at Y=0)
    * when buttons are out of bounds or have drifted significantly. If recalibration fails
    * (buttons too spread out), clamps positions to canvas bounds instead.
-   * Applies viewport compensation to keep buttons visually stable during recalibration.
+   * Applies viewport compensation after recalibration to keep buttons visually stable.
    *
    * @returns {boolean} True if button drag was processed, false if no drag operation exists
    */
