@@ -31,6 +31,7 @@ describe("versionSort", () => {
         minor: 2,
         patch: 3,
         prerelease: "beta.1",
+        prereleaseBase: "beta",
         prereleaseNumber: 1,
       });
     });
@@ -42,6 +43,7 @@ describe("versionSort", () => {
         minor: 2,
         patch: 3,
         prerelease: "alpha",
+        prereleaseBase: "alpha",
       });
     });
 
@@ -52,7 +54,20 @@ describe("versionSort", () => {
         minor: 0,
         patch: 0,
         prerelease: "rc.5",
+        prereleaseBase: "rc",
         prereleaseNumber: 5,
+      });
+    });
+
+    it("parses version with multi-digit prerelease number", () => {
+      const result = parseVersion("v1.0.0-beta.10");
+      expect(result).toEqual({
+        major: 1,
+        minor: 0,
+        patch: 0,
+        prerelease: "beta.10",
+        prereleaseBase: "beta",
+        prereleaseNumber: 10,
       });
     });
 
@@ -61,6 +76,27 @@ describe("versionSort", () => {
       expect(parseVersion("1.2")).toBeNull();
       expect(parseVersion("v1")).toBeNull();
       expect(parseVersion("")).toBeNull();
+    });
+
+    it("returns null for version string that is too long", () => {
+      const longVersion = "v1.2.3-" + "a".repeat(100);
+      expect(parseVersion(longVersion)).toBeNull();
+    });
+
+    it("returns null for invalid prerelease format with special characters", () => {
+      expect(parseVersion("v1.0.0-beta@#$")).toBeNull();
+      expect(parseVersion("v1.0.0-beta!test")).toBeNull();
+    });
+
+    it("accepts permissive prerelease format", () => {
+      // These are technically not strict semver, but we accept them for flexibility
+      // The backend may send versions in various formats
+      const result1 = parseVersion("v1.0.0-beta..1");
+      expect(result1).not.toBeNull();
+      expect(result1?.prerelease).toBe("beta..1");
+
+      const result2 = parseVersion("v1.0.0-");
+      expect(result2).toBeNull(); // Empty prerelease is invalid
     });
   });
 
@@ -102,6 +138,26 @@ describe("versionSort", () => {
         0,
       );
       expect(compareVersions("v1.0.0-beta.1", "v1.0.0-beta.2")).toBeLessThan(0);
+    });
+
+    it("compares multi-digit prerelease numbers correctly", () => {
+      // This is the critical test - beta.10 should be > beta.2
+      expect(
+        compareVersions("v1.0.0-beta.10", "v1.0.0-beta.2"),
+      ).toBeGreaterThan(0);
+      expect(compareVersions("v1.0.0-beta.2", "v1.0.0-beta.10")).toBeLessThan(
+        0,
+      );
+      expect(
+        compareVersions("v1.0.0-beta.100", "v1.0.0-beta.99"),
+      ).toBeGreaterThan(0);
+    });
+
+    it("compares prerelease with and without number", () => {
+      expect(compareVersions("v1.0.0-alpha.1", "v1.0.0-alpha")).toBeGreaterThan(
+        0,
+      );
+      expect(compareVersions("v1.0.0-alpha", "v1.0.0-alpha.1")).toBeLessThan(0);
     });
 
     it("handles invalid versions", () => {
@@ -189,6 +245,32 @@ describe("versionSort", () => {
       const versions = ["v1.0.0", "2.0.0", "v1.5.0"];
       const sorted = sortVersionsDescending(versions);
       expect(sorted).toEqual(["2.0.0", "v1.5.0", "v1.0.0"]);
+    });
+
+    it("sorts multi-digit prerelease numbers correctly", () => {
+      const versions = [
+        "v1.0.0-beta.2",
+        "v1.0.0-beta.10",
+        "v1.0.0-beta.1",
+        "v1.0.0-beta.100",
+      ];
+      const sorted = sortVersionsDescending(versions);
+      expect(sorted).toEqual([
+        "v1.0.0-beta.100",
+        "v1.0.0-beta.10",
+        "v1.0.0-beta.2",
+        "v1.0.0-beta.1",
+      ]);
+    });
+
+    it("sorts versions with and without prerelease numbers", () => {
+      const versions = ["v1.0.0-alpha.1", "v1.0.0-alpha", "v1.0.0-alpha.2"];
+      const sorted = sortVersionsDescending(versions);
+      expect(sorted).toEqual([
+        "v1.0.0-alpha.2",
+        "v1.0.0-alpha.1",
+        "v1.0.0-alpha",
+      ]);
     });
   });
 });

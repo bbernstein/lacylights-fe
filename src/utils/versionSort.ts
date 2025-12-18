@@ -11,15 +11,24 @@ export interface ParsedVersion {
   minor: number;
   patch: number;
   prerelease?: string;
+  prereleaseBase?: string;
   prereleaseNumber?: number;
 }
 
 export function parseVersion(version: string): ParsedVersion | null {
+  // Prevent DoS from extremely long version strings
+  if (!version || version.length > 100) {
+    return null;
+  }
+
   // Remove 'v' prefix if present
   const cleanVersion = version.startsWith("v") ? version.slice(1) : version;
 
   // Match semver pattern: major.minor.patch[-prerelease]
-  const match = cleanVersion.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
+  // Pre-release can only contain alphanumerics, hyphens, and dots
+  const match = cleanVersion.match(
+    /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z\-.]+))?$/,
+  );
   if (!match) {
     return null;
   }
@@ -33,10 +42,13 @@ export function parseVersion(version: string): ParsedVersion | null {
 
   if (prerelease) {
     parsed.prerelease = prerelease;
-    // Try to extract numeric suffix from prerelease (e.g., "beta.2" -> 2)
-    const numMatch = prerelease.match(/\.(\d+)$/);
-    if (numMatch) {
-      parsed.prereleaseNumber = parseInt(numMatch[1], 10);
+    // Extract base and numeric suffix separately (e.g., "beta.2" -> base: "beta", number: 2)
+    const prereleaseMatch = prerelease.match(/^([a-z]+)(?:\.(\d+))?$/i);
+    if (prereleaseMatch) {
+      parsed.prereleaseBase = prereleaseMatch[1];
+      if (prereleaseMatch[2]) {
+        parsed.prereleaseNumber = parseInt(prereleaseMatch[2], 10);
+      }
     }
   }
 
@@ -91,19 +103,18 @@ export function compareVersions(a: string, b: string): number {
 
   // Both have pre-release, compare them
   if (parsedA.prerelease && parsedB.prerelease) {
-    // First try lexicographic comparison
-    const lexCompare = parsedA.prerelease.localeCompare(parsedB.prerelease);
-    if (lexCompare !== 0) {
-      return lexCompare;
+    // Compare pre-release base first (alpha, beta, rc, etc.)
+    const baseA = parsedA.prereleaseBase || parsedA.prerelease;
+    const baseB = parsedB.prereleaseBase || parsedB.prerelease;
+    const baseCompare = baseA.localeCompare(baseB);
+    if (baseCompare !== 0) {
+      return baseCompare;
     }
 
-    // If base is same, compare numeric suffixes
-    if (
-      parsedA.prereleaseNumber !== undefined &&
-      parsedB.prereleaseNumber !== undefined
-    ) {
-      return parsedA.prereleaseNumber - parsedB.prereleaseNumber;
-    }
+    // If bases are equal, compare numeric suffixes
+    const numA = parsedA.prereleaseNumber ?? 0;
+    const numB = parsedB.prereleaseNumber ?? 0;
+    return numA - numB;
   }
 
   return 0; // Versions are equal
