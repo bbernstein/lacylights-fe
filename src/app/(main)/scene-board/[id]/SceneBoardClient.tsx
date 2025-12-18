@@ -811,7 +811,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
     // Clear marquee
     setMarquee(null);
-    marqueeStartCanvas.current = null;
+    marqueeStartCanvas.current = null; // Reset ref (not in deps - refs don't trigger re-renders)
     return true;
   }, [board, marquee, setSelectedButtonIds, setMarquee]);
 
@@ -993,7 +993,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     setDraggingButton(null);
     setDraggingButtons(new Map());
     setActuallyDragging(false);
-    dragStartPos.current = null;
+    dragStartPos.current = null; // Reset ref (not in deps - refs don't trigger re-renders)
   }, [
     draggingButton,
     mode,
@@ -1007,7 +1007,6 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     setDraggingButton,
     setDraggingButtons,
     setActuallyDragging,
-    dragStartPos,
   ]);
 
   // Handle scene click (activate in play mode)

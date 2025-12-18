@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface ContextMenuOption {
   label: string;
@@ -29,49 +29,21 @@ export default function ContextMenu({
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const justOpenedRef = useRef(true); // Track if menu was just opened
+  const mountedRef = useRef(true); // Track if component is mounted
 
-  // Calculate initial position estimate to avoid flash
-  // Use conservative estimates for menu size to prevent most off-screen cases
-  const initialPosition = useMemo(() => {
-    const estimatedMenuWidth = 200; // Slightly larger than min-w-[160px]
-    const estimatedMenuHeight = 50 + options.length * 40; // Rough estimate based on options
-    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
-    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
+  // Calculate position to avoid menu going off-screen
+  const [position, setPosition] = useState({ x, y });
 
-    let adjustedX = x;
-    let adjustedY = y;
-
-    // Check if menu would go off right edge
-    if (x + estimatedMenuWidth > viewportWidth) {
-      adjustedX = Math.max(10, viewportWidth - estimatedMenuWidth - 10);
-    }
-
-    // Check if menu would go off bottom edge
-    if (y + estimatedMenuHeight > viewportHeight) {
-      adjustedY = Math.max(10, viewportHeight - estimatedMenuHeight - 10);
-    }
-
-    // Ensure menu doesn't go off left or top edge
-    adjustedX = Math.max(10, adjustedX);
-    adjustedY = Math.max(10, adjustedY);
-
-    return { x: adjustedX, y: adjustedY };
-  }, [x, y, options.length]);
-
-  const [position, setPosition] = useState(initialPosition);
-
-  // Reset justOpenedRef when menu position changes (new menu instance)
+  // Reset justOpenedRef and position when menu coordinates change (new menu instance)
   useEffect(() => {
     justOpenedRef.current = true;
+    setPosition({ x, y });
   }, [x, y]);
-
-  // Sync position state when initialPosition changes
-  useEffect(() => {
-    setPosition(initialPosition);
-  }, [initialPosition]);
 
   // Handle click outside to close menu
   useEffect(() => {
+    mountedRef.current = true;
+
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       // Ignore clicks if menu was just opened (prevents immediate dismissal)
       if (justOpenedRef.current) {
@@ -93,21 +65,25 @@ export default function ContextMenu({
     // Use requestAnimationFrame to add listeners on next frame
     // This ensures the opening event has finished processing
     const rafId = requestAnimationFrame(() => {
-      document.addEventListener("mousedown", handleClickOutside);
-      document.addEventListener("touchstart", handleClickOutside);
-      document.addEventListener("keydown", handleEscape);
+      // Only add listeners if component is still mounted
+      if (mountedRef.current) {
+        document.addEventListener("mousedown", handleClickOutside);
+        document.addEventListener("touchstart", handleClickOutside);
+        document.addEventListener("keydown", handleEscape);
+      }
     });
 
     return () => {
+      mountedRef.current = false;
       cancelAnimationFrame(rafId);
-      // Always remove event listeners, even if RAF callback hasn't executed yet
+      // Always remove event listeners
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
       document.removeEventListener("keydown", handleEscape);
     };
   }, [onDismiss]);
 
-  // Fine-tune position after actual render to handle size differences
+  // Adjust position after render based on actual menu size to prevent off-screen display
   useEffect(() => {
     if (menuRef.current) {
       const rect = menuRef.current.getBoundingClientRect();
@@ -131,8 +107,6 @@ export default function ContextMenu({
       adjustedX = Math.max(10, adjustedX);
       adjustedY = Math.max(10, adjustedY);
 
-      // Update position after render to fine-tune based on actual size
-      // React will optimize away unnecessary re-renders if position hasn't changed
       setPosition({ x: adjustedX, y: adjustedY });
     }
   }, [x, y]);
