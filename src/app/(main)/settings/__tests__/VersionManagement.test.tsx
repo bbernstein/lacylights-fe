@@ -1,34 +1,34 @@
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MockedProvider } from '@apollo/client/testing';
-import VersionManagement from '../VersionManagement';
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { MockedProvider } from "@apollo/client/testing";
+import VersionManagement from "../VersionManagement";
 import {
   GET_SYSTEM_VERSIONS,
   GET_AVAILABLE_VERSIONS,
   UPDATE_REPOSITORY,
   UPDATE_ALL_REPOSITORIES,
-} from '@/graphql/versionManagement';
+} from "@/graphql/versionManagement";
 
 const mockSystemVersionsSupported = {
   versionManagementSupported: true,
-  lastChecked: '2025-11-12T12:00:00Z',
+  lastChecked: "2025-11-12T12:00:00Z",
   repositories: [
     {
-      repository: 'lacylights-fe',
-      installed: 'v1.0.0',
-      latest: 'v1.1.0',
+      repository: "lacylights-fe",
+      installed: "v1.0.0",
+      latest: "v1.1.0",
       updateAvailable: true,
     },
     {
-      repository: 'lacylights-go',
-      installed: 'v2.0.0',
-      latest: 'v2.0.0',
+      repository: "lacylights-go",
+      installed: "v2.0.0",
+      latest: "v2.0.0",
       updateAvailable: false,
     },
     {
-      repository: 'lacylights-mcp',
-      installed: 'v0.5.0',
-      latest: 'v0.6.0',
+      repository: "lacylights-mcp",
+      installed: "v0.5.0",
+      latest: "v0.6.0",
       updateAvailable: true,
     },
   ],
@@ -36,46 +36,46 @@ const mockSystemVersionsSupported = {
 
 const mockSystemVersionsNotSupported = {
   versionManagementSupported: false,
-  lastChecked: '',
+  lastChecked: "",
   repositories: [],
 };
 
-const mockAvailableVersions = ['v1.2.0', 'v1.1.0', 'v1.0.0'];
+const mockAvailableVersions = ["v1.0.0", "v1.2.0", "v1.1.0"]; // Unsorted to test sorting
 
 const mockUpdateRepositorySuccess = {
-  repository: 'lacylights-fe',
+  repository: "lacylights-fe",
   success: true,
-  message: 'Updated successfully',
-  error: '',
-  previousVersion: 'v1.0.0',
-  newVersion: 'v1.1.0',
+  message: "Updated successfully",
+  error: "",
+  previousVersion: "v1.0.0",
+  newVersion: "v1.1.0",
 };
 
 const mockUpdateRepositoryError = {
-  repository: 'lacylights-fe',
+  repository: "lacylights-fe",
   success: false,
-  message: '',
-  error: 'Update failed',
-  previousVersion: 'v1.0.0',
-  newVersion: 'v1.0.0',
+  message: "",
+  error: "Update failed",
+  previousVersion: "v1.0.0",
+  newVersion: "v1.0.0",
 };
 
 const mockUpdateAllSuccess = [
   {
-    repository: 'lacylights-fe',
+    repository: "lacylights-fe",
     success: true,
-    message: 'Updated successfully',
-    error: '',
-    previousVersion: 'v1.0.0',
-    newVersion: 'v1.1.0',
+    message: "Updated successfully",
+    error: "",
+    previousVersion: "v1.0.0",
+    newVersion: "v1.1.0",
   },
   {
-    repository: 'lacylights-mcp',
+    repository: "lacylights-mcp",
     success: true,
-    message: 'Updated successfully',
-    error: '',
-    previousVersion: 'v0.5.0',
-    newVersion: 'v0.6.0',
+    message: "Updated successfully",
+    error: "",
+    previousVersion: "v0.5.0",
+    newVersion: "v0.6.0",
   },
 ];
 
@@ -92,122 +92,130 @@ const createMocks = (systemVersions = mockSystemVersionsSupported) => [
   },
 ];
 
-describe('VersionManagement', () => {
-  describe('Version management not supported', () => {
-    it('shows not available message when version management is not supported', async () => {
+describe("VersionManagement", () => {
+  describe("Version management not supported", () => {
+    it("shows not available message when version management is not supported", async () => {
       const mocks = createMocks(mockSystemVersionsNotSupported);
 
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Version Management Not Available')).toBeInTheDocument();
+        expect(
+          screen.getByText("Version Management Not Available"),
+        ).toBeInTheDocument();
       });
 
-      expect(screen.getByText(/This system does not support automated version management/)).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /This system does not support automated version management/,
+        ),
+      ).toBeInTheDocument();
     });
   });
 
-  describe('Loading state', () => {
-    it('shows loading state while fetching data', () => {
+  describe("Loading state", () => {
+    it("shows loading state while fetching data", () => {
       const mocks = createMocks();
 
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
-      expect(screen.getByText('Checking for updates...')).toBeInTheDocument();
+      expect(screen.getByText("Checking for updates...")).toBeInTheDocument();
     });
   });
 
-  describe('Error state', () => {
-    it('shows error message when query fails', async () => {
+  describe("Error state", () => {
+    it("shows error message when query fails", async () => {
       const errorMocks = [
         {
           request: {
             query: GET_SYSTEM_VERSIONS,
           },
-          error: new Error('Network error'),
+          error: new Error("Network error"),
         },
       ];
 
       render(
         <MockedProvider mocks={errorMocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/Error loading version information/)).toBeInTheDocument();
+        expect(
+          screen.getByText(/Error loading version information/),
+        ).toBeInTheDocument();
       });
     });
   });
 
-  describe('Repository list', () => {
-    it('displays repository versions when supported', async () => {
+  describe("Repository list", () => {
+    it("displays repository versions when supported", async () => {
       const mocks = createMocks();
 
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('System Versions')).toBeInTheDocument();
+        expect(screen.getByText("System Versions")).toBeInTheDocument();
       });
 
-      expect(screen.getByText('lacylights-fe')).toBeInTheDocument();
-      expect(screen.getByText('lacylights-go')).toBeInTheDocument();
-      expect(screen.getByText('lacylights-mcp')).toBeInTheDocument();
+      expect(screen.getByText("lacylights-fe")).toBeInTheDocument();
+      expect(screen.getByText("lacylights-go")).toBeInTheDocument();
+      expect(screen.getByText("lacylights-mcp")).toBeInTheDocument();
     });
 
-    it('shows update available badges for outdated repositories', async () => {
+    it("shows update available badges for outdated repositories", async () => {
       const mocks = createMocks();
 
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('System Versions')).toBeInTheDocument();
+        expect(screen.getByText("System Versions")).toBeInTheDocument();
       });
 
-      const updateBadges = screen.getAllByText('Update Available');
+      const updateBadges = screen.getAllByText("Update Available");
       expect(updateBadges).toHaveLength(2); // lacylights-fe and lacylights-mcp
     });
 
-    it('displays installed and latest versions', async () => {
+    it("displays installed and latest versions", async () => {
       const mocks = createMocks();
 
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('v1.0.0')).toBeInTheDocument();
+        expect(screen.getByText("v1.0.0")).toBeInTheDocument();
       });
 
-      expect(screen.getByText('v1.1.0')).toBeInTheDocument();
-      expect(screen.getAllByText('v2.0.0')).toHaveLength(2); // Installed and latest are same
+      expect(screen.getByText("v1.1.0")).toBeInTheDocument();
+      expect(screen.getAllByText("v2.0.0")).toHaveLength(2); // Installed and latest are same
     });
 
-    it('displays last checked timestamp', async () => {
+    it("displays last checked timestamp", async () => {
       const mocks = createMocks();
 
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
@@ -216,18 +224,18 @@ describe('VersionManagement', () => {
     });
   });
 
-  describe('Update All button', () => {
+  describe("Update All button", () => {
     it('shows "Update All" button when updates are available', async () => {
       const mocks = createMocks();
 
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Update All')).toBeInTheDocument();
+        expect(screen.getByText("Update All")).toBeInTheDocument();
       });
     });
 
@@ -244,17 +252,17 @@ describe('VersionManagement', () => {
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('System Versions')).toBeInTheDocument();
+        expect(screen.getByText("System Versions")).toBeInTheDocument();
       });
 
-      expect(screen.queryByText('Update All')).not.toBeInTheDocument();
+      expect(screen.queryByText("Update All")).not.toBeInTheDocument();
     });
 
-    it('calls updateAllRepositories mutation when clicked', async () => {
+    it("calls updateAllRepositories mutation when clicked", async () => {
       const mocks = [
         ...createMocks(),
         {
@@ -282,21 +290,21 @@ describe('VersionManagement', () => {
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Update All')).toBeInTheDocument();
+        expect(screen.getByText("Update All")).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByText('Update All'));
+      fireEvent.click(screen.getByText("Update All"));
 
       await waitFor(() => {
-        expect(screen.getByText('Update Results')).toBeInTheDocument();
+        expect(screen.getByText("Update Results")).toBeInTheDocument();
       });
     });
 
-    it('displays update results after updating all', async () => {
+    it("displays update results after updating all", async () => {
       const mocks = [
         ...createMocks(),
         {
@@ -324,31 +332,31 @@ describe('VersionManagement', () => {
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Update All')).toBeInTheDocument();
+        expect(screen.getByText("Update All")).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByText('Update All'));
+      fireEvent.click(screen.getByText("Update All"));
 
       await waitFor(() => {
-        expect(screen.getByText('v1.0.0 → v1.1.0')).toBeInTheDocument();
+        expect(screen.getByText("v1.0.0 → v1.1.0")).toBeInTheDocument();
       });
 
-      expect(screen.getByText('v0.5.0 → v0.6.0')).toBeInTheDocument();
+      expect(screen.getByText("v0.5.0 → v0.6.0")).toBeInTheDocument();
     });
   });
 
-  describe('Individual repository update', () => {
-    it('shows version selector when Update button clicked', async () => {
+  describe("Individual repository update", () => {
+    it("shows version selector when Update button clicked", async () => {
       const mocks = [
         ...createMocks(),
         {
           request: {
             query: GET_AVAILABLE_VERSIONS,
-            variables: { repository: 'lacylights-fe' },
+            variables: { repository: "lacylights-fe" },
           },
           result: {
             data: {
@@ -361,31 +369,31 @@ describe('VersionManagement', () => {
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('lacylights-fe')).toBeInTheDocument();
+        expect(screen.getByText("lacylights-fe")).toBeInTheDocument();
       });
 
       // Find the Update button for lacylights-fe (first Update button)
-      const updateButtons = screen.getAllByText('Update');
+      const updateButtons = screen.getAllByText("Update");
       fireEvent.click(updateButtons[0]);
 
       await waitFor(() => {
-        expect(screen.getByDisplayValue('Latest')).toBeInTheDocument();
+        expect(screen.getByDisplayValue("Latest")).toBeInTheDocument();
       });
 
-      expect(screen.getByText('Cancel')).toBeInTheDocument();
+      expect(screen.getByText("Cancel")).toBeInTheDocument();
     });
 
-    it('loads available versions when showing selector', async () => {
+    it("loads available versions when showing selector", async () => {
       const mocks = [
         ...createMocks(),
         {
           request: {
             query: GET_AVAILABLE_VERSIONS,
-            variables: { repository: 'lacylights-fe' },
+            variables: { repository: "lacylights-fe" },
           },
           result: {
             data: {
@@ -398,32 +406,93 @@ describe('VersionManagement', () => {
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('lacylights-fe')).toBeInTheDocument();
+        expect(screen.getByText("lacylights-fe")).toBeInTheDocument();
       });
 
-      const updateButtons = screen.getAllByText('Update');
+      const updateButtons = screen.getAllByText("Update");
       fireEvent.click(updateButtons[0]);
 
       await waitFor(() => {
-        expect(screen.getByText('v1.2.0')).toBeInTheDocument();
+        expect(screen.getByText("v1.2.0")).toBeInTheDocument();
       });
 
       // Check that all versions are available in dropdown (v1.1.0 and v1.0.0 may appear in table too)
-      expect(screen.getAllByText('v1.2.0')).toHaveLength(1);
-      expect(screen.getAllByText('v1.0.0').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText("v1.2.0")).toHaveLength(1);
+      expect(screen.getAllByText("v1.0.0").length).toBeGreaterThanOrEqual(1);
     });
 
-    it('cancels version selection when Cancel clicked', async () => {
+    it("sorts available versions in descending semver order", async () => {
+      const unsortedVersions = [
+        "v1.0.10-beta1",
+        "v1.1.7",
+        "v1.1.6-beta.1",
+        "v1.0.10",
+        "v1.1.7-beta.2",
+        "v1.1.7-beta.1",
+        "v1.1.6",
+      ];
       const mocks = [
         ...createMocks(),
         {
           request: {
             query: GET_AVAILABLE_VERSIONS,
-            variables: { repository: 'lacylights-fe' },
+            variables: { repository: "lacylights-fe" },
+          },
+          result: {
+            data: {
+              availableVersions: unsortedVersions,
+            },
+          },
+        },
+      ];
+
+      render(
+        <MockedProvider mocks={mocks} addTypename={false}>
+          <VersionManagement />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("lacylights-fe")).toBeInTheDocument();
+      });
+
+      const updateButtons = screen.getAllByText("Update");
+      fireEvent.click(updateButtons[0]);
+
+      await waitFor(() => {
+        const select = screen.getByDisplayValue("Latest");
+        expect(select).toBeInTheDocument();
+      });
+
+      const select = screen.getByDisplayValue("Latest") as HTMLSelectElement;
+      const options = Array.from(select.options).map((option) => option.value);
+
+      // First option should be 'latest'
+      expect(options[0]).toBe("latest");
+
+      // Remaining options should be sorted in descending semver order
+      expect(options.slice(1)).toEqual([
+        "v1.1.7",
+        "v1.1.7-beta.2",
+        "v1.1.7-beta.1",
+        "v1.1.6",
+        "v1.1.6-beta.1",
+        "v1.0.10",
+        "v1.0.10-beta1",
+      ]);
+    });
+
+    it("cancels version selection when Cancel clicked", async () => {
+      const mocks = [
+        ...createMocks(),
+        {
+          request: {
+            query: GET_AVAILABLE_VERSIONS,
+            variables: { repository: "lacylights-fe" },
           },
           result: {
             data: {
@@ -436,34 +505,34 @@ describe('VersionManagement', () => {
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('lacylights-fe')).toBeInTheDocument();
+        expect(screen.getByText("lacylights-fe")).toBeInTheDocument();
       });
 
-      const updateButtons = screen.getAllByText('Update');
+      const updateButtons = screen.getAllByText("Update");
       fireEvent.click(updateButtons[0]);
 
       await waitFor(() => {
-        expect(screen.getByText('Cancel')).toBeInTheDocument();
+        expect(screen.getByText("Cancel")).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByText('Cancel'));
+      fireEvent.click(screen.getByText("Cancel"));
 
       await waitFor(() => {
-        expect(screen.queryByText('Cancel')).not.toBeInTheDocument();
+        expect(screen.queryByText("Cancel")).not.toBeInTheDocument();
       });
     });
 
-    it('updates repository to latest when Update clicked', async () => {
+    it("updates repository to latest when Update clicked", async () => {
       const mocks = [
         ...createMocks(),
         {
           request: {
             query: GET_AVAILABLE_VERSIONS,
-            variables: { repository: 'lacylights-fe' },
+            variables: { repository: "lacylights-fe" },
           },
           result: {
             data: {
@@ -474,7 +543,7 @@ describe('VersionManagement', () => {
         {
           request: {
             query: UPDATE_REPOSITORY,
-            variables: { repository: 'lacylights-fe', version: undefined },
+            variables: { repository: "lacylights-fe", version: undefined },
           },
           result: {
             data: {
@@ -497,20 +566,23 @@ describe('VersionManagement', () => {
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('lacylights-fe')).toBeInTheDocument();
+        expect(screen.getByText("lacylights-fe")).toBeInTheDocument();
       });
 
-      const updateButtons = screen.getAllByText('Update');
+      const updateButtons = screen.getAllByText("Update");
       fireEvent.click(updateButtons[0]);
 
       await waitFor(() => {
-        const updateButton = screen.getAllByText('Update').find(
-          (button) => button.tagName === 'BUTTON' && button.textContent === 'Update'
-        );
+        const updateButton = screen
+          .getAllByText("Update")
+          .find(
+            (button) =>
+              button.tagName === "BUTTON" && button.textContent === "Update",
+          );
         expect(updateButton).toBeInTheDocument();
         if (updateButton) {
           fireEvent.click(updateButton);
@@ -518,19 +590,19 @@ describe('VersionManagement', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Update Results')).toBeInTheDocument();
+        expect(screen.getByText("Update Results")).toBeInTheDocument();
       });
 
-      expect(screen.getByText('Updated successfully')).toBeInTheDocument();
+      expect(screen.getByText("Updated successfully")).toBeInTheDocument();
     });
 
-    it('allows selecting specific version from dropdown', async () => {
+    it("allows selecting specific version from dropdown", async () => {
       const mocks = [
         ...createMocks(),
         {
           request: {
             query: GET_AVAILABLE_VERSIONS,
-            variables: { repository: 'lacylights-fe' },
+            variables: { repository: "lacylights-fe" },
           },
           result: {
             data: {
@@ -543,32 +615,32 @@ describe('VersionManagement', () => {
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('lacylights-fe')).toBeInTheDocument();
+        expect(screen.getByText("lacylights-fe")).toBeInTheDocument();
       });
 
-      const updateButtons = screen.getAllByText('Update');
+      const updateButtons = screen.getAllByText("Update");
       fireEvent.click(updateButtons[0]);
 
       await waitFor(() => {
-        const select = screen.getByDisplayValue('Latest');
+        const select = screen.getByDisplayValue("Latest");
         expect(select).toBeInTheDocument();
       });
 
-      const select = screen.getByDisplayValue('Latest');
-      fireEvent.change(select, { target: { value: 'v1.2.0' } });
+      const select = screen.getByDisplayValue("Latest");
+      fireEvent.change(select, { target: { value: "v1.2.0" } });
 
       await waitFor(() => {
-        expect(select).toHaveValue('v1.2.0');
+        expect(select).toHaveValue("v1.2.0");
       });
     });
   });
 
-  describe('Update results', () => {
-    it('displays success results with version changes', async () => {
+  describe("Update results", () => {
+    it("displays success results with version changes", async () => {
       const mocks = [
         ...createMocks(),
         {
@@ -596,24 +668,24 @@ describe('VersionManagement', () => {
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Update All')).toBeInTheDocument();
+        expect(screen.getByText("Update All")).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByText('Update All'));
+      fireEvent.click(screen.getByText("Update All"));
 
       await waitFor(() => {
-        expect(screen.getByText('Update Results')).toBeInTheDocument();
+        expect(screen.getByText("Update Results")).toBeInTheDocument();
       });
 
-      expect(screen.getAllByText('Updated successfully')).toHaveLength(2);
-      expect(screen.getByText('v1.0.0 → v1.1.0')).toBeInTheDocument();
+      expect(screen.getAllByText("Updated successfully")).toHaveLength(2);
+      expect(screen.getByText("v1.0.0 → v1.1.0")).toBeInTheDocument();
     });
 
-    it('clears results when Clear button clicked', async () => {
+    it("clears results when Clear button clicked", async () => {
       const mocks = [
         ...createMocks(),
         {
@@ -641,33 +713,33 @@ describe('VersionManagement', () => {
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Update All')).toBeInTheDocument();
+        expect(screen.getByText("Update All")).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByText('Update All'));
+      fireEvent.click(screen.getByText("Update All"));
 
       await waitFor(() => {
-        expect(screen.getByText('Clear')).toBeInTheDocument();
+        expect(screen.getByText("Clear")).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByText('Clear'));
+      fireEvent.click(screen.getByText("Clear"));
 
       await waitFor(() => {
-        expect(screen.queryByText('Update Results')).not.toBeInTheDocument();
+        expect(screen.queryByText("Update Results")).not.toBeInTheDocument();
       });
     });
 
-    it('displays error results when update fails', async () => {
+    it("displays error results when update fails", async () => {
       const mocks = [
         ...createMocks(),
         {
           request: {
             query: GET_AVAILABLE_VERSIONS,
-            variables: { repository: 'lacylights-fe' },
+            variables: { repository: "lacylights-fe" },
           },
           result: {
             data: {
@@ -678,7 +750,7 @@ describe('VersionManagement', () => {
         {
           request: {
             query: UPDATE_REPOSITORY,
-            variables: { repository: 'lacylights-fe', version: undefined },
+            variables: { repository: "lacylights-fe", version: undefined },
           },
           result: {
             data: {
@@ -701,20 +773,20 @@ describe('VersionManagement', () => {
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('lacylights-fe')).toBeInTheDocument();
+        expect(screen.getByText("lacylights-fe")).toBeInTheDocument();
       });
 
-      const updateButtons = screen.getAllByText('Update');
+      const updateButtons = screen.getAllByText("Update");
       fireEvent.click(updateButtons[0]);
 
       await waitFor(() => {
-        const updateButtons = screen.getAllByText('Update');
+        const updateButtons = screen.getAllByText("Update");
         const updateButton = updateButtons.find(
-          (button) => button.tagName === 'BUTTON'
+          (button) => button.tagName === "BUTTON",
         );
         if (updateButton) {
           fireEvent.click(updateButton);
@@ -722,61 +794,61 @@ describe('VersionManagement', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Update failed')).toBeInTheDocument();
+        expect(screen.getByText("Update failed")).toBeInTheDocument();
       });
     });
 
-    it('handles mutation errors with onError handler', async () => {
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    it("handles mutation errors with onError handler", async () => {
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
       const mocks = [
         ...createMocks(),
         {
           request: {
             query: UPDATE_ALL_REPOSITORIES,
           },
-          error: new Error('Network error'),
+          error: new Error("Network error"),
         },
       ];
 
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Update All')).toBeInTheDocument();
+        expect(screen.getByText("Update All")).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByText('Update All'));
+      fireEvent.click(screen.getByText("Update All"));
 
       await waitFor(() => {
         expect(consoleErrorSpy).toHaveBeenCalledWith(
-          'Error updating all repositories:',
-          expect.any(Error)
+          "Error updating all repositories:",
+          expect.any(Error),
         );
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Network error')).toBeInTheDocument();
+        expect(screen.getByText("Network error")).toBeInTheDocument();
       });
 
       consoleErrorSpy.mockRestore();
     });
   });
 
-  describe('Change Version button', () => {
+  describe("Change Version button", () => {
     it('shows "Change Version" for repositories without updates', async () => {
       const mocks = [
         ...createMocks(),
         {
           request: {
             query: GET_AVAILABLE_VERSIONS,
-            variables: { repository: 'lacylights-go' },
+            variables: { repository: "lacylights-go" },
           },
           result: {
             data: {
-              availableVersions: ['v2.1.0', 'v2.0.0', 'v1.9.0'],
+              availableVersions: ["v2.1.0", "v2.0.0", "v1.9.0"],
             },
           },
         },
@@ -785,38 +857,38 @@ describe('VersionManagement', () => {
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('lacylights-go')).toBeInTheDocument();
+        expect(screen.getByText("lacylights-go")).toBeInTheDocument();
       });
 
-      expect(screen.getByText('Change Version')).toBeInTheDocument();
+      expect(screen.getByText("Change Version")).toBeInTheDocument();
     });
   });
 
-  describe('Polling behavior', () => {
-    it('polls for version updates every 30 seconds', async () => {
+  describe("Polling behavior", () => {
+    it("polls for version updates every 30 seconds", async () => {
       const mocks = createMocks();
 
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('System Versions')).toBeInTheDocument();
+        expect(screen.getByText("System Versions")).toBeInTheDocument();
       });
 
       // Component should be polling with 30 second interval
-      expect(screen.getByText('lacylights-fe')).toBeInTheDocument();
+      expect(screen.getByText("lacylights-fe")).toBeInTheDocument();
     });
   });
 
-  describe('Disabled states', () => {
-    it('disables update buttons during update operations', async () => {
+  describe("Disabled states", () => {
+    it("disables update buttons during update operations", async () => {
       const mocks = [
         ...createMocks(),
         {
@@ -844,14 +916,14 @@ describe('VersionManagement', () => {
       render(
         <MockedProvider mocks={mocks} addTypename={false}>
           <VersionManagement />
-        </MockedProvider>
+        </MockedProvider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Update All')).toBeInTheDocument();
+        expect(screen.getByText("Update All")).toBeInTheDocument();
       });
 
-      const updateAllButton = screen.getByText('Update All');
+      const updateAllButton = screen.getByText("Update All");
       expect(updateAllButton).not.toBeDisabled();
     });
   });
