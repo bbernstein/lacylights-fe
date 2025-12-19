@@ -808,18 +808,6 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
             </svg>
           </button>
 
-          {/* Add Cue button */}
-          <button
-            onClick={() => setShowAddCueDialog(true)}
-            disabled={currentCueIndex < 0}
-            className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-300 transition-colors"
-            title="Add Cue (insert after current)"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </button>
-
           <button
             onClick={handlePrevious}
             disabled={currentCueIndex <= 0}
