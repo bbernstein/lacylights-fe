@@ -8,6 +8,9 @@ import { getMainDefinition } from '@apollo/client/utilities';
 let runtimeConfig: { graphqlUrl: string; graphqlWsUrl: string } | null = null;
 let configPromise: Promise<{ graphqlUrl: string; graphqlWsUrl: string }> | null = null;
 
+// Export WebSocket client instance for monitoring and control
+export let wsClient: ReturnType<typeof createClient> | null = null;
+
 // Fetch runtime configuration from API endpoint
 async function fetchRuntimeConfig(): Promise<{ graphqlUrl: string; graphqlWsUrl: string }> {
   if (runtimeConfig) {
@@ -80,41 +83,61 @@ const httpLink = createHttpLink({
   uri: () => getGraphQLUrl(),
 });
 
-const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(createClient({
-  // Use async URL function to ensure config is loaded before connecting
-  url: async () => getWebSocketUrl(),
-  lazy: true, // Don't connect until first subscription
-  connectionParams: () => {
-    const token = localStorage.getItem('token');
-    return {
-      authorization: token ? `Bearer ${token}` : '',
-    };
-  },
-  // Reconnection configuration for stale connections
-  retryAttempts: Infinity, // Keep trying to reconnect indefinitely
-  shouldRetry: () => true, // Always retry on disconnect
-  keepAlive: 30000, // Send ping every 30 seconds to keep connection alive
-  on: {
-    connected: () => {
-      if (process.env.NODE_ENV === 'development') {
-        // eslint-disable-next-line no-console
-        console.log('[WebSocket] Connected');
-      }
+const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(
+  wsClient = createClient({
+    // Use async URL function to ensure config is loaded before connecting
+    url: async () => getWebSocketUrl(),
+    lazy: true, // Don't connect until first subscription
+    connectionParams: () => {
+      const token = localStorage.getItem('token');
+      return {
+        authorization: token ? `Bearer ${token}` : '',
+      };
     },
-    closed: (event) => {
-      if (process.env.NODE_ENV === 'development') {
-        // eslint-disable-next-line no-console
-        console.log('[WebSocket] Closed', event);
-      }
+    // Reconnection configuration for stale connections
+    retryAttempts: Infinity, // Keep trying to reconnect indefinitely
+    shouldRetry: () => true, // Always retry on disconnect
+    keepAlive: 12000, // Send ping every 12 seconds (reduced from 30s to prevent proxy timeouts)
+    on: {
+      connected: () => {
+        // Dispatch custom event for WebSocket monitoring
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ws-connected'));
+        }
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.log('[WebSocket] Connected');
+        }
+      },
+      closed: (event) => {
+        // Dispatch custom event for WebSocket monitoring
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ws-closed', { detail: event }));
+        }
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.log('[WebSocket] Closed', event);
+        }
+      },
+      error: (error) => {
+        // Dispatch custom event for WebSocket monitoring
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ws-error', { detail: error }));
+        }
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.error('[WebSocket] Error', error);
+        }
+      },
+      message: () => {
+        // Dispatch custom event for heartbeat monitoring
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ws-message'));
+        }
+      },
     },
-    error: (error) => {
-      if (process.env.NODE_ENV === 'development') {
-        // eslint-disable-next-line no-console
-        console.error('[WebSocket] Error', error);
-      }
-    },
-  },
-})) : null;
+  })
+) : null;
 
 const authLink = setContext((_, { headers }) => {
   // Get the authentication token from local storage if it exists

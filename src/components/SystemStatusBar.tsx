@@ -3,6 +3,7 @@
 import { useQuery, useSubscription } from '@apollo/client';
 import { GET_SYSTEM_INFO, SYSTEM_INFO_UPDATED } from '@/graphql/settings';
 import { SystemInfo } from '@/types';
+import ConnectionStatusIndicator from './ConnectionStatusIndicator';
 
 export default function SystemStatusBar() {
   // Initial query to get current system info
@@ -55,6 +56,7 @@ export default function SystemStatusBar() {
             </span>
           </div>
         </div>
+        <ConnectionStatusIndicator />
       </div>
     </div>
   );

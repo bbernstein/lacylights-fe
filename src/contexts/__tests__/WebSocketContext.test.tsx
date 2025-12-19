@@ -1,0 +1,285 @@
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { ReactNode } from 'react';
+import { WebSocketProvider, useWebSocket } from '../WebSocketContext';
+import { WEBSOCKET_CONFIG } from '@/constants/websocket';
+
+// Mock the apollo-client module
+jest.mock('@/lib/apollo-client', () => ({
+  wsClient: {
+    dispose: jest.fn(),
+  },
+}));
+
+// Mock the usePageVisibility hook
+jest.mock('@/hooks/usePageVisibility', () => ({
+  usePageVisibility: jest.fn(() => true),
+}));
+
+describe('WebSocketContext', () => {
+  // Get the mocked wsClient
+  const mockWsClient = require('@/lib/apollo-client').wsClient;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+
+    // Mock document.hidden for page visibility
+    Object.defineProperty(document, 'hidden', {
+      configurable: true,
+      get: () => false,
+    });
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
+
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <WebSocketProvider>{children}</WebSocketProvider>
+  );
+
+  describe('useWebSocket hook', () => {
+    it('should throw error when used outside provider', () => {
+      // Suppress console.error for this test
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      expect(() => {
+        renderHook(() => useWebSocket());
+      }).toThrow('useWebSocket must be used within a WebSocketProvider');
+
+      console.error = originalError;
+    });
+
+    it('should return context when used inside provider', () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      expect(result.current).toBeDefined();
+      expect(result.current).toHaveProperty('connectionState');
+      expect(result.current).toHaveProperty('lastMessageTime');
+      expect(result.current).toHaveProperty('isStale');
+      expect(result.current).toHaveProperty('reconnect');
+      expect(result.current).toHaveProperty('disconnect');
+    });
+  });
+
+  describe('Connection state management', () => {
+    it('should start with disconnected state', () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      expect(result.current.connectionState).toBe('disconnected');
+      expect(result.current.lastMessageTime).toBeNull();
+      expect(result.current.isStale).toBe(false);
+    });
+
+    it('should update state when ws-connected event is dispatched', () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-connected'));
+      });
+
+      expect(result.current.connectionState).toBe('connected');
+    });
+
+    it('should update state when ws-closed event is dispatched', () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-connected'));
+      });
+
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-closed'));
+      });
+
+      expect(result.current.connectionState).toBe('disconnected');
+    });
+
+    it('should update state when ws-error event is dispatched', () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-error'));
+      });
+
+      expect(result.current.connectionState).toBe('error');
+    });
+
+    it('should update lastMessageTime when ws-message event is dispatched', () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+      const beforeTime = Date.now();
+
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-message'));
+      });
+
+      expect(result.current.lastMessageTime).toBeGreaterThanOrEqual(beforeTime);
+      expect(result.current.lastMessageTime).toBeLessThanOrEqual(Date.now());
+    });
+  });
+
+  describe('Heartbeat monitoring', () => {
+    it('should mark connection as stale after STALE_THRESHOLD', async () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      // Connect and send a message
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-connected'));
+        window.dispatchEvent(new CustomEvent('ws-message'));
+      });
+
+      expect(result.current.isStale).toBe(false);
+
+      // Advance time past STALE_THRESHOLD to trigger heartbeat check
+      act(() => {
+        jest.advanceTimersByTime(WEBSOCKET_CONFIG.STALE_THRESHOLD + WEBSOCKET_CONFIG.HEARTBEAT_CHECK_INTERVAL);
+      });
+
+      expect(result.current.isStale).toBe(true);
+    });
+
+    it('should reset stale flag when new message arrives', () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      // Connect and send a message
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-connected'));
+        window.dispatchEvent(new CustomEvent('ws-message'));
+      });
+
+      // Advance time to make it stale
+      act(() => {
+        jest.advanceTimersByTime(WEBSOCKET_CONFIG.STALE_THRESHOLD + 1000);
+      });
+
+      // Send another message
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-message'));
+      });
+
+      expect(result.current.isStale).toBe(false);
+    });
+
+    it('should force reconnect after FORCE_RECONNECT_THRESHOLD', async () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      // Connect and send a message
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-connected'));
+        window.dispatchEvent(new CustomEvent('ws-message'));
+      });
+
+      // Advance time past FORCE_RECONNECT_THRESHOLD to trigger heartbeat check
+      act(() => {
+        jest.advanceTimersByTime(WEBSOCKET_CONFIG.FORCE_RECONNECT_THRESHOLD + WEBSOCKET_CONFIG.HEARTBEAT_CHECK_INTERVAL);
+      });
+
+      expect(mockWsClient.dispose).toHaveBeenCalled();
+      expect(result.current.connectionState).toBe('reconnecting');
+    });
+  });
+
+  describe('Manual controls', () => {
+    it('should reconnect when reconnect is called', () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-connected'));
+      });
+
+      act(() => {
+        result.current.reconnect();
+      });
+
+      expect(mockWsClient.dispose).toHaveBeenCalled();
+      expect(result.current.connectionState).toBe('reconnecting');
+    });
+
+    it('should disconnect when disconnect is called', () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-connected'));
+      });
+
+      act(() => {
+        result.current.disconnect();
+      });
+
+      expect(mockWsClient.dispose).toHaveBeenCalled();
+      expect(result.current.connectionState).toBe('disconnected');
+    });
+  });
+
+  describe('Page visibility integration', () => {
+    it('should reconnect when page becomes visible if connection is stale', async () => {
+      const usePageVisibility = require('@/hooks/usePageVisibility').usePageVisibility;
+      let isVisible = false;
+      usePageVisibility.mockImplementation(() => isVisible);
+
+      const { rerender } = renderHook(() => useWebSocket(), { wrapper });
+
+      // Connect and send a message while page is hidden
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-connected'));
+        window.dispatchEvent(new CustomEvent('ws-message'));
+      });
+
+      // Simulate page becoming hidden
+      isVisible = false;
+      rerender();
+
+      // Advance time to make connection stale
+      act(() => {
+        jest.advanceTimersByTime(WEBSOCKET_CONFIG.STALE_THRESHOLD + 1000);
+      });
+
+      // Simulate page becoming visible
+      isVisible = true;
+      rerender();
+
+      await waitFor(() => {
+        expect(mockWsClient.dispose).toHaveBeenCalled();
+      });
+    });
+
+    it('should not reconnect when page becomes visible if connection is healthy', () => {
+      const usePageVisibility = require('@/hooks/usePageVisibility').usePageVisibility;
+      let isVisible = false;
+      usePageVisibility.mockImplementation(() => isVisible);
+
+      const { rerender } = renderHook(() => useWebSocket(), { wrapper });
+
+      // Connect and send a recent message
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-connected'));
+        window.dispatchEvent(new CustomEvent('ws-message'));
+      });
+
+      // Simulate page becoming visible (without being hidden first in this render)
+      isVisible = true;
+      rerender();
+
+      // Should not reconnect because connection is healthy
+      expect(mockWsClient.dispose).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Event listener cleanup', () => {
+    it('should remove event listeners on unmount', () => {
+      const removeEventListenerSpy = jest.spyOn(window, 'removeEventListener');
+
+      const { unmount } = renderHook(() => useWebSocket(), { wrapper });
+      unmount();
+
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('ws-connected', expect.any(Function));
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('ws-closed', expect.any(Function));
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('ws-error', expect.any(Function));
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('ws-message', expect.any(Function));
+
+      removeEventListenerSpy.mockRestore();
+    });
+  });
+});
