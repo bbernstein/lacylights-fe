@@ -31,6 +31,7 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -498,7 +499,7 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
       <td className="px-3 py-3">
         {editMode && (
           <button
-            className="cursor-grab hover:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 mr-2"
+            className="cursor-grab hover:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 mr-2 touch-none"
             {...dragAttributes}
             {...dragListeners}
             onClick={(e) => e.stopPropagation()}
@@ -817,7 +818,7 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
           )}
           {editMode && (
             <button
-              className="cursor-grab hover:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+              className="cursor-grab hover:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 touch-none"
               {...dragAttributes}
               {...dragListeners}
               onClick={(e) => e.stopPropagation()}
@@ -1176,7 +1177,17 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   }, [currentCueIndex, cues, cueList?.loop]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px of movement before activating
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200, // 200ms delay before activating
+        tolerance: 5, // Allow 5px of movement during delay
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
