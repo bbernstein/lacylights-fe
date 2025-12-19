@@ -12,6 +12,22 @@ import {
 /** Color variant for the chart */
 export type FadeChartVariant = 'fadeIn' | 'fadeOut';
 
+/** Color classes for each variant - extracted to prevent recreation on every render */
+const VARIANT_COLORS = {
+  fadeIn: {
+    fill: 'text-green-500 dark:text-green-400',
+    line: 'text-green-600 dark:text-green-400',
+    dot: 'text-green-500 dark:text-green-300',
+    label: 'text-green-400',
+  },
+  fadeOut: {
+    fill: 'text-amber-500 dark:text-amber-400',
+    line: 'text-amber-600 dark:text-amber-400',
+    dot: 'text-amber-500 dark:text-amber-300',
+    label: 'text-amber-400',
+  },
+} as const;
+
 interface FadeProgressChartProps {
   /** Linear progress value (0-100) from backend */
   progress: number;
@@ -19,9 +35,17 @@ interface FadeProgressChartProps {
   slideOffProgress?: number;
   /** Easing type for the curve shape */
   easingType?: EasingType;
-  /** Chart width in pixels */
+  /**
+   * Chart width in pixels - used for viewBox coordinate system.
+   * Note: The SVG element will be responsive (width="100%") regardless of this value.
+   * @default 200
+   */
   width?: number;
-  /** Chart height in pixels */
+  /**
+   * Chart height in pixels - used for viewBox coordinate system.
+   * Note: The SVG element will be responsive (height="100%") regardless of this value.
+   * @default 60
+   */
   height?: number;
   /** CSS class for the container */
   className?: string;
@@ -38,8 +62,21 @@ interface FadeProgressChartProps {
  * Fills from left to right based on progress, with the curve shape
  * showing the easing function's acceleration/deceleration.
  *
+ * **Responsive Behavior:**
+ * The SVG element uses width="100%" and height="100%" to fill its container.
+ * The width and height props define the viewBox coordinate system, not the rendered size.
+ * Uses preserveAspectRatio="none" internally to allow stretching to fit the container.
+ *
  * After progress reaches 100%, the slideOffProgress can animate the curve
  * sliding off to the left while maintaining 100% fill on the right.
+ *
+ * @example
+ * ```tsx
+ * // Responsive chart that fills its container
+ * <div className="w-full h-20">
+ *   <FadeProgressChart progress={50} className="w-full h-full" />
+ * </div>
+ * ```
  */
 export default function FadeProgressChart({
   progress,
@@ -53,19 +90,7 @@ export default function FadeProgressChart({
   variant = 'fadeIn',
 }: FadeProgressChartProps) {
   // Color classes based on variant
-  const colorClasses = variant === 'fadeIn'
-    ? {
-        fill: 'text-green-500 dark:text-green-400',
-        line: 'text-green-600 dark:text-green-400',
-        dot: 'text-green-500 dark:text-green-300',
-        label: 'text-green-400',
-      }
-    : {
-        fill: 'text-amber-500 dark:text-amber-400',
-        line: 'text-amber-600 dark:text-amber-400',
-        dot: 'text-amber-500 dark:text-amber-300',
-        label: 'text-amber-400',
-      };
+  const colorClasses = VARIANT_COLORS[variant];
   // Clamp progress to 0-100 range
   const clampedProgress = Math.max(0, Math.min(100, progress));
   // Convert 0-100 progress to 0-1
@@ -122,18 +147,32 @@ export default function FadeProgressChart({
   // Calculate the slide offset in pixels
   const slideOffsetX = normalizedSlideOff * width;
 
+  // Validate dimensions - warn in development but don't break rendering
+  // This check is after all hooks to comply with Rules of Hooks
+  const hasInvalidDimensions = width <= 0 || height <= 0;
+  if (hasInvalidDimensions && process.env.NODE_ENV !== 'production') {
+    console.warn('FadeProgressChart: width and height must be positive values');
+  }
+
+  // Return null for invalid dimensions (after all hooks have been called)
+  if (hasInvalidDimensions) {
+    return null;
+  }
+
   // If complete, just show solid fill
   if (isComplete) {
     return (
       <div className={`relative ${className}`} data-testid="fade-progress-chart">
         <svg
           role="img"
-          width={width}
-          height={height}
+          width="100%"
+          height="100%"
           viewBox={`0 0 ${width} ${height}`}
           className="overflow-visible"
+          preserveAspectRatio="none"
           aria-label="Fade complete: 100%"
         >
+          <title>Fade complete: 100%</title>
           {/* Solid fill at 100% */}
           <rect
             x={0}
@@ -153,12 +192,14 @@ export default function FadeProgressChart({
     <div className={`relative ${className}`} data-testid="fade-progress-chart">
       <svg
         role="img"
-        width={width}
-        height={height}
+        width="100%"
+        height="100%"
         viewBox={`0 0 ${width} ${height}`}
         className="overflow-hidden"
+        preserveAspectRatio="none"
         aria-label={`Fade progress: ${Math.round(clampedProgress)}%`}
       >
+        <title>Fade progress: {Math.round(clampedProgress)}%</title>
         {/* Sliding group - contains the curve that slides left after 100% */}
         <g transform={isSliding ? `translate(${-slideOffsetX}, 0)` : undefined}>
           {/* Grid lines for reference (subtle) */}

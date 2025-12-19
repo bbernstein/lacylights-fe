@@ -392,8 +392,6 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
                       progress={isFading ? fadeProgress : 100}
                       slideOffProgress={!isFading ? slideOffProgress : 0}
                       easingType={(cue.easingType as EasingType) || 'EASE_IN_OUT_SINE'}
-                      width={600}
-                      height={100}
                       className="w-full h-full"
                     />
                   </div>
@@ -406,8 +404,6 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
                     <FadeProgressChart
                       progress={100 - fadeProgress}
                       easingType={(cue.easingType as EasingType) || 'EASE_IN_OUT_SINE'}
-                      width={600}
-                      height={100}
                       className="w-full h-full"
                       variant="fadeOut"
                     />
