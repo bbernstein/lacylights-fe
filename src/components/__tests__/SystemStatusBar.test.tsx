@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { MockedProvider } from '@apollo/client/testing';
+import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import SystemStatusBar from '../SystemStatusBar';
 import { GET_SYSTEM_INFO, SYSTEM_INFO_UPDATED } from '@/graphql/settings';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
@@ -47,7 +47,7 @@ const createMocks = (systemInfo = mockSystemInfoEnabled) => [
   },
 ];
 
-const renderWithProviders = (component: React.ReactElement, mocks: any[]) => {
+const renderWithProviders = (component: React.ReactElement, mocks: readonly MockedResponse[]) => {
   return render(
     <MockedProvider mocks={mocks} addTypename={false}>
       <WebSocketProvider>

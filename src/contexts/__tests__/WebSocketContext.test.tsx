@@ -177,7 +177,7 @@ describe('WebSocketContext', () => {
       });
 
       expect(mockWsClient.dispose).toHaveBeenCalled();
-      expect(result.current.connectionState).toBe('reconnecting');
+      expect(result.current.connectionState).toBe('disconnected');
     });
   });
 
@@ -194,7 +194,25 @@ describe('WebSocketContext', () => {
       });
 
       expect(mockWsClient.dispose).toHaveBeenCalled();
-      expect(result.current.connectionState).toBe('reconnecting');
+      expect(result.current.connectionState).toBe('disconnected');
+    });
+
+    it('should handle reconnect gracefully when wsClient is null', () => {
+      // Temporarily set wsClient to null
+      const originalClient = require('@/lib/apollo-client').wsClient;
+      require('@/lib/apollo-client').wsClient = null;
+
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      act(() => {
+        result.current.reconnect();
+      });
+
+      // Should not throw and state should remain unchanged
+      expect(result.current.connectionState).toBe('disconnected');
+
+      // Restore original client
+      require('@/lib/apollo-client').wsClient = originalClient;
     });
 
     it('should disconnect when disconnect is called', () => {
@@ -210,6 +228,24 @@ describe('WebSocketContext', () => {
 
       expect(mockWsClient.dispose).toHaveBeenCalled();
       expect(result.current.connectionState).toBe('disconnected');
+    });
+
+    it('should handle disconnect gracefully when wsClient is null', () => {
+      // Temporarily set wsClient to null
+      const originalClient = require('@/lib/apollo-client').wsClient;
+      require('@/lib/apollo-client').wsClient = null;
+
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      act(() => {
+        result.current.disconnect();
+      });
+
+      // Should not throw and state should remain unchanged
+      expect(result.current.connectionState).toBe('disconnected');
+
+      // Restore original client
+      require('@/lib/apollo-client').wsClient = originalClient;
     });
   });
 

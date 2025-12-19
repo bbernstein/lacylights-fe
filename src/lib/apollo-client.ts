@@ -3,6 +3,7 @@ import { setContext } from '@apollo/client/link/context';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
 import { getMainDefinition } from '@apollo/client/utilities';
+import { WEBSOCKET_CONFIG } from '@/constants/websocket';
 
 // Runtime configuration cache
 let runtimeConfig: { graphqlUrl: string; graphqlWsUrl: string } | null = null;
@@ -83,7 +84,8 @@ const httpLink = createHttpLink({
   uri: () => getGraphQLUrl(),
 });
 
-const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(
+// Create WebSocket client if in browser environment
+if (typeof window !== 'undefined') {
   wsClient = createClient({
     // Use async URL function to ensure config is loaded before connecting
     url: async () => getWebSocketUrl(),
@@ -97,7 +99,7 @@ const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(
     // Reconnection configuration for stale connections
     retryAttempts: Infinity, // Keep trying to reconnect indefinitely
     shouldRetry: () => true, // Always retry on disconnect
-    keepAlive: 12000, // Send ping every 12 seconds (reduced from 30s to prevent proxy timeouts)
+    keepAlive: WEBSOCKET_CONFIG.KEEPALIVE_INTERVAL, // Send ping to prevent proxy timeouts
     on: {
       connected: () => {
         // Dispatch custom event for WebSocket monitoring
@@ -136,8 +138,10 @@ const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(
         }
       },
     },
-  })
-) : null;
+  });
+}
+
+const wsLink = wsClient ? new GraphQLWsLink(wsClient) : null;
 
 const authLink = setContext((_, { headers }) => {
   // Get the authentication token from local storage if it exists

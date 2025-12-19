@@ -125,29 +125,41 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
    * Manually trigger a reconnection
    */
   const reconnect = useCallback(() => {
-    if (wsClient && typeof window !== 'undefined') {
-      if (process.env.NODE_ENV === 'development') {
-        // eslint-disable-next-line no-console
-        console.log('[WebSocket] Manual reconnect triggered');
-      }
-      setConnectionState('reconnecting');
-      wsClient.dispose();
-      // The graphql-ws client will auto-recreate on next subscription due to lazy mode
+    if (!wsClient || typeof window === 'undefined') {
+      // No WebSocket client exists yet, nothing to reconnect
+      return;
     }
+
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.log('[WebSocket] Manual reconnect triggered');
+    }
+
+    // Dispose the current client
+    wsClient.dispose();
+
+    // Set to disconnected state since reconnection only happens on next subscription (lazy mode)
+    // The 'reconnecting' state would be misleading as the connection won't be re-established
+    // until a component actually creates a new subscription
+    setConnectionState('disconnected');
   }, []);
 
   /**
    * Manually disconnect
    */
   const disconnect = useCallback(() => {
-    if (wsClient && typeof window !== 'undefined') {
-      if (process.env.NODE_ENV === 'development') {
-        // eslint-disable-next-line no-console
-        console.log('[WebSocket] Manual disconnect triggered');
-      }
-      wsClient.dispose();
-      setConnectionState('disconnected');
+    if (!wsClient || typeof window === 'undefined') {
+      // No WebSocket client exists, nothing to disconnect
+      return;
     }
+
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.log('[WebSocket] Manual disconnect triggered');
+    }
+
+    wsClient.dispose();
+    setConnectionState('disconnected');
   }, []);
 
   /**
@@ -179,8 +191,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
    * Reconnect when user returns to tab if connection is stale
    */
   useEffect(() => {
-    if (isVisible && wasHidden.current) {
-      // User just returned to tab
+    if (isVisible && wasHidden.current && wsClient) {
+      // User just returned to tab and wsClient exists
       const timeSinceLastMessage = lastMessageTime ? Date.now() - lastMessageTime : Infinity;
 
       // Reconnect if connection is stale or not connected
