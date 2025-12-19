@@ -1816,27 +1816,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                 disabled={!editMode}
               />
             )}
-            {/* Loop checkbox */}
-            {editMode && (
-              <div className="mt-2">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={cueListLoop}
-                    onChange={(e) => {
-                      const newLoopValue = e.target.checked;
-                      setCueListLoop(newLoopValue);
-                      // Update immediately with new value (don't wait for state update)
-                      handleUpdateCueList({ loop: newLoopValue });
-                    }}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-300">
-                    Loop cue list (restart from first cue after last cue finishes)
-                  </span>
-                </label>
-              </div>
-            )}
           </div>
           <button
             onClick={onClose}
