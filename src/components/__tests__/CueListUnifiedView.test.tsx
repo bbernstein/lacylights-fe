@@ -85,17 +85,42 @@ jest.mock('../BulkFadeUpdateModal', () => {
   };
 });
 
-jest.mock('../SceneEditorModal', () => {
-  return function MockSceneEditorModal({ isOpen, onClose, sceneId, onSceneUpdated }: unknown) {
+jest.mock('../AddCueDialog', () => {
+  return function MockAddCueDialog({ isOpen, onClose, onAdd }: {
+    isOpen?: boolean;
+    onClose?: () => void;
+    onAdd?: (params: unknown) => void;
+  }) {
     return isOpen ? (
-      <div data-testid="scene-editor-modal">
-        <div>Editing scene: {sceneId}</div>
-        <button onClick={onClose}>Close</button>
-        <button onClick={onSceneUpdated}>Update Scene</button>
+      <div data-testid="add-cue-dialog">
+        <button onClick={onClose}>Close Dialog</button>
+        <button onClick={() => onAdd?.({
+          cueNumber: 5.5,
+          name: 'Test Cue',
+          sceneId: 'scene-1',
+          createCopy: true,
+          fadeInTime: 3,
+          fadeOutTime: 3,
+          followTime: undefined,
+          action: 'stay',
+        })}>Add Cue</button>
       </div>
     ) : null;
   };
 });
+
+// Mock next/navigation
+const mockPush = jest.fn();
+const mockSearchParams = {
+  get: jest.fn(() => null),
+};
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: mockPush,
+  }),
+  useSearchParams: () => mockSearchParams,
+}));
 
 const mockProject = {
   id: 'project-1',
@@ -508,8 +533,8 @@ describe('CueListUnifiedView', () => {
       const modeButton = screen.getByText('PLAYING');
       await userEvent.click(modeButton);
 
-      const addButton = screen.getByText('Add Cue');
-      await userEvent.click(addButton);
+      const quickAddButton = screen.getByText('Quick Add');
+      await userEvent.click(quickAddButton);
 
       expect(screen.getByPlaceholderText('Cue #')).toBeInTheDocument();
       expect(screen.getByPlaceholderText('Cue name')).toBeInTheDocument();
@@ -719,7 +744,7 @@ describe('CueListUnifiedView', () => {
       expect(screen.getByTestId('bulk-fade-update-modal')).toBeInTheDocument();
     });
 
-    it('opens scene editor modal', async () => {
+    it('navigates to scene editor when edit button is clicked', async () => {
       renderWithProvider();
 
       await waitFor(() => {
@@ -734,7 +759,9 @@ describe('CueListUnifiedView', () => {
 
       await userEvent.click(editSceneButtons[0]);
 
-      expect(screen.getByTestId('scene-editor-modal')).toBeInTheDocument();
+      // Should navigate to the scene editor
+      expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('/scenes/'));
+      expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('mode=layout'));
     });
   });
 

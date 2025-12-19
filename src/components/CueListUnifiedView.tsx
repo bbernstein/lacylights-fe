@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   GET_CUE_LIST,
   GET_CUE_LIST_PLAYBACK_STATUS,
@@ -17,11 +18,11 @@ import {
   GO_TO_CUE,
   STOP_CUE_LIST
 } from '@/graphql/cueLists';
-import { GET_PROJECT_SCENES } from '@/graphql/scenes';
+import { GET_PROJECT_SCENES, DUPLICATE_SCENE, ACTIVATE_SCENE } from '@/graphql/scenes';
 import { Cue, Scene } from '@/types';
 import { convertCueIndexForLocalState } from '@/utils/cueListHelpers';
 import BulkFadeUpdateModal from './BulkFadeUpdateModal';
-import SceneEditorModal from './SceneEditorModal';
+import AddCueDialog from './AddCueDialog';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
 import { PencilIcon } from '@heroicons/react/24/outline';
 import FadeProgressChart from './FadeProgressChart';
@@ -339,6 +340,7 @@ interface SortableCueRowProps {
   onSelect: (cueId: string, selected: boolean) => void;
   currentCueRef?: React.MutableRefObject<HTMLTableRowElement | HTMLDivElement | null>;
   autoFocusFieldRef?: React.MutableRefObject<{ fieldType: string; cueIndex: number } | null>;
+  highlightedCueNumber?: number | null;
 }
 
 function SortableCueRow(props: SortableCueRowProps) {
@@ -374,6 +376,7 @@ function SortableCueRow(props: SortableCueRowProps) {
       dragAttributes={attributes}
       dragListeners={listeners}
       isDragging={isDragging}
+      highlightedCueNumber={props.highlightedCueNumber}
     />
   );
 }
@@ -383,6 +386,7 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
   dragAttributes?: DraggableAttributes;
   dragListeners?: DraggableSyntheticListeners;
   isDragging?: boolean;
+  highlightedCueNumber?: number | null;
 }>(({
   cue,
   index,
@@ -402,13 +406,17 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
   dragAttributes,
   dragListeners,
   isDragging,
-  autoFocusFieldRef
+  autoFocusFieldRef,
+  highlightedCueNumber
 }, ref) => {
   const [showSceneSelect, setShowSceneSelect] = useState(false);
   const [selectedSceneId, setSelectedSceneId] = useState(cue.scene.id);
 
+  const isHighlighted = highlightedCueNumber !== null && cue.cueNumber === highlightedCueNumber;
+
   let rowBgClass = '';
   let textColorClass = 'text-gray-800 dark:text-gray-100';
+  let borderClass = '';
 
   if (isActive) {
     rowBgClass = 'bg-green-50 dark:bg-green-900/40';
@@ -424,6 +432,10 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
 
   if (isDragging) {
     rowBgClass = 'bg-yellow-50 dark:bg-yellow-900/20';
+  }
+
+  if (isHighlighted) {
+    borderClass = 'border-l-4 border-yellow-500 animate-pulse';
   }
 
   const handleRowClick = () => {
@@ -444,7 +456,7 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
     <tr
       ref={ref}
       style={style}
-      className={`${rowBgClass} transition-colors duration-300 border-b border-gray-200 dark:border-gray-700 ${!editMode ? 'cursor-pointer hover:bg-opacity-80' : ''}`}
+      className={`${rowBgClass} ${borderClass} transition-colors duration-300 border-b border-gray-200 dark:border-gray-700 ${!editMode ? 'cursor-pointer hover:bg-opacity-80' : ''}`}
       onClick={handleRowClick}
     >
       <td className="px-3 py-3">
@@ -669,6 +681,7 @@ function SortableCueCard(props: SortableCueRowProps) {
       dragAttributes={attributes}
       dragListeners={listeners}
       isDragging={isDragging}
+      highlightedCueNumber={props.highlightedCueNumber}
     />
   );
 }
@@ -678,6 +691,7 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
   dragAttributes?: DraggableAttributes;
   dragListeners?: DraggableSyntheticListeners;
   isDragging?: boolean;
+  highlightedCueNumber?: number | null;
 }>((props, ref) => {
   const {
     cue,
@@ -699,24 +713,35 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
     dragListeners,
     isDragging,
     autoFocusFieldRef,
+    highlightedCueNumber,
   } = props;
 
   const [showSceneSelect, setShowSceneSelect] = useState(false);
   const [selectedSceneId, setSelectedSceneId] = useState(cue.scene.id);
 
+  const isHighlighted = highlightedCueNumber !== null && cue.cueNumber === highlightedCueNumber;
+
   let bgClass = 'bg-white dark:bg-gray-800';
   let textColorClass = 'text-gray-800 dark:text-gray-100';
+  let borderClass = 'border-2';
 
   if (isDragging) {
     bgClass = 'bg-yellow-50 dark:bg-yellow-900/20';
   } else if (isActive) {
-    bgClass = 'bg-green-50 dark:bg-green-900/40 border-green-500';
+    bgClass = 'bg-green-50 dark:bg-green-900/40';
+    borderClass = 'border-2 border-green-500';
     textColorClass = 'text-gray-900 dark:text-white';
   } else if (isNext) {
-    bgClass = 'bg-blue-50 dark:bg-blue-900/30 border-blue-500';
+    bgClass = 'bg-blue-50 dark:bg-blue-900/30';
+    borderClass = 'border-2 border-blue-500';
     textColorClass = 'text-gray-900 dark:text-white';
   } else if (isPrevious) {
-    bgClass = 'bg-gray-50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-700';
+    bgClass = 'bg-gray-50 dark:bg-gray-800/50';
+    borderClass = 'border-2 border-gray-300 dark:border-gray-700';
+  }
+
+  if (isHighlighted) {
+    borderClass = 'border-4 border-yellow-500 animate-pulse';
   }
 
   const handleRowClick = () => {
@@ -737,7 +762,7 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
     <div
       ref={ref}
       style={style}
-      className={`${bgClass} border-2 rounded-lg p-4 mb-3 ${textColorClass} ${!editMode ? 'cursor-pointer' : ''}`}
+      className={`${bgClass} ${borderClass} rounded-lg p-4 mb-3 ${textColorClass} ${!editMode ? 'cursor-pointer' : ''}`}
       onClick={handleRowClick}
     >
       {/* Line 1: Cue # + Name, Fade In, Status */}
@@ -927,6 +952,8 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
 CueCard.displayName = 'CueCard';
 
 export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifiedViewProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [editMode, setEditMode] = useState(false);
 
   // Real-time playback synchronization
@@ -940,11 +967,12 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const [selectedCueIds, setSelectedCueIds] = useState<Set<string>>(new Set());
   const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
   const [showAddCue, setShowAddCue] = useState(false);
+  const [showAddCueDialog, setShowAddCueDialog] = useState(false);
   const [cueListName, setCueListName] = useState('');
   const [cueListDescription, setCueListDescription] = useState('');
   const [cueListLoop, setCueListLoop] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
+  const [highlightedCueNumber, setHighlightedCueNumber] = useState<number | null>(null);
 
   const followTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentCueRef = useRef<HTMLDivElement | HTMLTableRowElement | null>(null);
@@ -1070,6 +1098,18 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     },
   });
 
+  const [duplicateScene] = useMutation(DUPLICATE_SCENE, {
+    onError: (error) => {
+      setError(`Failed to duplicate scene: ${error.message}`);
+    },
+  });
+
+  const [activateScene] = useMutation(ACTIVATE_SCENE, {
+    onError: (error) => {
+      setError(`Failed to activate scene: ${error.message}`);
+    },
+  });
+
   const cueList = cueListData?.cueList;
   const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
   const scenes = scenesData?.project?.scenes || [];
@@ -1122,6 +1162,22 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       };
     }
   }, [currentCueIndex, editMode]);
+
+  // Handle highlight flash effect when returning from scene editor
+  useEffect(() => {
+    const highlightCue = searchParams.get('highlightCue');
+    if (highlightCue) {
+      const cueNumber = parseFloat(highlightCue);
+      setHighlightedCueNumber(cueNumber);
+
+      // Clear highlight after 2 seconds
+      const timer = setTimeout(() => {
+        setHighlightedCueNumber(null);
+      }, 2000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
 
 
   const handleJumpToCue = useCallback(async (cue: Cue, index: number) => {
@@ -1310,6 +1366,66 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     });
   };
 
+  const handleAddCueFromDialog = useCallback(
+    async (params: {
+      cueNumber: number;
+      name: string;
+      sceneId: string;
+      createCopy: boolean;
+      fadeInTime: number;
+      fadeOutTime: number;
+      followTime?: number;
+      action: 'edit' | 'stay';
+    }) => {
+      if (!cueList) return;
+
+      try {
+        // Duplicate scene if requested
+        let targetSceneId = params.sceneId;
+        if (params.createCopy) {
+          const duplicateResult = await duplicateScene({
+            variables: { id: params.sceneId },
+          });
+          targetSceneId = duplicateResult.data?.duplicateScene?.id || params.sceneId;
+        }
+
+        // Create the cue
+        await createCue({
+          variables: {
+            input: {
+              cueNumber: params.cueNumber,
+              name: params.name,
+              cueListId: cueList.id,
+              sceneId: targetSceneId,
+              fadeInTime: params.fadeInTime,
+              fadeOutTime: params.fadeOutTime,
+              followTime: params.followTime,
+            },
+          },
+          refetchQueries: [{ query: GET_CUE_LIST, variables: { id: cueList.id } }],
+        });
+
+        if (params.action === 'edit' && targetSceneId) {
+          // Activate the scene before navigation to prevent blackout
+          await activateScene({
+            variables: { sceneId: targetSceneId },
+          });
+
+          // Navigate to scene editor in layout mode
+          router.push(
+            `/scenes/${targetSceneId}/edit?mode=layout&fromPlayer=true&cueListId=${cueList.id}&returnCueNumber=${params.cueNumber}`
+          );
+        }
+
+        // Close the dialog
+        setShowAddCueDialog(false);
+      } catch (error) {
+        console.error('Failed to add cue:', error);
+      }
+    },
+    [cueList, createCue, duplicateScene, activateScene, router]
+  );
+
   const handleUpdateCueList = (overridesOrEvent?: { loop?: boolean } | React.FocusEvent) => {
     if (!cueList) return;
 
@@ -1364,15 +1480,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const selectedCues = cueList?.cues.filter((cue: Cue) => selectedCueIds.has(cue.id)) || [];
 
   const handleEditScene = (sceneId: string) => {
-    setEditingSceneId(sceneId);
-  };
-
-  const handleSceneUpdated = () => {
-    refetch();
-  };
-
-  const handleCloseSceneEditor = () => {
-    setEditingSceneId(null);
+    router.push(`/scenes/${sceneId}/edit?mode=layout`);
   };
 
   if (loading) {
@@ -1494,12 +1602,20 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                 </div>
               )}
             </div>
-            <button
-              onClick={() => setShowAddCue(!showAddCue)}
-              className="px-3 py-1 text-sm font-medium rounded text-white bg-blue-600 hover:bg-blue-700"
-            >
-              {showAddCue ? 'Cancel' : 'Add Cue'}
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setShowAddCueDialog(true)}
+                className="px-3 py-1 text-sm font-medium rounded text-white bg-green-600 hover:bg-green-700"
+              >
+                Add Cue
+              </button>
+              <button
+                onClick={() => setShowAddCue(!showAddCue)}
+                className="px-3 py-1 text-sm font-medium rounded text-white bg-blue-600 hover:bg-blue-700"
+              >
+                {showAddCue ? 'Cancel' : 'Quick Add'}
+              </button>
+            </div>
           </div>
 
           {showAddCue && (
@@ -1606,6 +1722,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                       onSelect={handleSelectCue}
                       currentCueRef={currentCueRef}
                       autoFocusFieldRef={autoFocusFieldRef}
+                      highlightedCueNumber={highlightedCueNumber}
                     />
                   );
                 })}
@@ -1697,6 +1814,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                           onSelect={handleSelectCue}
                           currentCueRef={currentCueRef}
                           autoFocusFieldRef={autoFocusFieldRef}
+                          highlightedCueNumber={highlightedCueNumber}
                         />
                       );
                     })
@@ -1818,12 +1936,17 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
         onUpdate={refetch}
       />
 
-      {/* Scene Editor Modal */}
-      <SceneEditorModal
-        isOpen={!!editingSceneId}
-        onClose={handleCloseSceneEditor}
-        sceneId={editingSceneId}
-        onSceneUpdated={handleSceneUpdated}
+      {/* Add Cue Dialog */}
+      <AddCueDialog
+        isOpen={showAddCueDialog}
+        onClose={() => setShowAddCueDialog(false)}
+        cueListId={cueListId}
+        currentCueNumber={currentCueIndex >= 0 ? cues[currentCueIndex]?.cueNumber || 0 : 0}
+        currentSceneId={currentCue?.scene.id || null}
+        scenes={scenes}
+        defaultFadeInTime={cueList?.defaultFadeInTime || 3}
+        defaultFadeOutTime={cueList?.defaultFadeOutTime || 3}
+        onAdd={handleAddCueFromDialog}
       />
     </div>
   );

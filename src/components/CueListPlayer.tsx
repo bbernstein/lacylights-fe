@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   GET_CUE_LIST,
   GET_CUE_LIST_PLAYBACK_STATUS,
@@ -11,14 +12,17 @@ import {
   GO_TO_CUE,
   STOP_CUE_LIST,
   FADE_TO_BLACK,
-  UPDATE_CUE_LIST
+  UPDATE_CUE_LIST,
+  CREATE_CUE,
 } from '@/graphql/cueLists';
+import { GET_PROJECT_SCENES, DUPLICATE_SCENE, ACTIVATE_SCENE } from '@/graphql/scenes';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
 import { Cue } from '@/types';
 import { convertCueIndexForLocalState } from '@/utils/cueListHelpers';
 import { DEFAULT_FADEOUT_TIME } from '@/constants/playback';
 import FadeProgressChart from './FadeProgressChart';
 import { EasingType } from '@/utils/easing';
+import AddCueDialog from './AddCueDialog';
 
 interface CueListPlayerProps {
   cueListId: string;
@@ -36,6 +40,9 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
     return cueListIdProp;
   }
 
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [actualCueListId, setActualCueListId] = useState<string>(() => extractCueListId(cueListIdProp));
   const containerRef = useRef<HTMLDivElement>(null);
   const currentCueRef = useRef<HTMLDivElement>(null);
@@ -49,6 +56,12 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
 
   // Track the previous cue that's fading out during transition
   const [fadingOutCueIndex, setFadingOutCueIndex] = useState<number | null>(null);
+
+  // Add Cue Dialog state
+  const [showAddCueDialog, setShowAddCueDialog] = useState(false);
+
+  // Highlight state for cue that was just edited
+  const [highlightedCueId, setHighlightedCueId] = useState<string | null>(null);
 
   useEffect(() => {
     setActualCueListId(extractCueListId(cueListIdProp));
@@ -82,9 +95,19 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   const [stopCueList] = useMutation(STOP_CUE_LIST, refetchConfig);
   const [fadeToBlack] = useMutation(FADE_TO_BLACK, fadeToBlackRefetchConfig);
   const [updateCueList] = useMutation(UPDATE_CUE_LIST);
+  const [createCue] = useMutation(CREATE_CUE);
+  const [duplicateScene] = useMutation(DUPLICATE_SCENE);
+  const [activateScene] = useMutation(ACTIVATE_SCENE);
+
+  // Fetch scenes for the Add Cue dialog
+  const { data: scenesData } = useQuery(GET_PROJECT_SCENES, {
+    variables: { projectId: cueListData?.cueList?.project?.id || '' },
+    skip: !cueListData?.cueList?.project?.id || isDynamicPlaceholder,
+  });
 
   const cueList = cueListData?.cueList;
   const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
+  const scenes = scenesData?.project?.scenes || [];
 
   // Get current state from subscription data only
   const currentCueIndex = convertCueIndexForLocalState(playbackStatus?.currentCueIndex);
@@ -233,6 +256,92 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
     return currentCueIndex >= cues.length - 1 && currentCueIndex !== -1;
   }, [cues.length, currentCueIndex, cueList?.loop]);
 
+  // Handle highlight parameter from URL (when returning from scene editor)
+  useEffect(() => {
+    const highlightCueNumber = searchParams.get('highlightCue');
+    if (highlightCueNumber && cues.length > 0) {
+      const cueToHighlight = cues.find((c: Cue) => c.cueNumber === parseFloat(highlightCueNumber));
+      if (cueToHighlight) {
+        setHighlightedCueId(cueToHighlight.id);
+
+        // Remove highlight after 2 seconds
+        const timeout = setTimeout(() => {
+          setHighlightedCueId(null);
+        }, 2000);
+
+        return () => clearTimeout(timeout);
+      }
+    }
+  }, [searchParams, cues]);
+
+  // Handle Add Cue
+  const handleAddCue = useCallback(
+    async (params: {
+      cueNumber: number;
+      name: string;
+      sceneId: string;
+      createCopy: boolean;
+      fadeInTime: number;
+      fadeOutTime: number;
+      followTime?: number;
+      action: 'edit' | 'stay';
+    }) => {
+      if (!cueList) return;
+
+      try {
+        // Duplicate scene if requested
+        let targetSceneId = params.sceneId;
+        if (params.createCopy) {
+          const duplicateResult = await duplicateScene({
+            variables: { id: params.sceneId },
+          });
+          targetSceneId = duplicateResult.data?.duplicateScene?.id || params.sceneId;
+        }
+
+        // Create the cue
+        const createResult = await createCue({
+          variables: {
+            input: {
+              cueNumber: params.cueNumber,
+              name: params.name,
+              cueListId: cueList.id,
+              sceneId: targetSceneId,
+              fadeInTime: params.fadeInTime,
+              fadeOutTime: params.fadeOutTime,
+              followTime: params.followTime,
+            },
+          },
+          refetchQueries: [{ query: GET_CUE_LIST, variables: { id: cueList.id } }],
+        });
+
+        const newCueId = createResult.data?.createCue?.id;
+
+        if (params.action === 'edit' && targetSceneId) {
+          // Activate the scene before navigation to prevent blackout
+          await activateScene({
+            variables: { sceneId: targetSceneId },
+          });
+
+          // Navigate to scene editor in layout mode
+          router.push(
+            `/scenes/${targetSceneId}/edit?mode=layout&fromPlayer=true&cueListId=${cueList.id}&returnCueNumber=${params.cueNumber}`
+          );
+        }
+
+        // If action is 'stay', the dialog will close and the cue list will refetch
+        // The new cue will appear in the list
+        if (params.action === 'stay' && newCueId) {
+          // Optionally highlight the new cue
+          setHighlightedCueId(newCueId);
+          setTimeout(() => setHighlightedCueId(null), 2000);
+        }
+      } catch (error) {
+        console.error('Failed to add cue:', error);
+      }
+    },
+    [cueList, createCue, duplicateScene, activateScene, router]
+  );
+
   const handleGo = useCallback(async () => {
     if (!cueList) return;
 
@@ -374,7 +483,9 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
                 key={cue.id}
                 ref={isCurrent ? currentCueRef : null}
                 className={`relative rounded-lg p-4 border transition-all duration-200 overflow-hidden ${
-                  isCurrent
+                  cue.id === highlightedCueId
+                    ? 'bg-gray-700 border-yellow-500 border-2 shadow-lg animate-pulse'
+                    : isCurrent
                     ? 'bg-gray-700 border-green-500 border-2 scale-[1.02] shadow-lg'
                     : isPrevious
                     ? 'bg-gray-800/50 border-gray-600 opacity-60'
@@ -480,6 +591,18 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
             </svg>
           </button>
 
+          {/* Add Cue button */}
+          <button
+            onClick={() => setShowAddCueDialog(true)}
+            disabled={currentCueIndex < 0}
+            className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-300 transition-colors"
+            title="Add Cue (insert after current)"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+
           <button
             onClick={handlePrevious}
             disabled={currentCueIndex <= 0}
@@ -546,6 +669,19 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
           Space/Enter = GO | ← → = Navigate | Esc = Stop
         </div>
       </div>
+
+      {/* Add Cue Dialog */}
+      <AddCueDialog
+        isOpen={showAddCueDialog}
+        onClose={() => setShowAddCueDialog(false)}
+        cueListId={cueList.id}
+        currentCueNumber={currentCueIndex >= 0 ? cues[currentCueIndex]?.cueNumber || currentCueIndex : -1}
+        currentSceneId={currentCueIndex >= 0 ? cues[currentCueIndex]?.scene?.id || null : null}
+        scenes={scenes}
+        defaultFadeInTime={cueList.defaultFadeInTime || 3}
+        defaultFadeOutTime={cueList.defaultFadeOutTime || 3}
+        onAdd={handleAddCue}
+      />
     </div>
   );
 }

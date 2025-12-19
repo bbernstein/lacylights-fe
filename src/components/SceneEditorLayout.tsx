@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
+import { useRouter } from 'next/navigation';
 import {
   GET_SCENE,
   UPDATE_SCENE,
@@ -9,6 +10,7 @@ import {
   CANCEL_PREVIEW_SESSION,
   UPDATE_PREVIEW_CHANNEL,
   INITIALIZE_PREVIEW_WITH_SCENE,
+  ACTIVATE_SCENE,
 } from '@/graphql/scenes';
 import { FixtureValue, FixtureInstance, ChannelValue } from '@/types';
 import ChannelListEditor from './ChannelListEditor';
@@ -23,6 +25,9 @@ interface SceneEditorLayoutProps {
   mode: 'channels' | 'layout';
   onClose: () => void;
   onToggleMode: () => void;
+  fromPlayer?: boolean;
+  cueListId?: string;
+  returnCueNumber?: string;
 }
 
 /**
@@ -60,7 +65,17 @@ type FixtureChannelValues = {
   channels: ChannelValue[];
 };
 
-export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode }: SceneEditorLayoutProps) {
+export default function SceneEditorLayout({
+  sceneId,
+  mode,
+  onClose,
+  onToggleMode,
+  fromPlayer,
+  cueListId,
+  returnCueNumber,
+}: SceneEditorLayoutProps) {
+  const router = useRouter();
+
   // Selection state for layout mode
   const [selectedFixtureIds, setSelectedFixtureIds] = useState<Set<string>>(new Set());
 
@@ -105,6 +120,9 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
 
   // Mutation for updating scene (no refetch - we use optimistic local state)
   const [updateScene] = useMutation(UPDATE_SCENE);
+
+  // Mutation for activating scene (used when coming from Player Mode)
+  const [activateScene] = useMutation(ACTIVATE_SCENE);
 
   // Preview mutations
   const [startPreviewSession] = useMutation(START_PREVIEW_SESSION, {
@@ -219,6 +237,25 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
 
     return false;
   }, [localFixtureValues, serverDenseValues]);
+
+  // Auto-activate scene on mount when coming from Player Mode (prevents blackout)
+  useEffect(() => {
+    if (fromPlayer && sceneId) {
+      activateScene({
+        variables: { sceneId },
+      }).catch((error) => {
+        console.error('Failed to activate scene from Player Mode:', error);
+      });
+    }
+  }, [fromPlayer, sceneId, activateScene]);
+
+  // Auto-start preview mode when coming from Player Mode
+  useEffect(() => {
+    if (fromPlayer && !previewMode && scene?.project?.id) {
+      handleTogglePreview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromPlayer, scene?.project?.id]);
 
   // Cleanup preview on unmount or mode switch
   useEffect(() => {
@@ -516,6 +553,12 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       saveStatusTimeoutRef.current = setTimeout(() => {
         setSaveStatus('idle');
       }, 2000);
+
+      // Auto-navigate back to Player Mode if that's where we came from
+      if (fromPlayer && cueListId) {
+        const highlightParam = returnCueNumber ? `?highlightCue=${returnCueNumber}` : '';
+        router.push(`/cue-lists/${cueListId}${highlightParam}`);
+      }
     } catch (error) {
       console.error('Failed to save scene:', error);
       setSaveStatus('error');
@@ -523,7 +566,7 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
         setSaveStatus('idle');
       }, 3000);
     }
-  }, [scene, sceneId, updateScene, localFixtureValues, activeChannels, clearHistory, refetchScene]);
+  }, [scene, sceneId, updateScene, localFixtureValues, activeChannels, clearHistory, refetchScene, fromPlayer, cueListId, returnCueNumber, router]);
 
   // Handle undo
   const handleUndo = useCallback(() => {
@@ -827,19 +870,42 @@ export default function SceneEditorLayout({ sceneId, mode, onClose, onToggleMode
       {/* Top bar with mode switcher and controls */}
       <div className="flex-none bg-gray-800 border-b border-gray-700 px-4 py-3">
         <div className="flex items-center justify-between">
-          {/* Back button */}
+          {/* Back button - context-aware */}
           <button
             onClick={handleClose}
             className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 rounded-md transition-colors"
           >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Scenes
+            {fromPlayer ? (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Back to Player
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Scenes
+              </>
+            )}
           </button>
 
           {/* Mode switcher tabs */}
           <div className="flex items-center space-x-4">
+            {/* Player Mode badge */}
+            {fromPlayer && (
+              <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-blue-600 text-white rounded">
+                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Editing from Player Mode
+              </span>
+            )}
+
             <div className="flex items-center space-x-1 bg-gray-700 rounded-lg p-1">
               <button
                 onClick={() => {

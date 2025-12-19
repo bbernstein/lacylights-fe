@@ -16,8 +16,19 @@ export default function SceneEditorPageClient({ sceneId: sceneIdProp }: SceneEdi
   const mode = searchParams.get('mode') || 'channels';
   const isLayoutMode = mode === 'layout';
 
+  // Extract Player Mode context from URL params
+  const fromPlayer = searchParams.get('fromPlayer') === 'true';
+  const cueListId = searchParams.get('cueListId');
+  const returnCueNumber = searchParams.get('returnCueNumber');
+
   const handleClose = () => {
-    router.push('/scenes');
+    // If coming from Player Mode, return to the cue list with highlight
+    if (fromPlayer && cueListId) {
+      const highlightParam = returnCueNumber ? `?highlightCue=${returnCueNumber}` : '';
+      router.push(`/cue-lists/${cueListId}${highlightParam}`);
+    } else {
+      router.push('/scenes');
+    }
   };
 
   const handleToggleMode = () => {
@@ -34,6 +45,9 @@ export default function SceneEditorPageClient({ sceneId: sceneIdProp }: SceneEdi
       mode={mode as 'channels' | 'layout'}
       onClose={handleClose}
       onToggleMode={handleToggleMode}
+      fromPlayer={fromPlayer}
+      cueListId={cueListId || undefined}
+      returnCueNumber={returnCueNumber || undefined}
     />
   );
 }
