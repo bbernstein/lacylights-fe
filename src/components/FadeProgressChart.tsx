@@ -65,7 +65,7 @@ interface FadeProgressChartProps {
  * **Responsive Behavior:**
  * The SVG element uses width="100%" and height="100%" to fill its container.
  * The width and height props define the viewBox coordinate system, not the rendered size.
- * Use preserveAspectRatio="none" to allow stretching to fit the container.
+ * Uses preserveAspectRatio="none" internally to allow stretching to fit the container.
  *
  * After progress reaches 100%, the slideOffProgress can animate the curve
  * sliding off to the left while maintaining 100% fill on the right.
@@ -140,20 +140,24 @@ export default function FadeProgressChart({
     return Math.round(applyEasing(normalizedProgress, easingType) * 100);
   }, [normalizedProgress, easingType]);
 
-  // Validate dimensions (after all hooks have been called)
-  if (width <= 0 || height <= 0) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('FadeProgressChart: width and height must be positive values');
-    }
-    return null;
-  }
-
   // Current progress position for the indicator line
   const progressX = normalizedProgress * width;
   const progressY = height - applyEasing(normalizedProgress, easingType) * height;
 
   // Calculate the slide offset in pixels
   const slideOffsetX = normalizedSlideOff * width;
+
+  // Validate dimensions - warn in development but don't break rendering
+  // This check is after all hooks to comply with Rules of Hooks
+  const hasInvalidDimensions = width <= 0 || height <= 0;
+  if (hasInvalidDimensions && process.env.NODE_ENV !== 'production') {
+    console.warn('FadeProgressChart: width and height must be positive values');
+  }
+
+  // Return null for invalid dimensions (after all hooks have been called)
+  if (hasInvalidDimensions) {
+    return null;
+  }
 
   // If complete, just show solid fill
   if (isComplete) {
