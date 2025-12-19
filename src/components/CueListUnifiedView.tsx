@@ -627,12 +627,6 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
 
       <td className="px-3 py-3">
         <div className="flex items-center space-x-2">
-          {isActive && (
-            <span className="text-green-600 dark:text-green-400 font-medium text-sm">LIVE</span>
-          )}
-          {isNext && !isActive && (
-            <span className="text-blue-600 dark:text-blue-400 font-medium text-sm">NEXT</span>
-          )}
           {editMode && (
             <button
               onClick={(e) => {
@@ -853,8 +847,6 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
               autoFocusFieldRef={autoFocusFieldRef}
             />
           </div>
-          {isActive && <span className="text-green-600 dark:text-green-400 font-bold text-xs">LIVE</span>}
-          {isNext && !isActive && <span className="text-blue-600 dark:text-blue-400 font-bold text-xs">NEXT</span>}
         </div>
       </div>
 
