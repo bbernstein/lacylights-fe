@@ -793,7 +793,7 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
       style={style}
       className={`${bgClass} ${borderClass} ${
         isInMoveMode ? 'ring-2 ring-blue-500 animate-pulse' : ''
-      } rounded-lg p-4 mb-3 ${textColorClass} ${!editMode ? 'cursor-pointer' : ''}`}
+      } rounded-lg p-4 mb-3 ${textColorClass} ${!editMode ? 'cursor-pointer' : ''} select-none`}
       onClick={handleRowClick}
       onContextMenu={(e) => onContextMenu?.(e, cue, index)}
       onTouchStart={(e) => onTouchStart?.(e, cue, index)}

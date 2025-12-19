@@ -695,7 +695,7 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
               <div
                 key={cue.id}
                 ref={isCurrent ? currentCueRef : null}
-                className={`relative rounded-lg p-4 border transition-all duration-200 overflow-hidden ${
+                className={`relative rounded-lg p-4 border transition-all duration-200 overflow-hidden select-none ${
                   cue.id === highlightedCueId
                     ? 'bg-gray-700 border-yellow-500 border-2 shadow-lg animate-pulse'
                     : isCurrent
