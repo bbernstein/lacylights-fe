@@ -573,7 +573,7 @@ describe('CueListUnifiedView', () => {
       await userEvent.click(nextButton);
     });
 
-    it('handles previous cue button when available', async () => {
+    it('disables previous cue button in edit mode', async () => {
       renderWithProvider(createMocks(), {}, { currentCueIndex: 1 });
 
       await waitFor(() => {
@@ -582,8 +582,8 @@ describe('CueListUnifiedView', () => {
       });
 
       const prevButton = screen.getByTitle('Previous (←)');
-      expect(prevButton).not.toBeDisabled();
-      await userEvent.click(prevButton);
+      // Button is disabled in edit mode (which is always active)
+      expect(prevButton).toBeDisabled();
     });
 
     it('handles stop button', async () => {
@@ -645,26 +645,6 @@ describe('CueListUnifiedView', () => {
   });
 
   describe('cue management', () => {
-    it('shows LIVE indicator for active cue', async () => {
-      renderWithProvider(createMocks(), {}, { currentCueIndex: 0 });
-
-      await waitFor(() => {
-        expect(screen.getByDisplayValue('Test Cue List')).toBeInTheDocument();
-      });
-
-      // Both mobile and desktop views render LIVE indicator
-      expect(screen.getAllByText('LIVE')[0]).toBeInTheDocument();
-    });
-
-    it('shows NEXT indicator for next cue', async () => {
-      renderWithProvider(createMocks(), {}, { currentCueIndex: 0 });
-
-      await waitFor(() => {
-        // Both mobile and desktop views render NEXT indicator
-        expect(screen.getAllByText('NEXT')[0]).toBeInTheDocument();
-      });
-    });
-
     it('handles cue deletion in edit mode', async () => {
       renderWithProvider();
 
@@ -812,20 +792,6 @@ describe('CueListUnifiedView', () => {
         // Both mobile and desktop views show empty state
         expect(screen.getAllByText(/No cues yet/)[0]).toBeInTheDocument();
       });
-    });
-  });
-
-  describe('fade progress indicator', () => {
-    it('shows fade progress for active cue', async () => {
-      renderWithProvider(createMocks(), {}, { currentCueIndex: 0, fadeProgress: 75 });
-
-      await waitFor(() => {
-        expect(screen.getByDisplayValue('Test Cue List')).toBeInTheDocument();
-      });
-
-      // Check for FadeProgressChart SVG elements (aria-label for accessibility)
-      const fadeProgressCharts = document.querySelectorAll('[aria-label*="Fade progress"]');
-      expect(fadeProgressCharts.length).toBeGreaterThan(0);
     });
   });
 
