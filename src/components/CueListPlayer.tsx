@@ -14,6 +14,8 @@ import {
   FADE_TO_BLACK,
   UPDATE_CUE_LIST,
   CREATE_CUE,
+  UPDATE_CUE,
+  DELETE_CUE,
 } from '@/graphql/cueLists';
 import { GET_PROJECT_SCENES, DUPLICATE_SCENE, ACTIVATE_SCENE } from '@/graphql/scenes';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
@@ -23,6 +25,9 @@ import { DEFAULT_FADEOUT_TIME } from '@/constants/playback';
 import FadeProgressChart from './FadeProgressChart';
 import { EasingType } from '@/utils/easing';
 import AddCueDialog from './AddCueDialog';
+import EditCueDialog from './EditCueDialog';
+import ContextMenu from './ContextMenu';
+import { PencilIcon } from '@heroicons/react/24/outline';
 
 interface CueListPlayerProps {
   cueListId: string;
@@ -63,6 +68,20 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   // Highlight state for cue that was just edited
   const [highlightedCueId, setHighlightedCueId] = useState<string | null>(null);
 
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    cue: Cue;
+    cueIndex: number;
+  } | null>(null);
+  const [showEditCueDialog, setShowEditCueDialog] = useState(false);
+  const [editingCue, setEditingCue] = useState<Cue | null>(null);
+
+  // Long-press detection refs
+  const longPressTimer = useRef<number | null>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+
   useEffect(() => {
     setActualCueListId(extractCueListId(cueListIdProp));
   }, [cueListIdProp]);
@@ -96,6 +115,8 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
   const [fadeToBlack] = useMutation(FADE_TO_BLACK, fadeToBlackRefetchConfig);
   const [updateCueList] = useMutation(UPDATE_CUE_LIST);
   const [createCue] = useMutation(CREATE_CUE);
+  const [updateCue] = useMutation(UPDATE_CUE);
+  const [deleteCue] = useMutation(DELETE_CUE);
   const [duplicateScene] = useMutation(DUPLICATE_SCENE);
   const [activateScene] = useMutation(ACTIVATE_SCENE);
 
@@ -406,6 +427,190 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
     });
   }, [cueList, updateCueList]);
 
+  // Context menu handlers
+  const handleCueContextMenu = useCallback(
+    (e: React.MouseEvent, cue: Cue, index: number) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        cue,
+        cueIndex: index,
+      });
+    },
+    []
+  );
+
+  // Long-press detection
+  const startLongPressDetection = useCallback(
+    (x: number, y: number, cue: Cue, index: number) => {
+      touchStart.current = { x, y };
+      longPressTimer.current = window.setTimeout(() => {
+        if ('vibrate' in navigator) {
+          navigator.vibrate(50);
+        }
+        setContextMenu({ x, y, cue, cueIndex: index });
+      }, 500);
+    },
+    []
+  );
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    touchStart.current = null;
+  }, []);
+
+  // Touch handlers
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent, cue: Cue, index: number) => {
+      const touch = e.touches[0];
+      startLongPressDetection(touch.clientX, touch.clientY, cue, index);
+    },
+    [startLongPressDetection]
+  );
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!touchStart.current) return;
+      const touch = e.touches[0];
+      const dx = Math.abs(touch.clientX - touchStart.current.x);
+      const dy = Math.abs(touch.clientY - touchStart.current.y);
+      if (dx > 10 || dy > 10) {
+        cancelLongPress();
+      }
+    },
+    [cancelLongPress]
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    cancelLongPress();
+  }, [cancelLongPress]);
+
+  // Context menu option handlers
+  const handleEditCue = useCallback(() => {
+    if (!contextMenu) return;
+    setEditingCue(contextMenu.cue);
+    setShowEditCueDialog(true);
+    setContextMenu(null);
+  }, [contextMenu]);
+
+  const handleContextMenuEditScene = useCallback(
+    async (cue: Cue) => {
+      // Activate scene to prevent blackout
+      await activateScene({
+        variables: { sceneId: cue.scene.id },
+      });
+      // Navigate to scene editor with fromPlayer params
+      router.push(
+        `/scenes/${cue.scene.id}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}&returnCueNumber=${cue.cueNumber}`
+      );
+      setContextMenu(null);
+    },
+    [activateScene, router, cueListId]
+  );
+
+  const handleDuplicateCue = useCallback(
+    async () => {
+      if (!contextMenu || !cueList) return;
+      const { cue } = contextMenu;
+
+      try {
+        // Duplicate the scene
+        const duplicateResult = await duplicateScene({
+          variables: { id: cue.scene.id },
+        });
+        const newSceneId = duplicateResult.data?.duplicateScene?.id;
+
+        // Create new cue with next decimal number
+        const newCueNumber = cue.cueNumber + 0.1;
+        await createCue({
+          variables: {
+            input: {
+              cueNumber: newCueNumber,
+              name: `${cue.name} (copy)`,
+              cueListId: cueList.id,
+              sceneId: newSceneId || cue.scene.id,
+              fadeInTime: cue.fadeInTime,
+              fadeOutTime: cue.fadeOutTime,
+              followTime: cue.followTime,
+            },
+          },
+          refetchQueries: [{ query: GET_CUE_LIST, variables: { id: cueList.id } }],
+        });
+      } catch (error) {
+        console.error('Failed to duplicate cue:', error);
+      }
+      setContextMenu(null);
+    },
+    [contextMenu, cueList, duplicateScene, createCue]
+  );
+
+  const handleContextMenuDeleteCue = useCallback(() => {
+    if (!contextMenu) return;
+    const { cue } = contextMenu;
+
+    if (window.confirm(`Delete cue "${cue.name}"?`)) {
+      deleteCue({
+        variables: { id: cue.id },
+        refetchQueries: [{ query: GET_CUE_LIST, variables: { id: cueListId } }],
+      });
+    }
+    setContextMenu(null);
+  }, [contextMenu, deleteCue, cueListId]);
+
+  // EditCueDialog update handler
+  const handleEditCueDialogUpdate = useCallback(
+    async (params: {
+      cueId: string;
+      cueNumber?: number;
+      name?: string;
+      sceneId?: string;
+      fadeInTime?: number;
+      fadeOutTime?: number;
+      followTime?: number;
+      action: 'edit-scene' | 'stay';
+    }) => {
+      try {
+        // Update the cue
+        await updateCue({
+          variables: {
+            id: params.cueId,
+            input: {
+              name: params.name,
+              cueNumber: params.cueNumber,
+              cueListId: cueList?.id,
+              sceneId: params.sceneId,
+              fadeInTime: params.fadeInTime,
+              fadeOutTime: params.fadeOutTime,
+              followTime: params.followTime,
+            },
+          },
+          refetchQueries: [{ query: GET_CUE_LIST, variables: { id: cueListId } }],
+        });
+
+        if (params.action === 'edit-scene' && params.sceneId) {
+          // Activate scene and navigate to editor
+          await activateScene({
+            variables: { sceneId: params.sceneId },
+          });
+          router.push(
+            `/scenes/${params.sceneId}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}&returnCueNumber=${params.cueNumber}`
+          );
+        }
+
+        setShowEditCueDialog(false);
+        setEditingCue(null);
+      } catch (error) {
+        console.error('Failed to update cue:', error);
+      }
+    },
+    [cueList, cueListId, updateCue, activateScene, router]
+  );
+
   const handleJumpToCue = useCallback(async (index: number) => {
     if (!cueList || index < 0 || index >= cues.length) return;
 
@@ -494,6 +699,10 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
                     : 'bg-gray-800 border-gray-700'
                 } ${!isCurrent ? 'cursor-pointer hover:bg-gray-700/70' : ''}`}
                 onClick={() => !isCurrent && handleJumpToCue(index)}
+                onContextMenu={(e) => handleCueContextMenu(e, cue, index)}
+                onTouchStart={(e) => handleTouchStart(e, cue, index)}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
               >
                 {/* Fade progress chart as full background for current cue */}
                 {/* Show when scene is playing (active on DMX), with progress during fade or 100% when holding */}
@@ -682,6 +891,66 @@ export default function CueListPlayer({ cueListId: cueListIdProp }: CueListPlaye
         defaultFadeOutTime={cueList.defaultFadeOutTime || 3}
         onAdd={handleAddCue}
       />
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          options={[
+            {
+              label: 'Edit Cue',
+              onClick: handleEditCue,
+              icon: (
+                <PencilIcon className="w-4 h-4" />
+              ),
+            },
+            {
+              label: 'Edit Scene',
+              onClick: () => handleContextMenuEditScene(contextMenu.cue),
+              icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              ),
+            },
+            {
+              label: 'Duplicate Cue',
+              onClick: handleDuplicateCue,
+              icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              ),
+            },
+            {
+              label: 'Delete Cue',
+              onClick: handleContextMenuDeleteCue,
+              icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              ),
+              className: 'text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300',
+            },
+          ]}
+          onDismiss={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Edit Cue Dialog */}
+      {showEditCueDialog && editingCue && (
+        <EditCueDialog
+          isOpen={showEditCueDialog}
+          onClose={() => {
+            setShowEditCueDialog(false);
+            setEditingCue(null);
+          }}
+          cue={editingCue}
+          scenes={scenes}
+          onUpdate={handleEditCueDialogUpdate}
+        />
+      )}
     </div>
   );
 }
