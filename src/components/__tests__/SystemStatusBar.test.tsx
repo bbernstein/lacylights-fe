@@ -1,8 +1,20 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { MockedProvider } from '@apollo/client/testing';
+import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import SystemStatusBar from '../SystemStatusBar';
 import { GET_SYSTEM_INFO, SYSTEM_INFO_UPDATED } from '@/graphql/settings';
+import { WebSocketProvider } from '@/contexts/WebSocketContext';
+
+// Mock the WebSocket context dependencies
+jest.mock('@/lib/apollo-client', () => ({
+  wsClient: {
+    dispose: jest.fn(),
+  },
+}));
+
+jest.mock('@/hooks/usePageVisibility', () => ({
+  usePageVisibility: jest.fn(() => true),
+}));
 
 const mockSystemInfoEnabled = {
   artnetEnabled: true,
@@ -35,16 +47,22 @@ const createMocks = (systemInfo = mockSystemInfoEnabled) => [
   },
 ];
 
+const renderWithProviders = (component: React.ReactElement, mocks: readonly MockedResponse[]) => {
+  return render(
+    <MockedProvider mocks={mocks} addTypename={false}>
+      <WebSocketProvider>
+        {component}
+      </WebSocketProvider>
+    </MockedProvider>
+  );
+};
+
 describe('SystemStatusBar', () => {
   describe('Loading state', () => {
     it('shows loading message while fetching data', () => {
       const mocks = createMocks();
 
-      render(
-        <MockedProvider mocks={mocks} addTypename={false}>
-          <SystemStatusBar />
-        </MockedProvider>
-      );
+      renderWithProviders(<SystemStatusBar />, mocks);
 
       expect(screen.getByText('Loading system status...')).toBeInTheDocument();
     });
@@ -69,11 +87,7 @@ describe('SystemStatusBar', () => {
         },
       ];
 
-      render(
-        <MockedProvider mocks={errorMocks} addTypename={false}>
-          <SystemStatusBar />
-        </MockedProvider>
-      );
+      renderWithProviders(<SystemStatusBar />, errorMocks);
 
       await screen.findByText('Failed to load system status');
       expect(screen.getByText('Failed to load system status')).toBeInTheDocument();
@@ -84,11 +98,7 @@ describe('SystemStatusBar', () => {
     it('displays Art-Net status when enabled', async () => {
       const mocks = createMocks(mockSystemInfoEnabled);
 
-      render(
-        <MockedProvider mocks={mocks} addTypename={false}>
-          <SystemStatusBar />
-        </MockedProvider>
-      );
+      renderWithProviders(<SystemStatusBar />, mocks);
 
       await screen.findByText('Art-Net:');
       expect(screen.getByText('Enabled')).toBeInTheDocument();
@@ -98,11 +108,7 @@ describe('SystemStatusBar', () => {
     it('displays Art-Net status when disabled', async () => {
       const mocks = createMocks(mockSystemInfoDisabled);
 
-      render(
-        <MockedProvider mocks={mocks} addTypename={false}>
-          <SystemStatusBar />
-        </MockedProvider>
-      );
+      renderWithProviders(<SystemStatusBar />, mocks);
 
       await screen.findByText('Art-Net:');
       expect(screen.getByText('Disabled')).toBeInTheDocument();
@@ -112,11 +118,7 @@ describe('SystemStatusBar', () => {
     it('displays broadcast address label', async () => {
       const mocks = createMocks();
 
-      render(
-        <MockedProvider mocks={mocks} addTypename={false}>
-          <SystemStatusBar />
-        </MockedProvider>
-      );
+      renderWithProviders(<SystemStatusBar />, mocks);
 
       await screen.findByText('Broadcast Address:');
       expect(screen.getByText('Broadcast Address:')).toBeInTheDocument();
@@ -148,11 +150,7 @@ describe('SystemStatusBar', () => {
         },
       ];
 
-      render(
-        <MockedProvider mocks={mocks} addTypename={false}>
-          <SystemStatusBar />
-        </MockedProvider>
-      );
+      renderWithProviders(<SystemStatusBar />, mocks);
 
       // Should eventually show the subscription data
       await screen.findByText('Art-Net:');
@@ -183,11 +181,7 @@ describe('SystemStatusBar', () => {
         },
       ];
 
-      const { container } = render(
-        <MockedProvider mocks={mocks} addTypename={false}>
-          <SystemStatusBar />
-        </MockedProvider>
-      );
+      const { container } = renderWithProviders(<SystemStatusBar />, mocks);
 
       // Wait a bit for the component to process
       await new Promise((resolve) => setTimeout(resolve, 100));
