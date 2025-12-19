@@ -1610,6 +1610,29 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     }
   };
 
+  const handleRenumberCues = useCallback(() => {
+    if (!cueList) return;
+
+    // Confirm with user
+    if (!window.confirm('Renumber all cues to sequential whole numbers (1, 2, 3, ...)?\n\nThis will maintain the current order but remove decimal cue numbers.')) {
+      return;
+    }
+
+    // Sort cues by current cue number and assign sequential numbers
+    const sortedCues = [...cueList.cues].sort((a: Cue, b: Cue) => a.cueNumber - b.cueNumber);
+    const cueOrders = sortedCues.map((cue: Cue, index: number) => ({
+      cueId: cue.id,
+      cueNumber: index + 1,
+    }));
+
+    reorderCues({
+      variables: {
+        cueListId: cueList.id,
+        cueOrders,
+      },
+    });
+  }, [cueList, reorderCues]);
+
   const handleAddCue = () => {
     if (!cueList || !newCue.sceneId) return;
 
@@ -1867,6 +1890,13 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                 className="px-3 py-1 text-sm font-medium rounded text-white bg-blue-600 hover:bg-blue-700"
               >
                 {showAddCue ? 'Cancel' : 'Quick Add'}
+              </button>
+              <button
+                onClick={handleRenumberCues}
+                className="px-3 py-1 text-sm font-medium rounded text-white bg-purple-600 hover:bg-purple-700"
+                title="Renumber all cues to sequential whole numbers while maintaining order"
+              >
+                Renumber
               </button>
             </div>
           </div>
