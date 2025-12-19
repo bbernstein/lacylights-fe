@@ -533,8 +533,6 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
                 <FadeProgressChart
                   progress={fadeProgress}
                   easingType={(cue.easingType as EasingType) || 'EASE_IN_OUT_SINE'}
-                  width={200}
-                  height={32}
                   className="w-full h-full"
                 />
               </div>
@@ -842,8 +840,6 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
                   <FadeProgressChart
                     progress={fadeProgress}
                     easingType={(cue.easingType as EasingType) || 'EASE_IN_OUT_SINE'}
-                    width={200}
-                    height={24}
                     className="w-full h-full"
                   />
                 </div>
