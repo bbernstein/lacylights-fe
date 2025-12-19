@@ -1307,6 +1307,8 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const handleTouchStart = useCallback(
     (e: React.TouchEvent, cue: Cue, index: number) => {
       const touch = e.touches[0];
+      // Prevent text selection during long-press detection
+      e.preventDefault();
       startLongPressDetection(touch.clientX, touch.clientY, cue, index);
     },
     [startLongPressDetection]
@@ -1396,6 +1398,26 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const handleMoveCue = useCallback(() => {
     if (!contextMenu) return;
     setMoveModeCueId(contextMenu.cue.id);
+    setContextMenu(null);
+  }, [contextMenu]);
+
+  const handleAddCueFromContextMenu = useCallback(() => {
+    if (!contextMenu) return;
+    const { cue } = contextMenu;
+
+    // Set default values from the selected cue
+    setNewCue({
+      name: `Cue ${Math.floor(cue.cueNumber + 0.5)}`,
+      cueNumber: (cue.cueNumber + 0.5).toString(),
+      sceneId: cue.scene.id,
+      fadeInTime: cue.fadeInTime.toString(),
+      fadeOutTime: cue.fadeOutTime.toString(),
+      followTime: cue.followTime?.toString() || '0',
+      notes: '',
+    });
+
+    // Open the add cue dialog
+    setShowAddCueDialog(true);
     setContextMenu(null);
   }, [contextMenu]);
 
@@ -2218,6 +2240,15 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
               icon: (
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              ),
+            },
+            {
+              label: 'Add Cue',
+              onClick: handleAddCueFromContextMenu,
+              icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
               ),
             },
