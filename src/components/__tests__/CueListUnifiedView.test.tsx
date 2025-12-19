@@ -469,7 +469,7 @@ describe('CueListUnifiedView', () => {
 
       await waitFor(() => {
         expect(screen.getByDisplayValue('Test Cue List')).toBeInTheDocument();
-        expect(screen.getByText('PLAYING')).toBeInTheDocument();
+        expect(screen.getByText('EDITING')).toBeInTheDocument();
       });
     });
 
@@ -507,18 +507,13 @@ describe('CueListUnifiedView', () => {
   });
 
   describe('edit mode functionality', () => {
-    it('toggles edit mode', async () => {
+    it('is always in edit mode', async () => {
       renderWithProvider();
 
       await waitFor(() => {
-        const modeButton = screen.getByText('PLAYING');
-        expect(modeButton).toBeInTheDocument();
+        expect(screen.getByText('EDITING')).toBeInTheDocument();
       });
 
-      const modeButton = screen.getByText('PLAYING');
-      await userEvent.click(modeButton);
-
-      expect(screen.getByText('EDITING')).toBeInTheDocument();
       expect(screen.getByText('Add Cue')).toBeInTheDocument();
       expect(screen.getByText('2 cues')).toBeInTheDocument();
     });
@@ -527,11 +522,8 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        expect(screen.getByText('PLAYING')).toBeInTheDocument();
+        expect(screen.getByText('EDITING')).toBeInTheDocument();
       });
-
-      const modeButton = screen.getByText('PLAYING');
-      await userEvent.click(modeButton);
 
       const quickAddButton = screen.getByText('Quick Add');
       await userEvent.click(quickAddButton);
@@ -545,11 +537,8 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        expect(screen.getByText('PLAYING')).toBeInTheDocument();
+        expect(screen.getByText('EDITING')).toBeInTheDocument();
       });
-
-      const modeButton = screen.getByText('PLAYING');
-      await userEvent.click(modeButton);
 
       const checkboxes = screen.getAllByRole('checkbox');
       expect(checkboxes.length).toBeGreaterThan(0);
@@ -646,31 +635,16 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        expect(screen.getByText('PLAYING')).toBeInTheDocument();
+        expect(screen.getByText('EDITING')).toBeInTheDocument();
       });
 
-      const modeButton = screen.getByText('PLAYING');
-      await userEvent.click(modeButton);
-
-      // Should not trigger actions in edit mode
+      // Should not trigger actions in edit mode (which is always active)
       fireEvent.keyDown(window, { code: 'Space' });
       fireEvent.keyDown(window, { key: 'Escape' });
     });
   });
 
   describe('cue management', () => {
-    it('allows jumping to specific cue', async () => {
-      renderWithProvider();
-
-      await waitFor(() => {
-        const goButtons = screen.getAllByText('GO');
-        expect(goButtons.length).toBeGreaterThan(0);
-      });
-
-      const firstGoButton = screen.getAllByText('GO')[0];
-      await userEvent.click(firstGoButton);
-    });
-
     it('shows LIVE indicator for active cue', async () => {
       renderWithProvider(createMocks(), {}, { currentCueIndex: 0 });
 
@@ -695,11 +669,8 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        expect(screen.getByText('PLAYING')).toBeInTheDocument();
+        expect(screen.getByText('EDITING')).toBeInTheDocument();
       });
-
-      const modeButton = screen.getByText('PLAYING');
-      await userEvent.click(modeButton);
 
       const deleteButtons = screen.getAllByTitle('Delete cue');
       expect(deleteButtons.length).toBeGreaterThan(0);
@@ -728,11 +699,8 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        expect(screen.getByText('PLAYING')).toBeInTheDocument();
+        expect(screen.getByText('EDITING')).toBeInTheDocument();
       });
-
-      const modeButton = screen.getByText('PLAYING');
-      await userEvent.click(modeButton);
 
       // Select a cue
       const checkboxes = screen.getAllByRole('checkbox');
@@ -748,11 +716,8 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        expect(screen.getByText('PLAYING')).toBeInTheDocument();
+        expect(screen.getByText('EDITING')).toBeInTheDocument();
       });
-
-      const modeButton = screen.getByText('PLAYING');
-      await userEvent.click(modeButton);
 
       const editSceneButtons = screen.getAllByTitle('Edit scene');
       expect(editSceneButtons.length).toBeGreaterThan(0);
@@ -770,11 +735,8 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        expect(screen.getByText('PLAYING')).toBeInTheDocument();
+        expect(screen.getByText('EDITING')).toBeInTheDocument();
       });
-
-      const modeButton = screen.getByText('PLAYING');
-      await userEvent.click(modeButton);
 
       // Find fade time cells (they show as buttons with "3s" text)
       const fadeTimeButtons = screen.getAllByText('3s');
@@ -792,11 +754,8 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        expect(screen.getByText('PLAYING')).toBeInTheDocument();
+        expect(screen.getByText('EDITING')).toBeInTheDocument();
       });
-
-      const modeButton = screen.getByText('PLAYING');
-      await userEvent.click(modeButton);
 
       const fadeTimeButtons = screen.getAllByText('3s');
       await userEvent.click(fadeTimeButtons[0]);
@@ -816,11 +775,8 @@ describe('CueListUnifiedView', () => {
       renderWithProvider();
 
       await waitFor(() => {
-        expect(screen.getByText('PLAYING')).toBeInTheDocument();
+        expect(screen.getByText('EDITING')).toBeInTheDocument();
       });
-
-      const modeButton = screen.getByText('PLAYING');
-      await userEvent.click(modeButton);
 
       // Get select-all checkbox from desktop table (in thead)
       const table = screen.getByRole('table');
@@ -902,8 +858,8 @@ describe('CueListUnifiedView', () => {
       });
 
       expect(screen.getByTitle('Close unified view')).toBeInTheDocument();
-      // Both mobile and desktop views render jump buttons (2 cues × 2 views = 4)
-      expect(screen.getAllByTitle('Jump to this cue')).toHaveLength(4);
+      // Edit mode is always active
+      expect(screen.getByText('EDITING')).toBeInTheDocument();
     });
 
     it('has proper table structure', async () => {

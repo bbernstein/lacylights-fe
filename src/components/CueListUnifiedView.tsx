@@ -23,10 +23,7 @@ import { Cue, Scene } from '@/types';
 import { convertCueIndexForLocalState } from '@/utils/cueListHelpers';
 import BulkFadeUpdateModal from './BulkFadeUpdateModal';
 import AddCueDialog from './AddCueDialog';
-import EditCueDialog from './EditCueDialog';
-import ContextMenu from './ContextMenu';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
-import { PencilIcon } from '@heroicons/react/24/outline';
 import FadeProgressChart from './FadeProgressChart';
 import { EasingType } from '@/utils/easing';
 import {
@@ -48,6 +45,9 @@ import {
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import EditCueDialog from './EditCueDialog';
+import ContextMenu from './ContextMenu';
+import { PencilIcon } from '@heroicons/react/24/outline';
 
 
 interface CueListUnifiedViewProps {
@@ -989,7 +989,7 @@ CueCard.displayName = 'CueCard';
 export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifiedViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [editMode, setEditMode] = useState(false);
+  const editMode = true; // Always in edit mode - use CueListPlayer for playing
 
   // Real-time playback synchronization
   const { playbackStatus } = useCueListPlayback(cueListId);
@@ -1023,8 +1023,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const followTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentCueRef = useRef<HTMLDivElement | HTMLTableRowElement | null>(null);
   const autoFocusFieldRef = useRef<{ fieldType: string; cueIndex: number } | null>(null);
-
-  // Long-press detection refs
   const longPressTimer = useRef<number | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
@@ -1234,13 +1232,39 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     if (!moveModeCueId) return;
 
     const handleClickOutside = (_e: MouseEvent) => {
-      // Exit move mode if clicking outside the cue
       setMoveModeCueId(null);
     };
 
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, [moveModeCueId]);
+
+  const handleJumpToCue = useCallback(async (cue: Cue, index: number) => {
+    if (!cueList) return;
+
+    if (followTimeoutRef.current) {
+      clearTimeout(followTimeoutRef.current);
+      followTimeoutRef.current = null;
+    }
+
+    await goToCue({
+      variables: {
+        cueListId: cueList.id,
+        cueIndex: index,
+        fadeInTime: cue.fadeInTime,
+      },
+    });
+
+    if (cue.followTime && cue.followTime > 0 && index + 1 < cues.length) {
+      const totalWaitTime = (cue.fadeInTime + cue.followTime) * 1000;
+      const nextCueIndex = index + 1;
+      const nextCueToPlay = cues[nextCueIndex];
+
+      followTimeoutRef.current = setTimeout(() => {
+        handleJumpToCue(nextCueToPlay, nextCueIndex);
+      }, totalWaitTime);
+    }
+  }, [goToCue, cues, cueList]);
 
   // Context menu handlers
   const handleCueContextMenu = useCallback(
@@ -1258,7 +1282,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     [editMode]
   );
 
-  // Long-press detection
   const startLongPressDetection = useCallback(
     (x: number, y: number, cue: Cue, index: number) => {
       if (editMode) return;
@@ -1281,7 +1304,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     touchStart.current = null;
   }, []);
 
-  // Touch handlers
   const handleTouchStart = useCallback(
     (e: React.TouchEvent, cue: Cue, index: number) => {
       const touch = e.touches[0];
@@ -1307,7 +1329,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     cancelLongPress();
   }, [cancelLongPress]);
 
-  // Context menu option handlers
   const handleEditCue = useCallback(() => {
     if (!contextMenu) return;
     setEditingCue(contextMenu.cue);
@@ -1317,11 +1338,9 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
   const handleContextMenuEditScene = useCallback(
     async (cue: Cue) => {
-      // Activate scene to prevent blackout
       await activateScene({
         variables: { sceneId: cue.scene.id },
       });
-      // Navigate to scene editor with fromPlayer params
       router.push(
         `/scenes/${cue.scene.id}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}`
       );
@@ -1336,13 +1355,11 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       const { cue } = contextMenu;
 
       try {
-        // Duplicate the scene
         const duplicateResult = await duplicateScene({
           variables: { id: cue.scene.id },
         });
         const newSceneId = duplicateResult.data?.duplicateScene?.id;
 
-        // Create new cue with next decimal number
         const newCueNumber = cue.cueNumber + 0.1;
         await createCue({
           variables: {
@@ -1380,10 +1397,8 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     if (!contextMenu) return;
     setMoveModeCueId(contextMenu.cue.id);
     setContextMenu(null);
-    // Visual indicator will highlight the cue in move mode
   }, [contextMenu]);
 
-  // EditCueDialog update handler
   const handleEditCueDialogUpdate = useCallback(
     async (params: {
       cueId: string;
@@ -1396,7 +1411,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       action: 'edit-scene' | 'stay';
     }) => {
       try {
-        // Update the cue
         await updateCue({
           variables: {
             id: params.cueId,
@@ -1414,7 +1428,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
         });
 
         if (params.action === 'edit-scene' && params.sceneId) {
-          // Activate scene and navigate to editor
           await activateScene({
             variables: { sceneId: params.sceneId },
           });
@@ -1431,33 +1444,6 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     },
     [cueList, cueListId, updateCue, activateScene, router]
   );
-
-  const handleJumpToCue = useCallback(async (cue: Cue, index: number) => {
-    if (!cueList) return;
-
-    if (followTimeoutRef.current) {
-      clearTimeout(followTimeoutRef.current);
-      followTimeoutRef.current = null;
-    }
-
-    await goToCue({
-      variables: {
-        cueListId: cueList.id,
-        cueIndex: index,
-        fadeInTime: cue.fadeInTime,
-      },
-    });
-
-    if (cue.followTime && cue.followTime > 0 && index + 1 < cues.length) {
-      const totalWaitTime = (cue.fadeInTime + cue.followTime) * 1000;
-      const nextCueIndex = index + 1;
-      const nextCueToPlay = cues[nextCueIndex];
-
-      followTimeoutRef.current = setTimeout(() => {
-        handleJumpToCue(nextCueToPlay, nextCueIndex);
-      }, totalWaitTime);
-    }
-  }, [goToCue, cues, cueList]);
 
   const handleNext = useCallback(async () => {
     if (!cueList) return;
@@ -1770,18 +1756,8 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                 className="text-xl md:text-2xl font-bold bg-transparent text-white border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none"
                 disabled={!editMode}
               />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setEditMode(!editMode)}
-                  className={`px-3 py-1 rounded text-sm font-medium whitespace-nowrap ${
-                    editMode
-                      ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                      : 'bg-green-600 hover:bg-green-700 text-white'
-                  }`}
-                  title={editMode ? 'Switch to Play mode' : 'Switch to Edit mode'}
-                >
-                  {editMode ? 'EDITING' : 'PLAYING'}
-                </button>
+              <div className="px-3 py-1 rounded text-sm font-medium whitespace-nowrap bg-yellow-600 text-white">
+                EDITING
               </div>
             </div>
             {/* Description */}
