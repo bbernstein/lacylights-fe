@@ -23,6 +23,8 @@ import { Cue, Scene } from '@/types';
 import { convertCueIndexForLocalState } from '@/utils/cueListHelpers';
 import BulkFadeUpdateModal from './BulkFadeUpdateModal';
 import AddCueDialog from './AddCueDialog';
+import EditCueDialog from './EditCueDialog';
+import ContextMenu from './ContextMenu';
 import { useCueListPlayback } from '@/hooks/useCueListPlayback';
 import { PencilIcon } from '@heroicons/react/24/outline';
 import FadeProgressChart from './FadeProgressChart';
@@ -341,6 +343,11 @@ interface SortableCueRowProps {
   currentCueRef?: React.MutableRefObject<HTMLTableRowElement | HTMLDivElement | null>;
   autoFocusFieldRef?: React.MutableRefObject<{ fieldType: string; cueIndex: number } | null>;
   highlightedCueNumber?: number | null;
+  onContextMenu?: (e: React.MouseEvent, cue: Cue, index: number) => void;
+  onTouchStart?: (e: React.TouchEvent, cue: Cue, index: number) => void;
+  onTouchMove?: (e: React.TouchEvent) => void;
+  onTouchEnd?: () => void;
+  isInMoveMode?: boolean;
 }
 
 function SortableCueRow(props: SortableCueRowProps) {
@@ -351,7 +358,10 @@ function SortableCueRow(props: SortableCueRowProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: props.cue.id });
+  } = useSortable({
+    id: props.cue.id,
+    disabled: !props.isInMoveMode && !props.editMode // Only draggable in move mode or edit mode
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -407,7 +417,12 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
   dragListeners,
   isDragging,
   autoFocusFieldRef,
-  highlightedCueNumber
+  highlightedCueNumber,
+  onContextMenu,
+  onTouchStart,
+  onTouchMove,
+  onTouchEnd,
+  isInMoveMode
 }, ref) => {
   const [showSceneSelect, setShowSceneSelect] = useState(false);
   const [selectedSceneId, setSelectedSceneId] = useState(cue.scene.id);
@@ -456,8 +471,14 @@ const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
     <tr
       ref={ref}
       style={style}
-      className={`${rowBgClass} ${borderClass} transition-colors duration-300 border-b border-gray-200 dark:border-gray-700 ${!editMode ? 'cursor-pointer hover:bg-opacity-80' : ''}`}
+      className={`${rowBgClass} ${borderClass} ${
+        isInMoveMode ? 'ring-2 ring-blue-500 animate-pulse' : ''
+      } transition-colors duration-300 border-b border-gray-200 dark:border-gray-700 ${!editMode ? 'cursor-pointer hover:bg-opacity-80' : ''}`}
       onClick={handleRowClick}
+      onContextMenu={(e) => onContextMenu?.(e, cue, index)}
+      onTouchStart={(e) => onTouchStart?.(e, cue, index)}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
     >
       <td className="px-3 py-3">
         {editMode && (
@@ -656,7 +677,10 @@ function SortableCueCard(props: SortableCueRowProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: props.cue.id });
+  } = useSortable({
+    id: props.cue.id,
+    disabled: !props.isInMoveMode && !props.editMode // Only draggable in move mode or edit mode
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -714,6 +738,11 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
     isDragging,
     autoFocusFieldRef,
     highlightedCueNumber,
+    onContextMenu,
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd,
+    isInMoveMode,
   } = props;
 
   const [showSceneSelect, setShowSceneSelect] = useState(false);
@@ -762,8 +791,14 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
     <div
       ref={ref}
       style={style}
-      className={`${bgClass} ${borderClass} rounded-lg p-4 mb-3 ${textColorClass} ${!editMode ? 'cursor-pointer' : ''}`}
+      className={`${bgClass} ${borderClass} ${
+        isInMoveMode ? 'ring-2 ring-blue-500 animate-pulse' : ''
+      } rounded-lg p-4 mb-3 ${textColorClass} ${!editMode ? 'cursor-pointer' : ''}`}
       onClick={handleRowClick}
+      onContextMenu={(e) => onContextMenu?.(e, cue, index)}
+      onTouchStart={(e) => onTouchStart?.(e, cue, index)}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
     >
       {/* Line 1: Cue # + Name, Fade In, Status */}
       <div className="flex items-center justify-between mb-2">
@@ -974,9 +1009,24 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const [error, setError] = useState<string | null>(null);
   const [highlightedCueNumber, setHighlightedCueNumber] = useState<number | null>(null);
 
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    cue: Cue;
+    cueIndex: number;
+  } | null>(null);
+  const [moveModeCueId, setMoveModeCueId] = useState<string | null>(null);
+  const [showEditCueDialog, setShowEditCueDialog] = useState(false);
+  const [editingCue, setEditingCue] = useState<Cue | null>(null);
+
   const followTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentCueRef = useRef<HTMLDivElement | HTMLTableRowElement | null>(null);
   const autoFocusFieldRef = useRef<{ fieldType: string; cueIndex: number } | null>(null);
+
+  // Long-press detection refs
+  const longPressTimer = useRef<number | null>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   const [newCue, setNewCue] = useState({
     name: '',
@@ -1179,6 +1229,208 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     }
   }, [searchParams]);
 
+  // Exit move mode when clicking outside
+  useEffect(() => {
+    if (!moveModeCueId) return;
+
+    const handleClickOutside = (_e: MouseEvent) => {
+      // Exit move mode if clicking outside the cue
+      setMoveModeCueId(null);
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [moveModeCueId]);
+
+  // Context menu handlers
+  const handleCueContextMenu = useCallback(
+    (e: React.MouseEvent, cue: Cue, index: number) => {
+      if (editMode) return; // Only in play mode
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        cue,
+        cueIndex: index,
+      });
+    },
+    [editMode]
+  );
+
+  // Long-press detection
+  const startLongPressDetection = useCallback(
+    (x: number, y: number, cue: Cue, index: number) => {
+      if (editMode) return;
+      touchStart.current = { x, y };
+      longPressTimer.current = window.setTimeout(() => {
+        if ('vibrate' in navigator) {
+          navigator.vibrate(50);
+        }
+        setContextMenu({ x, y, cue, cueIndex: index });
+      }, 500);
+    },
+    [editMode]
+  );
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    touchStart.current = null;
+  }, []);
+
+  // Touch handlers
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent, cue: Cue, index: number) => {
+      const touch = e.touches[0];
+      startLongPressDetection(touch.clientX, touch.clientY, cue, index);
+    },
+    [startLongPressDetection]
+  );
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!touchStart.current) return;
+      const touch = e.touches[0];
+      const dx = Math.abs(touch.clientX - touchStart.current.x);
+      const dy = Math.abs(touch.clientY - touchStart.current.y);
+      if (dx > 10 || dy > 10) {
+        cancelLongPress();
+      }
+    },
+    [cancelLongPress]
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    cancelLongPress();
+  }, [cancelLongPress]);
+
+  // Context menu option handlers
+  const handleEditCue = useCallback(() => {
+    if (!contextMenu) return;
+    setEditingCue(contextMenu.cue);
+    setShowEditCueDialog(true);
+    setContextMenu(null);
+  }, [contextMenu]);
+
+  const handleContextMenuEditScene = useCallback(
+    async (cue: Cue) => {
+      // Activate scene to prevent blackout
+      await activateScene({
+        variables: { sceneId: cue.scene.id },
+      });
+      // Navigate to scene editor with fromPlayer params
+      router.push(
+        `/scenes/${cue.scene.id}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}`
+      );
+      setContextMenu(null);
+    },
+    [activateScene, router, cueListId]
+  );
+
+  const handleDuplicateCue = useCallback(
+    async () => {
+      if (!contextMenu || !cueList) return;
+      const { cue } = contextMenu;
+
+      try {
+        // Duplicate the scene
+        const duplicateResult = await duplicateScene({
+          variables: { id: cue.scene.id },
+        });
+        const newSceneId = duplicateResult.data?.duplicateScene?.id;
+
+        // Create new cue with next decimal number
+        const newCueNumber = cue.cueNumber + 0.1;
+        await createCue({
+          variables: {
+            input: {
+              cueNumber: newCueNumber,
+              name: `${cue.name} (copy)`,
+              cueListId: cueList.id,
+              sceneId: newSceneId || cue.scene.id,
+              fadeInTime: cue.fadeInTime,
+              fadeOutTime: cue.fadeOutTime,
+              followTime: cue.followTime,
+            },
+          },
+          refetchQueries: [{ query: GET_CUE_LIST, variables: { id: cueList.id } }],
+        });
+      } catch (error) {
+        console.error('Failed to duplicate cue:', error);
+      }
+      setContextMenu(null);
+    },
+    [contextMenu, cueList, duplicateScene, createCue]
+  );
+
+  const handleContextMenuDeleteCue = useCallback(() => {
+    if (!contextMenu) return;
+    const { cue } = contextMenu;
+
+    if (window.confirm(`Delete cue "${cue.name}"?`)) {
+      deleteCue({ variables: { id: cue.id } });
+    }
+    setContextMenu(null);
+  }, [contextMenu, deleteCue]);
+
+  const handleMoveCue = useCallback(() => {
+    if (!contextMenu) return;
+    setMoveModeCueId(contextMenu.cue.id);
+    setContextMenu(null);
+    // Visual indicator will highlight the cue in move mode
+  }, [contextMenu]);
+
+  // EditCueDialog update handler
+  const handleEditCueDialogUpdate = useCallback(
+    async (params: {
+      cueId: string;
+      cueNumber?: number;
+      name?: string;
+      sceneId?: string;
+      fadeInTime?: number;
+      fadeOutTime?: number;
+      followTime?: number;
+      action: 'edit-scene' | 'stay';
+    }) => {
+      try {
+        // Update the cue
+        await updateCue({
+          variables: {
+            id: params.cueId,
+            input: {
+              name: params.name,
+              cueNumber: params.cueNumber,
+              cueListId: cueList?.id,
+              sceneId: params.sceneId,
+              fadeInTime: params.fadeInTime,
+              fadeOutTime: params.fadeOutTime,
+              followTime: params.followTime,
+            },
+          },
+          refetchQueries: [{ query: GET_CUE_LIST, variables: { id: cueListId } }],
+        });
+
+        if (params.action === 'edit-scene' && params.sceneId) {
+          // Activate scene and navigate to editor
+          await activateScene({
+            variables: { sceneId: params.sceneId },
+          });
+          router.push(
+            `/scenes/${params.sceneId}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}`
+          );
+        }
+
+        setShowEditCueDialog(false);
+        setEditingCue(null);
+      } catch (error) {
+        console.error('Failed to update cue:', error);
+      }
+    },
+    [cueList, cueListId, updateCue, activateScene, router]
+  );
 
   const handleJumpToCue = useCallback(async (cue: Cue, index: number) => {
     if (!cueList) return;
@@ -1325,6 +1577,9 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+
+    // Clear move mode after drag completes
+    setMoveModeCueId(null);
 
     if (active.id !== over?.id && cueList) {
       const oldIndex = cueList.cues.findIndex((cue: Cue) => cue.id === active.id);
@@ -1723,6 +1978,11 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                       currentCueRef={currentCueRef}
                       autoFocusFieldRef={autoFocusFieldRef}
                       highlightedCueNumber={highlightedCueNumber}
+                      onContextMenu={handleCueContextMenu}
+                      onTouchStart={handleTouchStart}
+                      onTouchMove={handleTouchMove}
+                      onTouchEnd={handleTouchEnd}
+                      isInMoveMode={moveModeCueId === cue.id}
                     />
                   );
                 })}
@@ -1815,6 +2075,11 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                           currentCueRef={currentCueRef}
                           autoFocusFieldRef={autoFocusFieldRef}
                           highlightedCueNumber={highlightedCueNumber}
+                          onContextMenu={handleCueContextMenu}
+                          onTouchStart={handleTouchStart}
+                          onTouchMove={handleTouchMove}
+                          onTouchEnd={handleTouchEnd}
+                          isInMoveMode={moveModeCueId === cue.id}
                         />
                       );
                     })
@@ -1948,6 +2213,75 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
         defaultFadeOutTime={cueList?.defaultFadeOutTime || 3}
         onAdd={handleAddCueFromDialog}
       />
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          options={[
+            {
+              label: 'Edit Cue',
+              onClick: handleEditCue,
+              icon: (
+                <PencilIcon className="w-4 h-4" />
+              ),
+            },
+            {
+              label: 'Edit Scene',
+              onClick: () => handleContextMenuEditScene(contextMenu.cue),
+              icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              ),
+            },
+            {
+              label: 'Duplicate Cue',
+              onClick: handleDuplicateCue,
+              icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              ),
+            },
+            {
+              label: 'Move Cue',
+              onClick: handleMoveCue,
+              icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
+              ),
+            },
+            {
+              label: 'Delete Cue',
+              onClick: handleContextMenuDeleteCue,
+              icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              ),
+              className: 'text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300',
+            },
+          ]}
+          onDismiss={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Edit Cue Dialog */}
+      {showEditCueDialog && editingCue && (
+        <EditCueDialog
+          isOpen={showEditCueDialog}
+          onClose={() => {
+            setShowEditCueDialog(false);
+            setEditingCue(null);
+          }}
+          cue={editingCue}
+          scenes={scenes}
+          onUpdate={handleEditCueDialogUpdate}
+        />
+      )}
     </div>
   );
 }
