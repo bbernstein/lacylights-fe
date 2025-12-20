@@ -1,7 +1,14 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useQuery, useMutation } from '@apollo/client';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
+import { useQuery, useMutation } from "@apollo/client";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   GET_CUE_LIST,
   GET_CUE_LIST_PLAYBACK_STATUS,
@@ -15,43 +22,48 @@ import {
   NEXT_CUE,
   PREVIOUS_CUE,
   GO_TO_CUE,
-  STOP_CUE_LIST
-} from '@/graphql/cueLists';
-import { GET_PROJECT_SCENES } from '@/graphql/scenes';
-import { Cue, Scene } from '@/types';
-import { convertCueIndexForLocalState } from '@/utils/cueListHelpers';
-import BulkFadeUpdateModal from './BulkFadeUpdateModal';
-import SceneEditorModal from './SceneEditorModal';
-import { useCueListPlayback } from '@/hooks/useCueListPlayback';
-import { PencilIcon } from '@heroicons/react/24/outline';
-import FadeProgressChart from './FadeProgressChart';
-import { EasingType } from '@/utils/easing';
+  STOP_CUE_LIST,
+} from "@/graphql/cueLists";
+import {
+  GET_PROJECT_SCENES,
+  DUPLICATE_SCENE,
+  ACTIVATE_SCENE,
+} from "@/graphql/scenes";
+import { Cue, Scene } from "@/types";
+import { convertCueIndexForLocalState } from "@/utils/cueListHelpers";
+import BulkFadeUpdateModal from "./BulkFadeUpdateModal";
+import AddCueDialog from "./AddCueDialog";
+import { useCueListPlayback } from "@/hooks/useCueListPlayback";
+import FadeProgressChart from "./FadeProgressChart";
+import { EasingType } from "@/utils/easing";
 import {
   DndContext,
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
   DraggableAttributes,
   DraggableSyntheticListeners,
-} from '@dnd-kit/core';
+} from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-
+} from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import EditCueDialog from "./EditCueDialog";
+import ContextMenu from "./ContextMenu";
+import { PencilIcon } from "@heroicons/react/24/outline";
 
 interface CueListUnifiedViewProps {
   cueListId: string;
   onClose: () => void;
 }
-
 
 interface EditableCellProps {
   value: number;
@@ -62,10 +74,23 @@ interface EditableCellProps {
   min?: number;
   fieldType?: string;
   cueIndex?: number;
-  autoFocusFieldRef?: React.MutableRefObject<{ fieldType: string; cueIndex: number } | null>;
+  autoFocusFieldRef?: React.MutableRefObject<{
+    fieldType: string;
+    cueIndex: number;
+  } | null>;
 }
 
-function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 0.001, min = 0, fieldType, cueIndex, autoFocusFieldRef }: EditableCellProps) {
+function EditableCell({
+  value,
+  onUpdate,
+  disabled = false,
+  suffix = "s",
+  step = 0.001,
+  min = 0,
+  fieldType,
+  cueIndex,
+  autoFocusFieldRef,
+}: EditableCellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value.toString());
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,7 +105,8 @@ function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (autoFocusFieldRef?.current && fieldType && cueIndex !== undefined) {
-      const { fieldType: targetFieldType, cueIndex: targetCueIndex } = autoFocusFieldRef.current;
+      const { fieldType: targetFieldType, cueIndex: targetCueIndex } =
+        autoFocusFieldRef.current;
       if (targetFieldType === fieldType && targetCueIndex === cueIndex) {
         setIsEditing(true);
         // Don't clear the ref here - wait until we actually focus
@@ -95,7 +121,8 @@ function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 
 
       // Clear the ref now that we've actually entered edit mode
       if (autoFocusFieldRef?.current && fieldType && cueIndex !== undefined) {
-        const { fieldType: targetFieldType, cueIndex: targetCueIndex } = autoFocusFieldRef.current;
+        const { fieldType: targetFieldType, cueIndex: targetCueIndex } =
+          autoFocusFieldRef.current;
         if (targetFieldType === fieldType && targetCueIndex === cueIndex) {
           autoFocusFieldRef.current = null;
         }
@@ -118,19 +145,19 @@ function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 
     setIsEditing(false);
   };
 
-  const navigateToField = (direction: 'up' | 'down') => {
+  const navigateToField = (direction: "up" | "down") => {
     if (!fieldType || cueIndex === undefined) {
       return;
     }
 
     // Calculate target field
-    const targetIndex = direction === 'down' ? cueIndex + 1 : cueIndex - 1;
+    const targetIndex = direction === "down" ? cueIndex + 1 : cueIndex - 1;
 
     // Store which field should auto-focus after the GraphQL refetch
     if (autoFocusFieldRef) {
       autoFocusFieldRef.current = {
         fieldType,
-        cueIndex: targetIndex
+        cueIndex: targetIndex,
       };
     }
 
@@ -139,20 +166,20 @@ function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.stopPropagation();
       handleSave();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       e.stopPropagation();
       handleCancel();
-    } else if (e.key === 'ArrowDown') {
+    } else if (e.key === "ArrowDown") {
       e.preventDefault();
       e.stopPropagation();
-      navigateToField('down');
-    } else if (e.key === 'ArrowUp') {
+      navigateToField("down");
+    } else if (e.key === "ArrowUp") {
       e.preventDefault();
       e.stopPropagation();
-      navigateToField('up');
+      navigateToField("up");
     }
     // Tab key: let default behavior happen, onBlur will save
   };
@@ -180,9 +207,10 @@ function EditableCell({ value, onUpdate, disabled = false, suffix = 's', step = 
           disabled={disabled}
           data-field-type={fieldType}
           data-cue-index={cueIndex}
-          className={`text-left w-full ${disabled ? 'cursor-default' : 'hover:bg-gray-100 dark:hover:bg-gray-700 px-1 rounded cursor-pointer'}`}
+          className={`text-left w-full ${disabled ? "cursor-default" : "hover:bg-gray-100 dark:hover:bg-gray-700 px-1 rounded cursor-pointer"}`}
         >
-          {value}{suffix}
+          {value}
+          {suffix}
         </button>
       )}
     </div>
@@ -196,10 +224,21 @@ interface EditableTextCellProps {
   placeholder?: string;
   fieldType?: string;
   cueIndex?: number;
-  autoFocusFieldRef?: React.MutableRefObject<{ fieldType: string; cueIndex: number } | null>;
+  autoFocusFieldRef?: React.MutableRefObject<{
+    fieldType: string;
+    cueIndex: number;
+  } | null>;
 }
 
-function EditableTextCell({ value, onUpdate, disabled = false, placeholder = '', fieldType, cueIndex, autoFocusFieldRef }: EditableTextCellProps) {
+function EditableTextCell({
+  value,
+  onUpdate,
+  disabled = false,
+  placeholder = "",
+  fieldType,
+  cueIndex,
+  autoFocusFieldRef,
+}: EditableTextCellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -214,7 +253,8 @@ function EditableTextCell({ value, onUpdate, disabled = false, placeholder = '',
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (autoFocusFieldRef?.current && fieldType && cueIndex !== undefined) {
-      const { fieldType: targetFieldType, cueIndex: targetCueIndex } = autoFocusFieldRef.current;
+      const { fieldType: targetFieldType, cueIndex: targetCueIndex } =
+        autoFocusFieldRef.current;
       if (targetFieldType === fieldType && targetCueIndex === cueIndex) {
         setIsEditing(true);
         // Don't clear the ref here - wait until we actually focus
@@ -229,7 +269,8 @@ function EditableTextCell({ value, onUpdate, disabled = false, placeholder = '',
 
       // Clear the ref now that we've actually entered edit mode
       if (autoFocusFieldRef?.current && fieldType && cueIndex !== undefined) {
-        const { fieldType: targetFieldType, cueIndex: targetCueIndex } = autoFocusFieldRef.current;
+        const { fieldType: targetFieldType, cueIndex: targetCueIndex } =
+          autoFocusFieldRef.current;
         if (targetFieldType === fieldType && targetCueIndex === cueIndex) {
           autoFocusFieldRef.current = null;
         }
@@ -252,19 +293,19 @@ function EditableTextCell({ value, onUpdate, disabled = false, placeholder = '',
     setIsEditing(false);
   };
 
-  const navigateToField = (direction: 'up' | 'down') => {
+  const navigateToField = (direction: "up" | "down") => {
     if (!fieldType || cueIndex === undefined) {
       return;
     }
 
     // Calculate target field
-    const targetIndex = direction === 'down' ? cueIndex + 1 : cueIndex - 1;
+    const targetIndex = direction === "down" ? cueIndex + 1 : cueIndex - 1;
 
     // Store which field should auto-focus after the GraphQL refetch
     if (autoFocusFieldRef) {
       autoFocusFieldRef.current = {
         fieldType,
-        cueIndex: targetIndex
+        cueIndex: targetIndex,
       };
     }
 
@@ -273,20 +314,20 @@ function EditableTextCell({ value, onUpdate, disabled = false, placeholder = '',
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.stopPropagation();
       handleSave();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       e.stopPropagation();
       handleCancel();
-    } else if (e.key === 'ArrowDown') {
+    } else if (e.key === "ArrowDown") {
       e.preventDefault();
       e.stopPropagation();
-      navigateToField('down');
-    } else if (e.key === 'ArrowUp') {
+      navigateToField("down");
+    } else if (e.key === "ArrowUp") {
       e.preventDefault();
       e.stopPropagation();
-      navigateToField('up');
+      navigateToField("up");
     }
     // Tab key: let default behavior happen, onBlur will save
   };
@@ -315,7 +356,7 @@ function EditableTextCell({ value, onUpdate, disabled = false, placeholder = '',
       disabled={disabled}
       data-field-type={fieldType}
       data-cue-index={cueIndex}
-      className={`text-left w-full ${disabled ? 'cursor-default' : 'hover:bg-gray-100 dark:hover:bg-gray-700 px-1 rounded cursor-pointer'}`}
+      className={`text-left w-full ${disabled ? "cursor-default" : "hover:bg-gray-100 dark:hover:bg-gray-700 px-1 rounded cursor-pointer"}`}
     >
       {value}
     </button>
@@ -337,8 +378,19 @@ interface SortableCueRowProps {
   scenes: Scene[];
   isSelected: boolean;
   onSelect: (cueId: string, selected: boolean) => void;
-  currentCueRef?: React.MutableRefObject<HTMLTableRowElement | HTMLDivElement | null>;
-  autoFocusFieldRef?: React.MutableRefObject<{ fieldType: string; cueIndex: number } | null>;
+  currentCueRef?: React.MutableRefObject<
+    HTMLTableRowElement | HTMLDivElement | null
+  >;
+  autoFocusFieldRef?: React.MutableRefObject<{
+    fieldType: string;
+    cueIndex: number;
+  } | null>;
+  highlightedCueNumber?: number | null;
+  onContextMenu?: (e: React.MouseEvent, cue: Cue, index: number) => void;
+  onTouchStart?: (e: React.TouchEvent, cue: Cue, index: number) => void;
+  onTouchMove?: (e: React.TouchEvent) => void;
+  onTouchEnd?: () => void;
+  isInMoveMode?: boolean;
 }
 
 function SortableCueRow(props: SortableCueRowProps) {
@@ -349,7 +401,10 @@ function SortableCueRow(props: SortableCueRowProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: props.cue.id });
+  } = useSortable({
+    id: props.cue.id,
+    disabled: !props.isInMoveMode && !props.editMode, // Only draggable in move mode or edit mode
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -358,13 +413,21 @@ function SortableCueRow(props: SortableCueRowProps) {
   };
 
   // Combine sortable ref and scroll ref
-  const combinedRef = useCallback((node: HTMLTableRowElement | null) => {
-    setNodeRef(node);
-    // Only set ref if element is active AND visible (not hidden by CSS)
-    if (props.currentCueRef && props.isActive && node && node.offsetParent !== null) {
-      props.currentCueRef.current = node;
-    }
-  }, [setNodeRef, props.currentCueRef, props.isActive]);
+  const combinedRef = useCallback(
+    (node: HTMLTableRowElement | null) => {
+      setNodeRef(node);
+      // Only set ref if element is active AND visible (not hidden by CSS)
+      if (
+        props.currentCueRef &&
+        props.isActive &&
+        node &&
+        node.offsetParent !== null
+      ) {
+        props.currentCueRef.current = node;
+      }
+    },
+    [setNodeRef, props.currentCueRef, props.isActive],
+  );
 
   return (
     <CueRow
@@ -374,267 +437,356 @@ function SortableCueRow(props: SortableCueRowProps) {
       dragAttributes={attributes}
       dragListeners={listeners}
       isDragging={isDragging}
+      highlightedCueNumber={props.highlightedCueNumber}
     />
   );
 }
 
-const CueRow = React.forwardRef<HTMLTableRowElement, SortableCueRowProps & {
-  style?: React.CSSProperties;
-  dragAttributes?: DraggableAttributes;
-  dragListeners?: DraggableSyntheticListeners;
-  isDragging?: boolean;
-}>(({
-  cue,
-  index,
-  isActive,
-  isNext,
-  isPrevious,
-  fadeProgress,
-  onJumpToCue,
-  onUpdateCue,
-  onDeleteCue,
-  onEditScene,
-  editMode,
-  scenes,
-  isSelected,
-  onSelect,
-  style,
-  dragAttributes,
-  dragListeners,
-  isDragging,
-  autoFocusFieldRef
-}, ref) => {
-  const [showSceneSelect, setShowSceneSelect] = useState(false);
-  const [selectedSceneId, setSelectedSceneId] = useState(cue.scene.id);
-
-  let rowBgClass = '';
-  let textColorClass = 'text-gray-800 dark:text-gray-100';
-
-  if (isActive) {
-    rowBgClass = 'bg-green-50 dark:bg-green-900/40';
-    textColorClass = 'text-gray-900 dark:text-white';
-  } else if (isNext) {
-    rowBgClass = 'bg-blue-50 dark:bg-blue-900/30';
-    textColorClass = 'text-gray-900 dark:text-white';
-  } else if (isPrevious) {
-    rowBgClass = 'bg-gray-50 dark:bg-gray-800/50';
-  } else {
-    rowBgClass = 'bg-white dark:bg-gray-800';
+const CueRow = React.forwardRef<
+  HTMLTableRowElement,
+  SortableCueRowProps & {
+    style?: React.CSSProperties;
+    dragAttributes?: DraggableAttributes;
+    dragListeners?: DraggableSyntheticListeners;
+    isDragging?: boolean;
+    highlightedCueNumber?: number | null;
   }
+>(
+  (
+    {
+      cue,
+      index,
+      isActive,
+      isNext,
+      isPrevious,
+      fadeProgress,
+      onJumpToCue,
+      onUpdateCue,
+      onDeleteCue,
+      onEditScene,
+      editMode,
+      scenes,
+      isSelected,
+      onSelect,
+      style,
+      dragAttributes,
+      dragListeners,
+      isDragging,
+      autoFocusFieldRef,
+      highlightedCueNumber,
+      onContextMenu,
+      onTouchStart,
+      onTouchMove,
+      onTouchEnd,
+      isInMoveMode,
+    },
+    ref,
+  ) => {
+    const [showSceneSelect, setShowSceneSelect] = useState(false);
+    const [selectedSceneId, setSelectedSceneId] = useState(cue.scene.id);
 
-  if (isDragging) {
-    rowBgClass = 'bg-yellow-50 dark:bg-yellow-900/20';
-  }
+    const isHighlighted =
+      highlightedCueNumber !== null && cue.cueNumber === highlightedCueNumber;
 
-  const handleRowClick = () => {
-    if (!editMode) {
-      onJumpToCue(cue, index);
+    let rowBgClass = "";
+    let textColorClass = "text-gray-800 dark:text-gray-100";
+    let borderClass = "";
+
+    if (isActive) {
+      rowBgClass = "bg-green-50 dark:bg-green-900/40";
+      textColorClass = "text-gray-900 dark:text-white";
+    } else if (isNext) {
+      rowBgClass = "bg-blue-50 dark:bg-blue-900/30";
+      textColorClass = "text-gray-900 dark:text-white";
+    } else if (isPrevious) {
+      rowBgClass = "bg-gray-50 dark:bg-gray-800/50";
+    } else {
+      rowBgClass = "bg-white dark:bg-gray-800";
     }
-  };
 
-  const handleSceneChange = () => {
-    onUpdateCue({
-      ...cue,
-      scene: scenes.find(s => s.id === selectedSceneId) || cue.scene,
-    });
-    setShowSceneSelect(false);
-  };
+    if (isDragging) {
+      rowBgClass = "bg-yellow-50 dark:bg-yellow-900/20";
+    }
 
-  return (
-    <tr
-      ref={ref}
-      style={style}
-      className={`${rowBgClass} transition-colors duration-300 border-b border-gray-200 dark:border-gray-700 ${!editMode ? 'cursor-pointer hover:bg-opacity-80' : ''}`}
-      onClick={handleRowClick}
-    >
-      <td className="px-3 py-3">
-        {editMode && (
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={(e) => {
-              e.stopPropagation();
-              onSelect(cue.id, e.target.checked);
-            }}
-            onClick={(e) => e.stopPropagation()}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-        )}
-      </td>
+    if (isHighlighted) {
+      borderClass = "border-l-4 border-yellow-500 animate-pulse";
+    }
 
-      <td className="px-3 py-3">
-        {editMode && (
-          <button
-            className="cursor-grab hover:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 mr-2"
-            {...dragAttributes}
-            {...dragListeners}
-            onClick={(e) => e.stopPropagation()}
-            title="Drag to reorder"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9h8M8 15h8" />
-            </svg>
-          </button>
-        )}
-        <span className={`text-sm font-medium ${textColorClass}`}>
-          {cue.cueNumber}
-        </span>
-      </td>
+    const handleRowClick = () => {
+      if (!editMode) {
+        onJumpToCue(cue, index);
+      }
+    };
 
-      <td className={`px-3 py-3 text-sm font-medium ${textColorClass}`} onClick={(e) => e.stopPropagation()}>
-        <EditableTextCell
-          value={cue.name}
-          onUpdate={(value) => onUpdateCue({ ...cue, name: value })}
-          disabled={!editMode}
-          fieldType="name"
-          cueIndex={index}
-          autoFocusFieldRef={autoFocusFieldRef}
-        />
-      </td>
+    const handleSceneChange = () => {
+      onUpdateCue({
+        ...cue,
+        scene: scenes.find((s) => s.id === selectedSceneId) || cue.scene,
+      });
+      setShowSceneSelect(false);
+    };
 
-      <td className={`px-3 py-3 text-sm ${textColorClass}`} onClick={(e) => e.stopPropagation()}>
-        {editMode && showSceneSelect ? (
-          <div className="flex items-center space-x-1">
-            <select
-              value={selectedSceneId}
-              onChange={(e) => setSelectedSceneId(e.target.value)}
-              className="text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {scenes.map((scene) => (
-                <option key={scene.id} value={scene.id}>{scene.name}</option>
-              ))}
-            </select>
-            <button
-              onClick={handleSceneChange}
-              className="text-green-600 hover:text-green-800 p-1"
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </button>
-            <button
-              onClick={() => {
-                setSelectedSceneId(cue.scene.id);
-                setShowSceneSelect(false);
+    return (
+      <tr
+        ref={ref}
+        style={style}
+        className={`${rowBgClass} ${borderClass} ${
+          isInMoveMode ? "ring-2 ring-blue-500 animate-pulse" : ""
+        } transition-colors duration-300 border-b border-gray-200 dark:border-gray-700 ${!editMode ? "cursor-pointer hover:bg-opacity-80" : ""}`}
+        onClick={handleRowClick}
+        onContextMenu={(e) => onContextMenu?.(e, cue, index)}
+        onTouchStart={(e) => onTouchStart?.(e, cue, index)}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        <td className="px-3 py-3">
+          {editMode && (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={(e) => {
+                e.stopPropagation();
+                onSelect(cue.id, e.target.checked);
               }}
-              className="text-gray-600 hover:text-gray-800 p-1"
+              onClick={(e) => e.stopPropagation()}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+          )}
+        </td>
+
+        <td className="px-3 py-3">
+          {editMode && (
+            <button
+              className="cursor-grab hover:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 mr-2 touch-none"
+              {...dragAttributes}
+              {...dragListeners}
+              onClick={(e) => e.stopPropagation()}
+              title="Drag to reorder"
             >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 9h8M8 15h8"
+                />
               </svg>
             </button>
-          </div>
-        ) : (
-          <div className="flex items-center space-x-2 relative">
-            {/* Fade progress chart for active cue */}
-            {isActive && fadeProgress !== undefined && fadeProgress > 0 && fadeProgress < 100 && !editMode && (
-              <div className="absolute inset-0 opacity-30 overflow-hidden rounded">
-                <FadeProgressChart
-                  progress={fadeProgress}
-                  easingType={(cue.easingType as EasingType) || 'EASE_IN_OUT_SINE'}
-                  className="w-full h-full"
-                />
-              </div>
-            )}
-            <button
-              onClick={() => editMode && setShowSceneSelect(true)}
-              disabled={!editMode}
-              className={`relative z-10 ${editMode ? 'hover:underline' : ''}`}
-            >
-              {cue.scene.name}
-            </button>
+          )}
+          <span className={`text-sm font-medium ${textColorClass}`}>
+            {cue.cueNumber}
+          </span>
+        </td>
+
+        <td
+          className={`px-3 py-3 text-sm font-medium ${textColorClass}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <EditableTextCell
+            value={cue.name}
+            onUpdate={(value) => onUpdateCue({ ...cue, name: value })}
+            disabled={!editMode}
+            fieldType="name"
+            cueIndex={index}
+            autoFocusFieldRef={autoFocusFieldRef}
+          />
+        </td>
+
+        <td
+          className={`px-3 py-3 text-sm ${textColorClass}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {editMode && showSceneSelect ? (
+            <div className="flex items-center space-x-1">
+              <select
+                value={selectedSceneId}
+                onChange={(e) => setSelectedSceneId(e.target.value)}
+                className="text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {scenes.map((scene) => (
+                  <option key={scene.id} value={scene.id}>
+                    {scene.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleSceneChange}
+                className="text-green-600 hover:text-green-800 p-1"
+              >
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedSceneId(cue.scene.id);
+                  setShowSceneSelect(false);
+                }}
+                className="text-gray-600 hover:text-gray-800 p-1"
+              >
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2 relative">
+              {/* Fade progress chart for active cue */}
+              {isActive &&
+                fadeProgress !== undefined &&
+                fadeProgress > 0 &&
+                fadeProgress < 100 &&
+                !editMode && (
+                  <div className="absolute inset-0 opacity-30 overflow-hidden rounded">
+                    <FadeProgressChart
+                      progress={fadeProgress}
+                      easingType={
+                        (cue.easingType as EasingType) || "EASE_IN_OUT_SINE"
+                      }
+                      className="w-full h-full"
+                    />
+                  </div>
+                )}
+              <button
+                onClick={() => editMode && setShowSceneSelect(true)}
+                disabled={!editMode}
+                className={`relative z-10 ${editMode ? "hover:underline" : ""}`}
+              >
+                {cue.scene.name}
+              </button>
+              {editMode && (
+                <button
+                  onClick={() => onEditScene(cue.scene.id)}
+                  className="relative z-10 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1"
+                  title="Edit scene"
+                  aria-label="Edit scene"
+                >
+                  <PencilIcon className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          )}
+        </td>
+
+        <td
+          className={`px-3 py-3 text-sm ${textColorClass}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <EditableCell
+            value={cue.fadeInTime}
+            onUpdate={(value) => onUpdateCue({ ...cue, fadeInTime: value })}
+            disabled={!editMode}
+            fieldType="fadeIn"
+            cueIndex={index}
+            autoFocusFieldRef={autoFocusFieldRef}
+          />
+        </td>
+
+        <td
+          className={`px-3 py-3 text-sm ${textColorClass}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <EditableCell
+            value={cue.fadeOutTime}
+            onUpdate={(value) => onUpdateCue({ ...cue, fadeOutTime: value })}
+            disabled={!editMode}
+            fieldType="fadeOut"
+            cueIndex={index}
+            autoFocusFieldRef={autoFocusFieldRef}
+          />
+        </td>
+
+        <td
+          className={`px-3 py-3 text-sm ${textColorClass}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <EditableCell
+            value={cue.followTime ?? 0}
+            onUpdate={(value) =>
+              onUpdateCue({ ...cue, followTime: value > 0 ? value : undefined })
+            }
+            disabled={!editMode}
+            fieldType="follow"
+            cueIndex={index}
+            autoFocusFieldRef={autoFocusFieldRef}
+          />
+        </td>
+
+        <td className="px-3 py-3">
+          <div className="flex items-center space-x-2">
             {editMode && (
               <button
-                onClick={() => onEditScene(cue.scene.id)}
-                className="relative z-10 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1"
-                title="Edit scene"
-                aria-label="Edit scene"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteCue(cue);
+                }}
+                className="text-red-600 hover:text-red-800 p-1"
+                title="Delete cue"
               >
-                <PencilIcon className="w-4 h-4" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
               </button>
             )}
           </div>
-        )}
-      </td>
+        </td>
 
-      <td className={`px-3 py-3 text-sm ${textColorClass}`} onClick={(e) => e.stopPropagation()}>
-        <EditableCell
-          value={cue.fadeInTime}
-          onUpdate={(value) => onUpdateCue({ ...cue, fadeInTime: value })}
-          disabled={!editMode}
-          fieldType="fadeIn"
-          cueIndex={index}
-          autoFocusFieldRef={autoFocusFieldRef}
-        />
-      </td>
-
-      <td className={`px-3 py-3 text-sm ${textColorClass}`} onClick={(e) => e.stopPropagation()}>
-        <EditableCell
-          value={cue.fadeOutTime}
-          onUpdate={(value) => onUpdateCue({ ...cue, fadeOutTime: value })}
-          disabled={!editMode}
-          fieldType="fadeOut"
-          cueIndex={index}
-          autoFocusFieldRef={autoFocusFieldRef}
-        />
-      </td>
-
-      <td className={`px-3 py-3 text-sm ${textColorClass}`} onClick={(e) => e.stopPropagation()}>
-        <EditableCell
-          value={cue.followTime ?? 0}
-          onUpdate={(value) => onUpdateCue({ ...cue, followTime: value > 0 ? value : undefined })}
-          disabled={!editMode}
-          fieldType="follow"
-          cueIndex={index}
-          autoFocusFieldRef={autoFocusFieldRef}
-        />
-      </td>
-
-      <td className="px-3 py-3">
-        <div className="flex items-center space-x-2">
-          {isActive && (
-            <span className="text-green-600 dark:text-green-400 font-medium text-sm">LIVE</span>
-          )}
-          {isNext && !isActive && (
-            <span className="text-blue-600 dark:text-blue-400 font-medium text-sm">NEXT</span>
-          )}
-          {editMode && (
+        <td className="px-3 py-3">
+          {!editMode && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onDeleteCue(cue);
+                onJumpToCue(cue, index);
               }}
-              className="text-red-600 hover:text-red-800 p-1"
-              title="Delete cue"
+              className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 px-2 py-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-xs font-medium"
+              title="Jump to this cue"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
+              GO
             </button>
           )}
-        </div>
-      </td>
+        </td>
+      </tr>
+    );
+  },
+);
 
-      <td className="px-3 py-3">
-        {!editMode && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onJumpToCue(cue, index);
-            }}
-            className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 px-2 py-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-xs font-medium"
-            title="Jump to this cue"
-          >
-            GO
-          </button>
-        )}
-      </td>
-    </tr>
-  );
-});
-
-CueRow.displayName = 'CueRow';
+CueRow.displayName = "CueRow";
 
 function SortableCueCard(props: SortableCueRowProps) {
   const {
@@ -644,7 +796,10 @@ function SortableCueCard(props: SortableCueRowProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: props.cue.id });
+  } = useSortable({
+    id: props.cue.id,
+    disabled: !props.isInMoveMode && !props.editMode, // Only draggable in move mode or edit mode
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -653,13 +808,21 @@ function SortableCueCard(props: SortableCueRowProps) {
   };
 
   // Combine sortable ref and scroll ref
-  const combinedRef = useCallback((node: HTMLDivElement | null) => {
-    setNodeRef(node);
-    // Only set ref if element is active AND visible (not hidden by CSS)
-    if (props.currentCueRef && props.isActive && node && node.offsetParent !== null) {
-      props.currentCueRef.current = node;
-    }
-  }, [setNodeRef, props.currentCueRef, props.isActive]);
+  const combinedRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      setNodeRef(node);
+      // Only set ref if element is active AND visible (not hidden by CSS)
+      if (
+        props.currentCueRef &&
+        props.isActive &&
+        node &&
+        node.offsetParent !== null
+      ) {
+        props.currentCueRef.current = node;
+      }
+    },
+    [setNodeRef, props.currentCueRef, props.isActive],
+  );
 
   return (
     <CueCard
@@ -669,16 +832,21 @@ function SortableCueCard(props: SortableCueRowProps) {
       dragAttributes={attributes}
       dragListeners={listeners}
       isDragging={isDragging}
+      highlightedCueNumber={props.highlightedCueNumber}
     />
   );
 }
 
-const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
-  style?: React.CSSProperties;
-  dragAttributes?: DraggableAttributes;
-  dragListeners?: DraggableSyntheticListeners;
-  isDragging?: boolean;
-}>((props, ref) => {
+const CueCard = React.forwardRef<
+  HTMLDivElement,
+  SortableCueRowProps & {
+    style?: React.CSSProperties;
+    dragAttributes?: DraggableAttributes;
+    dragListeners?: DraggableSyntheticListeners;
+    isDragging?: boolean;
+    highlightedCueNumber?: number | null;
+  }
+>((props, ref) => {
   const {
     cue,
     index,
@@ -699,24 +867,41 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
     dragListeners,
     isDragging,
     autoFocusFieldRef,
+    highlightedCueNumber,
+    onContextMenu,
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd,
+    isInMoveMode,
   } = props;
 
   const [showSceneSelect, setShowSceneSelect] = useState(false);
   const [selectedSceneId, setSelectedSceneId] = useState(cue.scene.id);
 
-  let bgClass = 'bg-white dark:bg-gray-800';
-  let textColorClass = 'text-gray-800 dark:text-gray-100';
+  const isHighlighted =
+    highlightedCueNumber !== null && cue.cueNumber === highlightedCueNumber;
+
+  let bgClass = "bg-white dark:bg-gray-800";
+  let textColorClass = "text-gray-800 dark:text-gray-100";
+  let borderClass = "border-2";
 
   if (isDragging) {
-    bgClass = 'bg-yellow-50 dark:bg-yellow-900/20';
+    bgClass = "bg-yellow-50 dark:bg-yellow-900/20";
   } else if (isActive) {
-    bgClass = 'bg-green-50 dark:bg-green-900/40 border-green-500';
-    textColorClass = 'text-gray-900 dark:text-white';
+    bgClass = "bg-green-50 dark:bg-green-900/40";
+    borderClass = "border-2 border-green-500";
+    textColorClass = "text-gray-900 dark:text-white";
   } else if (isNext) {
-    bgClass = 'bg-blue-50 dark:bg-blue-900/30 border-blue-500';
-    textColorClass = 'text-gray-900 dark:text-white';
+    bgClass = "bg-blue-50 dark:bg-blue-900/30";
+    borderClass = "border-2 border-blue-500";
+    textColorClass = "text-gray-900 dark:text-white";
   } else if (isPrevious) {
-    bgClass = 'bg-gray-50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-700';
+    bgClass = "bg-gray-50 dark:bg-gray-800/50";
+    borderClass = "border-2 border-gray-300 dark:border-gray-700";
+  }
+
+  if (isHighlighted) {
+    borderClass = "border-4 border-yellow-500 animate-pulse";
   }
 
   const handleRowClick = () => {
@@ -728,7 +913,7 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
   const handleSceneChange = () => {
     onUpdateCue({
       ...cue,
-      scene: scenes.find(s => s.id === selectedSceneId) || cue.scene,
+      scene: scenes.find((s) => s.id === selectedSceneId) || cue.scene,
     });
     setShowSceneSelect(false);
   };
@@ -737,8 +922,14 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
     <div
       ref={ref}
       style={style}
-      className={`${bgClass} border-2 rounded-lg p-4 mb-3 ${textColorClass} ${!editMode ? 'cursor-pointer' : ''}`}
+      className={`${bgClass} ${borderClass} ${
+        isInMoveMode ? "ring-2 ring-blue-500 animate-pulse" : ""
+      } rounded-lg p-4 mb-3 ${textColorClass} ${!editMode ? "cursor-pointer" : ""} select-none`}
       onClick={handleRowClick}
+      onContextMenu={(e) => onContextMenu?.(e, cue, index)}
+      onTouchStart={(e) => onTouchStart?.(e, cue, index)}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
     >
       {/* Line 1: Cue # + Name, Fade In, Status */}
       <div className="flex items-center justify-between mb-2">
@@ -757,19 +948,32 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
           )}
           {editMode && (
             <button
-              className="cursor-grab hover:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+              className="cursor-grab hover:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 touch-none"
               {...dragAttributes}
               {...dragListeners}
               onClick={(e) => e.stopPropagation()}
               title="Drag to reorder"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9h8M8 15h8" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 9h8M8 15h8"
+                />
               </svg>
             </button>
           )}
           <span className="font-bold text-sm">{cue.cueNumber}</span>
-          <div className="font-medium flex-1" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="font-medium flex-1"
+            onClick={(e) => e.stopPropagation()}
+          >
             <EditableTextCell
               value={cue.name}
               onUpdate={(value) => onUpdateCue({ ...cue, name: value })}
@@ -780,7 +984,10 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
             />
           </div>
         </div>
-        <div className="flex items-center space-x-3" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="flex items-center space-x-3"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="text-sm text-right">
             <span className="text-gray-500 dark:text-gray-400">in: </span>
             <EditableCell
@@ -792,15 +999,18 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
               autoFocusFieldRef={autoFocusFieldRef}
             />
           </div>
-          {isActive && <span className="text-green-600 dark:text-green-400 font-bold text-xs">LIVE</span>}
-          {isNext && !isActive && <span className="text-blue-600 dark:text-blue-400 font-bold text-xs">NEXT</span>}
         </div>
       </div>
 
       {/* Line 2: Scene, Fade Out */}
-      <div className="flex items-center justify-between mb-2" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="flex items-center justify-between mb-2"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center space-x-2 flex-1">
-          <span className="text-sm text-gray-500 dark:text-gray-400">Scene:</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            Scene:
+          </span>
           {editMode && showSceneSelect ? (
             <div className="flex items-center space-x-1">
               <select
@@ -810,15 +1020,27 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
                 onClick={(e) => e.stopPropagation()}
               >
                 {scenes.map((scene) => (
-                  <option key={scene.id} value={scene.id}>{scene.name}</option>
+                  <option key={scene.id} value={scene.id}>
+                    {scene.name}
+                  </option>
                 ))}
               </select>
               <button
                 onClick={handleSceneChange}
                 className="text-green-600 hover:text-green-800 p-1"
               >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
               </button>
               <button
@@ -828,26 +1050,42 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
                 }}
                 className="text-gray-600 hover:text-gray-800 p-1"
               >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
           ) : (
             <div className="flex items-center space-x-2 relative flex-1">
-              {isActive && fadeProgress !== undefined && fadeProgress > 0 && fadeProgress < 100 && !editMode && (
-                <div className="absolute inset-0 opacity-30 overflow-hidden rounded">
-                  <FadeProgressChart
-                    progress={fadeProgress}
-                    easingType={(cue.easingType as EasingType) || 'EASE_IN_OUT_SINE'}
-                    className="w-full h-full"
-                  />
-                </div>
-              )}
+              {isActive &&
+                fadeProgress !== undefined &&
+                fadeProgress > 0 &&
+                fadeProgress < 100 &&
+                !editMode && (
+                  <div className="absolute inset-0 opacity-30 overflow-hidden rounded">
+                    <FadeProgressChart
+                      progress={fadeProgress}
+                      easingType={
+                        (cue.easingType as EasingType) || "EASE_IN_OUT_SINE"
+                      }
+                      className="w-full h-full"
+                    />
+                  </div>
+                )}
               <button
                 onClick={() => editMode && setShowSceneSelect(true)}
                 disabled={!editMode}
-                className={`relative z-10 text-sm ${editMode ? 'hover:underline' : ''}`}
+                className={`relative z-10 text-sm ${editMode ? "hover:underline" : ""}`}
               >
                 {cue.scene.name}
               </button>
@@ -877,7 +1115,10 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
       </div>
 
       {/* Line 3: Follow time, GO button, Delete */}
-      <div className="flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="flex items-center justify-between"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex-1">
           {editMode && (
             <button
@@ -888,8 +1129,18 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
               className="text-red-600 hover:text-red-800 p-1"
               title="Delete cue"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
               </svg>
             </button>
           )}
@@ -899,7 +1150,12 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
             <span className="text-gray-500 dark:text-gray-400">follow: </span>
             <EditableCell
               value={cue.followTime ?? 0}
-              onUpdate={(value) => onUpdateCue({ ...cue, followTime: value > 0 ? value : undefined })}
+              onUpdate={(value) =>
+                onUpdateCue({
+                  ...cue,
+                  followTime: value > 0 ? value : undefined,
+                })
+              }
               disabled={!editMode}
               fieldType="follow"
               cueIndex={index}
@@ -924,48 +1180,80 @@ const CueCard = React.forwardRef<HTMLDivElement, SortableCueRowProps & {
   );
 });
 
-CueCard.displayName = 'CueCard';
+CueCard.displayName = "CueCard";
 
-export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifiedViewProps) {
-  const [editMode, setEditMode] = useState(false);
+export default function CueListUnifiedView({
+  cueListId,
+  onClose,
+}: CueListUnifiedViewProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const editMode = true; // Always in edit mode - use CueListPlayer for playing
 
   // Real-time playback synchronization
   const { playbackStatus } = useCueListPlayback(cueListId);
 
   // Get current state from subscription data only
-  const currentCueIndex = convertCueIndexForLocalState(playbackStatus?.currentCueIndex);
+  const currentCueIndex = convertCueIndexForLocalState(
+    playbackStatus?.currentCueIndex,
+  );
   const isPlaying = playbackStatus?.isPlaying || false;
   const fadeProgress = playbackStatus?.fadeProgress ?? 0;
 
   const [selectedCueIds, setSelectedCueIds] = useState<Set<string>>(new Set());
   const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
   const [showAddCue, setShowAddCue] = useState(false);
-  const [cueListName, setCueListName] = useState('');
-  const [cueListDescription, setCueListDescription] = useState('');
+  const [showAddCueDialog, setShowAddCueDialog] = useState(false);
+  const [cueListName, setCueListName] = useState("");
+  const [cueListDescription, setCueListDescription] = useState("");
   const [cueListLoop, setCueListLoop] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
+  const [highlightedCueNumber, setHighlightedCueNumber] = useState<
+    number | null
+  >(null);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    cue: Cue;
+    cueIndex: number;
+  } | null>(null);
+  const [moveModeCueId, setMoveModeCueId] = useState<string | null>(null);
+  const [showEditCueDialog, setShowEditCueDialog] = useState(false);
+  const [editingCue, setEditingCue] = useState<Cue | null>(null);
 
   const followTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const currentCueRef = useRef<HTMLDivElement | HTMLTableRowElement | null>(null);
-  const autoFocusFieldRef = useRef<{ fieldType: string; cueIndex: number } | null>(null);
+  const currentCueRef = useRef<HTMLDivElement | HTMLTableRowElement | null>(
+    null,
+  );
+  const autoFocusFieldRef = useRef<{
+    fieldType: string;
+    cueIndex: number;
+  } | null>(null);
+  const longPressTimer = useRef<number | null>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   const [newCue, setNewCue] = useState({
-    name: '',
-    cueNumber: '1',
-    sceneId: '',
-    fadeInTime: '3',
-    fadeOutTime: '3',
-    followTime: '0',
-    notes: '',
+    name: "",
+    cueNumber: "1",
+    sceneId: "",
+    fadeInTime: "3",
+    fadeOutTime: "3",
+    followTime: "0",
+    notes: "",
   });
 
-  const { data: cueListData, loading, refetch } = useQuery(GET_CUE_LIST, {
+  const {
+    data: cueListData,
+    loading,
+    refetch,
+  } = useQuery(GET_CUE_LIST, {
     variables: { id: cueListId },
     onCompleted: (data) => {
       if (data.cueList) {
         setCueListName(data.cueList.name);
-        setCueListDescription(data.cueList.description || '');
+        setCueListDescription(data.cueList.description || "");
         setCueListLoop(data.cueList.loop || false);
       }
     },
@@ -977,9 +1265,10 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   });
 
   // Memoize refetch configuration to avoid recreating on every render
-  const refetchPlaybackStatus = useMemo(() => [
-    { query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }
-  ], [cueListId]);
+  const refetchPlaybackStatus = useMemo(
+    () => [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
+    [cueListId],
+  );
 
   const [fadeToBlack] = useMutation(FADE_TO_BLACK, {
     onError: (error) => {
@@ -1032,13 +1321,13 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       refetch();
       setShowAddCue(false);
       setNewCue({
-        name: '',
-        cueNumber: '1',
-        sceneId: '',
-        fadeInTime: '3',
-        fadeOutTime: '3',
-        followTime: '0',
-        notes: '',
+        name: "",
+        cueNumber: "1",
+        sceneId: "",
+        fadeInTime: "3",
+        fadeOutTime: "3",
+        followTime: "0",
+        notes: "",
       });
     },
     onError: (error) => {
@@ -1070,10 +1359,25 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     },
   });
 
+  const [duplicateScene] = useMutation(DUPLICATE_SCENE, {
+    onError: (error) => {
+      setError(`Failed to duplicate scene: ${error.message}`);
+    },
+  });
+
+  const [activateScene] = useMutation(ACTIVATE_SCENE, {
+    onError: (error) => {
+      setError(`Failed to activate scene: ${error.message}`);
+    },
+  });
+
   const cueList = cueListData?.cueList;
   const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
   const scenes = scenesData?.project?.scenes || [];
-  const currentCue = currentCueIndex >= 0 && currentCueIndex < cues.length ? cues[currentCueIndex] : null;
+  const currentCue =
+    currentCueIndex >= 0 && currentCueIndex < cues.length
+      ? cues[currentCueIndex]
+      : null;
 
   // Calculate next cue with loop support
   const nextCue = useMemo(() => {
@@ -1081,17 +1385,31 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       return cues[currentCueIndex + 1];
     }
     // If on last cue and loop is enabled, next cue is the first cue
-    if (cueList?.loop && cues.length > 0 && currentCueIndex === cues.length - 1) {
+    if (
+      cueList?.loop &&
+      cues.length > 0 &&
+      currentCueIndex === cues.length - 1
+    ) {
       return cues[0];
     }
     return null;
   }, [currentCueIndex, cues, cueList?.loop]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px of movement before activating
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200, // 200ms delay before activating
+        tolerance: 5, // Allow 5px of movement during delay
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   useEffect(() => {
@@ -1105,13 +1423,17 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     if (!editMode && currentCueIndex >= 0) {
       // Use setTimeout to ensure DOM is ready, especially for mobile layout
       const scrollTimer = setTimeout(() => {
-        if (currentCueRef.current && currentCueRef.current.isConnected && currentCueRef.current.offsetParent !== null) {
+        if (
+          currentCueRef.current &&
+          currentCueRef.current.isConnected &&
+          currentCueRef.current.offsetParent !== null
+        ) {
           // Request animation frame for smoother scrolling, especially on mobile
           requestAnimationFrame(() => {
             currentCueRef.current?.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center',
-              inline: 'nearest'
+              behavior: "smooth",
+              block: "center",
+              inline: "nearest",
             });
           });
         }
@@ -1123,33 +1445,263 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     }
   }, [currentCueIndex, editMode]);
 
+  // Handle highlight flash effect when returning from scene editor
+  useEffect(() => {
+    const highlightCue = searchParams.get("highlightCue");
+    if (highlightCue) {
+      const cueNumber = parseFloat(highlightCue);
+      setHighlightedCueNumber(cueNumber);
 
-  const handleJumpToCue = useCallback(async (cue: Cue, index: number) => {
-    if (!cueList) return;
+      // Clear highlight after 2 seconds
+      const timer = setTimeout(() => {
+        setHighlightedCueNumber(null);
+      }, 2000);
 
-    if (followTimeoutRef.current) {
-      clearTimeout(followTimeoutRef.current);
-      followTimeoutRef.current = null;
+      return () => clearTimeout(timer);
     }
+  }, [searchParams]);
 
-    await goToCue({
-      variables: {
-        cueListId: cueList.id,
+  // Exit move mode when clicking outside
+  useEffect(() => {
+    if (!moveModeCueId) return;
+
+    const handleClickOutside = (_e: MouseEvent) => {
+      setMoveModeCueId(null);
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [moveModeCueId]);
+
+  const handleJumpToCue = useCallback(
+    async (cue: Cue, index: number) => {
+      if (!cueList) return;
+
+      if (followTimeoutRef.current) {
+        clearTimeout(followTimeoutRef.current);
+        followTimeoutRef.current = null;
+      }
+
+      await goToCue({
+        variables: {
+          cueListId: cueList.id,
+          cueIndex: index,
+          fadeInTime: cue.fadeInTime,
+        },
+      });
+
+      if (cue.followTime && cue.followTime > 0 && index + 1 < cues.length) {
+        const totalWaitTime = (cue.fadeInTime + cue.followTime) * 1000;
+        const nextCueIndex = index + 1;
+        const nextCueToPlay = cues[nextCueIndex];
+
+        followTimeoutRef.current = setTimeout(() => {
+          handleJumpToCue(nextCueToPlay, nextCueIndex);
+        }, totalWaitTime);
+      }
+    },
+    [goToCue, cues, cueList],
+  );
+
+  // Context menu handlers
+  const handleCueContextMenu = useCallback(
+    (e: React.MouseEvent, cue: Cue, index: number) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        cue,
         cueIndex: index,
-        fadeInTime: cue.fadeInTime,
-      },
+      });
+    },
+    [],
+  );
+
+  const startLongPressDetection = useCallback(
+    (x: number, y: number, cue: Cue, index: number) => {
+      touchStart.current = { x, y };
+      longPressTimer.current = window.setTimeout(() => {
+        if ("vibrate" in navigator) {
+          navigator.vibrate(50);
+        }
+        setContextMenu({ x, y, cue, cueIndex: index });
+      }, 500);
+    },
+    [],
+  );
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    touchStart.current = null;
+  }, []);
+
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent, cue: Cue, index: number) => {
+      const touch = e.touches[0];
+      // Prevent text selection during long-press detection
+      e.preventDefault();
+      startLongPressDetection(touch.clientX, touch.clientY, cue, index);
+    },
+    [startLongPressDetection],
+  );
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!touchStart.current) return;
+      const touch = e.touches[0];
+      const dx = Math.abs(touch.clientX - touchStart.current.x);
+      const dy = Math.abs(touch.clientY - touchStart.current.y);
+      if (dx > 10 || dy > 10) {
+        cancelLongPress();
+      }
+    },
+    [cancelLongPress],
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    cancelLongPress();
+  }, [cancelLongPress]);
+
+  const handleEditCue = useCallback(() => {
+    if (!contextMenu) return;
+    setEditingCue(contextMenu.cue);
+    setShowEditCueDialog(true);
+    setContextMenu(null);
+  }, [contextMenu]);
+
+  const handleContextMenuEditScene = useCallback(
+    async (cue: Cue) => {
+      await activateScene({
+        variables: { sceneId: cue.scene.id },
+      });
+      router.push(
+        `/scenes/${cue.scene.id}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}`,
+      );
+      setContextMenu(null);
+    },
+    [activateScene, router, cueListId],
+  );
+
+  const handleDuplicateCue = useCallback(async () => {
+    if (!contextMenu || !cueList) return;
+    const { cue } = contextMenu;
+
+    try {
+      const duplicateResult = await duplicateScene({
+        variables: { id: cue.scene.id },
+      });
+      const newSceneId = duplicateResult.data?.duplicateScene?.id;
+
+      const newCueNumber = cue.cueNumber + 0.1;
+      await createCue({
+        variables: {
+          input: {
+            cueNumber: newCueNumber,
+            name: `${cue.name} (copy)`,
+            cueListId: cueList.id,
+            sceneId: newSceneId || cue.scene.id,
+            fadeInTime: cue.fadeInTime,
+            fadeOutTime: cue.fadeOutTime,
+            followTime: cue.followTime,
+          },
+        },
+        refetchQueries: [
+          { query: GET_CUE_LIST, variables: { id: cueList.id } },
+        ],
+      });
+    } catch (error) {
+      console.error("Failed to duplicate cue:", error);
+    }
+    setContextMenu(null);
+  }, [contextMenu, cueList, duplicateScene, createCue]);
+
+  const handleContextMenuDeleteCue = useCallback(() => {
+    if (!contextMenu) return;
+    const { cue } = contextMenu;
+
+    if (window.confirm(`Delete cue "${cue.name}"?`)) {
+      deleteCue({ variables: { id: cue.id } });
+    }
+    setContextMenu(null);
+  }, [contextMenu, deleteCue]);
+
+  const handleMoveCue = useCallback(() => {
+    if (!contextMenu) return;
+    setMoveModeCueId(contextMenu.cue.id);
+    setContextMenu(null);
+  }, [contextMenu]);
+
+  const handleAddCueFromContextMenu = useCallback(() => {
+    if (!contextMenu) return;
+    const { cue } = contextMenu;
+
+    // Set default values from the selected cue
+    setNewCue({
+      name: `Cue ${Math.floor(cue.cueNumber + 0.5)}`,
+      cueNumber: (cue.cueNumber + 0.5).toString(),
+      sceneId: cue.scene.id,
+      fadeInTime: cue.fadeInTime.toString(),
+      fadeOutTime: cue.fadeOutTime.toString(),
+      followTime: cue.followTime?.toString() || "0",
+      notes: "",
     });
 
-    if (cue.followTime && cue.followTime > 0 && index + 1 < cues.length) {
-      const totalWaitTime = (cue.fadeInTime + cue.followTime) * 1000;
-      const nextCueIndex = index + 1;
-      const nextCueToPlay = cues[nextCueIndex];
+    // Open the add cue dialog
+    setShowAddCueDialog(true);
+    setContextMenu(null);
+  }, [contextMenu]);
 
-      followTimeoutRef.current = setTimeout(() => {
-        handleJumpToCue(nextCueToPlay, nextCueIndex);
-      }, totalWaitTime);
-    }
-  }, [goToCue, cues, cueList]);
+  const handleEditCueDialogUpdate = useCallback(
+    async (params: {
+      cueId: string;
+      cueNumber?: number;
+      name?: string;
+      sceneId?: string;
+      fadeInTime?: number;
+      fadeOutTime?: number;
+      followTime?: number;
+      action: "edit-scene" | "stay";
+    }) => {
+      try {
+        await updateCue({
+          variables: {
+            id: params.cueId,
+            input: {
+              name: params.name,
+              cueNumber: params.cueNumber,
+              cueListId: cueList?.id,
+              sceneId: params.sceneId,
+              fadeInTime: params.fadeInTime,
+              fadeOutTime: params.fadeOutTime,
+              followTime: params.followTime,
+            },
+          },
+          refetchQueries: [
+            { query: GET_CUE_LIST, variables: { id: cueListId } },
+          ],
+        });
+
+        if (params.action === "edit-scene" && params.sceneId) {
+          await activateScene({
+            variables: { sceneId: params.sceneId },
+          });
+          router.push(
+            `/scenes/${params.sceneId}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}`,
+          );
+        }
+
+        setShowEditCueDialog(false);
+        setEditingCue(null);
+      } catch (error) {
+        console.error("Failed to update cue:", error);
+      }
+    },
+    [cueList, cueListId, updateCue, activateScene, router],
+  );
 
   const handleNext = useCallback(async () => {
     if (!cueList) return;
@@ -1159,7 +1711,9 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
     // When loop is enabled and at last cue, use first cue's fade time
     const isLooping = cueList.loop && currentCueIndex === cues.length - 1;
-    const fadeInTime = isLooping ? cues[0]?.fadeInTime : cues[currentCueIndex + 1]?.fadeInTime;
+    const fadeInTime = isLooping
+      ? cues[0]?.fadeInTime
+      : cues[currentCueIndex + 1]?.fadeInTime;
 
     await nextCueMutation({
       variables: {
@@ -1219,24 +1773,27 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
     });
   }, [cueList, stopCueList, fadeToBlack]);
 
-  const handleKeyPress = useCallback((e: KeyboardEvent) => {
-    if (!editMode) {
-      if (e.code === 'Space' || e.key === 'Enter') {
-        e.preventDefault();
-        handleGo();
-      } else if (e.key === 'Escape') {
-        handleStop();
-      } else if (e.key === 'ArrowLeft') {
-        handlePrevious();
-      } else if (e.key === 'ArrowRight') {
-        handleNext();
+  const handleKeyPress = useCallback(
+    (e: KeyboardEvent) => {
+      if (!editMode) {
+        if (e.code === "Space" || e.key === "Enter") {
+          e.preventDefault();
+          handleGo();
+        } else if (e.key === "Escape") {
+          handleStop();
+        } else if (e.key === "ArrowLeft") {
+          handlePrevious();
+        } else if (e.key === "ArrowRight") {
+          handleNext();
+        }
       }
-    }
-  }, [editMode, handleGo, handleStop, handlePrevious, handleNext]);
+    },
+    [editMode, handleGo, handleStop, handlePrevious, handleNext],
+  );
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
   }, [handleKeyPress]);
 
   const handleUpdateCue = (cue: Cue) => {
@@ -1270,16 +1827,25 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
+    // Clear move mode after drag completes
+    setMoveModeCueId(null);
+
     if (active.id !== over?.id && cueList) {
-      const oldIndex = cueList.cues.findIndex((cue: Cue) => cue.id === active.id);
-      const newIndex = cueList.cues.findIndex((cue: Cue) => cue.id === over?.id);
+      const oldIndex = cueList.cues.findIndex(
+        (cue: Cue) => cue.id === active.id,
+      );
+      const newIndex = cueList.cues.findIndex(
+        (cue: Cue) => cue.id === over?.id,
+      );
 
       if (oldIndex !== -1 && newIndex !== -1) {
         const reorderedCues = arrayMove(cueList.cues, oldIndex, newIndex);
-        const cueOrders = (reorderedCues as Cue[]).map((cue: Cue, index: number) => ({
-          cueId: cue.id,
-          cueNumber: index + 1,
-        }));
+        const cueOrders = (reorderedCues as Cue[]).map(
+          (cue: Cue, index: number) => ({
+            cueId: cue.id,
+            cueNumber: index + 1,
+          }),
+        );
 
         reorderCues({
           variables: {
@@ -1290,6 +1856,35 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
       }
     }
   };
+
+  const handleRenumberCues = useCallback(() => {
+    if (!cueList) return;
+
+    // Confirm with user
+    if (
+      !window.confirm(
+        "Renumber all cues to sequential whole numbers (1, 2, 3, ...)?\n\nThis will maintain the current order but remove decimal cue numbers.",
+      )
+    ) {
+      return;
+    }
+
+    // Sort cues by current cue number and assign sequential numbers
+    const sortedCues = [...cueList.cues].sort(
+      (a: Cue, b: Cue) => a.cueNumber - b.cueNumber,
+    );
+    const cueOrders = sortedCues.map((cue: Cue, index: number) => ({
+      cueId: cue.id,
+      cueNumber: index + 1,
+    }));
+
+    reorderCues({
+      variables: {
+        cueListId: cueList.id,
+        cueOrders,
+      },
+    });
+  }, [cueList, reorderCues]);
 
   const handleAddCue = () => {
     if (!cueList || !newCue.sceneId) return;
@@ -1303,18 +1898,89 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
           sceneId: newCue.sceneId,
           fadeInTime: parseFloat(newCue.fadeInTime) || 3,
           fadeOutTime: parseFloat(newCue.fadeOutTime) || 3,
-          followTime: newCue.followTime === '' || newCue.followTime == null ? undefined : parseFloat(newCue.followTime),
+          followTime:
+            newCue.followTime === "" || newCue.followTime == null
+              ? undefined
+              : parseFloat(newCue.followTime),
           notes: newCue.notes || undefined,
         },
       },
     });
   };
 
-  const handleUpdateCueList = (overridesOrEvent?: { loop?: boolean } | React.FocusEvent) => {
+  const handleAddCueFromDialog = useCallback(
+    async (params: {
+      cueNumber: number;
+      name: string;
+      sceneId: string;
+      createCopy: boolean;
+      fadeInTime: number;
+      fadeOutTime: number;
+      followTime?: number;
+      action: "edit" | "stay";
+    }) => {
+      if (!cueList) return;
+
+      try {
+        // Duplicate scene if requested
+        let targetSceneId = params.sceneId;
+        if (params.createCopy) {
+          const duplicateResult = await duplicateScene({
+            variables: { id: params.sceneId },
+          });
+          targetSceneId =
+            duplicateResult.data?.duplicateScene?.id || params.sceneId;
+        }
+
+        // Create the cue
+        await createCue({
+          variables: {
+            input: {
+              cueNumber: params.cueNumber,
+              name: params.name,
+              cueListId: cueList.id,
+              sceneId: targetSceneId,
+              fadeInTime: params.fadeInTime,
+              fadeOutTime: params.fadeOutTime,
+              followTime: params.followTime,
+            },
+          },
+          refetchQueries: [
+            { query: GET_CUE_LIST, variables: { id: cueList.id } },
+          ],
+        });
+
+        if (params.action === "edit" && targetSceneId) {
+          // Activate the scene before navigation to prevent blackout
+          await activateScene({
+            variables: { sceneId: targetSceneId },
+          });
+
+          // Navigate to scene editor in layout mode
+          router.push(
+            `/scenes/${targetSceneId}/edit?mode=layout&fromPlayer=true&cueListId=${cueList.id}&returnCueNumber=${params.cueNumber}`,
+          );
+        }
+
+        // Close the dialog
+        setShowAddCueDialog(false);
+      } catch (error) {
+        console.error("Failed to add cue:", error);
+      }
+    },
+    [cueList, createCue, duplicateScene, activateScene, router],
+  );
+
+  const handleUpdateCueList = (
+    overridesOrEvent?: { loop?: boolean } | React.FocusEvent,
+  ) => {
     if (!cueList) return;
 
     // Check if this is an overrides object (has a loop property) or an event
-    const overrides = overridesOrEvent && 'loop' in overridesOrEvent ? overridesOrEvent : undefined;
+    const overrides =
+      overridesOrEvent && "loop" in overridesOrEvent
+        ? overridesOrEvent
+        : undefined;
 
     updateCueList({
       variables: {
@@ -1330,7 +1996,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
   };
 
   const handleSelectCue = (cueId: string, selected: boolean) => {
-    setSelectedCueIds(prev => {
+    setSelectedCueIds((prev) => {
       const newSet = new Set(prev);
       if (selected) {
         newSet.add(cueId);
@@ -1351,28 +2017,27 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
   const getNextCueNumber = useCallback(() => {
     if (!cueList?.cues || cueList.cues.length === 0) return 1;
-    const maxCueNumber = Math.max(0, ...cueList.cues.map((c: Cue) => c.cueNumber));
+    const maxCueNumber = Math.max(
+      0,
+      ...cueList.cues.map((c: Cue) => c.cueNumber),
+    );
     return maxCueNumber + 1;
   }, [cueList?.cues]);
 
   useEffect(() => {
     if (showAddCue) {
-      setNewCue(prev => ({ ...prev, cueNumber: getNextCueNumber().toString() }));
+      setNewCue((prev) => ({
+        ...prev,
+        cueNumber: getNextCueNumber().toString(),
+      }));
     }
   }, [showAddCue, getNextCueNumber]);
 
-  const selectedCues = cueList?.cues.filter((cue: Cue) => selectedCueIds.has(cue.id)) || [];
+  const selectedCues =
+    cueList?.cues.filter((cue: Cue) => selectedCueIds.has(cue.id)) || [];
 
   const handleEditScene = (sceneId: string) => {
-    setEditingSceneId(sceneId);
-  };
-
-  const handleSceneUpdated = () => {
-    refetch();
-  };
-
-  const handleCloseSceneEditor = () => {
-    setEditingSceneId(null);
+    router.push(`/scenes/${sceneId}/edit?mode=layout`);
   };
 
   if (loading) {
@@ -1407,18 +2072,8 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                 className="text-xl md:text-2xl font-bold bg-transparent text-white border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none"
                 disabled={!editMode}
               />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setEditMode(!editMode)}
-                  className={`px-3 py-1 rounded text-sm font-medium whitespace-nowrap ${
-                    editMode
-                      ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                      : 'bg-green-600 hover:bg-green-700 text-white'
-                  }`}
-                  title={editMode ? 'Switch to Play mode' : 'Switch to Edit mode'}
-                >
-                  {editMode ? 'EDITING' : 'PLAYING'}
-                </button>
+              <div className="px-3 py-1 rounded text-sm font-medium whitespace-nowrap bg-yellow-600 text-white">
+                EDITING
               </div>
             </div>
             {/* Description */}
@@ -1432,35 +2087,24 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                 disabled={!editMode}
               />
             )}
-            {/* Loop checkbox */}
-            {editMode && (
-              <div className="mt-2">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={cueListLoop}
-                    onChange={(e) => {
-                      const newLoopValue = e.target.checked;
-                      setCueListLoop(newLoopValue);
-                      // Update immediately with new value (don't wait for state update)
-                      handleUpdateCueList({ loop: newLoopValue });
-                    }}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-300">
-                    Loop cue list (restart from first cue after last cue finishes)
-                  </span>
-                </label>
-              </div>
-            )}
           </div>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white p-2 rounded hover:bg-gray-700 flex-shrink-0"
             title="Close unified view"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -1477,9 +2121,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
         <div className="bg-gray-800/50 border-b border-gray-700 px-6 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-400">
-                {cues.length} cues
-              </span>
+              <span className="text-sm text-gray-400">{cues.length} cues</span>
               {selectedCueIds.size > 0 && (
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-400">
@@ -1494,12 +2136,27 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                 </div>
               )}
             </div>
-            <button
-              onClick={() => setShowAddCue(!showAddCue)}
-              className="px-3 py-1 text-sm font-medium rounded text-white bg-blue-600 hover:bg-blue-700"
-            >
-              {showAddCue ? 'Cancel' : 'Add Cue'}
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setShowAddCueDialog(true)}
+                className="px-3 py-1 text-sm font-medium rounded text-white bg-green-600 hover:bg-green-700"
+              >
+                Add Cue
+              </button>
+              <button
+                onClick={() => setShowAddCue(!showAddCue)}
+                className="px-3 py-1 text-sm font-medium rounded text-white bg-blue-600 hover:bg-blue-700"
+              >
+                {showAddCue ? "Cancel" : "Quick Add"}
+              </button>
+              <button
+                onClick={handleRenumberCues}
+                className="px-3 py-1 text-sm font-medium rounded text-white bg-purple-600 hover:bg-purple-700"
+                title="Renumber all cues to sequential whole numbers while maintaining order"
+              >
+                Renumber
+              </button>
+            </div>
           </div>
 
           {showAddCue && (
@@ -1510,24 +2167,32 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                   step="0.1"
                   placeholder="Cue #"
                   value={newCue.cueNumber}
-                  onChange={(e) => setNewCue({ ...newCue, cueNumber: e.target.value })}
+                  onChange={(e) =>
+                    setNewCue({ ...newCue, cueNumber: e.target.value })
+                  }
                   className="rounded border-gray-600 bg-gray-700 text-white text-sm min-w-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
                 <input
                   type="text"
                   placeholder="Cue name"
                   value={newCue.name}
-                  onChange={(e) => setNewCue({ ...newCue, name: e.target.value })}
+                  onChange={(e) =>
+                    setNewCue({ ...newCue, name: e.target.value })
+                  }
                   className="rounded border-gray-600 bg-gray-700 text-white text-sm md:col-span-2 min-w-0"
                 />
                 <select
                   value={newCue.sceneId}
-                  onChange={(e) => setNewCue({ ...newCue, sceneId: e.target.value })}
+                  onChange={(e) =>
+                    setNewCue({ ...newCue, sceneId: e.target.value })
+                  }
                   className="rounded border-gray-600 bg-gray-700 text-white text-sm min-w-0"
                 >
                   <option value="">Select scene...</option>
                   {scenes.map((scene: Scene) => (
-                    <option key={scene.id} value={scene.id}>{scene.name}</option>
+                    <option key={scene.id} value={scene.id}>
+                      {scene.name}
+                    </option>
                   ))}
                 </select>
                 <div className="flex items-center space-x-1 min-w-0">
@@ -1536,7 +2201,9 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                     step="0.001"
                     placeholder="In"
                     value={newCue.fadeInTime}
-                    onChange={(e) => setNewCue({ ...newCue, fadeInTime: e.target.value })}
+                    onChange={(e) =>
+                      setNewCue({ ...newCue, fadeInTime: e.target.value })
+                    }
                     className="rounded border-gray-600 bg-gray-700 text-white text-sm w-16 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                   <input
@@ -1544,7 +2211,9 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                     step="0.001"
                     placeholder="Out"
                     value={newCue.fadeOutTime}
-                    onChange={(e) => setNewCue({ ...newCue, fadeOutTime: e.target.value })}
+                    onChange={(e) =>
+                      setNewCue({ ...newCue, fadeOutTime: e.target.value })
+                    }
                     className="rounded border-gray-600 bg-gray-700 text-white text-sm w-16 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
@@ -1568,7 +2237,10 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
           {cues.length === 0 ? (
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 text-center">
               <p className="text-gray-500 dark:text-gray-400">
-                No cues yet. {editMode ? 'Add your first cue to get started.' : 'Switch to edit mode to add cues.'}
+                No cues yet.{" "}
+                {editMode
+                  ? "Add your first cue to get started."
+                  : "Switch to edit mode to add cues."}
               </p>
             </div>
           ) : (
@@ -1583,8 +2255,12 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
               >
                 {cues.map((cue: Cue, index: number) => {
                   // Calculate isNext with loop support
-                  const isLoopingToFirst = cueList?.loop && currentCueIndex === cues.length - 1 && index === 0;
-                  const isNext = index === currentCueIndex + 1 || isLoopingToFirst;
+                  const isLoopingToFirst =
+                    cueList?.loop &&
+                    currentCueIndex === cues.length - 1 &&
+                    index === 0;
+                  const isNext =
+                    index === currentCueIndex + 1 || isLoopingToFirst;
                   const isActive = index === currentCueIndex;
 
                   return (
@@ -1594,7 +2270,10 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                       index={index}
                       isActive={isActive}
                       isNext={isNext}
-                      isPrevious={index < currentCueIndex && !(isLoopingToFirst && index === 0)}
+                      isPrevious={
+                        index < currentCueIndex &&
+                        !(isLoopingToFirst && index === 0)
+                      }
                       fadeProgress={isActive ? fadeProgress : undefined}
                       onJumpToCue={handleJumpToCue}
                       onUpdateCue={handleUpdateCue}
@@ -1606,6 +2285,12 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                       onSelect={handleSelectCue}
                       currentCueRef={currentCueRef}
                       autoFocusFieldRef={autoFocusFieldRef}
+                      highlightedCueNumber={highlightedCueNumber}
+                      onContextMenu={handleCueContextMenu}
+                      onTouchStart={handleTouchStart}
+                      onTouchMove={handleTouchMove}
+                      onTouchEnd={handleTouchEnd}
+                      isInMoveMode={moveModeCueId === cue.id}
                     />
                   );
                 })}
@@ -1628,7 +2313,10 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                     {editMode && (
                       <input
                         type="checkbox"
-                        checked={selectedCueIds.size > 0 && selectedCueIds.size === cueList.cues.length}
+                        checked={
+                          selectedCueIds.size > 0 &&
+                          selectedCueIds.size === cueList.cues.length
+                        }
                         onChange={(e) => handleSelectAll(e.target.checked)}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
@@ -1656,7 +2344,7 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                     Status
                   </th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
-                    {!editMode && 'Jump'}
+                    {!editMode && "Jump"}
                   </th>
                 </tr>
               </thead>
@@ -1667,15 +2355,25 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                 <tbody className="bg-white dark:bg-gray-800">
                   {cues.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                        No cues yet. {editMode ? 'Add your first cue to get started.' : 'Switch to edit mode to add cues.'}
+                      <td
+                        colSpan={9}
+                        className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                      >
+                        No cues yet.{" "}
+                        {editMode
+                          ? "Add your first cue to get started."
+                          : "Switch to edit mode to add cues."}
                       </td>
                     </tr>
                   ) : (
                     cues.map((cue: Cue, index: number) => {
                       // Calculate isNext with loop support
-                      const isLoopingToFirst = cueList?.loop && currentCueIndex === cues.length - 1 && index === 0;
-                      const isNext = index === currentCueIndex + 1 || isLoopingToFirst;
+                      const isLoopingToFirst =
+                        cueList?.loop &&
+                        currentCueIndex === cues.length - 1 &&
+                        index === 0;
+                      const isNext =
+                        index === currentCueIndex + 1 || isLoopingToFirst;
                       const isActive = index === currentCueIndex;
 
                       return (
@@ -1685,7 +2383,10 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                           index={index}
                           isActive={isActive}
                           isNext={isNext}
-                          isPrevious={index < currentCueIndex && !(isLoopingToFirst && index === 0)}
+                          isPrevious={
+                            index < currentCueIndex &&
+                            !(isLoopingToFirst && index === 0)
+                          }
                           fadeProgress={isActive ? fadeProgress : undefined}
                           onJumpToCue={handleJumpToCue}
                           onUpdateCue={handleUpdateCue}
@@ -1697,6 +2398,12 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
                           onSelect={handleSelectCue}
                           currentCueRef={currentCueRef}
                           autoFocusFieldRef={autoFocusFieldRef}
+                          highlightedCueNumber={highlightedCueNumber}
+                          onContextMenu={handleCueContextMenu}
+                          onTouchStart={handleTouchStart}
+                          onTouchMove={handleTouchMove}
+                          onTouchEnd={handleTouchEnd}
+                          isInMoveMode={moveModeCueId === cue.id}
                         />
                       );
                     })
@@ -1721,13 +2428,27 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
             }}
             className={`p-3 rounded-lg transition-colors ${
               cueList.loop
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                ? "bg-blue-600 hover:bg-blue-700 text-white"
+                : "bg-gray-700 hover:bg-gray-600 text-gray-300"
             }`}
-            title={cueList.loop ? 'Loop enabled - Click to disable' : 'Loop disabled - Click to enable'}
+            title={
+              cueList.loop
+                ? "Loop enabled - Click to disable"
+                : "Loop disabled - Click to enable"
+            }
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
           </button>
 
@@ -1737,28 +2458,56 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
             className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="Previous (←)"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
 
           <button
             onClick={handleGo}
-            disabled={isPlaying || (!cueList?.loop && currentCueIndex >= cues.length - 1) || editMode}
+            disabled={
+              isPlaying ||
+              (!cueList?.loop && currentCueIndex >= cues.length - 1) ||
+              editMode
+            }
             className="px-8 py-3 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-lg transition-colors"
             title="GO (Space/Enter)"
           >
-            {currentCueIndex === -1 ? 'START' : 'GO'}
+            {currentCueIndex === -1 ? "START" : "GO"}
           </button>
 
           <button
             onClick={handleNext}
-            disabled={isPlaying || (!cueList?.loop && currentCueIndex >= cues.length - 1) || editMode}
+            disabled={
+              isPlaying ||
+              (!cueList?.loop && currentCueIndex >= cues.length - 1) ||
+              editMode
+            }
             className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="Next (→)"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
             </svg>
           </button>
 
@@ -1768,9 +2517,24 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
             className="p-3 rounded-lg bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Stop (Esc)"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10h6v4H9z" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 10h6v4H9z"
+              />
             </svg>
           </button>
         </div>
@@ -1783,10 +2547,10 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
               onClick={() => handleJumpToCue(cue, index)}
               className={`w-2 h-2 rounded-full transition-all ${
                 index === currentCueIndex
-                  ? 'bg-green-500 w-3 h-3'
+                  ? "bg-green-500 w-3 h-3"
                   : index < currentCueIndex
-                  ? 'bg-gray-600'
-                  : 'bg-gray-700 hover:bg-gray-600'
+                    ? "bg-gray-600"
+                    : "bg-gray-700 hover:bg-gray-600"
               }`}
               title={`${cue.cueNumber}: ${cue.name}`}
             />
@@ -1795,17 +2559,23 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
 
         {/* Status text */}
         <div className="mt-3 text-center text-xs text-gray-500">
-          {!editMode && 'Space/Enter = GO | ← → = Navigate | Esc = Stop'}
-          {editMode && 'Edit mode active - Click values to edit'}
+          {!editMode && "Space/Enter = GO | ← → = Navigate | Esc = Stop"}
+          {editMode && "Edit mode active - Click values to edit"}
         </div>
 
         {/* Additional info on larger screens */}
         <div className="hidden md:flex justify-between items-center mt-3 text-sm text-gray-400">
           <div>
-            Current: {currentCue ? `Cue ${currentCue.cueNumber} - ${currentCue.name}` : 'None'}
+            Current:{" "}
+            {currentCue
+              ? `Cue ${currentCue.cueNumber} - ${currentCue.name}`
+              : "None"}
           </div>
           <div>
-            Next: {nextCue ? `Cue ${nextCue.cueNumber} - ${nextCue.name}` : 'End of list'}
+            Next:{" "}
+            {nextCue
+              ? `Cue ${nextCue.cueNumber} - ${nextCue.name}`
+              : "End of list"}
           </div>
         </div>
       </div>
@@ -1818,13 +2588,147 @@ export default function CueListUnifiedView({ cueListId, onClose }: CueListUnifie
         onUpdate={refetch}
       />
 
-      {/* Scene Editor Modal */}
-      <SceneEditorModal
-        isOpen={!!editingSceneId}
-        onClose={handleCloseSceneEditor}
-        sceneId={editingSceneId}
-        onSceneUpdated={handleSceneUpdated}
+      {/* Add Cue Dialog */}
+      <AddCueDialog
+        isOpen={showAddCueDialog}
+        onClose={() => setShowAddCueDialog(false)}
+        cueListId={cueListId}
+        currentCueNumber={
+          currentCueIndex >= 0 ? cues[currentCueIndex]?.cueNumber || 0 : 0
+        }
+        currentSceneId={currentCue?.scene.id || null}
+        scenes={scenes}
+        defaultFadeInTime={cueList?.defaultFadeInTime || 3}
+        defaultFadeOutTime={cueList?.defaultFadeOutTime || 3}
+        onAdd={handleAddCueFromDialog}
       />
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          options={[
+            {
+              label: "Edit Cue",
+              onClick: handleEditCue,
+              icon: <PencilIcon className="w-4 h-4" />,
+            },
+            {
+              label: "Edit Scene",
+              onClick: () => handleContextMenuEditScene(contextMenu.cue),
+              icon: (
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
+              ),
+            },
+            {
+              label: "Duplicate Cue",
+              onClick: handleDuplicateCue,
+              icon: (
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+              ),
+            },
+            {
+              label: "Add Cue",
+              onClick: handleAddCueFromContextMenu,
+              icon: (
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+              ),
+            },
+            {
+              label: "Move Cue",
+              onClick: handleMoveCue,
+              icon: (
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+                  />
+                </svg>
+              ),
+            },
+            {
+              label: "Delete Cue",
+              onClick: handleContextMenuDeleteCue,
+              icon: (
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+              ),
+              className:
+                "text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300",
+            },
+          ]}
+          onDismiss={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Edit Cue Dialog */}
+      {showEditCueDialog && editingCue && (
+        <EditCueDialog
+          isOpen={showEditCueDialog}
+          onClose={() => {
+            setShowEditCueDialog(false);
+            setEditingCue(null);
+          }}
+          cue={editingCue}
+          scenes={scenes}
+          onUpdate={handleEditCueDialogUpdate}
+        />
+      )}
     </div>
   );
 }
