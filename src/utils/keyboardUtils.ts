@@ -24,7 +24,8 @@ export function shouldIgnoreKeyboardEvent(event: KeyboardEvent): boolean {
   let element: HTMLElement | null = target;
   while (element) {
     // Get tagName in uppercase for case-insensitive comparison (defensive programming)
-    const tagName = element.tagName?.toUpperCase();
+    // Fallback to empty string for non-standard DOM nodes that may lack tagName
+    const tagName = element.tagName?.toUpperCase() || '';
 
     // Ignore events from input fields, textareas, select elements, and content-editable elements
     if (

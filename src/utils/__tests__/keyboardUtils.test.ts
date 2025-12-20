@@ -171,5 +171,23 @@ describe("keyboardUtils", () => {
       // Readonly inputs still block shortcuts - user can still navigate text with arrows
       expect(shouldIgnoreKeyboardEvent(event)).toBe(true);
     });
+
+    it("should handle non-standard DOM nodes with undefined tagName", () => {
+      // Create a mock element that might not have a tagName (edge case)
+      const mockElement = {
+        tagName: undefined,
+        contentEditable: "false",
+        parentElement: null,
+      } as unknown as HTMLElement;
+
+      const event = new KeyboardEvent("keydown", { key: " " });
+      Object.defineProperty(event, "target", {
+        value: mockElement,
+        writable: false,
+      });
+
+      // Should not throw and should return false
+      expect(shouldIgnoreKeyboardEvent(event)).toBe(false);
+    });
   });
 });
