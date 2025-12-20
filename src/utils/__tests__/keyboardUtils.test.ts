@@ -83,5 +83,65 @@ describe("keyboardUtils", () => {
 
       expect(shouldIgnoreKeyboardEvent(event)).toBe(false);
     });
+
+    it("should return true when event target is a child of contentEditable element", () => {
+      const div = document.createElement("div");
+      div.contentEditable = "true";
+      const span = document.createElement("span");
+      div.appendChild(span);
+      document.body.appendChild(div);
+
+      const event = new KeyboardEvent("keydown", { key: " " });
+      Object.defineProperty(event, "target", {
+        value: span,
+        writable: false,
+      });
+
+      expect(shouldIgnoreKeyboardEvent(event)).toBe(true);
+
+      document.body.removeChild(div);
+    });
+
+    it("should return true when event target is a deeply nested element in contentEditable", () => {
+      const div = document.createElement("div");
+      div.contentEditable = "true";
+      const paragraph = document.createElement("p");
+      const span = document.createElement("span");
+      const textNode = document.createElement("b");
+
+      div.appendChild(paragraph);
+      paragraph.appendChild(span);
+      span.appendChild(textNode);
+      document.body.appendChild(div);
+
+      const event = new KeyboardEvent("keydown", { key: "ArrowLeft" });
+      Object.defineProperty(event, "target", {
+        value: textNode,
+        writable: false,
+      });
+
+      expect(shouldIgnoreKeyboardEvent(event)).toBe(true);
+
+      document.body.removeChild(div);
+    });
+
+    it("should return true when event target is nested within an INPUT container", () => {
+      // This test ensures we handle the case where focus is on an input element
+      // that might be wrapped in other containers
+      const form = document.createElement("form");
+      const input = document.createElement("input");
+      form.appendChild(input);
+      document.body.appendChild(form);
+
+      const event = new KeyboardEvent("keydown", { key: " " });
+      Object.defineProperty(event, "target", {
+        value: input,
+        writable: false,
+      });
+
+      expect(shouldIgnoreKeyboardEvent(event)).toBe(true);
+
+      document.body.removeChild(form);
+    });
   });
 });
