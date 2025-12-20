@@ -38,6 +38,7 @@ import AddCueDialog from "./AddCueDialog";
 import EditCueDialog from "./EditCueDialog";
 import ContextMenu from "./ContextMenu";
 import { PencilIcon } from "@heroicons/react/24/outline";
+import { shouldIgnoreKeyboardEvent } from "@/utils/keyboardUtils";
 
 interface CueListPlayerProps {
   cueListId: string;
@@ -764,6 +765,11 @@ export default function CueListPlayer({
 
   const handleKeyPress = useCallback(
     (e: KeyboardEvent) => {
+      // Ignore keyboard events when user is typing in input fields
+      if (shouldIgnoreKeyboardEvent(e)) {
+        return;
+      }
+
       switch (e.key) {
         case " ":
         case "Enter":

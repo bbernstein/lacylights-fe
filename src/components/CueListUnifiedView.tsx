@@ -31,6 +31,7 @@ import {
 } from "@/graphql/scenes";
 import { Cue, Scene } from "@/types";
 import { convertCueIndexForLocalState } from "@/utils/cueListHelpers";
+import { shouldIgnoreKeyboardEvent } from "@/utils/keyboardUtils";
 import BulkFadeUpdateModal from "./BulkFadeUpdateModal";
 import AddCueDialog from "./AddCueDialog";
 import { useCueListPlayback } from "@/hooks/useCueListPlayback";
@@ -1775,6 +1776,11 @@ export default function CueListUnifiedView({
 
   const handleKeyPress = useCallback(
     (e: KeyboardEvent) => {
+      // Ignore keyboard events when user is typing in input fields
+      if (shouldIgnoreKeyboardEvent(e)) {
+        return;
+      }
+
       if (!editMode) {
         if (e.code === "Space" || e.key === "Enter") {
           e.preventDefault();
