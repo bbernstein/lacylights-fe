@@ -13,16 +13,24 @@
  * @returns true if the event should be ignored (user is typing), false if it should be processed
  */
 export function shouldIgnoreKeyboardEvent(event: KeyboardEvent): boolean {
+  // Defensive check: ensure event has a target
+  if (!event.target) {
+    return false;
+  }
+
   const target = event.target as HTMLElement;
 
   // Walk up the DOM tree to check if the target or any parent is an editable element
   let element: HTMLElement | null = target;
   while (element) {
+    // Get tagName in uppercase for case-insensitive comparison (defensive programming)
+    const tagName = element.tagName?.toUpperCase();
+
     // Ignore events from input fields, textareas, select elements, and content-editable elements
     if (
-      element.tagName === "INPUT" ||
-      element.tagName === "TEXTAREA" ||
-      element.tagName === "SELECT" ||
+      tagName === "INPUT" ||
+      tagName === "TEXTAREA" ||
+      tagName === "SELECT" ||
       element.contentEditable === "true"
     ) {
       return true;

@@ -143,5 +143,33 @@ describe("keyboardUtils", () => {
 
       document.body.removeChild(form);
     });
+
+    it("should return false when event.target is null", () => {
+      const event = new KeyboardEvent("keydown", { key: " " });
+      Object.defineProperty(event, "target", { value: null, writable: false });
+
+      expect(shouldIgnoreKeyboardEvent(event)).toBe(false);
+    });
+
+    it("should return true when event target is a disabled INPUT element", () => {
+      const input = document.createElement("input");
+      input.disabled = true;
+      const event = new KeyboardEvent("keydown", { key: " " });
+      Object.defineProperty(event, "target", { value: input, writable: false });
+
+      // Disabled inputs still block shortcuts - user might have focus there
+      // and it would be confusing if shortcuts worked
+      expect(shouldIgnoreKeyboardEvent(event)).toBe(true);
+    });
+
+    it("should return true when event target is a readonly INPUT element", () => {
+      const input = document.createElement("input");
+      input.readOnly = true;
+      const event = new KeyboardEvent("keydown", { key: " " });
+      Object.defineProperty(event, "target", { value: input, writable: false });
+
+      // Readonly inputs still block shortcuts - user can still navigate text with arrows
+      expect(shouldIgnoreKeyboardEvent(event)).toBe(true);
+    });
   });
 });
