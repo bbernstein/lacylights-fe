@@ -43,6 +43,24 @@ interface CueListPlayerProps {
   cueListId: string;
 }
 
+/**
+ * CueListPlayer component provides a streamlined player interface for executing cues in a cue list.
+ *
+ * This component is the main playback interface for lighting operators, offering:
+ * - Sequential cue execution with keyboard controls (Space/Enter for GO)
+ * - Visual feedback with fade progress charts and cue state indicators
+ * - Context menu for quick cue operations (right-click or long-press on mobile)
+ * - Seamless editing workflow with no blackouts during scene activation
+ * - Looping support for continuous playback
+ *
+ * @param props - Component props
+ * @param props.cueListId - The ID of the cue list to display and control. Can be '__dynamic__' for URL-based routing.
+ *
+ * @example
+ * ```tsx
+ * <CueListPlayer cueListId="cue-list-123" />
+ * ```
+ */
 export default function CueListPlayer({
   cueListId: cueListIdProp,
 }: CueListPlayerProps) {
@@ -80,9 +98,13 @@ export default function CueListPlayer({
 
   // Add Cue Dialog state
   const [showAddCueDialog, setShowAddCueDialog] = useState(false);
+  const [addCueError, setAddCueError] = useState<string | null>(null);
 
   // Highlight state for cue that was just edited
   const [highlightedCueId, setHighlightedCueId] = useState<string | null>(null);
+
+  // Error state for mutations
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -93,6 +115,7 @@ export default function CueListPlayer({
   } | null>(null);
   const [showEditCueDialog, setShowEditCueDialog] = useState(false);
   const [editingCue, setEditingCue] = useState<Cue | null>(null);
+  const [editCueError, setEditCueError] = useState<string | null>(null);
 
   // Long-press detection refs
   const longPressTimer = useRef<number | null>(null);
@@ -424,6 +447,11 @@ export default function CueListPlayer({
         }
       } catch (error) {
         console.error("Failed to add cue:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to create cue";
+        setAddCueError(errorMessage);
+        // Don't close dialog - user can retry or cancel
+        return;
       }
     },
     [cueList, createCue, duplicateScene, activateScene, router],
@@ -568,15 +596,26 @@ export default function CueListPlayer({
 
   const handleContextMenuEditScene = useCallback(
     async (cue: Cue) => {
-      // Activate scene to prevent blackout
-      await activateScene({
-        variables: { sceneId: cue.scene.id },
-      });
-      // Navigate to scene editor with fromPlayer params
-      router.push(
-        `/scenes/${cue.scene.id}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}&returnCueNumber=${cue.cueNumber}`,
-      );
-      setContextMenu(null);
+      try {
+        // Activate scene to prevent blackout
+        await activateScene({
+          variables: { sceneId: cue.scene.id },
+        });
+        // Navigate to scene editor with fromPlayer params
+        router.push(
+          `/scenes/${cue.scene.id}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}&returnCueNumber=${cue.cueNumber}`,
+        );
+        setContextMenu(null);
+      } catch (error) {
+        console.error("Failed to activate scene:", error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to activate scene for editing";
+        setMutationError(errorMessage);
+        setTimeout(() => setMutationError(null), 5000);
+        setContextMenu(null);
+      }
     },
     [activateScene, router, cueListId],
   );
@@ -612,6 +651,11 @@ export default function CueListPlayer({
       });
     } catch (error) {
       console.error("Failed to duplicate cue:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to duplicate cue";
+      setMutationError(errorMessage);
+      // Auto-clear error after 5 seconds
+      setTimeout(() => setMutationError(null), 5000);
     }
     setContextMenu(null);
   }, [contextMenu, cueList, duplicateScene, createCue]);
@@ -622,15 +666,25 @@ export default function CueListPlayer({
     setContextMenu(null);
   }, [contextMenu]);
 
-  const handleContextMenuDeleteCue = useCallback(() => {
+  const handleContextMenuDeleteCue = useCallback(async () => {
     if (!contextMenu) return;
     const { cue } = contextMenu;
 
     if (window.confirm(`Delete cue "${cue.name}"?`)) {
-      deleteCue({
-        variables: { id: cue.id },
-        refetchQueries: [{ query: GET_CUE_LIST, variables: { id: cueListId } }],
-      });
+      try {
+        await deleteCue({
+          variables: { id: cue.id },
+          refetchQueries: [
+            { query: GET_CUE_LIST, variables: { id: cueListId } },
+          ],
+        });
+      } catch (error) {
+        console.error("Failed to delete cue:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to delete cue";
+        setMutationError(errorMessage);
+        setTimeout(() => setMutationError(null), 5000);
+      }
     }
     setContextMenu(null);
   }, [contextMenu, deleteCue, cueListId]);
@@ -679,8 +733,14 @@ export default function CueListPlayer({
 
         setShowEditCueDialog(false);
         setEditingCue(null);
+        setEditCueError(null);
       } catch (error) {
         console.error("Failed to update cue:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to update cue";
+        setEditCueError(errorMessage);
+        // Don't close dialog - user can retry or cancel
+        return;
       }
     },
     [cueList, cueListId, updateCue, activateScene, router],
@@ -1028,7 +1088,10 @@ export default function CueListPlayer({
       {/* Add Cue Dialog */}
       <AddCueDialog
         isOpen={showAddCueDialog}
-        onClose={() => setShowAddCueDialog(false)}
+        onClose={() => {
+          setShowAddCueDialog(false);
+          setAddCueError(null);
+        }}
         cueListId={cueList.id}
         currentCueNumber={
           currentCueIndex >= 0
@@ -1041,6 +1104,7 @@ export default function CueListPlayer({
         scenes={scenes}
         defaultFadeInTime={cueList.defaultFadeInTime || 3}
         defaultFadeOutTime={cueList.defaultFadeOutTime || 3}
+        externalError={addCueError}
         onAdd={handleAddCue}
       />
 
@@ -1145,11 +1209,56 @@ export default function CueListPlayer({
           onClose={() => {
             setShowEditCueDialog(false);
             setEditingCue(null);
+            setEditCueError(null);
           }}
           cue={editingCue}
           scenes={scenes}
+          externalError={editCueError}
           onUpdate={handleEditCueDialogUpdate}
         />
+      )}
+
+      {/* Error Toast for mutation errors */}
+      {mutationError && (
+        <div className="fixed bottom-4 right-4 z-50 max-w-md">
+          <div className="bg-red-600 text-white px-6 py-4 rounded-lg shadow-lg flex items-start">
+            <svg
+              className="w-6 h-6 mr-3 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <div className="flex-1">
+              <h4 className="font-medium">Error</h4>
+              <p className="text-sm mt-1">{mutationError}</p>
+            </div>
+            <button
+              onClick={() => setMutationError(null)}
+              className="ml-4 text-white hover:text-gray-200"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

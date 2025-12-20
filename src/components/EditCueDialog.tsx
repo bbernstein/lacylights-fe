@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 interface Scene {
   id: string;
@@ -26,6 +26,7 @@ interface EditCueDialogProps {
   onClose: () => void;
   cue: Cue;
   scenes: Scene[];
+  externalError?: string | null;
   onUpdate: (params: {
     cueId: string;
     cueNumber?: number;
@@ -34,21 +35,56 @@ interface EditCueDialogProps {
     fadeInTime?: number;
     fadeOutTime?: number;
     followTime?: number;
-    action: 'edit-scene' | 'stay';
+    action: "edit-scene" | "stay";
   }) => void;
 }
 
+/**
+ * EditCueDialog provides a modal dialog for editing existing cues in a cue list.
+ *
+ * Features:
+ * - Pre-populated form fields with current cue values
+ * - Allows editing cue number, name, scene reference, and timing parameters
+ * - Scene change warning when user selects a different scene
+ * - Two workflow options: "Save" or "Save & Edit Scene" (opens scene editor after save)
+ * - Advanced timing controls for fade in/out and auto-follow timing
+ *
+ * The dialog validates all inputs and displays errors from both form validation
+ * and server-side mutation failures. On mutation failure, the dialog remains open
+ * to allow retry.
+ *
+ * @param props - Component props
+ * @param props.isOpen - Controls dialog visibility
+ * @param props.onClose - Callback when dialog is closed
+ * @param props.cue - The cue to edit, with current values
+ * @param props.scenes - Available scenes for selection
+ * @param props.externalError - External error message from parent (e.g., mutation failure)
+ * @param props.onUpdate - Callback when cue is updated, receives updated parameters and action
+ *
+ * @example
+ * ```tsx
+ * <EditCueDialog
+ *   isOpen={showDialog}
+ *   onClose={() => setShowDialog(false)}
+ *   cue={currentCue}
+ *   scenes={availableScenes}
+ *   externalError={error}
+ *   onUpdate={handleUpdateCue}
+ * />
+ * ```
+ */
 export default function EditCueDialog({
   isOpen,
   onClose,
   cue,
   scenes,
+  externalError,
   onUpdate,
 }: EditCueDialogProps) {
   // Form state
-  const [cueNumber, setCueNumber] = useState('');
-  const [cueName, setCueName] = useState('');
-  const [selectedSceneId, setSelectedSceneId] = useState('');
+  const [cueNumber, setCueNumber] = useState("");
+  const [cueName, setCueName] = useState("");
+  const [selectedSceneId, setSelectedSceneId] = useState("");
   const [showAdvancedTiming, setShowAdvancedTiming] = useState(false);
   const [fadeInTime, setFadeInTime] = useState(0);
   const [fadeOutTime, setFadeOutTime] = useState(0);
@@ -72,27 +108,27 @@ export default function EditCueDialog({
   const validateForm = (): string | null => {
     const cueNum = parseFloat(cueNumber);
     if (isNaN(cueNum) || cueNum < 0) {
-      return 'Cue number must be a valid positive number';
+      return "Cue number must be a valid positive number";
     }
     if (!cueName.trim()) {
-      return 'Cue name is required';
+      return "Cue name is required";
     }
     if (!selectedSceneId) {
-      return 'Please select a scene';
+      return "Please select a scene";
     }
     if (fadeInTime < 0) {
-      return 'Fade in time must be positive';
+      return "Fade in time must be positive";
     }
     if (fadeOutTime < 0) {
-      return 'Fade out time must be positive';
+      return "Fade out time must be positive";
     }
     if (followTime !== undefined && followTime < 0) {
-      return 'Follow time must be positive';
+      return "Follow time must be positive";
     }
     return null;
   };
 
-  const handleSubmit = (action: 'edit-scene' | 'stay') => {
+  const handleSubmit = (action: "edit-scene" | "stay") => {
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
@@ -116,9 +152,9 @@ export default function EditCueDialog({
   };
 
   const handleClose = () => {
-    setCueNumber('');
-    setCueName('');
-    setSelectedSceneId('');
+    setCueNumber("");
+    setCueName("");
+    setSelectedSceneId("");
     setFadeInTime(0);
     setFadeOutTime(0);
     setFollowTime(undefined);
@@ -143,18 +179,24 @@ export default function EditCueDialog({
           <div>
             {/* Header */}
             <div className="mb-4">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Edit Cue</h3>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                Edit Cue
+              </h3>
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                 Update cue properties and timing settings.
               </p>
             </div>
 
             {/* Error message */}
-            {error && (
+            {(error || externalError) && (
               <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                 <div className="flex">
                   <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <svg
+                      className="h-5 w-5 text-red-400"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
                       <path
                         fillRule="evenodd"
                         d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
@@ -163,9 +205,11 @@ export default function EditCueDialog({
                     </svg>
                   </div>
                   <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Error</h3>
+                    <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                      Error
+                    </h3>
                     <div className="mt-2 text-sm text-red-700 dark:text-red-300">
-                      <p>{error}</p>
+                      <p>{error || externalError}</p>
                     </div>
                   </div>
                 </div>
@@ -239,7 +283,8 @@ export default function EditCueDialog({
                 </select>
                 {selectedSceneId !== cue.scene.id && (
                   <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                    ⚠️ Warning: Changing scene will update this cue to reference a different scene
+                    ⚠️ Warning: Changing scene will update this cue to reference
+                    a different scene
                   </p>
                 )}
               </div>
@@ -253,7 +298,7 @@ export default function EditCueDialog({
                 >
                   <svg
                     className={`w-4 h-4 mr-1 transition-transform ${
-                      showAdvancedTiming ? 'rotate-90' : ''
+                      showAdvancedTiming ? "rotate-90" : ""
                     }`}
                     fill="none"
                     stroke="currentColor"
@@ -286,7 +331,9 @@ export default function EditCueDialog({
                       step="0.1"
                       min="0"
                       value={fadeInTime}
-                      onChange={(e) => setFadeInTime(parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setFadeInTime(parseFloat(e.target.value) || 0)
+                      }
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm text-gray-900 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                   </div>
@@ -304,7 +351,9 @@ export default function EditCueDialog({
                       step="0.1"
                       min="0"
                       value={fadeOutTime}
-                      onChange={(e) => setFadeOutTime(parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setFadeOutTime(parseFloat(e.target.value) || 0)
+                      }
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm text-gray-900 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                   </div>
@@ -321,9 +370,13 @@ export default function EditCueDialog({
                       type="number"
                       step="0.1"
                       min="0"
-                      value={followTime ?? ''}
+                      value={followTime ?? ""}
                       onChange={(e) =>
-                        setFollowTime(e.target.value ? parseFloat(e.target.value) : undefined)
+                        setFollowTime(
+                          e.target.value
+                            ? parseFloat(e.target.value)
+                            : undefined,
+                        )
                       }
                       placeholder="0 (no auto-follow)"
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm text-gray-900 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
@@ -347,14 +400,14 @@ export default function EditCueDialog({
               </button>
               <button
                 type="button"
-                onClick={() => handleSubmit('stay')}
+                onClick={() => handleSubmit("stay")}
                 className="inline-flex justify-center w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
               >
                 Save
               </button>
               <button
                 type="button"
-                onClick={() => handleSubmit('edit-scene')}
+                onClick={() => handleSubmit("edit-scene")}
                 className="inline-flex justify-center w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 Save & Edit Scene
