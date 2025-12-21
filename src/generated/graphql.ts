@@ -141,21 +141,28 @@ export type ChannelMapResult = {
 export enum ChannelType {
   Amber = 'AMBER',
   Blue = 'BLUE',
+  ColdWhite = 'COLD_WHITE',
   ColorWheel = 'COLOR_WHEEL',
+  Cyan = 'CYAN',
   Effect = 'EFFECT',
   Focus = 'FOCUS',
   Gobo = 'GOBO',
   Green = 'GREEN',
+  Indigo = 'INDIGO',
   Intensity = 'INTENSITY',
   Iris = 'IRIS',
+  Lime = 'LIME',
   Macro = 'MACRO',
+  Magenta = 'MAGENTA',
   Other = 'OTHER',
   Pan = 'PAN',
   Red = 'RED',
   Strobe = 'STROBE',
   Tilt = 'TILT',
   Uv = 'UV',
+  WarmWhite = 'WARM_WHITE',
   White = 'WHITE',
+  Yellow = 'YELLOW',
   Zoom = 'ZOOM'
 }
 
@@ -211,6 +218,7 @@ export type CreateFixtureDefinitionInput = {
   readonly channels: ReadonlyArray<CreateChannelDefinitionInput>;
   readonly manufacturer: Scalars['String']['input'];
   readonly model: Scalars['String']['input'];
+  readonly modes?: InputMaybe<ReadonlyArray<CreateModeInput>>;
   readonly type: FixtureType;
 };
 
@@ -223,6 +231,12 @@ export type CreateFixtureInstanceInput = {
   readonly startChannel: Scalars['Int']['input'];
   readonly tags?: InputMaybe<ReadonlyArray<Scalars['String']['input']>>;
   readonly universe: Scalars['Int']['input'];
+};
+
+export type CreateModeInput = {
+  readonly channels: ReadonlyArray<Scalars['String']['input']>;
+  readonly name: Scalars['String']['input'];
+  readonly shortName?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CreateProjectInput = {
@@ -375,6 +389,7 @@ export type ExportStats = {
   readonly cuesCount: Scalars['Int']['output'];
   readonly fixtureDefinitionsCount: Scalars['Int']['output'];
   readonly fixtureInstancesCount: Scalars['Int']['output'];
+  readonly sceneBoardsCount: Scalars['Int']['output'];
   readonly scenesCount: Scalars['Int']['output'];
 };
 
@@ -596,6 +611,7 @@ export type ImportStats = {
   readonly cuesCreated: Scalars['Int']['output'];
   readonly fixtureDefinitionsCreated: Scalars['Int']['output'];
   readonly fixtureInstancesCreated: Scalars['Int']['output'];
+  readonly sceneBoardsCreated: Scalars['Int']['output'];
   readonly scenesCreated: Scalars['Int']['output'];
 };
 
@@ -705,6 +721,7 @@ export type Mutation = {
   readonly updateAllRepositories: ReadonlyArray<UpdateResult>;
   readonly updateCue: Cue;
   readonly updateCueList: CueList;
+  readonly updateFadeUpdateRate: Scalars['Boolean']['output'];
   readonly updateFixtureDefinition: FixtureDefinition;
   readonly updateFixtureInstance: FixtureInstance;
   readonly updateFixturePositions: Scalars['Boolean']['output'];
@@ -1109,6 +1126,11 @@ export type MutationUpdateCueArgs = {
 export type MutationUpdateCueListArgs = {
   id: Scalars['ID']['input'];
   input: CreateCueListInput;
+};
+
+
+export type MutationUpdateFadeUpdateRateArgs = {
+  rateHz: Scalars['Int']['input'];
 };
 
 
@@ -1869,6 +1891,7 @@ export type SystemInfo = {
   readonly __typename?: 'SystemInfo';
   readonly artnetBroadcastAddress: Scalars['String']['output'];
   readonly artnetEnabled: Scalars['Boolean']['output'];
+  readonly fadeUpdateRateHz: Scalars['Int']['output'];
 };
 
 export type SystemVersionInfo = {
@@ -2588,7 +2611,7 @@ export type UpdateSettingMutation = { readonly __typename?: 'Mutation', readonly
 export type GetSystemInfoQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetSystemInfoQuery = { readonly __typename?: 'Query', readonly systemInfo: { readonly __typename?: 'SystemInfo', readonly artnetBroadcastAddress: string, readonly artnetEnabled: boolean } };
+export type GetSystemInfoQuery = { readonly __typename?: 'Query', readonly systemInfo: { readonly __typename?: 'SystemInfo', readonly artnetBroadcastAddress: string, readonly artnetEnabled: boolean, readonly fadeUpdateRateHz: number } };
 
 export type GetNetworkInterfaceOptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2598,7 +2621,7 @@ export type GetNetworkInterfaceOptionsQuery = { readonly __typename?: 'Query', r
 export type SystemInfoUpdatedSubscriptionVariables = Exact<{ [key: string]: never; }>;
 
 
-export type SystemInfoUpdatedSubscription = { readonly __typename?: 'Subscription', readonly systemInfoUpdated: { readonly __typename?: 'SystemInfo', readonly artnetBroadcastAddress: string, readonly artnetEnabled: boolean } };
+export type SystemInfoUpdatedSubscription = { readonly __typename?: 'Subscription', readonly systemInfoUpdated: { readonly __typename?: 'SystemInfo', readonly artnetBroadcastAddress: string, readonly artnetEnabled: boolean, readonly fadeUpdateRateHz: number } };
 
 export type GetSystemVersionsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2758,9 +2781,9 @@ export const DmxOutputChangedDocument = {"kind":"Document","definitions":[{"kind
 export const GetSettingsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSettings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"settings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<GetSettingsQuery, GetSettingsQueryVariables>;
 export const GetSettingDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSetting"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"key"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setting"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"key"},"value":{"kind":"Variable","name":{"kind":"Name","value":"key"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<GetSettingQuery, GetSettingQueryVariables>;
 export const UpdateSettingDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateSetting"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateSettingInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateSetting"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<UpdateSettingMutation, UpdateSettingMutationVariables>;
-export const GetSystemInfoDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSystemInfo"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"systemInfo"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"artnetBroadcastAddress"}},{"kind":"Field","name":{"kind":"Name","value":"artnetEnabled"}}]}}]}}]} as unknown as DocumentNode<GetSystemInfoQuery, GetSystemInfoQueryVariables>;
+export const GetSystemInfoDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSystemInfo"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"systemInfo"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"artnetBroadcastAddress"}},{"kind":"Field","name":{"kind":"Name","value":"artnetEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"fadeUpdateRateHz"}}]}}]}}]} as unknown as DocumentNode<GetSystemInfoQuery, GetSystemInfoQueryVariables>;
 export const GetNetworkInterfaceOptionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetNetworkInterfaceOptions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"networkInterfaceOptions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"address"}},{"kind":"Field","name":{"kind":"Name","value":"broadcast"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"interfaceType"}}]}}]}}]} as unknown as DocumentNode<GetNetworkInterfaceOptionsQuery, GetNetworkInterfaceOptionsQueryVariables>;
-export const SystemInfoUpdatedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"SystemInfoUpdated"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"systemInfoUpdated"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"artnetBroadcastAddress"}},{"kind":"Field","name":{"kind":"Name","value":"artnetEnabled"}}]}}]}}]} as unknown as DocumentNode<SystemInfoUpdatedSubscription, SystemInfoUpdatedSubscriptionVariables>;
+export const SystemInfoUpdatedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"SystemInfoUpdated"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"systemInfoUpdated"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"artnetBroadcastAddress"}},{"kind":"Field","name":{"kind":"Name","value":"artnetEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"fadeUpdateRateHz"}}]}}]}}]} as unknown as DocumentNode<SystemInfoUpdatedSubscription, SystemInfoUpdatedSubscriptionVariables>;
 export const GetSystemVersionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSystemVersions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"systemVersions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"versionManagementSupported"}},{"kind":"Field","name":{"kind":"Name","value":"repositories"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"repository"}},{"kind":"Field","name":{"kind":"Name","value":"installed"}},{"kind":"Field","name":{"kind":"Name","value":"latest"}},{"kind":"Field","name":{"kind":"Name","value":"updateAvailable"}}]}},{"kind":"Field","name":{"kind":"Name","value":"lastChecked"}}]}}]}}]} as unknown as DocumentNode<GetSystemVersionsQuery, GetSystemVersionsQueryVariables>;
 export const GetAvailableVersionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetAvailableVersions"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"repository"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"availableVersions"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"repository"},"value":{"kind":"Variable","name":{"kind":"Name","value":"repository"}}}]}]}}]} as unknown as DocumentNode<GetAvailableVersionsQuery, GetAvailableVersionsQueryVariables>;
 export const UpdateRepositoryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateRepository"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"repository"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"version"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateRepository"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"repository"},"value":{"kind":"Variable","name":{"kind":"Name","value":"repository"}}},{"kind":"Argument","name":{"kind":"Name","value":"version"},"value":{"kind":"Variable","name":{"kind":"Name","value":"version"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"repository"}},{"kind":"Field","name":{"kind":"Name","value":"previousVersion"}},{"kind":"Field","name":{"kind":"Name","value":"newVersion"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"error"}}]}}]}}]} as unknown as DocumentNode<UpdateRepositoryMutation, UpdateRepositoryMutationVariables>;
