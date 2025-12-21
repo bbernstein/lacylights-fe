@@ -2,8 +2,9 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { useMutation } from "@apollo/client";
-import { FixtureInstance, InstanceChannel, ChannelType } from "@/types";
+import { FixtureInstance } from "@/types";
 import { UPDATE_FIXTURE_POSITIONS } from "@/graphql/fixtures";
+import { channelValuesToRgb, type InstanceChannelWithValue } from "@/utils/colorConversion";
 
 interface LayoutCanvasProps {
   fixtures: FixtureInstance[];
@@ -302,7 +303,7 @@ export default function LayoutCanvas({
     [fixtures, fixturePositions, normalizedToCanvas, viewport.scale],
   );
 
-  // Get fixture color from channel values
+  // Get fixture color from channel values using intelligent color mapping
   const getFixtureColor = useCallback(
     (
       fixture: FixtureInstance,
@@ -310,73 +311,30 @@ export default function LayoutCanvas({
       const channelVals = fixtureValues.get(fixture.id) || [];
       const channels = fixture.channels || [];
 
-      let r = 0,
-        g = 0,
-        b = 0;
-      let hasIntensity = false;
-      let intensity = 1;
+      // Build InstanceChannelWithValue array
+      const channelsWithValues: InstanceChannelWithValue[] = channels.map((channel, index) => ({
+        ...channel,
+        value: channelVals[index] || 0,
+      }));
 
-      // Check for intensity channel
-      const intensityChannel = channels.find(
-        (ch) => ch.type === ChannelType.INTENSITY,
-      );
-      if (intensityChannel) {
-        hasIntensity = true;
-        const intensityIndex = channels.indexOf(intensityChannel);
-        intensity = (channelVals[intensityIndex] ?? 0) / 255;
-      }
-
-      channels.forEach((channel: InstanceChannel, index: number) => {
-        const value = (channelVals[index] ?? 0) / 255;
-
-        switch (channel.type) {
-          case ChannelType.RED:
-            r = Math.max(r, value);
-            break;
-          case ChannelType.GREEN:
-            g = Math.max(g, value);
-            break;
-          case ChannelType.BLUE:
-            b = Math.max(b, value);
-            break;
-          case ChannelType.WHITE:
-            r = Math.min(1, r + value * 0.95);
-            g = Math.min(1, g + value * 0.95);
-            b = Math.min(1, b + value * 0.95);
-            break;
-          case ChannelType.AMBER:
-            r = Math.min(1, r + value);
-            g = Math.min(1, g + value * 0.75);
-            break;
-          case ChannelType.UV:
-            r = Math.min(1, r + value * 0.29);
-            b = Math.min(1, b + value * 0.51);
-            break;
-        }
-      });
-
-      // Apply intensity if present
-      if (hasIntensity) {
-        r *= intensity;
-        g *= intensity;
-        b *= intensity;
-      }
+      // Use intelligent color conversion to get RGB from all available channels
+      const rgb = channelValuesToRgb(channelsWithValues);
 
       // If no color, use default fixture color (dark gray)
-      if (r === 0 && g === 0 && b === 0) {
+      if (rgb.r === 0 && rgb.g === 0 && rgb.b === 0) {
         return {
           color: DEFAULT_FIXTURE_COLOR.hex,
-          r: DEFAULT_FIXTURE_COLOR.r,
-          g: DEFAULT_FIXTURE_COLOR.g,
-          b: DEFAULT_FIXTURE_COLOR.b,
+          r: DEFAULT_FIXTURE_COLOR.r / 255,
+          g: DEFAULT_FIXTURE_COLOR.g / 255,
+          b: DEFAULT_FIXTURE_COLOR.b / 255,
         };
       }
 
       return {
-        color: `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`,
-        r,
-        g,
-        b,
+        color: `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`,
+        r: rgb.r / 255,
+        g: rgb.g / 255,
+        b: rgb.b / 255,
       };
     },
     [fixtureValues],
