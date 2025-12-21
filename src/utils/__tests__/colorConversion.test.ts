@@ -176,4 +176,73 @@ describe('colorConversion', () => {
       expect(UV_ACTIVATION_THRESHOLDS.MAX_RED).toBeDefined();
     });
   });
+
+  describe('intelligent color mapping (rgbToChannelValuesIntelligent)', () => {
+    it('handles pure red color', () => {
+      const channels = [
+        { id: '1', type: ChannelType.RED, value: 0, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      ];
+      const result = createOptimizedColorMapping({ r: 255, g: 0, b: 0 }, channels, 1.0);
+      expect(result['1']).toBe(255);
+      expect(result['2']).toBe(0);
+      expect(result['3']).toBe(0);
+    });
+
+    it('utilizes CYAN channel for cyan colors', () => {
+      const channels = [
+        { id: '1', type: ChannelType.RED, value: 0, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '4', type: ChannelType.CYAN, value: 0, offset: 3, name: 'Cyan', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      ];
+      const result = createOptimizedColorMapping({ r: 0, g: 255, b: 255 }, channels, 1.0);
+      expect(result['4']).toBeGreaterThan(0); // Cyan channel should be utilized
+    });
+
+    it('utilizes MAGENTA channel for magenta colors', () => {
+      const channels = [
+        { id: '1', type: ChannelType.RED, value: 0, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '4', type: ChannelType.MAGENTA, value: 0, offset: 3, name: 'Magenta', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      ];
+      const result = createOptimizedColorMapping({ r: 255, g: 0, b: 255 }, channels, 1.0);
+      expect(result['4']).toBeGreaterThan(0); // Magenta channel should be utilized
+    });
+
+    it('utilizes YELLOW channel for yellow colors', () => {
+      const channels = [
+        { id: '1', type: ChannelType.RED, value: 0, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '4', type: ChannelType.YELLOW, value: 0, offset: 3, name: 'Yellow', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      ];
+      const result = createOptimizedColorMapping({ r: 255, g: 255, b: 0 }, channels, 1.0);
+      expect(result['4']).toBeGreaterThan(0); // Yellow channel should be utilized
+    });
+
+    it('handles white color with WHITE channel', () => {
+      const channels = [
+        { id: '1', type: ChannelType.RED, value: 0, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '4', type: ChannelType.WHITE, value: 0, offset: 3, name: 'White', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      ];
+      const result = createOptimizedColorMapping({ r: 255, g: 255, b: 255 }, channels, 1.0);
+      expect(result['4']).toBeGreaterThan(0); // White channel should be utilized
+    });
+
+    it('respects intensity parameter', () => {
+      const channels = [
+        { id: '1', type: ChannelType.RED, value: 0, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      ];
+      const fullIntensity = createOptimizedColorMapping({ r: 255, g: 0, b: 0 }, channels, 1.0);
+      const halfIntensity = createOptimizedColorMapping({ r: 255, g: 0, b: 0 }, channels, 0.5);
+      expect(halfIntensity['1']).toBeLessThan(fullIntensity['1']);
+    });
+  });
 });

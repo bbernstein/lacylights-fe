@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { HexColorPicker, RgbColorPicker } from 'react-colorful';
+import React from 'react';
+import { HexColorPicker } from 'react-colorful';
 import { UV_COLOR_HEX } from '@/utils/colorConversion';
 import { rgbToHex, hexToRgb } from '@/utils/colorHelpers';
 
@@ -7,53 +7,25 @@ interface ColorWheelPickerProps {
   currentColor: { r: number; g: number; b: number };
   onColorChange: (color: { r: number; g: number; b: number }) => void;
   onColorSelect: (color: { r: number; g: number; b: number }) => void;
+  intensity?: number; // Current intensity (0-1)
+  onIntensityChange?: (intensity: number) => void; // Intensity change callback
+  showIntensity?: boolean; // Show intensity slider (default: false)
 }
 
 export default function ColorWheelPicker({
   currentColor,
   onColorChange,
-  onColorSelect: _onColorSelect
+  onColorSelect: _onColorSelect,
+  intensity,
+  onIntensityChange,
+  showIntensity = false
 }: ColorWheelPickerProps) {
-  const [pickerMode, setPickerMode] = useState<'hex' | 'rgb'>('hex');
-  const [localColor, setLocalColor] = useState(currentColor);
-  const [hexInputValue, setHexInputValue] = useState(rgbToHex(currentColor.r, currentColor.g, currentColor.b));
-
-
-  const hexColor = rgbToHex(localColor.r, localColor.g, localColor.b);
-
-  // Validate hex color format
-  const isValidHex = (hex: string): boolean => {
-    return /^#?[0-9A-Fa-f]{6}$/.test(hex);
-  };
+  const hexColor = rgbToHex(currentColor.r, currentColor.g, currentColor.b);
 
   const handleHexChange = (hex: string) => {
-    setHexInputValue(hex);
-    
-    // Only update color if valid hex
-    if (isValidHex(hex)) {
-      const rgb = hexToRgb(hex);
-      setLocalColor(rgb);
-      onColorChange(rgb);
-    }
-  };
-
-  const handleHexBlur = () => {
-    // Reset to valid hex color on blur if invalid
-    if (!isValidHex(hexInputValue)) {
-      setHexInputValue(hexColor);
-    }
-  };
-
-  const handleRgbChange = (rgb: { r: number; g: number; b: number }) => {
-    setLocalColor(rgb);
+    const rgb = hexToRgb(hex);
     onColorChange(rgb);
   };
-
-  // Update local color when currentColor prop changes
-  useEffect(() => {
-    setLocalColor(currentColor);
-    setHexInputValue(rgbToHex(currentColor.r, currentColor.g, currentColor.b));
-  }, [currentColor]);
 
   // Predefined common lighting colors
   const presetColors = [
@@ -72,100 +44,43 @@ export default function ColorWheelPicker({
   ];
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Picker Mode Toggle */}
-      <div className="flex justify-center">
-        <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-          <button
-            onClick={() => setPickerMode('hex')}
-            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-              pickerMode === 'hex'
-                ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            Hex
-          </button>
-          <button
-            onClick={() => setPickerMode('rgb')}
-            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-              pickerMode === 'rgb'
-                ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            RGB
-          </button>
-        </div>
-      </div>
-
+    <div className="p-4 space-y-4">
       {/* Color Picker */}
       <div className="flex justify-center">
-        {pickerMode === 'hex' ? (
-          <HexColorPicker 
-            color={hexColor} 
-            onChange={handleHexChange}
-            style={{ width: '200px', height: '200px' }}
-          />
-        ) : (
-          <RgbColorPicker 
-            color={localColor} 
-            onChange={handleRgbChange}
-            style={{ width: '200px', height: '200px' }}
-          />
-        )}
+        <HexColorPicker
+          color={hexColor}
+          onChange={handleHexChange}
+          style={{ width: '200px', height: '200px' }}
+        />
       </div>
 
-      {/* Current Color Preview and Values */}
-      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Current Color
-          </span>
-          <div 
-            className="w-12 h-12 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-sm"
-            style={{ backgroundColor: hexColor }}
+      {/* Intensity Slider */}
+      {showIntensity && (
+        <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Intensity
+            </label>
+            <span className="text-sm font-mono text-gray-600 dark:text-gray-400">
+              {Math.round((intensity ?? 1) * 100)}%
+            </span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value={Math.round((intensity ?? 1) * 100)}
+            onChange={(e) => onIntensityChange?.(parseInt(e.target.value) / 100)}
+            className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
           />
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="text-gray-600 dark:text-gray-400">Hex:</span>
-            <input
-              type="text"
-              value={hexInputValue.toUpperCase()}
-              onChange={(e) => handleHexChange(e.target.value)}
-              onBlur={handleHexBlur}
-              className={`ml-2 bg-transparent border-none font-mono text-xs focus:outline-none ${
-                isValidHex(hexInputValue) 
-                  ? 'text-gray-900 dark:text-white' 
-                  : 'text-red-500 dark:text-red-400'
-              }`}
-              placeholder="#FFFFFF"
-            />
-          </div>
-          <div className="space-y-1">
-            <div>
-              <span className="text-gray-600 dark:text-gray-400">R:</span>
-              <span className="ml-2 text-gray-900 dark:text-white font-mono text-xs">
-                {localColor.r}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-600 dark:text-gray-400">G:</span>
-              <span className="ml-2 text-gray-900 dark:text-white font-mono text-xs">
-                {localColor.g}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-600 dark:text-gray-400">B:</span>
-              <span className="ml-2 text-gray-900 dark:text-white font-mono text-xs">
-                {localColor.b}
-              </span>
-            </div>
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+            <span>0%</span>
+            <span>50%</span>
+            <span>100%</span>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Preset Colors */}
       <div className="space-y-3">

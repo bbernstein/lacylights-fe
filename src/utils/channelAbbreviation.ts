@@ -75,6 +75,13 @@ function getChannelTypeAbbreviation(type: ChannelType): string {
     [ChannelType.WHITE]: 'W',
     [ChannelType.AMBER]: 'A',
     [ChannelType.UV]: 'UV',
+    [ChannelType.CYAN]: 'C',
+    [ChannelType.MAGENTA]: 'M',
+    [ChannelType.YELLOW]: 'Y',
+    [ChannelType.LIME]: 'L',
+    [ChannelType.INDIGO]: 'In',
+    [ChannelType.COLD_WHITE]: 'ClW',
+    [ChannelType.WARM_WHITE]: 'WW',
     [ChannelType.INTENSITY]: 'Di',
     [ChannelType.PAN]: 'P',
     [ChannelType.TILT]: 'T',
@@ -82,10 +89,10 @@ function getChannelTypeAbbreviation(type: ChannelType): string {
     [ChannelType.FOCUS]: 'F',
     [ChannelType.IRIS]: 'Ir',
     [ChannelType.GOBO]: 'Go',
-    [ChannelType.COLOR_WHEEL]: 'CW',
+    [ChannelType.COLOR_WHEEL]: 'Whl',
     [ChannelType.EFFECT]: 'Fx',
     [ChannelType.STROBE]: 'St',
-    [ChannelType.MACRO]: 'M',
+    [ChannelType.MACRO]: 'Ma',
     [ChannelType.OTHER]: '' // Handle separately
   };
   return map[type] || '';

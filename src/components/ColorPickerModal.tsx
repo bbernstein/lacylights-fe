@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import ColorWheelPicker from './ColorWheelPicker';
 import RoscoluxSwatchPicker from './RoscoluxSwatchPicker';
+import { getBestMatchingRoscolux } from '@/utils/colorMatching';
+import { ROSCOLUX_FILTERS } from '@/data/roscoluxFilters';
+import type { InstanceChannelWithValue } from '@/utils/colorConversion';
+import { rgbToHex, hexToRgb } from '@/utils/colorHelpers';
 
 interface ColorPickerModalProps {
   isOpen: boolean;
@@ -9,6 +13,10 @@ interface ColorPickerModalProps {
   currentColor: { r: number; g: number; b: number };
   onColorChange: (color: { r: number; g: number; b: number }) => void;
   onColorSelect: (color: { r: number; g: number; b: number }) => void;
+  intensity?: number; // Current intensity (0-1)
+  onIntensityChange?: (intensity: number) => void; // Intensity change callback
+  showIntensity?: boolean; // Show intensity slider (default: false)
+  channels?: InstanceChannelWithValue[]; // For fixture awareness (future use)
 }
 
 type TabType = 'wheel' | 'roscolux';
@@ -18,14 +26,38 @@ export default function ColorPickerModal({
   onClose,
   currentColor,
   onColorChange,
-  onColorSelect
+  onColorSelect,
+  intensity,
+  onIntensityChange,
+  showIntensity = false,
+  channels: _channels
 }: ColorPickerModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('wheel');
   const [selectedColor, setSelectedColor] = useState(currentColor);
+  const [hexInputValue, setHexInputValue] = useState(rgbToHex(currentColor.r, currentColor.g, currentColor.b));
+  const [bestMatch, setBestMatch] = useState<(typeof ROSCOLUX_FILTERS[0] & { similarity: number }) | null>(null);
+  const prevIsOpenRef = useRef(isOpen);
 
+  // Only initialize selectedColor when modal first opens (transition from closed to open)
   useEffect(() => {
-    setSelectedColor(currentColor);
-  }, [currentColor]);
+    if (isOpen && !prevIsOpenRef.current) {
+      // Modal just opened - initialize selectedColor from currentColor
+      setSelectedColor(currentColor);
+      setHexInputValue(rgbToHex(currentColor.r, currentColor.g, currentColor.b));
+    }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, currentColor]);
+
+  // Update hex input when selected color changes
+  useEffect(() => {
+    setHexInputValue(rgbToHex(selectedColor.r, selectedColor.g, selectedColor.b));
+  }, [selectedColor]);
+
+  // Update Roscolux match when color changes
+  useEffect(() => {
+    const match = getBestMatchingRoscolux(selectedColor, ROSCOLUX_FILTERS, 95);
+    setBestMatch(match);
+  }, [selectedColor]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -55,6 +87,28 @@ export default function ColorPickerModal({
     onColorChange(color);
   };
 
+  const isValidHex = (hex: string): boolean => {
+    return /^#?[0-9A-Fa-f]{6}$/.test(hex);
+  };
+
+  const handleHexInputChange = (hex: string) => {
+    setHexInputValue(hex);
+
+    // Only update color if valid hex
+    if (isValidHex(hex)) {
+      const rgb = hexToRgb(hex);
+      setSelectedColor(rgb);
+      onColorChange(rgb);
+    }
+  };
+
+  const handleHexInputBlur = () => {
+    // Reset to valid hex color on blur if invalid
+    if (!isValidHex(hexInputValue)) {
+      setHexInputValue(rgbToHex(selectedColor.r, selectedColor.g, selectedColor.b));
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -77,11 +131,24 @@ export default function ColorPickerModal({
           e.preventDefault();
         }}
       >
-        {/* Header */}
+        {/* Header with Roscolux Match Display */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Color Picker
-          </h2>
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Color Picker
+            </h2>
+            {bestMatch && (
+              <div className="flex items-center mt-1 text-xs">
+                <span className="text-gray-600 dark:text-gray-400">Matches:</span>
+                <span className="ml-2 font-medium text-gray-900 dark:text-white">
+                  {bestMatch.filter}
+                </span>
+                <span className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
+                  {bestMatch.similarity.toFixed(1)}%
+                </span>
+              </div>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
@@ -115,18 +182,22 @@ export default function ColorPickerModal({
         </div>
 
         {/* Tab Content */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
           {activeTab === 'wheel' && (
             <ColorWheelPicker
               currentColor={selectedColor}
               onColorChange={handleColorUpdate}
               onColorSelect={onColorSelect}
+              intensity={intensity}
+              onIntensityChange={onIntensityChange}
+              showIntensity={showIntensity}
             />
           )}
           {activeTab === 'roscolux' && (
             <RoscoluxSwatchPicker
               currentColor={selectedColor}
               onColorSelect={handleRoscoluxSelect}
+              highlightMatches={true}
             />
           )}
         </div>
@@ -136,11 +207,26 @@ export default function ColorPickerModal({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <span className="text-sm text-gray-600 dark:text-gray-400">Selected Color:</span>
-              <div className="flex items-center space-x-2">
-                <div 
+              <div className="flex items-center space-x-3">
+                <div
                   className="w-10 h-10 rounded-md border-2 border-gray-300 dark:border-gray-600 shadow-inner"
                   style={{ backgroundColor: `rgb(${selectedColor.r}, ${selectedColor.g}, ${selectedColor.b})` }}
                 />
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Hex:</span>
+                  <input
+                    type="text"
+                    value={hexInputValue.toUpperCase()}
+                    onChange={(e) => handleHexInputChange(e.target.value)}
+                    onBlur={handleHexInputBlur}
+                    className={`w-24 px-2 py-1 text-sm font-mono rounded border ${
+                      isValidHex(hexInputValue)
+                        ? 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                        : 'border-red-500 dark:border-red-400 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                    } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    placeholder="#FFFFFF"
+                  />
+                </div>
                 <span className="text-sm font-mono text-gray-600 dark:text-gray-400">
                   RGB({selectedColor.r}, {selectedColor.g}, {selectedColor.b})
                 </span>

@@ -154,14 +154,17 @@ describe('ColorPickerModal', () => {
       });
     });
 
-    it('updates selected color when currentColor prop changes', () => {
+    it('updates selected color when currentColor prop changes and modal reopens', () => {
       const { rerender } = render(<ColorPickerModal {...defaultProps} />);
 
-      expect(screen.getByText('RGB(128, 128, 128)')).toBeInTheDocument();
+      // Check hex input value instead of RGB text (which is split across multiple elements)
+      expect(screen.getByDisplayValue('#808080')).toBeInTheDocument();
 
-      rerender(<ColorPickerModal {...defaultProps} currentColor={{ r: 200, g: 100, b: 50 }} />);
+      // Close the modal, update currentColor, then reopen
+      rerender(<ColorPickerModal {...defaultProps} isOpen={false} />);
+      rerender(<ColorPickerModal {...defaultProps} isOpen={true} currentColor={{ r: 200, g: 100, b: 50 }} />);
 
-      expect(screen.getByText('RGB(200, 100, 50)')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('#C86432')).toBeInTheDocument();
     });
   });
 
@@ -366,7 +369,9 @@ describe('ColorPickerModal', () => {
     it('applies correct modal content classes', () => {
       render(<ColorPickerModal {...defaultProps} />);
 
-      const modalContent = screen.getByText('Color Picker').parentElement?.parentElement;
+      // Modal content is the parent of the header div which contains "Color Picker"
+      const header = screen.getByText('Color Picker').closest('.border-b');
+      const modalContent = header?.parentElement;
       expect(modalContent).toHaveClass('bg-white', 'dark:bg-gray-800', 'rounded-lg', 'shadow-xl');
     });
 
