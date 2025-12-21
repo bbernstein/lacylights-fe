@@ -706,7 +706,8 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
 
   // Color picker handlers
   const handleColorSwatchClick = (fixtureId: string) => {
-    const fixtureValue = scene?.fixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
+    // Look for the fixture in activeFixtureValues (includes both saved and newly added fixtures)
+    const fixtureValue = activeFixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
     if (!fixtureValue) return;
 
     const channels = (fixtureValue.fixture.channels || []).map((channelDef: InstanceChannel, index: number) => ({
@@ -858,7 +859,8 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
   }, [useSharedState, sharedState, localUndoStack, previewMode, previewSessionId, updatePreviewChannel]);
 
   const applyColorToFixture = (fixtureId: string, color: { r: number; g: number; b: number }, _final: boolean) => {
-    const fixtureValue = scene?.fixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
+    // Look for the fixture in activeFixtureValues (includes both saved and newly added fixtures)
+    const fixtureValue = activeFixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
     if (!fixtureValue) return;
 
     const channels = (fixtureValue.fixture.channels || []).map((channelDef: InstanceChannel, index: number) => ({
@@ -1032,10 +1034,18 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
       (fv: SceneFixtureValue) => !removedFixtures.has(fv.fixture.id)
     );
 
-    // Add newly selected fixtures
+    // Build a set of existing fixture IDs for quick lookup
+    const existingFixtureIds = new Set(fixtures.map((fv: SceneFixtureValue) => fv.fixture.id));
+
+    // Add newly selected fixtures (only if they don't already exist in the scene)
     if (selectedFixturesToAdd.size > 0 && projectFixturesData?.project?.fixtures) {
       let nextSceneOrder = fixtures.length + 1; // Start from the next available position
       selectedFixturesToAdd.forEach(fixtureId => {
+        // Skip if fixture already exists in the scene (prevents duplicates after save)
+        if (existingFixtureIds.has(fixtureId)) {
+          return;
+        }
+
         const fixture = projectFixturesData.project.fixtures.find((f: FixtureInstance) => f.id === fixtureId);
         if (fixture) {
           // Create a new fixture value with default channel values
@@ -1066,19 +1076,37 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
   const handleAddFixtures = () => {
     // Initialize channel values for newly added fixtures
     if (selectedFixturesToAdd.size > 0 && projectFixturesData?.project?.fixtures) {
-      setChannelValues(prev => {
-        const newMap = new Map(prev);
+      if (useSharedState && sharedState) {
+        // Use shared state pattern - send individual channel changes
         selectedFixturesToAdd.forEach(fixtureId => {
-          if (!newMap.has(fixtureId)) {
+          const currentValues = channelValues.get(fixtureId);
+          if (!currentValues) {
             const fixture = projectFixturesData.project.fixtures.find((f: FixtureInstance) => f.id === fixtureId);
             if (fixture) {
               const defaultValues = (fixture.channels || []).map((ch: InstanceChannel) => ch.defaultValue || 0);
-              newMap.set(fixtureId, defaultValues);
+              // Send each channel value change individually
+              defaultValues.forEach((value: number, index: number) => {
+                sharedState.onChannelValueChange(fixtureId, index, value);
+              });
             }
           }
         });
-        return newMap;
-      });
+      } else {
+        // Use local state pattern
+        setChannelValues(prev => {
+          const newMap = new Map(prev);
+          selectedFixturesToAdd.forEach(fixtureId => {
+            if (!newMap.has(fixtureId)) {
+              const fixture = projectFixturesData.project.fixtures.find((f: FixtureInstance) => f.id === fixtureId);
+              if (fixture) {
+                const defaultValues = (fixture.channels || []).map((ch: InstanceChannel) => ch.defaultValue || 0);
+                newMap.set(fixtureId, defaultValues);
+              }
+            }
+          });
+          return newMap;
+        });
+      }
     }
     // The fixtures are already being shown via activeFixtureValues
     // Just close the add fixtures panel

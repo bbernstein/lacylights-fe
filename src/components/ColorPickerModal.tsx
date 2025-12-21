@@ -5,6 +5,7 @@ import RoscoluxSwatchPicker from './RoscoluxSwatchPicker';
 import { getBestMatchingRoscolux } from '@/utils/colorMatching';
 import { ROSCOLUX_FILTERS } from '@/data/roscoluxFilters';
 import type { InstanceChannelWithValue } from '@/utils/colorConversion';
+import { rgbToHex, hexToRgb } from '@/utils/colorHelpers';
 
 interface ColorPickerModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export default function ColorPickerModal({
 }: ColorPickerModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('wheel');
   const [selectedColor, setSelectedColor] = useState(currentColor);
+  const [hexInputValue, setHexInputValue] = useState(rgbToHex(currentColor.r, currentColor.g, currentColor.b));
   const [bestMatch, setBestMatch] = useState<(typeof ROSCOLUX_FILTERS[0] & { similarity: number }) | null>(null);
   const prevIsOpenRef = useRef(isOpen);
 
@@ -41,9 +43,15 @@ export default function ColorPickerModal({
     if (isOpen && !prevIsOpenRef.current) {
       // Modal just opened - initialize selectedColor from currentColor
       setSelectedColor(currentColor);
+      setHexInputValue(rgbToHex(currentColor.r, currentColor.g, currentColor.b));
     }
     prevIsOpenRef.current = isOpen;
   }, [isOpen, currentColor]);
+
+  // Update hex input when selected color changes
+  useEffect(() => {
+    setHexInputValue(rgbToHex(selectedColor.r, selectedColor.g, selectedColor.b));
+  }, [selectedColor]);
 
   // Update Roscolux match when color changes
   useEffect(() => {
@@ -77,6 +85,28 @@ export default function ColorPickerModal({
     setSelectedColor(color);
     // Also trigger real-time preview
     onColorChange(color);
+  };
+
+  const isValidHex = (hex: string): boolean => {
+    return /^#?[0-9A-Fa-f]{6}$/.test(hex);
+  };
+
+  const handleHexInputChange = (hex: string) => {
+    setHexInputValue(hex);
+
+    // Only update color if valid hex
+    if (isValidHex(hex)) {
+      const rgb = hexToRgb(hex);
+      setSelectedColor(rgb);
+      onColorChange(rgb);
+    }
+  };
+
+  const handleHexInputBlur = () => {
+    // Reset to valid hex color on blur if invalid
+    if (!isValidHex(hexInputValue)) {
+      setHexInputValue(rgbToHex(selectedColor.r, selectedColor.g, selectedColor.b));
+    }
   };
 
   if (!isOpen) return null;
@@ -177,11 +207,26 @@ export default function ColorPickerModal({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <span className="text-sm text-gray-600 dark:text-gray-400">Selected Color:</span>
-              <div className="flex items-center space-x-2">
-                <div 
+              <div className="flex items-center space-x-3">
+                <div
                   className="w-10 h-10 rounded-md border-2 border-gray-300 dark:border-gray-600 shadow-inner"
                   style={{ backgroundColor: `rgb(${selectedColor.r}, ${selectedColor.g}, ${selectedColor.b})` }}
                 />
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Hex:</span>
+                  <input
+                    type="text"
+                    value={hexInputValue.toUpperCase()}
+                    onChange={(e) => handleHexInputChange(e.target.value)}
+                    onBlur={handleHexInputBlur}
+                    className={`w-24 px-2 py-1 text-sm font-mono rounded border ${
+                      isValidHex(hexInputValue)
+                        ? 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                        : 'border-red-500 dark:border-red-400 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                    } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    placeholder="#FFFFFF"
+                  />
+                </div>
                 <span className="text-sm font-mono text-gray-600 dark:text-gray-400">
                   RGB({selectedColor.r}, {selectedColor.g}, {selectedColor.b})
                 </span>

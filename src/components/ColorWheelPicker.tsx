@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { HexColorPicker, RgbColorPicker } from 'react-colorful';
+import React from 'react';
+import { HexColorPicker } from 'react-colorful';
 import { UV_COLOR_HEX } from '@/utils/colorConversion';
 import { rgbToHex, hexToRgb } from '@/utils/colorHelpers';
 
@@ -20,35 +20,10 @@ export default function ColorWheelPicker({
   onIntensityChange,
   showIntensity = false
 }: ColorWheelPickerProps) {
-  const [pickerMode, setPickerMode] = useState<'hex' | 'rgb'>('hex');
-  // Use currentColor directly - don't maintain separate local state
-  const [hexInputValue, setHexInputValue] = useState(rgbToHex(currentColor.r, currentColor.g, currentColor.b));
-
   const hexColor = rgbToHex(currentColor.r, currentColor.g, currentColor.b);
 
-  // Validate hex color format
-  const isValidHex = (hex: string): boolean => {
-    return /^#?[0-9A-Fa-f]{6}$/.test(hex);
-  };
-
   const handleHexChange = (hex: string) => {
-    setHexInputValue(hex);
-
-    // Only update color if valid hex
-    if (isValidHex(hex)) {
-      const rgb = hexToRgb(hex);
-      onColorChange(rgb);
-    }
-  };
-
-  const handleHexBlur = () => {
-    // Reset to valid hex color on blur if invalid
-    if (!isValidHex(hexInputValue)) {
-      setHexInputValue(hexColor);
-    }
-  };
-
-  const handleRgbChange = (rgb: { r: number; g: number; b: number }) => {
+    const rgb = hexToRgb(hex);
     onColorChange(rgb);
   };
 
@@ -69,104 +44,19 @@ export default function ColorWheelPicker({
   ];
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Picker Mode Toggle */}
-      <div className="flex justify-center">
-        <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-          <button
-            onClick={() => setPickerMode('hex')}
-            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-              pickerMode === 'hex'
-                ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            Hex
-          </button>
-          <button
-            onClick={() => setPickerMode('rgb')}
-            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-              pickerMode === 'rgb'
-                ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            RGB
-          </button>
-        </div>
-      </div>
-
+    <div className="p-4 space-y-4">
       {/* Color Picker */}
       <div className="flex justify-center">
-        {pickerMode === 'hex' ? (
-          <HexColorPicker 
-            color={hexColor} 
-            onChange={handleHexChange}
-            style={{ width: '200px', height: '200px' }}
-          />
-        ) : (
-          <RgbColorPicker
-            color={currentColor}
-            onChange={handleRgbChange}
-            style={{ width: '200px', height: '200px' }}
-          />
-        )}
-      </div>
-
-      {/* Current Color Preview and Values */}
-      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Current Color
-          </span>
-          <div 
-            className="w-12 h-12 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-sm"
-            style={{ backgroundColor: hexColor }}
-          />
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="text-gray-600 dark:text-gray-400">Hex:</span>
-            <input
-              type="text"
-              value={hexInputValue.toUpperCase()}
-              onChange={(e) => handleHexChange(e.target.value)}
-              onBlur={handleHexBlur}
-              className={`ml-2 bg-transparent border-none font-mono text-xs focus:outline-none ${
-                isValidHex(hexInputValue) 
-                  ? 'text-gray-900 dark:text-white' 
-                  : 'text-red-500 dark:text-red-400'
-              }`}
-              placeholder="#FFFFFF"
-            />
-          </div>
-          <div className="space-y-1">
-            <div>
-              <span className="text-gray-600 dark:text-gray-400">R:</span>
-              <span className="ml-2 text-gray-900 dark:text-white font-mono text-xs">
-                {currentColor.r}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-600 dark:text-gray-400">G:</span>
-              <span className="ml-2 text-gray-900 dark:text-white font-mono text-xs">
-                {currentColor.g}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-600 dark:text-gray-400">B:</span>
-              <span className="ml-2 text-gray-900 dark:text-white font-mono text-xs">
-                {currentColor.b}
-              </span>
-            </div>
-          </div>
-        </div>
+        <HexColorPicker
+          color={hexColor}
+          onChange={handleHexChange}
+          style={{ width: '200px', height: '200px' }}
+        />
       </div>
 
       {/* Intensity Slider */}
       {showIntensity && (
-        <div className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Intensity

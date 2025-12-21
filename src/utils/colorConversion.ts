@@ -334,6 +334,31 @@ export function rgbToChannelValuesIntelligent(
     }
   }
 
+  // Handle cases where we need to use extended channels as fallbacks
+  // If no BLUE channel but we have INDIGO, use INDIGO to create blue
+  if (!availableChannels.has(ChannelType.BLUE) && availableChannels.has(ChannelType.INDIGO) && pureB > 0) {
+    const indigoChannel = channels.find(ch => ch.type === ChannelType.INDIGO)!;
+    // INDIGO contributes: RED_COMPONENT=0.29, BLUE_COMPONENT=0.51
+    // To get the blue we need: indigoValue = pureB / 0.51
+    const indigoValue = Math.min(1, pureB / EXTENDED_COLOR_RATIOS.INDIGO.BLUE_COMPONENT);
+    channelValues[indigoChannel.id] = Math.round(indigoValue * 255);
+    // Subtract the red contribution from INDIGO
+    pureR -= indigoValue * EXTENDED_COLOR_RATIOS.INDIGO.RED_COMPONENT;
+    pureR = Math.max(0, pureR); // Ensure non-negative
+  }
+
+  // If no BLUE channel but we have CYAN, use CYAN to create blue
+  if (!availableChannels.has(ChannelType.BLUE) && availableChannels.has(ChannelType.CYAN) && pureB > 0) {
+    const cyanChannel = channels.find(ch => ch.type === ChannelType.CYAN)!;
+    // CYAN contributes: GREEN_COMPONENT=1.0, BLUE_COMPONENT=1.0
+    const cyanValue = Math.min(pureG, pureB);
+    if (cyanValue > 0 && !channelValues[cyanChannel.id]) {
+      channelValues[cyanChannel.id] = Math.round(cyanValue * 255);
+      pureG -= cyanValue;
+      pureB -= cyanValue;
+    }
+  }
+
   // Set RGB channels with remaining values
   if (availableChannels.has(ChannelType.RED)) {
     const redChannel = channels.find(ch => ch.type === ChannelType.RED)!;
