@@ -25,7 +25,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { ChannelType, InstanceChannel, FixtureInstance, FixtureValue } from '@/types';
 import ColorPickerModal from './ColorPickerModal';
 import UnsavedChangesModal from './UnsavedChangesModal';
-import { rgbToChannelValues, channelValuesToRgb, COLOR_CHANNEL_TYPES } from '@/utils/colorConversion';
+import { channelValuesToRgb, COLOR_CHANNEL_TYPES, createOptimizedColorMapping, EXTENDED_COLOR_RATIOS } from '@/utils/colorConversion';
 import ChannelSlider from './ChannelSlider';
 import { generateUUID } from '@/utils/uuid';
 import { sparseToDense, denseToSparse } from '@/utils/channelConversion';
@@ -106,6 +106,43 @@ function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchPro
           // UV is deep blue/purple (75, 0, 130)
           r = Math.min(1, r + normalizedValue * 0.29);
           b = Math.min(1, b + normalizedValue * 0.51);
+          break;
+        case ChannelType.CYAN:
+          // Cyan adds green and blue
+          g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.CYAN.GREEN_COMPONENT);
+          b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.CYAN.BLUE_COMPONENT);
+          break;
+        case ChannelType.MAGENTA:
+          // Magenta adds red and blue
+          r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.MAGENTA.RED_COMPONENT);
+          b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.MAGENTA.BLUE_COMPONENT);
+          break;
+        case ChannelType.YELLOW:
+          // Yellow adds red and green
+          r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.YELLOW.RED_COMPONENT);
+          g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.YELLOW.GREEN_COMPONENT);
+          break;
+        case ChannelType.LIME:
+          // Lime adds red (50%) and green (100%)
+          r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.LIME.RED_COMPONENT);
+          g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.LIME.GREEN_COMPONENT);
+          break;
+        case ChannelType.INDIGO:
+          // Indigo adds red (29%) and blue (51%)
+          r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.INDIGO.RED_COMPONENT);
+          b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.INDIGO.BLUE_COMPONENT);
+          break;
+        case ChannelType.COLD_WHITE:
+          // Cold White adds all RGB at ~6500K
+          r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.COLD_WHITE.RED_COMPONENT);
+          g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.COLD_WHITE.GREEN_COMPONENT);
+          b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.COLD_WHITE.BLUE_COMPONENT);
+          break;
+        case ChannelType.WARM_WHITE:
+          // Warm White adds all RGB at ~3000K
+          r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.WARM_WHITE.RED_COMPONENT);
+          g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.WARM_WHITE.GREEN_COMPONENT);
+          b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.WARM_WHITE.BLUE_COMPONENT);
           break;
       }
     });
@@ -362,6 +399,7 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
   const [tempColor, setTempColor] = useState({ r: 255, g: 255, b: 255 });
+  const [tempIntensity, setTempIntensity] = useState(1); // Intensity value (0-1)
 
   // Fixture management state
   const [showAddFixtures, setShowAddFixtures] = useState(false);
@@ -679,8 +717,13 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     // Get current color from channels
     const currentColor = channelValuesToRgb(channels);
 
+    // Extract current intensity from INTENSITY channel if present
+    const intensityChannel = channels.find((ch: InstanceChannel & { value: number }) => ch.type === ChannelType.INTENSITY);
+    const currentIntensity = intensityChannel ? intensityChannel.value / 255 : 1.0;
+
     setSelectedFixtureId(fixtureId);
     setTempColor(currentColor);
+    setTempIntensity(currentIntensity);
     setColorPickerOpen(true);
   };
 
@@ -696,6 +739,15 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
   const handleColorSelect = (color: { r: number; g: number; b: number }) => {
     if (selectedFixtureId) {
       applyColorToFixture(selectedFixtureId, color, true);
+    }
+  };
+
+  const handleIntensityChange = (intensity: number) => {
+    setTempIntensity(intensity);
+
+    // Re-apply current color with new intensity for real-time preview
+    if (selectedFixtureId) {
+      applyColorToFixture(selectedFixtureId, tempColor, false);
     }
   };
 
@@ -814,8 +866,8 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
       value: channelValues.get(fixtureId)?.[index] ?? 0,
     }));
 
-    // Convert RGB to channel values
-    const newChannelValues = rgbToChannelValues(color, channels, true);
+    // Use intelligent color mapping with intensity support
+    const newChannelValues = createOptimizedColorMapping(color, channels, tempIntensity);
 
     // Collect all channel updates
     const channelUpdates: { channelIndex: number; value: number }[] = [];
@@ -1781,6 +1833,9 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
         currentColor={tempColor}
         onColorChange={handleColorChange}
         onColorSelect={handleColorSelect}
+        intensity={tempIntensity}
+        onIntensityChange={handleIntensityChange}
+        showIntensity={true}
       />
 
       {/* Unsaved Changes Modal */}

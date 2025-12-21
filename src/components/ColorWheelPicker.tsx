@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { HexColorPicker, RgbColorPicker } from 'react-colorful';
 import { UV_COLOR_HEX } from '@/utils/colorConversion';
 import { rgbToHex, hexToRgb } from '@/utils/colorHelpers';
@@ -7,19 +7,24 @@ interface ColorWheelPickerProps {
   currentColor: { r: number; g: number; b: number };
   onColorChange: (color: { r: number; g: number; b: number }) => void;
   onColorSelect: (color: { r: number; g: number; b: number }) => void;
+  intensity?: number; // Current intensity (0-1)
+  onIntensityChange?: (intensity: number) => void; // Intensity change callback
+  showIntensity?: boolean; // Show intensity slider (default: false)
 }
 
 export default function ColorWheelPicker({
   currentColor,
   onColorChange,
-  onColorSelect: _onColorSelect
+  onColorSelect: _onColorSelect,
+  intensity,
+  onIntensityChange,
+  showIntensity = false
 }: ColorWheelPickerProps) {
   const [pickerMode, setPickerMode] = useState<'hex' | 'rgb'>('hex');
-  const [localColor, setLocalColor] = useState(currentColor);
+  // Use currentColor directly - don't maintain separate local state
   const [hexInputValue, setHexInputValue] = useState(rgbToHex(currentColor.r, currentColor.g, currentColor.b));
 
-
-  const hexColor = rgbToHex(localColor.r, localColor.g, localColor.b);
+  const hexColor = rgbToHex(currentColor.r, currentColor.g, currentColor.b);
 
   // Validate hex color format
   const isValidHex = (hex: string): boolean => {
@@ -28,11 +33,10 @@ export default function ColorWheelPicker({
 
   const handleHexChange = (hex: string) => {
     setHexInputValue(hex);
-    
+
     // Only update color if valid hex
     if (isValidHex(hex)) {
       const rgb = hexToRgb(hex);
-      setLocalColor(rgb);
       onColorChange(rgb);
     }
   };
@@ -45,15 +49,8 @@ export default function ColorWheelPicker({
   };
 
   const handleRgbChange = (rgb: { r: number; g: number; b: number }) => {
-    setLocalColor(rgb);
     onColorChange(rgb);
   };
-
-  // Update local color when currentColor prop changes
-  useEffect(() => {
-    setLocalColor(currentColor);
-    setHexInputValue(rgbToHex(currentColor.r, currentColor.g, currentColor.b));
-  }, [currentColor]);
 
   // Predefined common lighting colors
   const presetColors = [
@@ -108,8 +105,8 @@ export default function ColorWheelPicker({
             style={{ width: '200px', height: '200px' }}
           />
         ) : (
-          <RgbColorPicker 
-            color={localColor} 
+          <RgbColorPicker
+            color={currentColor}
             onChange={handleRgbChange}
             style={{ width: '200px', height: '200px' }}
           />
@@ -148,24 +145,52 @@ export default function ColorWheelPicker({
             <div>
               <span className="text-gray-600 dark:text-gray-400">R:</span>
               <span className="ml-2 text-gray-900 dark:text-white font-mono text-xs">
-                {localColor.r}
+                {currentColor.r}
               </span>
             </div>
             <div>
               <span className="text-gray-600 dark:text-gray-400">G:</span>
               <span className="ml-2 text-gray-900 dark:text-white font-mono text-xs">
-                {localColor.g}
+                {currentColor.g}
               </span>
             </div>
             <div>
               <span className="text-gray-600 dark:text-gray-400">B:</span>
               <span className="ml-2 text-gray-900 dark:text-white font-mono text-xs">
-                {localColor.b}
+                {currentColor.b}
               </span>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Intensity Slider */}
+      {showIntensity && (
+        <div className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Intensity
+            </label>
+            <span className="text-sm font-mono text-gray-600 dark:text-gray-400">
+              {Math.round((intensity ?? 1) * 100)}%
+            </span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value={Math.round((intensity ?? 1) * 100)}
+            onChange={(e) => onIntensityChange?.(parseInt(e.target.value) / 100)}
+            className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+          />
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+            <span>0%</span>
+            <span>50%</span>
+            <span>100%</span>
+          </div>
+        </div>
+      )}
 
       {/* Preset Colors */}
       <div className="space-y-3">

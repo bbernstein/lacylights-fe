@@ -16,6 +16,13 @@ export const COLOR_CHANNEL_TYPES = [
   ChannelType.WHITE,
   ChannelType.AMBER,
   ChannelType.UV,
+  ChannelType.CYAN,
+  ChannelType.MAGENTA,
+  ChannelType.YELLOW,
+  ChannelType.LIME,
+  ChannelType.INDIGO,
+  ChannelType.COLD_WHITE,
+  ChannelType.WARM_WHITE,
 ] as const;
 
 // Lighting constants based on theatrical lighting practices
@@ -67,6 +74,57 @@ export const UV_ACTIVATION_THRESHOLDS = {
   INTENSITY_FACTOR: 0.5,// UV intensity reduction for safety and balance
   BLUE_BASELINE: 0.5,   // Baseline blue level for UV calculations
   ADVANCED_INTENSITY: 0.6 // UV intensity factor for advanced color mixing
+} as const;
+
+/**
+ * Extended color channel mixing ratios for advanced LED fixtures
+ * Based on typical LED wavelengths and color theory for maximum brightness output
+ */
+export const EXTENDED_COLOR_RATIOS = {
+  // Cyan (Blue + Green mix) - ~490-520nm wavelength
+  CYAN: {
+    RED_COMPONENT: 0,
+    GREEN_COMPONENT: 1,
+    BLUE_COMPONENT: 1,
+  },
+  // Magenta (Red + Blue mix) - produces magenta/pink hues
+  MAGENTA: {
+    RED_COMPONENT: 1,
+    GREEN_COMPONENT: 0,
+    BLUE_COMPONENT: 1,
+  },
+  // Yellow (Red + Green mix) - ~570-590nm wavelength
+  YELLOW: {
+    RED_COMPONENT: 1,
+    GREEN_COMPONENT: 1,
+    BLUE_COMPONENT: 0,
+  },
+  // Lime (Yellow-Green, brighter greens) - ~560-575nm wavelength
+  LIME: {
+    RED_COMPONENT: 0.5,
+    GREEN_COMPONENT: 1,
+    BLUE_COMPONENT: 0,
+  },
+  // Indigo (Deep Blue-Purple) - ~420-450nm wavelength
+  INDIGO: {
+    RED_COMPONENT: 0.29,
+    GREEN_COMPONENT: 0,
+    BLUE_COMPONENT: 0.51,
+  },
+  // Cold White (bluish white, ~6500K color temperature)
+  COLD_WHITE: {
+    RED_COMPONENT: 0.85,
+    GREEN_COMPONENT: 0.90,
+    BLUE_COMPONENT: 1.0,
+    INTENSITY_FACTOR: 0.95,
+  },
+  // Warm White (yellowish white, ~3000K color temperature)
+  WARM_WHITE: {
+    RED_COMPONENT: 1.0,
+    GREEN_COMPONENT: 0.85,
+    BLUE_COMPONENT: 0.70,
+    INTENSITY_FACTOR: 0.95,
+  },
 } as const;
 
 /**
@@ -127,6 +185,177 @@ function calculateAmberValue(normalizedR: number, normalizedG: number, normalize
  */
 function shouldActivateUV(r: number, g: number, b: number, blueThreshold: number = UV_ACTIVATION_THRESHOLDS.BLUE_BASELINE): boolean {
   return b > blueThreshold && r < UV_ACTIVATION_THRESHOLDS.MAX_RED && g < UV_ACTIVATION_THRESHOLDS.MAX_GREEN;
+}
+
+/**
+ * Intelligent RGB-to-channel mapping with brightness maximization.
+ *
+ * This function uses an advanced algorithm to map RGB colors to all available
+ * color channels, prioritizing maximum brightness output by aggressively using
+ * extended color channels (Cyan, Magenta, Yellow, Lime, Indigo, Warm/Cold White).
+ *
+ * Algorithm:
+ * 1. Extract white component (minimum of RGB)
+ * 2. Calculate pure color components after white extraction
+ * 3. Detect and extract secondary colors (cyan, magenta, yellow, lime, indigo)
+ * 4. Use extended channels for brightness boost
+ * 5. Prioritize Warm/Cold White over generic White based on color temperature
+ * 6. Calculate Amber from yellow content
+ * 7. Activate UV for deep blues/purples
+ * 8. Set RGB channels with remaining values
+ * 9. Apply intensity scaling if provided
+ *
+ * @param targetColor RGB color (0-255)
+ * @param channels Available fixture channels with current values
+ * @param intensity Optional intensity value (0-1), controls overall brightness
+ * @returns Channel ID to DMX value mapping (0-255)
+ *
+ * @example
+ * // Light pink with RGBW fixture
+ * const channels = fixture.channels; // Has R, G, B, W channels
+ * const pink = { r: 255, g: 200, b: 210 };
+ * const result = rgbToChannelValuesIntelligent(pink, channels);
+ * // Result: { R: 45, G: 0, B: 10, W: 200 } - Uses white for brightness!
+ *
+ * @example
+ * // Orange with Amber channel
+ * const orange = { r: 255, g: 165, b: 0 };
+ * const result = rgbToChannelValuesIntelligent(orange, channels, 0.8);
+ * // Uses Amber channel aggressively, applies 80% intensity scaling
+ */
+export function rgbToChannelValuesIntelligent(
+  targetColor: RGBColor,
+  channels: InstanceChannelWithValue[],
+  intensity?: number
+): Record<string, number> {
+  const channelValues: Record<string, number> = {};
+
+  // Normalize RGB to 0-1
+  const r = targetColor.r / 255;
+  const g = targetColor.g / 255;
+  const b = targetColor.b / 255;
+
+  // Build set of available color channel types for fast lookup
+  const availableChannels = new Set(
+    channels
+      .filter(ch => (COLOR_CHANNEL_TYPES as readonly ChannelType[]).includes(ch.type))
+      .map(ch => ch.type)
+  );
+
+  // Calculate white component (minimum of RGB values)
+  const minRGB = Math.min(r, g, b);
+  const whiteComponent = minRGB;
+
+  // Pure color components after white extraction
+  let pureR = r - whiteComponent;
+  let pureG = g - whiteComponent;
+  let pureB = b - whiteComponent;
+
+  // Detect secondary colors for optimization
+  const isCyan = pureG > 0 && pureB > 0 && pureR < 0.1;
+  const isMagenta = pureR > 0 && pureB > 0 && pureG < 0.1;
+  const isYellow = pureR > 0 && pureG > 0 && pureB < 0.1;
+  const isLime = pureG > 0.5 && pureR > 0.2 && pureR < 0.6 && pureB < 0.1;
+  const isIndigo = pureB > 0.3 && pureR > 0.1 && pureR < 0.4 && pureG < 0.1;
+
+  // Use extended channels for brightness boost (maximize output!)
+  if (availableChannels.has(ChannelType.CYAN) && isCyan) {
+    const cyanAmount = Math.min(pureG, pureB);
+    const cyanChannel = channels.find(ch => ch.type === ChannelType.CYAN)!;
+    channelValues[cyanChannel.id] = Math.round(cyanAmount * 255);
+    pureG -= cyanAmount;
+    pureB -= cyanAmount;
+  }
+
+  if (availableChannels.has(ChannelType.MAGENTA) && isMagenta) {
+    const magentaAmount = Math.min(pureR, pureB);
+    const magentaChannel = channels.find(ch => ch.type === ChannelType.MAGENTA)!;
+    channelValues[magentaChannel.id] = Math.round(magentaAmount * 255);
+    pureR -= magentaAmount;
+    pureB -= magentaAmount;
+  }
+
+  if (availableChannels.has(ChannelType.YELLOW) && isYellow) {
+    const yellowAmount = Math.min(pureR, pureG);
+    const yellowChannel = channels.find(ch => ch.type === ChannelType.YELLOW)!;
+    channelValues[yellowChannel.id] = Math.round(yellowAmount * 255);
+    pureR -= yellowAmount;
+    pureG -= yellowAmount;
+  }
+
+  if (availableChannels.has(ChannelType.LIME) && isLime) {
+    const limeChannel = channels.find(ch => ch.type === ChannelType.LIME)!;
+    // Lime boosts greens - use 50% of green component for lime
+    channelValues[limeChannel.id] = Math.round(pureG * 0.5 * 255);
+  }
+
+  if (availableChannels.has(ChannelType.INDIGO) && isIndigo) {
+    const indigoChannel = channels.find(ch => ch.type === ChannelType.INDIGO)!;
+    // Indigo enhances deep blues - use 50% of blue component for indigo
+    channelValues[indigoChannel.id] = Math.round(pureB * 0.5 * 255);
+  }
+
+  // Handle white channels (prioritize Warm/Cold over generic White)
+  if (whiteComponent > 0) {
+    const isWarm = r > g && r > b; // Reddish tint
+    const isCool = b > r && b > g; // Bluish tint
+
+    if (availableChannels.has(ChannelType.WARM_WHITE) && isWarm) {
+      const warmWhiteChannel = channels.find(ch => ch.type === ChannelType.WARM_WHITE)!;
+      channelValues[warmWhiteChannel.id] =
+        Math.round(whiteComponent * 255 * EXTENDED_COLOR_RATIOS.WARM_WHITE.INTENSITY_FACTOR);
+    } else if (availableChannels.has(ChannelType.COLD_WHITE) && isCool) {
+      const coldWhiteChannel = channels.find(ch => ch.type === ChannelType.COLD_WHITE)!;
+      channelValues[coldWhiteChannel.id] =
+        Math.round(whiteComponent * 255 * EXTENDED_COLOR_RATIOS.COLD_WHITE.INTENSITY_FACTOR);
+    } else if (availableChannels.has(ChannelType.WHITE)) {
+      const whiteChannel = channels.find(ch => ch.type === ChannelType.WHITE)!;
+      channelValues[whiteChannel.id] =
+        Math.round(whiteComponent * 255 * WHITE_CHANNEL_INTENSITY_FACTOR);
+    }
+  }
+
+  // Calculate Amber from remaining yellow content
+  if (availableChannels.has(ChannelType.AMBER)) {
+    const amberValue = calculateAmberValue(pureR, pureG, pureB);
+    if (amberValue > 0) {
+      const amberChannel = channels.find(ch => ch.type === ChannelType.AMBER)!;
+      channelValues[amberChannel.id] = Math.round(amberValue * 255);
+    }
+  }
+
+  // UV for deep blues/purples
+  if (availableChannels.has(ChannelType.UV)) {
+    if (shouldActivateUV(pureR, pureG, pureB)) {
+      const uvValue = (pureB - Math.max(pureR, pureG)) * UV_ACTIVATION_THRESHOLDS.INTENSITY_FACTOR;
+      const uvChannel = channels.find(ch => ch.type === ChannelType.UV)!;
+      channelValues[uvChannel.id] =
+        Math.round(Math.max(0, Math.min(1, uvValue)) * 255);
+    }
+  }
+
+  // Set RGB channels with remaining values
+  if (availableChannels.has(ChannelType.RED)) {
+    const redChannel = channels.find(ch => ch.type === ChannelType.RED)!;
+    channelValues[redChannel.id] = Math.round(pureR * 255);
+  }
+  if (availableChannels.has(ChannelType.GREEN)) {
+    const greenChannel = channels.find(ch => ch.type === ChannelType.GREEN)!;
+    channelValues[greenChannel.id] = Math.round(pureG * 255);
+  }
+  if (availableChannels.has(ChannelType.BLUE)) {
+    const blueChannel = channels.find(ch => ch.type === ChannelType.BLUE)!;
+    channelValues[blueChannel.id] = Math.round(pureB * 255);
+  }
+
+  // Apply intensity scaling if provided
+  if (intensity !== undefined && intensity < 1) {
+    Object.keys(channelValues).forEach(channelId => {
+      channelValues[channelId] = Math.round(channelValues[channelId] * intensity);
+    });
+  }
+
+  return channelValues;
 }
 
 /**
@@ -272,6 +501,50 @@ export function channelValuesToRgb(channels: InstanceChannelWithValue[]): RGBCol
         r = Math.min(1, r + normalizedValue * UV_COLOR_FACTORS.RED_COMPONENT);
         b = Math.min(1, b + normalizedValue * UV_COLOR_FACTORS.BLUE_COMPONENT);
         break;
+
+      case ChannelType.CYAN:
+        // Cyan adds green and blue
+        g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.CYAN.GREEN_COMPONENT);
+        b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.CYAN.BLUE_COMPONENT);
+        break;
+
+      case ChannelType.MAGENTA:
+        // Magenta adds red and blue
+        r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.MAGENTA.RED_COMPONENT);
+        b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.MAGENTA.BLUE_COMPONENT);
+        break;
+
+      case ChannelType.YELLOW:
+        // Yellow adds red and green
+        r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.YELLOW.RED_COMPONENT);
+        g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.YELLOW.GREEN_COMPONENT);
+        break;
+
+      case ChannelType.LIME:
+        // Lime adds red (at 50%) and green (at 100%)
+        r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.LIME.RED_COMPONENT);
+        g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.LIME.GREEN_COMPONENT);
+        break;
+
+      case ChannelType.INDIGO:
+        // Indigo adds red (at 29%) and blue (at 51%)
+        r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.INDIGO.RED_COMPONENT);
+        b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.INDIGO.BLUE_COMPONENT);
+        break;
+
+      case ChannelType.COLD_WHITE:
+        // Cold White adds all RGB at ~6500K color temperature
+        r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.COLD_WHITE.RED_COMPONENT);
+        g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.COLD_WHITE.GREEN_COMPONENT);
+        b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.COLD_WHITE.BLUE_COMPONENT);
+        break;
+
+      case ChannelType.WARM_WHITE:
+        // Warm White adds all RGB at ~3000K color temperature
+        r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.WARM_WHITE.RED_COMPONENT);
+        g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.WARM_WHITE.GREEN_COMPONENT);
+        b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.WARM_WHITE.BLUE_COMPONENT);
+        break;
     }
   });
 
@@ -316,21 +589,78 @@ export function getFixtureColorType(channels: InstanceChannelWithValue[]): 'RGB'
 }
 
 /**
- * Create optimized channel mappings based on fixture capabilities
+ * Create optimized channel mappings based on fixture capabilities.
+ *
+ * This function determines which color mapping algorithm to use based on
+ * the fixture's available channels:
+ * - Intelligent mapping: For fixtures with extended channels (Cyan, Magenta, Yellow, Lime, Indigo, Warm/Cold White)
+ * - Advanced mapping: For traditional RGBWAU fixtures
+ * - Basic mapping: For simple RGB fixtures
+ *
+ * @param targetColor RGB color to map
+ * @param channels Available fixture channels
+ * @param intensity Optional intensity value (0-1) for intelligent mapping
+ * @returns Channel ID to DMX value mapping
  */
 export function createOptimizedColorMapping(
   targetColor: RGBColor,
-  channels: InstanceChannelWithValue[]
+  channels: InstanceChannelWithValue[],
+  intensity?: number
 ): Record<string, number> {
-  const fixtureType = getFixtureColorType(channels);
-  
-  // For advanced fixtures, use more sophisticated color mixing
-  if (fixtureType === 'RGBWAU' || fixtureType === 'RGBWA') {
-    return rgbToChannelValuesAdvanced(targetColor, channels);
+  // Check if fixture has any extended color channels
+  const colorChannelTypes = channels
+    .filter(channel => (COLOR_CHANNEL_TYPES as readonly ChannelType[]).includes(channel.type))
+    .map(channel => channel.type);
+
+  const hasExtendedChannels = colorChannelTypes.some(type =>
+    type === ChannelType.CYAN ||
+    type === ChannelType.MAGENTA ||
+    type === ChannelType.YELLOW ||
+    type === ChannelType.LIME ||
+    type === ChannelType.INDIGO ||
+    type === ChannelType.COLD_WHITE ||
+    type === ChannelType.WARM_WHITE
+  );
+
+  let channelMapping: Record<string, number>;
+
+  // Use intelligent mapping for fixtures with extended channels
+  if (hasExtendedChannels) {
+    channelMapping = rgbToChannelValuesIntelligent(targetColor, channels, intensity);
+  } else {
+    // Fallback to existing algorithm for traditional fixtures
+    const fixtureType = getFixtureColorType(channels);
+
+    // For advanced fixtures, use more sophisticated color mixing
+    if (fixtureType === 'RGBWAU' || fixtureType === 'RGBWA') {
+      channelMapping = rgbToChannelValuesAdvanced(targetColor, channels);
+    } else {
+      // For standard fixtures, use basic mapping
+      // Pass false for preserveIntensity since we handle intensity separately now
+      channelMapping = rgbToChannelValues(targetColor, channels, false);
+    }
+
+    // Check if fixture has a dedicated INTENSITY channel
+    const hasIntensityChannel = channels.some(ch => ch.type === ChannelType.INTENSITY);
+
+    // Only scale color channels by intensity if there's NO dedicated INTENSITY channel
+    // (For fixtures WITH INTENSITY channel, the channel itself controls brightness)
+    if (intensity !== undefined && intensity !== 1.0 && !hasIntensityChannel) {
+      const scaledMapping: Record<string, number> = {};
+      for (const [channelId, value] of Object.entries(channelMapping)) {
+        scaledMapping[channelId] = Math.round(value * intensity);
+      }
+      channelMapping = scaledMapping;
+    }
   }
-  
-  // For standard fixtures, use basic mapping
-  return rgbToChannelValues(targetColor, channels, true);
+
+  // If fixture has an INTENSITY channel and intensity value is provided, set it directly
+  const intensityChannel = channels.find(ch => ch.type === ChannelType.INTENSITY);
+  if (intensityChannel && intensity !== undefined) {
+    channelMapping[intensityChannel.id] = Math.round(intensity * 255);
+  }
+
+  return channelMapping;
 }
 
 /**

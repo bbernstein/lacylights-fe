@@ -3,11 +3,13 @@ import ReactDOM from 'react-dom';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { ROSCOLUX_FILTERS, type RoscoluxFilter } from '@/data/roscoluxFilters';
 import { hexToRgb } from '@/utils/colorHelpers';
+import { calculateColorSimilarity } from '@/utils/colorMatching';
 
 interface RoscoluxSwatchPickerProps {
   currentColor: { r: number; g: number; b: number };
   onColorSelect: (color: { r: number; g: number; b: number }) => void;
   maxHeight?: string; // Optional max height style (e.g. "calc(90vh - 200px)")
+  highlightMatches?: boolean; // Whether to highlight matching swatches
 }
 
 interface TooltipProps {
@@ -115,9 +117,10 @@ function Tooltip({ filter, targetElement, isVisible }: TooltipProps) {
 }
 
 export default function RoscoluxSwatchPicker({
-  currentColor: _currentColor,
+  currentColor,
   onColorSelect,
-  maxHeight = "calc(90vh - 200px)" // Default fallback for backwards compatibility
+  maxHeight = "calc(90vh - 200px)", // Default fallback for backwards compatibility
+  highlightMatches = false
 }: RoscoluxSwatchPickerProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [hoveredFilter, setHoveredFilter] = useState<RoscoluxFilter | null>(null);
@@ -129,7 +132,7 @@ export default function RoscoluxSwatchPicker({
   // Filter roscolux data based on search term
   const filteredFilters = useMemo(() => {
     if (!searchTerm) return roscoluxFilters;
-    
+
     const term = searchTerm.toLowerCase();
     return roscoluxFilters.filter(filter =>
       filter.filter.toLowerCase().includes(term) ||
@@ -137,6 +140,21 @@ export default function RoscoluxSwatchPicker({
       filter.keywords.toLowerCase().includes(term)
     );
   }, [roscoluxFilters, searchTerm]);
+
+  // Calculate matching similarities for highlighting
+  const matchingSimilarities = useMemo(() => {
+    if (!highlightMatches) return new Map<string, number>();
+
+    const map = new Map<string, number>();
+    roscoluxFilters.forEach(filter => {
+      const filterRgb = hexToRgb(filter.rgbHex);
+      const similarity = calculateColorSimilarity(currentColor, filterRgb);
+      if (similarity >= 95) {
+        map.set(filter.rgbHex, similarity);
+      }
+    });
+    return map;
+  }, [currentColor, highlightMatches, roscoluxFilters]);
 
 
   const handleSwatchClick = (filter: RoscoluxFilter) => {
@@ -178,7 +196,11 @@ export default function RoscoluxSwatchPicker({
                   setHoveredFilter(null);
                   setHoveredElement(null);
                 }}
-                className="w-full aspect-square min-h-[44px] min-w-[44px] rounded-md border-2 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 shadow-sm hover:shadow-md hover:scale-110 relative overflow-hidden"
+                className={`w-full aspect-square min-h-[44px] min-w-[44px] rounded-md border-2 transition-all duration-200 shadow-sm hover:shadow-md hover:scale-110 relative overflow-hidden ${
+                  matchingSimilarities.has(filter.rgbHex)
+                    ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-300 dark:ring-blue-600'
+                    : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                }`}
                 style={{ backgroundColor: filter.rgbHex }}
                 aria-label={filter.filter}
               >
@@ -186,6 +208,13 @@ export default function RoscoluxSwatchPicker({
                 <span className="absolute bottom-0 right-0 text-[10px] font-bold bg-black/50 text-white px-1 rounded-tl-md">
                   {filter.filter.split(' ')[0]}
                 </span>
+
+                {/* Match indicator badge */}
+                {matchingSimilarities.has(filter.rgbHex) && (
+                  <span className="absolute top-0 left-0 text-[10px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-br-md shadow">
+                    {matchingSimilarities.get(filter.rgbHex)!.toFixed(0)}%
+                  </span>
+                )}
               </button>
             </div>
           ))}

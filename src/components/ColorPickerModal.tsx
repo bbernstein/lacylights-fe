@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import ColorWheelPicker from './ColorWheelPicker';
 import RoscoluxSwatchPicker from './RoscoluxSwatchPicker';
+import { getBestMatchingRoscolux } from '@/utils/colorMatching';
+import { ROSCOLUX_FILTERS } from '@/data/roscoluxFilters';
+import type { InstanceChannelWithValue } from '@/utils/colorConversion';
 
 interface ColorPickerModalProps {
   isOpen: boolean;
@@ -9,6 +12,10 @@ interface ColorPickerModalProps {
   currentColor: { r: number; g: number; b: number };
   onColorChange: (color: { r: number; g: number; b: number }) => void;
   onColorSelect: (color: { r: number; g: number; b: number }) => void;
+  intensity?: number; // Current intensity (0-1)
+  onIntensityChange?: (intensity: number) => void; // Intensity change callback
+  showIntensity?: boolean; // Show intensity slider (default: false)
+  channels?: InstanceChannelWithValue[]; // For fixture awareness (future use)
 }
 
 type TabType = 'wheel' | 'roscolux';
@@ -18,14 +25,31 @@ export default function ColorPickerModal({
   onClose,
   currentColor,
   onColorChange,
-  onColorSelect
+  onColorSelect,
+  intensity,
+  onIntensityChange,
+  showIntensity = false,
+  channels: _channels
 }: ColorPickerModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('wheel');
   const [selectedColor, setSelectedColor] = useState(currentColor);
+  const [bestMatch, setBestMatch] = useState<(typeof ROSCOLUX_FILTERS[0] & { similarity: number }) | null>(null);
+  const prevIsOpenRef = useRef(isOpen);
 
+  // Only initialize selectedColor when modal first opens (transition from closed to open)
   useEffect(() => {
-    setSelectedColor(currentColor);
-  }, [currentColor]);
+    if (isOpen && !prevIsOpenRef.current) {
+      // Modal just opened - initialize selectedColor from currentColor
+      setSelectedColor(currentColor);
+    }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, currentColor]);
+
+  // Update Roscolux match when color changes
+  useEffect(() => {
+    const match = getBestMatchingRoscolux(selectedColor, ROSCOLUX_FILTERS, 95);
+    setBestMatch(match);
+  }, [selectedColor]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -77,11 +101,24 @@ export default function ColorPickerModal({
           e.preventDefault();
         }}
       >
-        {/* Header */}
+        {/* Header with Roscolux Match Display */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Color Picker
-          </h2>
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Color Picker
+            </h2>
+            {bestMatch && (
+              <div className="flex items-center mt-1 text-xs">
+                <span className="text-gray-600 dark:text-gray-400">Matches:</span>
+                <span className="ml-2 font-medium text-gray-900 dark:text-white">
+                  {bestMatch.filter}
+                </span>
+                <span className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
+                  {bestMatch.similarity.toFixed(1)}%
+                </span>
+              </div>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
@@ -115,18 +152,22 @@ export default function ColorPickerModal({
         </div>
 
         {/* Tab Content */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
           {activeTab === 'wheel' && (
             <ColorWheelPicker
               currentColor={selectedColor}
               onColorChange={handleColorUpdate}
               onColorSelect={onColorSelect}
+              intensity={intensity}
+              onIntensityChange={onIntensityChange}
+              showIntensity={showIntensity}
             />
           )}
           {activeTab === 'roscolux' && (
             <RoscoluxSwatchPicker
               currentColor={selectedColor}
               onColorSelect={handleRoscoluxSelect}
+              highlightMatches={true}
             />
           )}
         </div>
