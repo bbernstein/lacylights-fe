@@ -77,6 +77,26 @@ export const UV_ACTIVATION_THRESHOLDS = {
 } as const;
 
 /**
+ * Secondary color detection thresholds for intelligent color mapping
+ * These thresholds determine when to use extended color channels (Cyan, Magenta, Yellow, Lime, Indigo)
+ * Values chosen empirically for typical RGB fixtures to maximize brightness and color accuracy
+ */
+export const SECONDARY_COLOR_THRESHOLDS = {
+  // Minimum threshold for detecting low components (used for Cyan, Magenta, Yellow, Lime, Indigo detection)
+  LOW_COMPONENT_MAX: 0.1,
+
+  // Lime detection thresholds (Yellow-green color)
+  LIME_GREEN_MIN: 0.5,      // Lime requires dominant green component
+  LIME_RED_MIN: 0.2,        // With moderate red component for yellow-green hue
+  LIME_RED_MAX: 0.6,        // But not too much red (would be pure yellow)
+
+  // Indigo detection thresholds (Deep blue-purple color)
+  INDIGO_BLUE_MIN: 0.3,     // Indigo requires strong blue component
+  INDIGO_RED_MIN: 0.1,      // With some red for purple hue
+  INDIGO_RED_MAX: 0.4,      // But moderate red (too much would be magenta)
+} as const;
+
+/**
  * Extended color channel mixing ratios for advanced LED fixtures
  * Based on typical LED wavelengths and color theory for maximum brightness output
  */
@@ -251,12 +271,18 @@ export function rgbToChannelValuesIntelligent(
   let pureG = g - whiteComponent;
   let pureB = b - whiteComponent;
 
-  // Detect secondary colors for optimization
-  const isCyan = pureG > 0 && pureB > 0 && pureR < 0.1;
-  const isMagenta = pureR > 0 && pureB > 0 && pureG < 0.1;
-  const isYellow = pureR > 0 && pureG > 0 && pureB < 0.1;
-  const isLime = pureG > 0.5 && pureR > 0.2 && pureR < 0.6 && pureB < 0.1;
-  const isIndigo = pureB > 0.3 && pureR > 0.1 && pureR < 0.4 && pureG < 0.1;
+  // Detect secondary colors for optimization using named thresholds
+  const isCyan = pureG > 0 && pureB > 0 && pureR < SECONDARY_COLOR_THRESHOLDS.LOW_COMPONENT_MAX;
+  const isMagenta = pureR > 0 && pureB > 0 && pureG < SECONDARY_COLOR_THRESHOLDS.LOW_COMPONENT_MAX;
+  const isYellow = pureR > 0 && pureG > 0 && pureB < SECONDARY_COLOR_THRESHOLDS.LOW_COMPONENT_MAX;
+  const isLime = pureG > SECONDARY_COLOR_THRESHOLDS.LIME_GREEN_MIN &&
+                 pureR > SECONDARY_COLOR_THRESHOLDS.LIME_RED_MIN &&
+                 pureR < SECONDARY_COLOR_THRESHOLDS.LIME_RED_MAX &&
+                 pureB < SECONDARY_COLOR_THRESHOLDS.LOW_COMPONENT_MAX;
+  const isIndigo = pureB > SECONDARY_COLOR_THRESHOLDS.INDIGO_BLUE_MIN &&
+                   pureR > SECONDARY_COLOR_THRESHOLDS.INDIGO_RED_MIN &&
+                   pureR < SECONDARY_COLOR_THRESHOLDS.INDIGO_RED_MAX &&
+                   pureG < SECONDARY_COLOR_THRESHOLDS.LOW_COMPONENT_MAX;
 
   // Use extended channels for brightness boost (maximize output!)
   if (availableChannels.has(ChannelType.CYAN) && isCyan) {
