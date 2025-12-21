@@ -292,6 +292,8 @@ describe('ImportOFLFixtureModal (Full)', () => {
                   name: 'Dimmer',
                   type: 'INTENSITY',
                   offset: 0,
+                  fadeBehavior: 'FADE',
+                  isDiscrete: false,
                 },
               ],
               modes: [
@@ -682,6 +684,8 @@ describe('ImportOFLFixtureModal (Full)', () => {
                   name: 'Dimmer',
                   type: 'INTENSITY',
                   offset: 0,
+                  fadeBehavior: 'FADE',
+                  isDiscrete: false,
                 },
               ],
               modes: [
