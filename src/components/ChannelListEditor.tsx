@@ -748,7 +748,7 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
 
     // Re-apply current color with new intensity for real-time preview
     if (selectedFixtureId) {
-      applyColorToFixture(selectedFixtureId, tempColor, false);
+      applyColorToFixture(selectedFixtureId, tempColor, false, intensity);
     }
   };
 
@@ -858,7 +858,7 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     }
   }, [useSharedState, sharedState, localUndoStack, previewMode, previewSessionId, updatePreviewChannel]);
 
-  const applyColorToFixture = (fixtureId: string, color: { r: number; g: number; b: number }, _final: boolean) => {
+  const applyColorToFixture = (fixtureId: string, color: { r: number; g: number; b: number }, _final: boolean, intensityOverride?: number) => {
     // Look for the fixture in activeFixtureValues (includes both saved and newly added fixtures)
     const fixtureValue = activeFixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
     if (!fixtureValue) return;
@@ -869,7 +869,9 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     }));
 
     // Use intelligent color mapping with intensity support
-    const newChannelValues = createOptimizedColorMapping(color, channels, tempIntensity);
+    // Use intensityOverride if provided (for real-time preview), otherwise use tempIntensity state
+    const effectiveIntensity = intensityOverride !== undefined ? intensityOverride : tempIntensity;
+    const newChannelValues = createOptimizedColorMapping(color, channels, effectiveIntensity);
 
     // Collect all channel updates
     const channelUpdates: { channelIndex: number; value: number }[] = [];
