@@ -261,38 +261,48 @@ export function rgbToChannelValuesIntelligent(
   // Use extended channels for brightness boost (maximize output!)
   if (availableChannels.has(ChannelType.CYAN) && isCyan) {
     const cyanAmount = Math.min(pureG, pureB);
-    const cyanChannel = channels.find(ch => ch.type === ChannelType.CYAN)!;
-    channelValues[cyanChannel.id] = Math.round(cyanAmount * 255);
-    pureG -= cyanAmount;
-    pureB -= cyanAmount;
+    const cyanChannel = channels.find(ch => ch.type === ChannelType.CYAN);
+    if (cyanChannel) {
+      channelValues[cyanChannel.id] = Math.round(cyanAmount * 255);
+      pureG -= cyanAmount;
+      pureB -= cyanAmount;
+    }
   }
 
   if (availableChannels.has(ChannelType.MAGENTA) && isMagenta) {
     const magentaAmount = Math.min(pureR, pureB);
-    const magentaChannel = channels.find(ch => ch.type === ChannelType.MAGENTA)!;
-    channelValues[magentaChannel.id] = Math.round(magentaAmount * 255);
-    pureR -= magentaAmount;
-    pureB -= magentaAmount;
+    const magentaChannel = channels.find(ch => ch.type === ChannelType.MAGENTA);
+    if (magentaChannel) {
+      channelValues[magentaChannel.id] = Math.round(magentaAmount * 255);
+      pureR -= magentaAmount;
+      pureB -= magentaAmount;
+    }
   }
 
   if (availableChannels.has(ChannelType.YELLOW) && isYellow) {
     const yellowAmount = Math.min(pureR, pureG);
-    const yellowChannel = channels.find(ch => ch.type === ChannelType.YELLOW)!;
-    channelValues[yellowChannel.id] = Math.round(yellowAmount * 255);
-    pureR -= yellowAmount;
-    pureG -= yellowAmount;
+    const yellowChannel = channels.find(ch => ch.type === ChannelType.YELLOW);
+    if (yellowChannel) {
+      channelValues[yellowChannel.id] = Math.round(yellowAmount * 255);
+      pureR -= yellowAmount;
+      pureG -= yellowAmount;
+    }
   }
 
   if (availableChannels.has(ChannelType.LIME) && isLime) {
-    const limeChannel = channels.find(ch => ch.type === ChannelType.LIME)!;
-    // Lime boosts greens - use 50% of green component for lime
-    channelValues[limeChannel.id] = Math.round(pureG * 0.5 * 255);
+    const limeChannel = channels.find(ch => ch.type === ChannelType.LIME);
+    if (limeChannel) {
+      // Lime boosts greens - use 50% of green component for lime
+      channelValues[limeChannel.id] = Math.round(pureG * 0.5 * 255);
+    }
   }
 
   if (availableChannels.has(ChannelType.INDIGO) && isIndigo) {
-    const indigoChannel = channels.find(ch => ch.type === ChannelType.INDIGO)!;
-    // Indigo enhances deep blues - use 50% of blue component for indigo
-    channelValues[indigoChannel.id] = Math.round(pureB * 0.5 * 255);
+    const indigoChannel = channels.find(ch => ch.type === ChannelType.INDIGO);
+    if (indigoChannel) {
+      // Indigo enhances deep blues - use 50% of blue component for indigo
+      channelValues[indigoChannel.id] = Math.round(pureB * 0.5 * 255);
+    }
   }
 
   // Handle white channels (prioritize Warm/Cold over generic White)
@@ -301,17 +311,23 @@ export function rgbToChannelValuesIntelligent(
     const isCool = b > r && b > g; // Bluish tint
 
     if (availableChannels.has(ChannelType.WARM_WHITE) && isWarm) {
-      const warmWhiteChannel = channels.find(ch => ch.type === ChannelType.WARM_WHITE)!;
-      channelValues[warmWhiteChannel.id] =
-        Math.round(whiteComponent * 255 * EXTENDED_COLOR_RATIOS.WARM_WHITE.INTENSITY_FACTOR);
+      const warmWhiteChannel = channels.find(ch => ch.type === ChannelType.WARM_WHITE);
+      if (warmWhiteChannel) {
+        channelValues[warmWhiteChannel.id] =
+          Math.round(whiteComponent * 255 * EXTENDED_COLOR_RATIOS.WARM_WHITE.INTENSITY_FACTOR);
+      }
     } else if (availableChannels.has(ChannelType.COLD_WHITE) && isCool) {
-      const coldWhiteChannel = channels.find(ch => ch.type === ChannelType.COLD_WHITE)!;
-      channelValues[coldWhiteChannel.id] =
-        Math.round(whiteComponent * 255 * EXTENDED_COLOR_RATIOS.COLD_WHITE.INTENSITY_FACTOR);
+      const coldWhiteChannel = channels.find(ch => ch.type === ChannelType.COLD_WHITE);
+      if (coldWhiteChannel) {
+        channelValues[coldWhiteChannel.id] =
+          Math.round(whiteComponent * 255 * EXTENDED_COLOR_RATIOS.COLD_WHITE.INTENSITY_FACTOR);
+      }
     } else if (availableChannels.has(ChannelType.WHITE)) {
-      const whiteChannel = channels.find(ch => ch.type === ChannelType.WHITE)!;
-      channelValues[whiteChannel.id] =
-        Math.round(whiteComponent * 255 * WHITE_CHANNEL_INTENSITY_FACTOR);
+      const whiteChannel = channels.find(ch => ch.type === ChannelType.WHITE);
+      if (whiteChannel) {
+        channelValues[whiteChannel.id] =
+          Math.round(whiteComponent * 255 * WHITE_CHANNEL_INTENSITY_FACTOR);
+      }
     }
   }
 
@@ -319,8 +335,10 @@ export function rgbToChannelValuesIntelligent(
   if (availableChannels.has(ChannelType.AMBER)) {
     const amberValue = calculateAmberValue(pureR, pureG, pureB);
     if (amberValue > 0) {
-      const amberChannel = channels.find(ch => ch.type === ChannelType.AMBER)!;
-      channelValues[amberChannel.id] = Math.round(amberValue * 255);
+      const amberChannel = channels.find(ch => ch.type === ChannelType.AMBER);
+      if (amberChannel) {
+        channelValues[amberChannel.id] = Math.round(amberValue * 255);
+      }
     }
   }
 
@@ -328,49 +346,61 @@ export function rgbToChannelValuesIntelligent(
   if (availableChannels.has(ChannelType.UV)) {
     if (shouldActivateUV(pureR, pureG, pureB)) {
       const uvValue = (pureB - Math.max(pureR, pureG)) * UV_ACTIVATION_THRESHOLDS.INTENSITY_FACTOR;
-      const uvChannel = channels.find(ch => ch.type === ChannelType.UV)!;
-      channelValues[uvChannel.id] =
-        Math.round(Math.max(0, Math.min(1, uvValue)) * 255);
+      const uvChannel = channels.find(ch => ch.type === ChannelType.UV);
+      if (uvChannel) {
+        channelValues[uvChannel.id] =
+          Math.round(Math.max(0, Math.min(1, uvValue)) * 255);
+      }
     }
   }
 
   // Handle cases where we need to use extended channels as fallbacks
   // If no BLUE channel but we have INDIGO, use INDIGO to create blue
   if (!availableChannels.has(ChannelType.BLUE) && availableChannels.has(ChannelType.INDIGO) && pureB > 0) {
-    const indigoChannel = channels.find(ch => ch.type === ChannelType.INDIGO)!;
-    // INDIGO contributes: RED_COMPONENT=0.29, BLUE_COMPONENT=0.51
-    // To get the blue we need: indigoValue = pureB / 0.51
-    const indigoValue = Math.min(1, pureB / EXTENDED_COLOR_RATIOS.INDIGO.BLUE_COMPONENT);
-    channelValues[indigoChannel.id] = Math.round(indigoValue * 255);
-    // Subtract the red contribution from INDIGO
-    pureR -= indigoValue * EXTENDED_COLOR_RATIOS.INDIGO.RED_COMPONENT;
-    pureR = Math.max(0, pureR); // Ensure non-negative
+    const indigoChannel = channels.find(ch => ch.type === ChannelType.INDIGO);
+    if (indigoChannel) {
+      // INDIGO contributes: RED_COMPONENT=0.29, BLUE_COMPONENT=0.51
+      // To get the blue we need: indigoValue = pureB / 0.51
+      const indigoValue = Math.min(1, pureB / EXTENDED_COLOR_RATIOS.INDIGO.BLUE_COMPONENT);
+      channelValues[indigoChannel.id] = Math.round(indigoValue * 255);
+      // Subtract the red contribution from INDIGO
+      pureR -= indigoValue * EXTENDED_COLOR_RATIOS.INDIGO.RED_COMPONENT;
+      pureR = Math.max(0, pureR); // Ensure non-negative
+    }
   }
 
   // If no BLUE channel but we have CYAN, use CYAN to create blue
   if (!availableChannels.has(ChannelType.BLUE) && availableChannels.has(ChannelType.CYAN) && pureB > 0) {
-    const cyanChannel = channels.find(ch => ch.type === ChannelType.CYAN)!;
-    // CYAN contributes: GREEN_COMPONENT=1.0, BLUE_COMPONENT=1.0
-    const cyanValue = Math.min(pureG, pureB);
-    if (cyanValue > 0 && !channelValues[cyanChannel.id]) {
-      channelValues[cyanChannel.id] = Math.round(cyanValue * 255);
-      pureG -= cyanValue;
-      pureB -= cyanValue;
+    const cyanChannel = channels.find(ch => ch.type === ChannelType.CYAN);
+    if (cyanChannel) {
+      // CYAN contributes: GREEN_COMPONENT=1.0, BLUE_COMPONENT=1.0
+      const cyanValue = Math.min(pureG, pureB);
+      if (cyanValue > 0 && !channelValues[cyanChannel.id]) {
+        channelValues[cyanChannel.id] = Math.round(cyanValue * 255);
+        pureG -= cyanValue;
+        pureB -= cyanValue;
+      }
     }
   }
 
   // Set RGB channels with remaining values
   if (availableChannels.has(ChannelType.RED)) {
-    const redChannel = channels.find(ch => ch.type === ChannelType.RED)!;
-    channelValues[redChannel.id] = Math.round(pureR * 255);
+    const redChannel = channels.find(ch => ch.type === ChannelType.RED);
+    if (redChannel) {
+      channelValues[redChannel.id] = Math.round(pureR * 255);
+    }
   }
   if (availableChannels.has(ChannelType.GREEN)) {
-    const greenChannel = channels.find(ch => ch.type === ChannelType.GREEN)!;
-    channelValues[greenChannel.id] = Math.round(pureG * 255);
+    const greenChannel = channels.find(ch => ch.type === ChannelType.GREEN);
+    if (greenChannel) {
+      channelValues[greenChannel.id] = Math.round(pureG * 255);
+    }
   }
   if (availableChannels.has(ChannelType.BLUE)) {
-    const blueChannel = channels.find(ch => ch.type === ChannelType.BLUE)!;
-    channelValues[blueChannel.id] = Math.round(pureB * 255);
+    const blueChannel = channels.find(ch => ch.type === ChannelType.BLUE);
+    if (blueChannel) {
+      channelValues[blueChannel.id] = Math.round(pureB * 255);
+    }
   }
 
   // Apply intensity scaling if provided

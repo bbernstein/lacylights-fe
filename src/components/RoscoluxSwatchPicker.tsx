@@ -210,11 +210,15 @@ export default function RoscoluxSwatchPicker({
                 </span>
 
                 {/* Match indicator badge */}
-                {matchingSimilarities.has(filter.rgbHex) && (
-                  <span className="absolute top-0 left-0 text-[10px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-br-md shadow">
-                    {matchingSimilarities.get(filter.rgbHex)!.toFixed(0)}%
-                  </span>
-                )}
+                {matchingSimilarities.has(filter.rgbHex) && (() => {
+                  const similarity = matchingSimilarities.get(filter.rgbHex);
+                  if (similarity === undefined) return null;
+                  return (
+                    <span className="absolute top-0 left-0 text-[10px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-br-md shadow">
+                      {similarity.toFixed(0)}%
+                    </span>
+                  );
+                })()}
               </button>
             </div>
           ))}
