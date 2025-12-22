@@ -86,6 +86,11 @@ export default function SystemUpdatePage() {
           }));
         }
       },
+      onError: () => {
+        setErrorMessage(
+          'Failed to fetch available versions. Please check your connection and try again.'
+        );
+      },
     }
   );
 
@@ -482,6 +487,11 @@ export default function SystemUpdatePage() {
                               onClick={() => handleToggleVersionSelector(repo.repository)}
                               className="rounded bg-gray-600 px-2 py-1 text-sm text-gray-300 hover:bg-gray-500"
                               title="Select specific version"
+                              aria-label={
+                                expandedRepo === repo.repository
+                                  ? 'Collapse version selector'
+                                  : 'Expand version selector'
+                              }
                             >
                               {expandedRepo === repo.repository ? '▲' : '▼'}
                             </button>
