@@ -459,4 +459,172 @@ describe('MultiSelectControls', () => {
     // Should show variation indicator
     expect(screen.getByTitle('Values differ across selected fixtures')).toBeInTheDocument();
   });
+
+  describe('Phase 3: Intensity scaling with unscaled RGB', () => {
+    it('opens color picker with unscaled RGB for fixture with INTENSITY channel at 50%', async () => {
+      // Fixture has: RED=255, GREEN=0, BLUE=0, INTENSITY=128 (50%)
+      // Display color should be: rgb(128, 0, 0) (scaled)
+      // Base color for picker should be: {r: 255, g: 0, b: 0} (unscaled)
+      const fixtureValues = new Map([[mockFixtureWithIntensity.id, [255, 0, 0, 128]]]);
+
+      render(
+        <MultiSelectControls
+          selectedFixtures={[mockFixtureWithIntensity]}
+          fixtureValues={fixtureValues}
+          onBatchedChannelChanges={mockOnBatchedChannelChanges}
+          onDebouncedPreviewUpdate={mockOnDebouncedPreviewUpdate}
+          onDeselectAll={mockOnDeselectAll}
+        />
+      );
+
+      // Open color picker
+      const colorSwatchButton = screen.getByTitle('Click to open color picker');
+      fireEvent.click(colorSwatchButton);
+
+      // Verify color picker is open
+      expect(screen.getByTestId('color-picker-modal')).toBeInTheDocument();
+
+      // Verify intensity is set to ~50% (128/255 ≈ 0.502)
+      const intensitySlider = screen.getByTestId('intensity-slider') as HTMLInputElement;
+      // Allow for floating point precision: 128/255 * 100 ≈ 50.196
+      expect(parseFloat(intensitySlider.value)).toBeCloseTo(50, 0);
+    });
+
+    it('restores full brightness when intensity moves from 50% to 100% for RGB+I fixture', async () => {
+      // Starting state: RED=255, INTENSITY=128 (50% brightness)
+      const fixtureValues = new Map([[mockFixtureWithIntensity.id, [255, 0, 0, 128]]]);
+
+      render(
+        <MultiSelectControls
+          selectedFixtures={[mockFixtureWithIntensity]}
+          fixtureValues={fixtureValues}
+          onBatchedChannelChanges={mockOnBatchedChannelChanges}
+          onDebouncedPreviewUpdate={mockOnDebouncedPreviewUpdate}
+          onDeselectAll={mockOnDeselectAll}
+        />
+      );
+
+      // Open color picker
+      const colorSwatchButton = screen.getByTitle('Click to open color picker');
+      fireEvent.click(colorSwatchButton);
+
+      // Move intensity to 100%
+      const intensitySlider = screen.getByTestId('intensity-slider');
+      fireEvent.change(intensitySlider, { target: { value: '100' } });
+
+      await waitFor(() => {
+        expect(mockOnDebouncedPreviewUpdate).toHaveBeenCalled();
+      });
+
+      // Verify that the update was called (indicating INTENSITY channel was set to 255)
+      // The base color (RED=255) should be preserved, only INTENSITY should change
+      expect(mockOnDebouncedPreviewUpdate).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            fixtureId: mockFixtureWithIntensity.id,
+          })
+        ])
+      );
+    });
+
+    it('restores full brightness when intensity moves from 0% to 100% for RGB+I fixture', async () => {
+      // Starting state: RED=255, INTENSITY=0 (0% brightness - blackout)
+      const fixtureValues = new Map([[mockFixtureWithIntensity.id, [255, 0, 0, 0]]]);
+
+      render(
+        <MultiSelectControls
+          selectedFixtures={[mockFixtureWithIntensity]}
+          fixtureValues={fixtureValues}
+          onBatchedChannelChanges={mockOnBatchedChannelChanges}
+          onDebouncedPreviewUpdate={mockOnDebouncedPreviewUpdate}
+          onDeselectAll={mockOnDeselectAll}
+        />
+      );
+
+      // Open color picker
+      const colorSwatchButton = screen.getByTitle('Click to open color picker');
+      fireEvent.click(colorSwatchButton);
+
+      // Verify intensity starts at 0%
+      const intensitySlider = screen.getByTestId('intensity-slider') as HTMLInputElement;
+      expect(parseFloat(intensitySlider.value)).toBe(0);
+
+      // Move intensity to 100%
+      fireEvent.change(intensitySlider, { target: { value: '100' } });
+
+      await waitFor(() => {
+        expect(mockOnDebouncedPreviewUpdate).toHaveBeenCalled();
+      });
+
+      // The fixture should now be at full brightness
+      // RED=255 (preserved), INTENSITY=255 (updated)
+      expect(mockOnDebouncedPreviewUpdate).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            fixtureId: mockFixtureWithIntensity.id,
+          })
+        ])
+      );
+    });
+
+    it('uses intensity=1.0 for RGB-only fixtures without INTENSITY channel', async () => {
+      // RGB-only fixture: RED=255, GREEN=128, BLUE=64
+      const fixtureValues = new Map([[mockFixture.id, [255, 128, 64]]]);
+
+      render(
+        <MultiSelectControls
+          selectedFixtures={[mockFixture]}
+          fixtureValues={fixtureValues}
+          onBatchedChannelChanges={mockOnBatchedChannelChanges}
+          onDebouncedPreviewUpdate={mockOnDebouncedPreviewUpdate}
+          onDeselectAll={mockOnDeselectAll}
+        />
+      );
+
+      // Open color picker
+      const colorSwatchButton = screen.getByTitle('Click to open color picker');
+      fireEvent.click(colorSwatchButton);
+
+      // Verify intensity defaults to 100% for RGB-only fixtures
+      const intensitySlider = screen.getByTestId('intensity-slider') as HTMLInputElement;
+      expect(parseFloat(intensitySlider.value)).toBe(100);
+    });
+
+    it('scales RGB channels directly for RGB-only fixtures when intensity changes', async () => {
+      // RGB-only fixture: RED=255, GREEN=0, BLUE=0
+      const fixtureValues = new Map([[mockFixture.id, [255, 0, 0]]]);
+
+      render(
+        <MultiSelectControls
+          selectedFixtures={[mockFixture]}
+          fixtureValues={fixtureValues}
+          onBatchedChannelChanges={mockOnBatchedChannelChanges}
+          onDebouncedPreviewUpdate={mockOnDebouncedPreviewUpdate}
+          onDeselectAll={mockOnDeselectAll}
+        />
+      );
+
+      // Open color picker
+      const colorSwatchButton = screen.getByTitle('Click to open color picker');
+      fireEvent.click(colorSwatchButton);
+
+      // Move intensity to 50%
+      const intensitySlider = screen.getByTestId('intensity-slider');
+      fireEvent.change(intensitySlider, { target: { value: '50' } });
+
+      await waitFor(() => {
+        expect(mockOnDebouncedPreviewUpdate).toHaveBeenCalled();
+      });
+
+      // For RGB-only fixtures, intensity scales the RGB channels
+      // So RED should become ~128 (50% of 255)
+      expect(mockOnDebouncedPreviewUpdate).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            fixtureId: mockFixture.id,
+          })
+        ])
+      );
+    });
+  });
 });

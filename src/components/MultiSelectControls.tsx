@@ -196,23 +196,43 @@ export default function MultiSelectControls({
   );
 
   /**
-   * Opens the color picker and stores the current display color as the base
-   * for intensity adjustments. This allows the intensity slider to scale the
-   * color up/down without losing the original color information.
+   * Opens the color picker with the current UNSCALED color as the base for intensity scaling.
+   * Extracts the raw RGB values (not scaled by intensity) from the first fixture so that
+   * the intensity slider can properly control brightness from 0-100%.
    *
-   * Example: User sets red (255,0,0), then moves intensity to 50% -> (128,0,0),
-   * then back to 100% -> restores to (255,0,0) instead of staying at (128,0,0).
-   */
-  /**
-   * Opens the color picker and initializes the base color for intensity adjustments.
-   * The base color allows the intensity slider to scale 0-100% without losing color information.
+   * For fixtures WITH INTENSITY channel:
+   * - Base color is the raw RGB values (e.g., RED=255)
+   * - Intensity slider controls the INTENSITY channel
+   *
+   * For fixtures WITHOUT INTENSITY channel:
+   * - Base color is the current RGB values
+   * - Intensity slider scales the RGB values
+   *
+   * Multi-fixture behavior: Uses the first fixture's color and intensity as the
+   * initial values. When applying changes, all selected fixtures are updated.
    */
   const handleOpenColorPicker = useCallback(() => {
-    if (displayRgbColor) {
-      setBaseColorForIntensity(displayRgbColor);
-    }
+    if (selectedFixtures.length === 0) return;
+
+    // Get unscaled base color from the first selected fixture
+    const firstFixture = selectedFixtures[0];
+    const firstFixtureValues = fixtureValues.get(firstFixture.id);
+    if (!firstFixtureValues || !firstFixture.channels) return;
+
+    const channelsWithValues: InstanceChannelWithValue[] = firstFixture.channels.map((channel, index) => ({
+      ...channel,
+      value: firstFixtureValues[index] || 0,
+    }));
+
+    // Get UNSCALED RGB and separate intensity
+    // Phase 1 contract: channelValuesToRgb() returns unscaled RGB + intensity
+    const { r, g, b, intensity } = channelValuesToRgb(channelsWithValues);
+
+    // Store unscaled color as base (allows intensity to go 0->100% and restore full brightness)
+    setBaseColorForIntensity({ r, g, b });
+    setColorPickerIntensity(intensity);
     setIsColorPickerOpen(true);
-  }, [displayRgbColor]);
+  }, [selectedFixtures, fixtureValues]);
 
   /**
    * Closes the color picker and resets the base color state for cleanliness.
