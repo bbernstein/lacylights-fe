@@ -7,6 +7,57 @@ export interface RGBColor {
 }
 
 /**
+ * RGB color with separate intensity value.
+ * Used when we need to distinguish between the base color and intensity scaling.
+ *
+ * For fixtures WITH an INTENSITY channel:
+ *   - RGB values are unscaled (raw channel values, e.g., RED=255)
+ *   - intensity is normalized to 0-1 (e.g., 128/255 = 0.5)
+ *
+ * For fixtures WITHOUT an INTENSITY channel:
+ *   - RGB values are the channel values
+ *   - intensity is always 1.0
+ *
+ * @example
+ * // Fixture with INTENSITY channel at 50%
+ * const color: RGBColorWithIntensity = { r: 255, g: 0, b: 0, intensity: 0.5 };
+ * // Display color would be: rgb(128, 0, 0) = r * intensity
+ */
+export interface RGBColorWithIntensity {
+  /** Unscaled RGB red value (0-255) */
+  r: number;
+  /** Unscaled RGB green value (0-255) */
+  g: number;
+  /** Unscaled RGB blue value (0-255) */
+  b: number;
+  /** Normalized intensity (0-1), 1.0 if no INTENSITY channel */
+  intensity: number;
+}
+
+/**
+ * Applies intensity scaling to RGB values for display.
+ *
+ * Takes unscaled RGB values with intensity and returns scaled RGB values
+ * suitable for display. This is commonly used when rendering fixture colors
+ * on the canvas or in UI components.
+ *
+ * @param rgb - Unscaled RGB values with intensity
+ * @returns Scaled RGB values for display (0-255)
+ *
+ * @example
+ * const unscaled = { r: 255, g: 0, b: 0, intensity: 0.5 };
+ * const display = applyIntensityToRgb(unscaled);
+ * // Returns: { r: 128, g: 0, b: 0 }
+ */
+export function applyIntensityToRgb(rgb: RGBColorWithIntensity): RGBColor {
+  return {
+    r: Math.round(rgb.r * rgb.intensity),
+    g: Math.round(rgb.g * rgb.intensity),
+    b: Math.round(rgb.b * rgb.intensity),
+  };
+}
+
+/**
  * Color channel types that can be used for color mixing
  */
 export const COLOR_CHANNEL_TYPES = [
@@ -523,27 +574,42 @@ export function rgbToChannelValues(
 }
 
 /**
- * Calculate the resulting RGB color from current channel values
+ * Calculate the resulting RGB color from current channel values with separate intensity.
+ *
+ * Returns UNSCALED RGB values (raw channel values, not multiplied by intensity).
+ *
+ * For fixtures WITH an INTENSITY channel:
+ *   - RGB values are the raw channel values (e.g., RED=255)
+ *   - intensity is the INTENSITY channel value normalized to 0-1 (e.g., 128/255 = 0.5)
+ *
+ * For fixtures WITHOUT an INTENSITY channel:
+ *   - RGB values are the channel values (e.g., RED=128)
+ *   - intensity is always 1.0
+ *
+ * To get display color (what user sees), multiply RGB by intensity:
+ *   displayR = r * intensity
+ *
  * This is the inverse of rgbToChannelValues and matches the logic in ColorSwatch
+ *
+ * @param channels - Array of channels with current values
+ * @returns Unscaled RGB color + intensity value
  */
-export function channelValuesToRgb(channels: InstanceChannelWithValue[]): RGBColor {
+export function channelValuesToRgb(channels: InstanceChannelWithValue[]): RGBColorWithIntensity {
   const colorChannels = channels.filter(channel =>
     (COLOR_CHANNEL_TYPES as readonly ChannelType[]).includes(channel.type)
   );
 
   if (colorChannels.length === 0) {
-    return { r: 0, g: 0, b: 0 };
+    return { r: 0, g: 0, b: 0, intensity: 1.0 };
   }
 
   let r = 0, g = 0, b = 0;
-  let hasIntensity = false;
   let intensity = 1;
 
   // Check for intensity channel
   // Note: intensityChannel.value is in DMX range (0-255), normalize to 0-1
   const intensityChannel = channels.find(channel => channel.type === ChannelType.INTENSITY);
   if (intensityChannel) {
-    hasIntensity = true;
     intensity = intensityChannel.value / 255; // Convert DMX (0-255) to normalized (0-1)
   }
 
@@ -629,17 +695,13 @@ export function channelValuesToRgb(channels: InstanceChannelWithValue[]): RGBCol
     }
   });
 
-  // Apply intensity if present
-  if (hasIntensity) {
-    r *= intensity;
-    g *= intensity;
-    b *= intensity;
-  }
-
+  // Return UNSCALED RGB + separate intensity
+  // Callers should multiply by intensity if they need display color
   return {
     r: Math.round(r * 255),
     g: Math.round(g * 255),
     b: Math.round(b * 255),
+    intensity,
   };
 }
 
