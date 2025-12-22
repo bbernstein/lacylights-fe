@@ -29,7 +29,7 @@ const STEPS: UpdateStep[] = [
   { state: 'restarting', label: 'Restarting services', icon: '4' },
   { state: 'reconnecting', label: 'Reconnecting to server', icon: '5' },
   { state: 'verifying', label: 'Verifying version', icon: '6' },
-  { state: 'complete', label: 'Update complete', icon: '\u2713' },
+  { state: 'complete', label: 'Update complete', icon: '✓' },
 ];
 
 interface UpdateProgressProps {
@@ -90,7 +90,7 @@ export function UpdateProgress({
                     : 'bg-gray-600 text-gray-300'
               }`}
             >
-              {isComplete ? '\u2713' : step.icon}
+              {isComplete ? '✓' : step.icon}
             </div>
             <span
               className={`text-sm ${

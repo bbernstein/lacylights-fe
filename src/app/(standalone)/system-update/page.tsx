@@ -13,6 +13,10 @@ import { UpdateProgress, UpdateState } from '@/components/system-update/UpdatePr
 import { ReconnectCountdown } from '@/components/system-update/ReconnectCountdown';
 import { useReconnectPoller } from '@/hooks/useReconnectPoller';
 
+/** Backend repository names that trigger server restart on update */
+const BACKEND_REPOS = ['lacylights-go', 'lacylights-mcp'] as const;
+const GO_BACKEND_REPO = 'lacylights-go';
+
 interface RepositoryVersion {
   repository: string;
   installed: string;
@@ -86,7 +90,7 @@ export default function SystemUpdatePage() {
               ...prev,
               {
                 success: true,
-                repository: 'lacylights-go',
+                repository: GO_BACKEND_REPO,
                 previousVersion: 'unknown',
                 newVersion: healthInfo.version || 'unknown',
                 message: `Server is running v${healthInfo.version || 'unknown'}`,
@@ -95,8 +99,10 @@ export default function SystemUpdatePage() {
           } else {
             setUpdateState('complete');
           }
-        } catch {
+        } catch (error) {
           // If we can't verify, still mark complete since server is up
+          // Log the error for debugging but don't block the update flow
+          console.error('Failed to verify version after reconnect:', error);
           setUpdateState('complete');
         }
 
@@ -124,7 +130,7 @@ export default function SystemUpdatePage() {
 
       // Check if any backend updates were performed
       const goUpdate = results.find(
-        (r: UpdateResult) => r.repository === 'lacylights-go' && r.success
+        (r: UpdateResult) => r.repository === GO_BACKEND_REPO && r.success
       );
 
       if (goUpdate) {
@@ -187,7 +193,7 @@ export default function SystemUpdatePage() {
         }
 
         // Check if this is a backend update
-        if (repository === 'lacylights-go' || repository === 'lacylights-mcp') {
+        if (BACKEND_REPOS.includes(repository as typeof BACKEND_REPOS[number])) {
           setExpectedVersion(result.newVersion);
           setUpdateState('restarting');
 

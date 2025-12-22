@@ -67,7 +67,7 @@ export function useReconnectPoller(
   }, []);
 
   const startPolling = useCallback(() => {
-    // Clear any existing intervals first (avoid race condition with stopPolling)
+    // Clear any existing intervals to handle rapid consecutive startPolling calls
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;

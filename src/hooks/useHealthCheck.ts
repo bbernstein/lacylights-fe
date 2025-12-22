@@ -35,10 +35,10 @@ export function useHealthCheck(options: UseHealthCheckOptions = {}) {
     const baseUrl = options.baseUrl || getGraphQLBaseUrl();
     const timeout = options.timeout || 5000;
 
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+    try {
       const response = await fetch(`${baseUrl}/health`, {
         method: 'GET',
         signal: controller.signal,
@@ -46,8 +46,6 @@ export function useHealthCheck(options: UseHealthCheckOptions = {}) {
           Accept: 'application/json',
         },
       });
-
-      clearTimeout(timeoutId);
 
       if (response.ok) {
         const data = await response.json();
@@ -79,6 +77,8 @@ export function useHealthCheck(options: UseHealthCheckOptions = {}) {
       setLastResult(result);
       setIsChecking(false);
       return result;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }, [options.baseUrl, options.timeout]);
 

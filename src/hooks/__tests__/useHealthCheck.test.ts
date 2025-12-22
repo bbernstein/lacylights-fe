@@ -105,6 +105,47 @@ describe('useHealthCheck', () => {
     });
   });
 
+  describe('handles missing status field', () => {
+    it('returns isHealthy false when status field is missing', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            version: '1.0.0',
+            gitCommit: 'abc123',
+            // Note: status field is intentionally missing
+          }),
+      });
+
+      const { result } = renderHook(() => useHealthCheck());
+
+      await act(async () => {
+        const health = await result.current.checkHealth();
+        expect(health.isHealthy).toBe(false);
+        expect(health.version).toBe('1.0.0');
+      });
+    });
+
+    it('returns isHealthy false when status is not ok', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            status: 'degraded',
+            version: '1.0.0',
+          }),
+      });
+
+      const { result } = renderHook(() => useHealthCheck());
+
+      await act(async () => {
+        const health = await result.current.checkHealth();
+        expect(health.isHealthy).toBe(false);
+        expect(health.status).toBe('degraded');
+      });
+    });
+  });
+
   describe('updates lastResult', () => {
     it('stores the last health check result', async () => {
       mockFetch.mockResolvedValueOnce({

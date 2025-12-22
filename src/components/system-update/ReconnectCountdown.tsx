@@ -73,9 +73,18 @@ export function ReconnectCountdown({
 
       {/* Animated dots */}
       <div className="flex gap-1">
-        <span className="h-2 w-2 animate-bounce rounded-full bg-blue-500 [animation-delay:0ms]" />
-        <span className="h-2 w-2 animate-bounce rounded-full bg-blue-500 [animation-delay:150ms]" />
-        <span className="h-2 w-2 animate-bounce rounded-full bg-blue-500 [animation-delay:300ms]" />
+        <span
+          className="h-2 w-2 animate-bounce rounded-full bg-blue-500"
+          style={{ animationDelay: '0ms' }}
+        />
+        <span
+          className="h-2 w-2 animate-bounce rounded-full bg-blue-500"
+          style={{ animationDelay: '150ms' }}
+        />
+        <span
+          className="h-2 w-2 animate-bounce rounded-full bg-blue-500"
+          style={{ animationDelay: '300ms' }}
+        />
       </div>
     </div>
   );
