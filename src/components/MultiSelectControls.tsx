@@ -134,7 +134,14 @@ export default function MultiSelectControls({
     [onBatchedChannelChanges],
   );
 
-  // Handle opening the color picker - store base color for intensity slider
+  /**
+   * Opens the color picker and stores the current display color as the base
+   * for intensity adjustments. This allows the intensity slider to scale the
+   * color up/down without losing the original color information.
+   *
+   * Example: User sets red (255,0,0), then moves intensity to 50% -> (128,0,0),
+   * then back to 100% -> restores to (255,0,0) instead of staying at (128,0,0).
+   */
   const handleOpenColorPicker = useCallback(() => {
     if (displayRgbColor) {
       setBaseColorForIntensity(displayRgbColor);
@@ -142,7 +149,17 @@ export default function MultiSelectControls({
     setIsColorPickerOpen(true);
   }, [displayRgbColor]);
 
-  // Handle intensity change from color picker
+  /**
+   * Handles intensity changes from the color picker slider.
+   * Re-applies the base color with the new intensity to all selected fixtures
+   * using intelligent color mapping. This ensures color channels are scaled
+   * properly even for fixtures without a dedicated INTENSITY channel.
+   *
+   * Performance: Batches all local state updates to prevent multiple re-renders.
+   * With N fixtures and M channels, this reduces from N×M state updates to just 1.
+   *
+   * @param newIntensity - New intensity value (0-1 range)
+   */
   const handleIntensityChange = useCallback(
     (newIntensity: number) => {
       setColorPickerIntensity(newIntensity);
@@ -150,7 +167,10 @@ export default function MultiSelectControls({
       // Re-apply base color with new intensity for all selected fixtures
       // Use base color (not displayRgbColor) so intensity can go 0->100% and restore original color
       if (!baseColorForIntensity) {
-        console.warn('Intensity change ignored: no base color set');
+        console.warn('Intensity change: no base color set, using fallback');
+        // Fallback to displayRgbColor or white if neither is available
+        const fallbackColor = displayRgbColor || { r: 255, g: 255, b: 255 };
+        setBaseColorForIntensity(fallbackColor);
         return;
       }
 
@@ -206,7 +226,7 @@ export default function MultiSelectControls({
         onDebouncedPreviewUpdate(changes);
       }
     },
-    [baseColorForIntensity, selectedFixtures, fixtureValues, mergedChannels, onDebouncedPreviewUpdate],
+    [baseColorForIntensity, displayRgbColor, selectedFixtures, fixtureValues, mergedChannels, onDebouncedPreviewUpdate],
   );
 
   // Handle color picker change (real-time preview while dragging - local state + debounced preview)
@@ -281,6 +301,9 @@ export default function MultiSelectControls({
         value: number;
       }> = [];
 
+      // Batch all local slider value updates to avoid multiple re-renders
+      const localUpdates = new Map<string, number>();
+
       selectedFixtures.forEach((fixture) => {
         if (!fixture.channels) return;
 
@@ -300,20 +323,25 @@ export default function MultiSelectControls({
           if (channelIndex !== -1) {
             changes.push({ fixtureId: fixture.id, channelIndex, value });
 
-            // Update local state for responsive UI
+            // Collect local state updates (batch them)
             const mergedChannel = mergedChannels.find(
               (mc) => mc.type === fixture.channels![channelIndex].type && mc.fixtureIds.includes(fixture.id)
             );
             if (mergedChannel) {
-              setLocalSliderValues((prev) => {
-                const newMap = new Map(prev);
-                newMap.set(getChannelKey(mergedChannel), value);
-                return newMap;
-              });
+              localUpdates.set(getChannelKey(mergedChannel), value);
             }
           }
         });
       });
+
+      // Apply all local slider updates in a single state update
+      if (localUpdates.size > 0) {
+        setLocalSliderValues((prev) => {
+          const newMap = new Map(prev);
+          localUpdates.forEach((value, key) => newMap.set(key, value));
+          return newMap;
+        });
+      }
 
       // Send all changes in a single batched call
       onBatchedChannelChanges(changes);
