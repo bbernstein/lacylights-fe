@@ -196,14 +196,6 @@ export default function MultiSelectControls({
   );
 
   /**
-   * Opens the color picker and stores the current display color as the base
-   * for intensity adjustments. This allows the intensity slider to scale the
-   * color up/down without losing the original color information.
-   *
-   * Example: User sets red (255,0,0), then moves intensity to 50% -> (128,0,0),
-   * then back to 100% -> restores to (255,0,0) instead of staying at (128,0,0).
-   */
-  /**
    * Opens the color picker with the current UNSCALED color as the base for intensity scaling.
    * Extracts the raw RGB values (not scaled by intensity) from the first fixture so that
    * the intensity slider can properly control brightness from 0-100%.
@@ -215,6 +207,9 @@ export default function MultiSelectControls({
    * For fixtures WITHOUT INTENSITY channel:
    * - Base color is the current RGB values
    * - Intensity slider scales the RGB values
+   *
+   * Multi-fixture behavior: Uses the first fixture's color and intensity as the
+   * initial values. When applying changes, all selected fixtures are updated.
    */
   const handleOpenColorPicker = useCallback(() => {
     if (selectedFixtures.length === 0) return;
@@ -230,6 +225,7 @@ export default function MultiSelectControls({
     }));
 
     // Get UNSCALED RGB and separate intensity
+    // Phase 1 contract: channelValuesToRgb() returns unscaled RGB + intensity
     const { r, g, b, intensity } = channelValuesToRgb(channelsWithValues);
 
     // Store unscaled color as base (allows intensity to go 0->100% and restore full brightness)

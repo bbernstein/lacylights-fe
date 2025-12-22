@@ -485,7 +485,7 @@ describe('MultiSelectControls', () => {
       expect(screen.getByTestId('color-picker-modal')).toBeInTheDocument();
 
       // Verify intensity is set to ~50% (128/255 ≈ 0.502)
-      const intensitySlider = screen.getByTestId('intensity-slider');
+      const intensitySlider = screen.getByTestId('intensity-slider') as HTMLInputElement;
       // Allow for floating point precision: 128/255 * 100 ≈ 50.196
       expect(parseFloat(intensitySlider.value)).toBeCloseTo(50, 0);
     });
@@ -546,7 +546,7 @@ describe('MultiSelectControls', () => {
       fireEvent.click(colorSwatchButton);
 
       // Verify intensity starts at 0%
-      const intensitySlider = screen.getByTestId('intensity-slider');
+      const intensitySlider = screen.getByTestId('intensity-slider') as HTMLInputElement;
       expect(parseFloat(intensitySlider.value)).toBe(0);
 
       // Move intensity to 100%
@@ -586,7 +586,7 @@ describe('MultiSelectControls', () => {
       fireEvent.click(colorSwatchButton);
 
       // Verify intensity defaults to 100% for RGB-only fixtures
-      const intensitySlider = screen.getByTestId('intensity-slider');
+      const intensitySlider = screen.getByTestId('intensity-slider') as HTMLInputElement;
       expect(parseFloat(intensitySlider.value)).toBe(100);
     });
 
