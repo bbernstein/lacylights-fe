@@ -67,14 +67,20 @@ export function useReconnectPoller(
   }, []);
 
   const startPolling = useCallback(() => {
+    // Clear any existing intervals first (avoid race condition with stopPolling)
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+
     // Reset state
-    setIsPolling(true);
     setServerUp(false);
     setCountdown(Math.ceil(maxDuration / 1000));
     startTimeRef.current = Date.now();
-
-    // Clear any existing intervals
-    stopPolling();
 
     // Start countdown timer (updates every second)
     countdownIntervalRef.current = setInterval(() => {
@@ -106,7 +112,7 @@ export function useReconnectPoller(
     // Set up interval for subsequent checks
     pollIntervalRef.current = setInterval(poll, pollInterval);
 
-    // Mark as polling
+    // Mark as polling (only set once, after all setup is complete)
     setIsPolling(true);
   }, [
     maxDuration,
