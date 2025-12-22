@@ -222,6 +222,12 @@ export default function SystemUpdatePage() {
       setErrorMessage('');
       setUpdateResults([]);
       setExpandedRepo(null);
+      // Clear selected version for this repository to ensure clean state
+      setSelectedVersions((prev) => {
+        const updated = { ...prev };
+        delete updated[repository];
+        return updated;
+      });
 
       try {
         const { data } = await updateRepository({
@@ -504,7 +510,10 @@ export default function SystemUpdatePage() {
                                   <option value="">Choose version...</option>
                                   {availableVersions[repo.repository].map((version) => {
                                     const isPre = isPrerelease(version);
-                                    const isCurrent = version === repo.installed || `v${version}` === repo.installed;
+                                    // Normalize both versions by stripping v prefix for comparison
+                                    const normalizedVersion = version.startsWith('v') ? version.slice(1) : version;
+                                    const normalizedInstalled = repo.installed.startsWith('v') ? repo.installed.slice(1) : repo.installed;
+                                    const isCurrent = normalizedVersion === normalizedInstalled;
                                     return (
                                       <option
                                         key={version}
