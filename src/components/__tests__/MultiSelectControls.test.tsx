@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import MultiSelectControls from '../MultiSelectControls';
-import { FixtureInstance, ChannelType } from '@/types';
+import { FixtureInstance, ChannelType, FixtureType, FadeBehavior } from '@/types';
 
 // Mock the child components
 jest.mock('../ChannelSlider', () => {
@@ -64,16 +64,20 @@ jest.mock('../ColorPickerModal', () => {
   };
 });
 
-const mockFixture: FixtureInstance = {
+const mockFixture = {
   id: 'fixture-1',
   name: 'Test Fixture',
   manufacturer: 'Test',
   model: 'RGB',
-  type: 'LED_PAR',
+  type: FixtureType.LED_PAR,
   modeName: 'RGB',
   universe: 1,
   startChannel: 1,
   channelCount: 3,
+  definitionId: 'def-1',
+  project: { id: 'proj-1', name: 'Test Project' } as any,
+  tags: [],
+  createdAt: '2023-01-01T00:00:00Z',
   channels: [
     {
       id: 'ch-1',
@@ -83,7 +87,7 @@ const mockFixture: FixtureInstance = {
       minValue: 0,
       maxValue: 255,
       defaultValue: 0,
-      fadeBehavior: 'FADE',
+      fadeBehavior: FadeBehavior.FADE,
       isDiscrete: false,
     },
     {
@@ -94,7 +98,7 @@ const mockFixture: FixtureInstance = {
       minValue: 0,
       maxValue: 255,
       defaultValue: 0,
-      fadeBehavior: 'FADE',
+      fadeBehavior: FadeBehavior.FADE,
       isDiscrete: false,
     },
     {
@@ -105,13 +109,13 @@ const mockFixture: FixtureInstance = {
       minValue: 0,
       maxValue: 255,
       defaultValue: 0,
-      fadeBehavior: 'FADE',
+      fadeBehavior: FadeBehavior.FADE,
       isDiscrete: false,
     },
   ],
-};
+} as FixtureInstance;
 
-const mockFixtureWithIntensity: FixtureInstance = {
+const mockFixtureWithIntensity = {
   ...mockFixture,
   id: 'fixture-2',
   channelCount: 4,
@@ -125,11 +129,11 @@ const mockFixtureWithIntensity: FixtureInstance = {
       minValue: 0,
       maxValue: 255,
       defaultValue: 0,
-      fadeBehavior: 'FADE',
+      fadeBehavior: FadeBehavior.FADE,
       isDiscrete: false,
     },
   ],
-};
+} as FixtureInstance;
 
 describe('MultiSelectControls', () => {
   const mockOnBatchedChannelChanges = jest.fn();
