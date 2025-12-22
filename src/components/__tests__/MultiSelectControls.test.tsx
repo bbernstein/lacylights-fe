@@ -75,7 +75,16 @@ const mockFixture = {
   startChannel: 1,
   channelCount: 3,
   definitionId: 'def-1',
-  project: { id: 'proj-1', name: 'Test Project' } as any,
+  project: {
+    id: 'proj-1',
+    name: 'Test Project',
+    createdAt: '2023-01-01T00:00:00Z',
+    updatedAt: '2023-01-01T00:00:00Z',
+    fixtures: [],
+    scenes: [],
+    cueLists: [],
+    users: [],
+  },
   tags: [],
   createdAt: '2023-01-01T00:00:00Z',
   channels: [
