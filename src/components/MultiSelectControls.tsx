@@ -137,40 +137,53 @@ export default function MultiSelectControls({
     (newIntensity: number) => {
       setColorPickerIntensity(newIntensity);
 
-      const intensityChannel = mergedChannels.find(
-        (ch) => ch.type === ChannelType.INTENSITY,
-      );
+      // Re-apply current color with new intensity for all selected fixtures
+      // This ensures color channels are recalculated with the new intensity scaling
+      if (!displayRgbColor) return;
 
-      if (intensityChannel) {
-        // If fixture has INTENSITY channel, update it directly
-        const dmxValue = Math.round(newIntensity * 255);
+      const changes: Array<{
+        fixtureId: string;
+        channelIndex: number;
+        value: number;
+      }> = [];
 
-        // Update local state
-        setLocalSliderValues((prev) => {
-          const newMap = new Map(prev);
-          newMap.set(getChannelKey(intensityChannel), dmxValue);
-          return newMap;
+      selectedFixtures.forEach((fixture) => {
+        if (!fixture.channels) return;
+
+        // Build current channel values for this fixture
+        const currentValues = fixtureValues.get(fixture.id) || [];
+        const channelsWithValues: InstanceChannelWithValue[] = fixture.channels.map((channel, index) => ({
+          ...channel,
+          value: currentValues[index] || 0,
+        }));
+
+        // Use intelligent mapping to get DMX values for the current color with new intensity
+        const newChannelValues = createOptimizedColorMapping(displayRgbColor, channelsWithValues, newIntensity);
+
+        // Apply the new values
+        Object.entries(newChannelValues).forEach(([channelId, value]) => {
+          const channelIndex = fixture.channels!.findIndex(ch => ch.id === channelId);
+          if (channelIndex !== -1) {
+            changes.push({ fixtureId: fixture.id, channelIndex, value });
+
+            // Update local state for responsive UI
+            const mergedChannel = mergedChannels.find(
+              (mc) => mc.type === fixture.channels![channelIndex].type && mc.fixtureIds.includes(fixture.id)
+            );
+            if (mergedChannel) {
+              setLocalSliderValues((prev) => {
+                const newMap = new Map(prev);
+                newMap.set(getChannelKey(mergedChannel), value);
+                return newMap;
+              });
+            }
+          }
         });
+      });
 
-        // Send debounced preview update
-        const changes: Array<{
-          fixtureId: string;
-          channelIndex: number;
-          value: number;
-        }> = [];
-
-        intensityChannel.fixtureIds.forEach((fixtureId, index) => {
-          const channelIndex = intensityChannel.channelIndices[index];
-          changes.push({ fixtureId, channelIndex, value: dmxValue });
-        });
-
-        onDebouncedPreviewUpdate(changes);
-      } else {
-        // If no INTENSITY channel, re-apply current color with new intensity scaling
-        // This will be handled by the color change callback when user applies the color
-      }
+      onDebouncedPreviewUpdate(changes);
     },
-    [mergedChannels, onDebouncedPreviewUpdate],
+    [displayRgbColor, selectedFixtures, fixtureValues, mergedChannels, onDebouncedPreviewUpdate],
   );
 
   // Handle color picker change (real-time preview while dragging - local state + debounced preview)
