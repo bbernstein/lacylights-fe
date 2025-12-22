@@ -72,9 +72,10 @@ describe('UpdateProgress', () => {
     it('shows checkmarks for completed steps when in updating state', () => {
       render(<UpdateProgress currentState="updating" />);
 
-      // Should have checkmarks for checking and ready steps
+      // Should have checkmarks for checking, ready, and the complete step icon
+      // (complete step's icon is always '✓' even when pending)
       const checkmarks = screen.getAllByText('✓');
-      expect(checkmarks.length).toBe(2);
+      expect(checkmarks.length).toBe(3);
     });
 
     it('shows checkmarks for all steps when complete', () => {

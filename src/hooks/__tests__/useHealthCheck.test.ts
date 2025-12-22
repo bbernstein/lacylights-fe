@@ -16,6 +16,7 @@ describe('useHealthCheck', () => {
         ok: true,
         json: () =>
           Promise.resolve({
+            status: 'ok',
             version: '1.0.0',
             gitCommit: 'abc123',
             buildTime: '2024-01-01T00:00:00Z',
@@ -35,6 +36,7 @@ describe('useHealthCheck', () => {
         ok: true,
         json: () =>
           Promise.resolve({
+            status: 'ok',
             version: '2.0.0',
             gitCommit: 'def456',
             buildTime: '2024-06-15T12:00:00Z',
@@ -87,7 +89,7 @@ describe('useHealthCheck', () => {
               () =>
                 resolve({
                   ok: true,
-                  json: () => Promise.resolve({ version: '1.0.0' }),
+                  json: () => Promise.resolve({ status: 'ok', version: '1.0.0' }),
                 }),
               100
             );
@@ -109,6 +111,7 @@ describe('useHealthCheck', () => {
         ok: true,
         json: () =>
           Promise.resolve({
+            status: 'ok',
             version: '1.0.0',
             gitCommit: 'abc123',
           }),

@@ -16,7 +16,7 @@ describe('ReconnectCountdown', () => {
     it('displays waiting message', () => {
       render(<ReconnectCountdown countdown={30} maxSeconds={60} isPolling />);
       expect(
-        screen.getByText('Waiting for server to come back online...')
+        screen.getByText('Waiting for server to restart...')
       ).toBeInTheDocument();
     });
   });
