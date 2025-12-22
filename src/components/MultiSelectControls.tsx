@@ -40,6 +40,8 @@ export default function MultiSelectControls({
   const [mergedChannels, setMergedChannels] = useState<MergedChannel[]>([]);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [colorPickerIntensity, setColorPickerIntensity] = useState<number>(1);
+  // Base color for intensity slider - maintains original color so intensity can go 0-100% and back
+  const [baseColorForIntensity, setBaseColorForIntensity] = useState<{r: number; g: number; b: number} | null>(null);
 
   // Local state for responsive slider updates (synced with server values)
   const [localSliderValues, setLocalSliderValues] = useState<
@@ -132,14 +134,22 @@ export default function MultiSelectControls({
     [onBatchedChannelChanges],
   );
 
+  // Handle opening the color picker - store base color for intensity slider
+  const handleOpenColorPicker = useCallback(() => {
+    if (displayRgbColor) {
+      setBaseColorForIntensity(displayRgbColor);
+    }
+    setIsColorPickerOpen(true);
+  }, [displayRgbColor]);
+
   // Handle intensity change from color picker
   const handleIntensityChange = useCallback(
     (newIntensity: number) => {
       setColorPickerIntensity(newIntensity);
 
-      // Re-apply current color with new intensity for all selected fixtures
-      // This ensures color channels are recalculated with the new intensity scaling
-      if (!displayRgbColor) return;
+      // Re-apply base color with new intensity for all selected fixtures
+      // Use base color (not displayRgbColor) so intensity can go 0->100% and restore original color
+      if (!baseColorForIntensity) return;
 
       const changes: Array<{
         fixtureId: string;
@@ -157,8 +167,8 @@ export default function MultiSelectControls({
           value: currentValues[index] || 0,
         }));
 
-        // Use intelligent mapping to get DMX values for the current color with new intensity
-        const newChannelValues = createOptimizedColorMapping(displayRgbColor, channelsWithValues, newIntensity);
+        // Use intelligent mapping to get DMX values for the base color with new intensity
+        const newChannelValues = createOptimizedColorMapping(baseColorForIntensity, channelsWithValues, newIntensity);
 
         // Apply the new values
         Object.entries(newChannelValues).forEach(([channelId, value]) => {
@@ -183,12 +193,15 @@ export default function MultiSelectControls({
 
       onDebouncedPreviewUpdate(changes);
     },
-    [displayRgbColor, selectedFixtures, fixtureValues, mergedChannels, onDebouncedPreviewUpdate],
+    [baseColorForIntensity, selectedFixtures, fixtureValues, mergedChannels, onDebouncedPreviewUpdate],
   );
 
   // Handle color picker change (real-time preview while dragging - local state + debounced preview)
   const handleColorPickerChange = useCallback(
     (color: { r: number; g: number; b: number }) => {
+      // Update base color so intensity slider can work with this new color
+      setBaseColorForIntensity(color);
+
       // Use intelligent color mapping for all selected fixtures
       const changes: Array<{
         fixtureId: string;
@@ -429,7 +442,7 @@ export default function MultiSelectControls({
             </label>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setIsColorPickerOpen(true)}
+                onClick={handleOpenColorPicker}
                 className="w-12 h-8 rounded border-2 border-gray-600 hover:border-blue-500 transition-colors cursor-pointer"
                 style={{
                   backgroundColor: `rgb(${displayRgbColor.r}, ${displayRgbColor.g}, ${displayRgbColor.b})`,
