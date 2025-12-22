@@ -202,12 +202,25 @@ export default function MultiSelectControls({
    * Example: User sets red (255,0,0), then moves intensity to 50% -> (128,0,0),
    * then back to 100% -> restores to (255,0,0) instead of staying at (128,0,0).
    */
+  /**
+   * Opens the color picker and initializes the base color for intensity adjustments.
+   * The base color allows the intensity slider to scale 0-100% without losing color information.
+   */
   const handleOpenColorPicker = useCallback(() => {
     if (displayRgbColor) {
       setBaseColorForIntensity(displayRgbColor);
     }
     setIsColorPickerOpen(true);
   }, [displayRgbColor]);
+
+  /**
+   * Closes the color picker and resets the base color state for cleanliness.
+   * The base color will be re-initialized when the picker is opened again.
+   */
+  const handleCloseColorPicker = useCallback(() => {
+    setIsColorPickerOpen(false);
+    setBaseColorForIntensity(null);
+  }, []);
 
   /**
    * Handles intensity changes from the color picker slider.
@@ -296,9 +309,9 @@ export default function MultiSelectControls({
       // Send all changes in a single batched call
       onBatchedChannelChanges(changes);
 
-      setIsColorPickerOpen(false);
+      handleCloseColorPicker();
     },
-    [colorPickerIntensity, applyColorToSelectedFixtures, onBatchedChannelChanges],
+    [colorPickerIntensity, applyColorToSelectedFixtures, onBatchedChannelChanges, handleCloseColorPicker],
   );
 
   // Get the current slider value (local state)
@@ -463,7 +476,7 @@ export default function MultiSelectControls({
           {/* Color Picker Modal */}
           <ColorPickerModal
             isOpen={isColorPickerOpen}
-            onClose={() => setIsColorPickerOpen(false)}
+            onClose={handleCloseColorPicker}
             currentColor={displayRgbColor}
             onColorChange={handleColorPickerChange}
             onColorSelect={handleColorPickerSelect}
