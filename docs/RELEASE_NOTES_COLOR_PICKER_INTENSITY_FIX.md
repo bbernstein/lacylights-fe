@@ -2,7 +2,7 @@
 
 **Version**: Included in v0.8.11 and later
 **Release Date**: December 22, 2025
-**Related PRs**: #99, #100
+**Related PRs**: #99, #100, #102
 **Impact**: Bug Fix - Improved User Experience
 
 ---
@@ -239,6 +239,7 @@ Include:
 - **Planning Document**: `docs/COLOR_PICKER_INTENSITY_SCALING_PLAN.md`
 - **Phase 1 PR**: #99 - Utility function changes
 - **Phase 3 PR**: #100 - MultiSelectControls fix
+- **Phase 4 PR**: #102 - Documentation updates
 - **Related Issue**: Intensity slider not restoring full brightness
 
 ---
