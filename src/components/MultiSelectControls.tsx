@@ -40,6 +40,8 @@ export default function MultiSelectControls({
   const [mergedChannels, setMergedChannels] = useState<MergedChannel[]>([]);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [colorPickerIntensity, setColorPickerIntensity] = useState<number>(1);
+  // Base color for intensity slider - maintains original color so intensity can go 0-100% and back
+  const [baseColorForIntensity, setBaseColorForIntensity] = useState<{r: number; g: number; b: number} | null>(null);
 
   // Local state for responsive slider updates (synced with server values)
   const [localSliderValues, setLocalSliderValues] = useState<
@@ -132,146 +134,184 @@ export default function MultiSelectControls({
     [onBatchedChannelChanges],
   );
 
-  // Handle intensity change from color picker
+  /**
+   * Shared helper to apply color changes to all selected fixtures.
+   * Handles intelligent color mapping, batches state updates for performance,
+   * and includes error handling for color mapping operations.
+   *
+   * @param color - RGB color to apply
+   * @param intensity - Intensity value (0-1)
+   * @returns Object with changes array and localUpdates map
+   */
+  const applyColorToSelectedFixtures = useCallback(
+    (color: { r: number; g: number; b: number }, intensity: number) => {
+      const changes: Array<{
+        fixtureId: string;
+        channelIndex: number;
+        value: number;
+      }> = [];
+
+      // Batch all local slider value updates to avoid multiple re-renders
+      const localUpdates = new Map<string, number>();
+
+      selectedFixtures.forEach((fixture) => {
+        if (!fixture.channels) return;
+
+        // Build current channel values for this fixture
+        const currentValues = fixtureValues.get(fixture.id) || [];
+        const channelsWithValues: InstanceChannelWithValue[] = fixture.channels.map((channel, index) => ({
+          ...channel,
+          value: currentValues[index] || 0,
+        }));
+
+        try {
+          // Use intelligent mapping to get DMX values for the color with intensity
+          const newChannelValues = createOptimizedColorMapping(color, channelsWithValues, intensity);
+
+          // Apply the new values
+          Object.entries(newChannelValues).forEach(([channelId, value]) => {
+            const channelIndex = fixture.channels!.findIndex(ch => ch.id === channelId);
+            if (channelIndex !== -1) {
+              changes.push({ fixtureId: fixture.id, channelIndex, value });
+
+              // Collect local state updates (batch them)
+              const mergedChannel = mergedChannels.find(
+                (mc) => mc.type === fixture.channels![channelIndex].type && mc.fixtureIds.includes(fixture.id)
+              );
+              if (mergedChannel) {
+                localUpdates.set(getChannelKey(mergedChannel), value);
+              }
+            }
+          });
+        } catch (error) {
+          console.error(`Failed to map color for fixture ${fixture.id}:`, error);
+          // Continue with other fixtures even if one fails
+        }
+      });
+
+      return { changes, localUpdates };
+    },
+    [selectedFixtures, fixtureValues, mergedChannels],
+  );
+
+  /**
+   * Opens the color picker and stores the current display color as the base
+   * for intensity adjustments. This allows the intensity slider to scale the
+   * color up/down without losing the original color information.
+   *
+   * Example: User sets red (255,0,0), then moves intensity to 50% -> (128,0,0),
+   * then back to 100% -> restores to (255,0,0) instead of staying at (128,0,0).
+   */
+  /**
+   * Opens the color picker and initializes the base color for intensity adjustments.
+   * The base color allows the intensity slider to scale 0-100% without losing color information.
+   */
+  const handleOpenColorPicker = useCallback(() => {
+    if (displayRgbColor) {
+      setBaseColorForIntensity(displayRgbColor);
+    }
+    setIsColorPickerOpen(true);
+  }, [displayRgbColor]);
+
+  /**
+   * Closes the color picker and resets the base color state for cleanliness.
+   * The base color will be re-initialized when the picker is opened again.
+   */
+  const handleCloseColorPicker = useCallback(() => {
+    setIsColorPickerOpen(false);
+    setBaseColorForIntensity(null);
+  }, []);
+
+  /**
+   * Handles intensity changes from the color picker slider.
+   * Re-applies the base color with the new intensity to all selected fixtures
+   * using intelligent color mapping. This ensures color channels are scaled
+   * properly even for fixtures without a dedicated INTENSITY channel.
+   *
+   * Performance: Batches all local state updates to prevent multiple re-renders.
+   * With N fixtures and M channels, this reduces from N×M state updates to just 1.
+   *
+   * @param newIntensity - New intensity value (0-1 range)
+   */
   const handleIntensityChange = useCallback(
     (newIntensity: number) => {
       setColorPickerIntensity(newIntensity);
 
-      const intensityChannel = mergedChannels.find(
-        (ch) => ch.type === ChannelType.INTENSITY,
-      );
+      // Re-apply base color with new intensity for all selected fixtures
+      // Use base color (not displayRgbColor) so intensity can go 0->100% and restore original color
+      let colorToUse = baseColorForIntensity;
+      if (!colorToUse) {
+        console.warn('Intensity change: no base color set, using fallback');
+        // Fallback to displayRgbColor or white if neither is available
+        const fallbackColor = displayRgbColor || { r: 255, g: 255, b: 255 };
+        setBaseColorForIntensity(fallbackColor);
+        colorToUse = fallbackColor;
+      }
 
-      if (intensityChannel) {
-        // If fixture has INTENSITY channel, update it directly
-        const dmxValue = Math.round(newIntensity * 255);
+      const { changes, localUpdates } = applyColorToSelectedFixtures(colorToUse, newIntensity);
 
-        // Update local state
+      // Apply all local slider updates in a single state update
+      if (localUpdates.size > 0) {
         setLocalSliderValues((prev) => {
           const newMap = new Map(prev);
-          newMap.set(getChannelKey(intensityChannel), dmxValue);
+          localUpdates.forEach((value, key) => newMap.set(key, value));
           return newMap;
         });
+      }
 
-        // Send debounced preview update
-        const changes: Array<{
-          fixtureId: string;
-          channelIndex: number;
-          value: number;
-        }> = [];
-
-        intensityChannel.fixtureIds.forEach((fixtureId, index) => {
-          const channelIndex = intensityChannel.channelIndices[index];
-          changes.push({ fixtureId, channelIndex, value: dmxValue });
-        });
-
+      if (changes.length > 0) {
         onDebouncedPreviewUpdate(changes);
-      } else {
-        // If no INTENSITY channel, re-apply current color with new intensity scaling
-        // This will be handled by the color change callback when user applies the color
       }
     },
-    [mergedChannels, onDebouncedPreviewUpdate],
+    [baseColorForIntensity, displayRgbColor, applyColorToSelectedFixtures, onDebouncedPreviewUpdate],
   );
 
   // Handle color picker change (real-time preview while dragging - local state + debounced preview)
   const handleColorPickerChange = useCallback(
     (color: { r: number; g: number; b: number }) => {
-      // Use intelligent color mapping for all selected fixtures
-      const changes: Array<{
-        fixtureId: string;
-        channelIndex: number;
-        value: number;
-      }> = [];
+      // Update base color so intensity slider can work with this new color
+      setBaseColorForIntensity(color);
 
-      selectedFixtures.forEach((fixture) => {
-        if (!fixture.channels) return;
+      // Use shared helper with error handling
+      const { changes, localUpdates } = applyColorToSelectedFixtures(color, colorPickerIntensity);
 
-        // Build current channel values for this fixture
-        const currentValues = fixtureValues.get(fixture.id) || [];
-        const channelsWithValues: InstanceChannelWithValue[] = fixture.channels.map((channel, index) => ({
-          ...channel,
-          value: currentValues[index] || 0,
-        }));
-
-        // Use intelligent mapping to get DMX values for the new color
-        const newChannelValues = createOptimizedColorMapping(color, channelsWithValues, colorPickerIntensity);
-
-        // Apply the new values
-        Object.entries(newChannelValues).forEach(([channelId, value]) => {
-          const channelIndex = fixture.channels!.findIndex(ch => ch.id === channelId);
-          if (channelIndex !== -1) {
-            changes.push({ fixtureId: fixture.id, channelIndex, value });
-
-            // Update local state for responsive UI
-            const mergedChannel = mergedChannels.find(
-              (mc) => mc.type === fixture.channels![channelIndex].type && mc.fixtureIds.includes(fixture.id)
-            );
-            if (mergedChannel) {
-              setLocalSliderValues((prev) => {
-                const newMap = new Map(prev);
-                newMap.set(getChannelKey(mergedChannel), value);
-                return newMap;
-              });
-            }
-          }
+      // Apply all local slider updates in a single state update
+      if (localUpdates.size > 0) {
+        setLocalSliderValues((prev) => {
+          const newMap = new Map(prev);
+          localUpdates.forEach((value, key) => newMap.set(key, value));
+          return newMap;
         });
-      });
+      }
 
-      onDebouncedPreviewUpdate(changes);
+      if (changes.length > 0) {
+        onDebouncedPreviewUpdate(changes);
+      }
     },
-    [selectedFixtures, fixtureValues, mergedChannels, colorPickerIntensity, onDebouncedPreviewUpdate],
+    [colorPickerIntensity, applyColorToSelectedFixtures, onDebouncedPreviewUpdate],
   );
 
   // Handle color picker selection (when Apply button is clicked - send to server)
   const handleColorPickerSelect = useCallback(
     (color: { r: number; g: number; b: number }) => {
-      // Use intelligent color mapping for all selected fixtures
-      const changes: Array<{
-        fixtureId: string;
-        channelIndex: number;
-        value: number;
-      }> = [];
+      // Use shared helper with error handling
+      const { changes, localUpdates } = applyColorToSelectedFixtures(color, colorPickerIntensity);
 
-      selectedFixtures.forEach((fixture) => {
-        if (!fixture.channels) return;
-
-        // Build current channel values for this fixture
-        const currentValues = fixtureValues.get(fixture.id) || [];
-        const channelsWithValues: InstanceChannelWithValue[] = fixture.channels.map((channel, index) => ({
-          ...channel,
-          value: currentValues[index] || 0,
-        }));
-
-        // Use intelligent mapping to get DMX values for the new color
-        const newChannelValues = createOptimizedColorMapping(color, channelsWithValues, colorPickerIntensity);
-
-        // Apply the new values
-        Object.entries(newChannelValues).forEach(([channelId, value]) => {
-          const channelIndex = fixture.channels!.findIndex(ch => ch.id === channelId);
-          if (channelIndex !== -1) {
-            changes.push({ fixtureId: fixture.id, channelIndex, value });
-
-            // Update local state for responsive UI
-            const mergedChannel = mergedChannels.find(
-              (mc) => mc.type === fixture.channels![channelIndex].type && mc.fixtureIds.includes(fixture.id)
-            );
-            if (mergedChannel) {
-              setLocalSliderValues((prev) => {
-                const newMap = new Map(prev);
-                newMap.set(getChannelKey(mergedChannel), value);
-                return newMap;
-              });
-            }
-          }
+      // Apply all local slider updates in a single state update
+      if (localUpdates.size > 0) {
+        setLocalSliderValues((prev) => {
+          const newMap = new Map(prev);
+          localUpdates.forEach((value, key) => newMap.set(key, value));
+          return newMap;
         });
-      });
+      }
 
       // Send all changes in a single batched call
       onBatchedChannelChanges(changes);
 
-      setIsColorPickerOpen(false);
+      handleCloseColorPicker();
     },
-    [selectedFixtures, fixtureValues, mergedChannels, colorPickerIntensity, onBatchedChannelChanges],
+    [colorPickerIntensity, applyColorToSelectedFixtures, onBatchedChannelChanges, handleCloseColorPicker],
   );
 
   // Get the current slider value (local state)
@@ -416,7 +456,7 @@ export default function MultiSelectControls({
             </label>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setIsColorPickerOpen(true)}
+                onClick={handleOpenColorPicker}
                 className="w-12 h-8 rounded border-2 border-gray-600 hover:border-blue-500 transition-colors cursor-pointer"
                 style={{
                   backgroundColor: `rgb(${displayRgbColor.r}, ${displayRgbColor.g}, ${displayRgbColor.b})`,
@@ -436,7 +476,7 @@ export default function MultiSelectControls({
           {/* Color Picker Modal */}
           <ColorPickerModal
             isOpen={isColorPickerOpen}
-            onClose={() => setIsColorPickerOpen(false)}
+            onClose={handleCloseColorPicker}
             currentColor={displayRgbColor}
             onColorChange={handleColorPickerChange}
             onColorSelect={handleColorPickerSelect}
