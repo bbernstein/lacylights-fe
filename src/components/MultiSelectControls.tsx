@@ -135,6 +135,66 @@ export default function MultiSelectControls({
   );
 
   /**
+   * Shared helper to apply color changes to all selected fixtures.
+   * Handles intelligent color mapping, batches state updates for performance,
+   * and includes error handling for color mapping operations.
+   *
+   * @param color - RGB color to apply
+   * @param intensity - Intensity value (0-1)
+   * @returns Object with changes array and localUpdates map
+   */
+  const applyColorToSelectedFixtures = useCallback(
+    (color: { r: number; g: number; b: number }, intensity: number) => {
+      const changes: Array<{
+        fixtureId: string;
+        channelIndex: number;
+        value: number;
+      }> = [];
+
+      // Batch all local slider value updates to avoid multiple re-renders
+      const localUpdates = new Map<string, number>();
+
+      selectedFixtures.forEach((fixture) => {
+        if (!fixture.channels) return;
+
+        // Build current channel values for this fixture
+        const currentValues = fixtureValues.get(fixture.id) || [];
+        const channelsWithValues: InstanceChannelWithValue[] = fixture.channels.map((channel, index) => ({
+          ...channel,
+          value: currentValues[index] || 0,
+        }));
+
+        try {
+          // Use intelligent mapping to get DMX values for the color with intensity
+          const newChannelValues = createOptimizedColorMapping(color, channelsWithValues, intensity);
+
+          // Apply the new values
+          Object.entries(newChannelValues).forEach(([channelId, value]) => {
+            const channelIndex = fixture.channels!.findIndex(ch => ch.id === channelId);
+            if (channelIndex !== -1) {
+              changes.push({ fixtureId: fixture.id, channelIndex, value });
+
+              // Collect local state updates (batch them)
+              const mergedChannel = mergedChannels.find(
+                (mc) => mc.type === fixture.channels![channelIndex].type && mc.fixtureIds.includes(fixture.id)
+              );
+              if (mergedChannel) {
+                localUpdates.set(getChannelKey(mergedChannel), value);
+              }
+            }
+          });
+        } catch (error) {
+          console.error(`Failed to map color for fixture ${fixture.id}:`, error);
+          // Continue with other fixtures even if one fails
+        }
+      });
+
+      return { changes, localUpdates };
+    },
+    [selectedFixtures, fixtureValues, mergedChannels],
+  );
+
+  /**
    * Opens the color picker and stores the current display color as the base
    * for intensity adjustments. This allows the intensity slider to scale the
    * color up/down without losing the original color information.
@@ -166,52 +226,16 @@ export default function MultiSelectControls({
 
       // Re-apply base color with new intensity for all selected fixtures
       // Use base color (not displayRgbColor) so intensity can go 0->100% and restore original color
-      if (!baseColorForIntensity) {
+      let colorToUse = baseColorForIntensity;
+      if (!colorToUse) {
         console.warn('Intensity change: no base color set, using fallback');
         // Fallback to displayRgbColor or white if neither is available
         const fallbackColor = displayRgbColor || { r: 255, g: 255, b: 255 };
         setBaseColorForIntensity(fallbackColor);
-        return;
+        colorToUse = fallbackColor;
       }
 
-      const changes: Array<{
-        fixtureId: string;
-        channelIndex: number;
-        value: number;
-      }> = [];
-
-      // Batch all local slider value updates to avoid multiple re-renders
-      const localUpdates = new Map<string, number>();
-
-      selectedFixtures.forEach((fixture) => {
-        if (!fixture.channels) return;
-
-        // Build current channel values for this fixture
-        const currentValues = fixtureValues.get(fixture.id) || [];
-        const channelsWithValues: InstanceChannelWithValue[] = fixture.channels.map((channel, index) => ({
-          ...channel,
-          value: currentValues[index] || 0,
-        }));
-
-        // Use intelligent mapping to get DMX values for the base color with new intensity
-        const newChannelValues = createOptimizedColorMapping(baseColorForIntensity, channelsWithValues, newIntensity);
-
-        // Apply the new values
-        Object.entries(newChannelValues).forEach(([channelId, value]) => {
-          const channelIndex = fixture.channels!.findIndex(ch => ch.id === channelId);
-          if (channelIndex !== -1) {
-            changes.push({ fixtureId: fixture.id, channelIndex, value });
-
-            // Collect local state updates (batch them)
-            const mergedChannel = mergedChannels.find(
-              (mc) => mc.type === fixture.channels![channelIndex].type && mc.fixtureIds.includes(fixture.id)
-            );
-            if (mergedChannel) {
-              localUpdates.set(getChannelKey(mergedChannel), value);
-            }
-          }
-        });
-      });
+      const { changes, localUpdates } = applyColorToSelectedFixtures(colorToUse, newIntensity);
 
       // Apply all local slider updates in a single state update
       if (localUpdates.size > 0) {
@@ -226,7 +250,7 @@ export default function MultiSelectControls({
         onDebouncedPreviewUpdate(changes);
       }
     },
-    [baseColorForIntensity, displayRgbColor, selectedFixtures, fixtureValues, mergedChannels, onDebouncedPreviewUpdate],
+    [baseColorForIntensity, displayRgbColor, applyColorToSelectedFixtures, onDebouncedPreviewUpdate],
   );
 
   // Handle color picker change (real-time preview while dragging - local state + debounced preview)
@@ -235,45 +259,8 @@ export default function MultiSelectControls({
       // Update base color so intensity slider can work with this new color
       setBaseColorForIntensity(color);
 
-      // Use intelligent color mapping for all selected fixtures
-      const changes: Array<{
-        fixtureId: string;
-        channelIndex: number;
-        value: number;
-      }> = [];
-
-      // Batch all local slider value updates to avoid multiple re-renders
-      const localUpdates = new Map<string, number>();
-
-      selectedFixtures.forEach((fixture) => {
-        if (!fixture.channels) return;
-
-        // Build current channel values for this fixture
-        const currentValues = fixtureValues.get(fixture.id) || [];
-        const channelsWithValues: InstanceChannelWithValue[] = fixture.channels.map((channel, index) => ({
-          ...channel,
-          value: currentValues[index] || 0,
-        }));
-
-        // Use intelligent mapping to get DMX values for the new color
-        const newChannelValues = createOptimizedColorMapping(color, channelsWithValues, colorPickerIntensity);
-
-        // Apply the new values
-        Object.entries(newChannelValues).forEach(([channelId, value]) => {
-          const channelIndex = fixture.channels!.findIndex(ch => ch.id === channelId);
-          if (channelIndex !== -1) {
-            changes.push({ fixtureId: fixture.id, channelIndex, value });
-
-            // Collect local state updates (batch them)
-            const mergedChannel = mergedChannels.find(
-              (mc) => mc.type === fixture.channels![channelIndex].type && mc.fixtureIds.includes(fixture.id)
-            );
-            if (mergedChannel) {
-              localUpdates.set(getChannelKey(mergedChannel), value);
-            }
-          }
-        });
-      });
+      // Use shared helper with error handling
+      const { changes, localUpdates } = applyColorToSelectedFixtures(color, colorPickerIntensity);
 
       // Apply all local slider updates in a single state update
       if (localUpdates.size > 0) {
@@ -288,51 +275,14 @@ export default function MultiSelectControls({
         onDebouncedPreviewUpdate(changes);
       }
     },
-    [selectedFixtures, fixtureValues, mergedChannels, colorPickerIntensity, onDebouncedPreviewUpdate],
+    [colorPickerIntensity, applyColorToSelectedFixtures, onDebouncedPreviewUpdate],
   );
 
   // Handle color picker selection (when Apply button is clicked - send to server)
   const handleColorPickerSelect = useCallback(
     (color: { r: number; g: number; b: number }) => {
-      // Use intelligent color mapping for all selected fixtures
-      const changes: Array<{
-        fixtureId: string;
-        channelIndex: number;
-        value: number;
-      }> = [];
-
-      // Batch all local slider value updates to avoid multiple re-renders
-      const localUpdates = new Map<string, number>();
-
-      selectedFixtures.forEach((fixture) => {
-        if (!fixture.channels) return;
-
-        // Build current channel values for this fixture
-        const currentValues = fixtureValues.get(fixture.id) || [];
-        const channelsWithValues: InstanceChannelWithValue[] = fixture.channels.map((channel, index) => ({
-          ...channel,
-          value: currentValues[index] || 0,
-        }));
-
-        // Use intelligent mapping to get DMX values for the new color
-        const newChannelValues = createOptimizedColorMapping(color, channelsWithValues, colorPickerIntensity);
-
-        // Apply the new values
-        Object.entries(newChannelValues).forEach(([channelId, value]) => {
-          const channelIndex = fixture.channels!.findIndex(ch => ch.id === channelId);
-          if (channelIndex !== -1) {
-            changes.push({ fixtureId: fixture.id, channelIndex, value });
-
-            // Collect local state updates (batch them)
-            const mergedChannel = mergedChannels.find(
-              (mc) => mc.type === fixture.channels![channelIndex].type && mc.fixtureIds.includes(fixture.id)
-            );
-            if (mergedChannel) {
-              localUpdates.set(getChannelKey(mergedChannel), value);
-            }
-          }
-        });
-      });
+      // Use shared helper with error handling
+      const { changes, localUpdates } = applyColorToSelectedFixtures(color, colorPickerIntensity);
 
       // Apply all local slider updates in a single state update
       if (localUpdates.size > 0) {
@@ -348,7 +298,7 @@ export default function MultiSelectControls({
 
       setIsColorPickerOpen(false);
     },
-    [selectedFixtures, fixtureValues, mergedChannels, colorPickerIntensity, onBatchedChannelChanges],
+    [colorPickerIntensity, applyColorToSelectedFixtures, onBatchedChannelChanges],
   );
 
   // Get the current slider value (local state)
