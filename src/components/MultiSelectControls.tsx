@@ -149,7 +149,10 @@ export default function MultiSelectControls({
 
       // Re-apply base color with new intensity for all selected fixtures
       // Use base color (not displayRgbColor) so intensity can go 0->100% and restore original color
-      if (!baseColorForIntensity) return;
+      if (!baseColorForIntensity) {
+        console.warn('Intensity change ignored: no base color set');
+        return;
+      }
 
       const changes: Array<{
         fixtureId: string;
@@ -199,7 +202,9 @@ export default function MultiSelectControls({
         });
       }
 
-      onDebouncedPreviewUpdate(changes);
+      if (changes.length > 0) {
+        onDebouncedPreviewUpdate(changes);
+      }
     },
     [baseColorForIntensity, selectedFixtures, fixtureValues, mergedChannels, onDebouncedPreviewUpdate],
   );
@@ -259,7 +264,9 @@ export default function MultiSelectControls({
         });
       }
 
-      onDebouncedPreviewUpdate(changes);
+      if (changes.length > 0) {
+        onDebouncedPreviewUpdate(changes);
+      }
     },
     [selectedFixtures, fixtureValues, mergedChannels, colorPickerIntensity, onDebouncedPreviewUpdate],
   );
