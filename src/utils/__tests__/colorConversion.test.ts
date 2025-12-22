@@ -1,14 +1,15 @@
 import {
   rgbToChannelValues,
   channelValuesToRgb,
+  applyIntensityToRgb,
   getFixtureColorType,
   createOptimizedColorMapping,
   RGBColor,
   COLOR_CHANNEL_TYPES,
   WHITE_CHANNEL_INTENSITY_FACTOR,
-  
+
   AMBER_COLOR_RATIOS,
-  
+
   UV_COLOR_HEX,
   UV_ACTIVATION_THRESHOLDS,
 } from '../colorConversion';
@@ -182,6 +183,54 @@ describe('colorConversion', () => {
 
       // Intensity should be 192/255 = 0.753
       expect(result.intensity).toBeCloseTo(0.753, 2);
+    });
+  });
+
+  describe('applyIntensityToRgb', () => {
+    it('applies intensity scaling correctly at 50%', () => {
+      const rgb = { r: 255, g: 100, b: 50, intensity: 0.5 };
+      const result = applyIntensityToRgb(rgb);
+
+      expect(result.r).toBe(128);
+      expect(result.g).toBe(50);
+      expect(result.b).toBe(25);
+    });
+
+    it('returns unscaled RGB when intensity is 1.0', () => {
+      const rgb = { r: 200, g: 150, b: 100, intensity: 1.0 };
+      const result = applyIntensityToRgb(rgb);
+
+      expect(result.r).toBe(200);
+      expect(result.g).toBe(150);
+      expect(result.b).toBe(100);
+    });
+
+    it('returns black when intensity is 0', () => {
+      const rgb = { r: 255, g: 255, b: 255, intensity: 0 };
+      const result = applyIntensityToRgb(rgb);
+
+      expect(result.r).toBe(0);
+      expect(result.g).toBe(0);
+      expect(result.b).toBe(0);
+    });
+
+    it('rounds fractional values correctly', () => {
+      const rgb = { r: 100, g: 100, b: 100, intensity: 0.33 };
+      const result = applyIntensityToRgb(rgb);
+
+      // 100 * 0.33 = 33, Math.round(33) = 33
+      expect(result.r).toBe(33);
+      expect(result.g).toBe(33);
+      expect(result.b).toBe(33);
+    });
+
+    it('handles various intensity levels', () => {
+      const rgb = { r: 200, g: 0, b: 100, intensity: 0.75 };
+      const result = applyIntensityToRgb(rgb);
+
+      expect(result.r).toBe(150); // 200 * 0.75 = 150
+      expect(result.g).toBe(0);   // 0 * 0.75 = 0
+      expect(result.b).toBe(75);  // 100 * 0.75 = 75
     });
   });
 

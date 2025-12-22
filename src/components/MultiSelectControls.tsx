@@ -8,7 +8,7 @@ import {
   sortMergedChannels,
   MergedChannel,
 } from "@/utils/channelMerging";
-import { channelValuesToRgb, createOptimizedColorMapping, type InstanceChannelWithValue } from "@/utils/colorConversion";
+import { channelValuesToRgb, applyIntensityToRgb, createOptimizedColorMapping, type InstanceChannelWithValue } from "@/utils/colorConversion";
 import ChannelSlider from "./ChannelSlider";
 import ColorPickerModal from "./ColorPickerModal";
 
@@ -110,12 +110,8 @@ export default function MultiSelectControls({
 
     // Use intelligent color conversion to get RGB from all available channels
     // Get unscaled RGB + intensity, then apply intensity for display
-    const { r, g, b, intensity } = channelValuesToRgb(channelsWithValues);
-    return {
-      r: Math.round(r * intensity),
-      g: Math.round(g * intensity),
-      b: Math.round(b * intensity),
-    };
+    const rgbWithIntensity = channelValuesToRgb(channelsWithValues);
+    return applyIntensityToRgb(rgbWithIntensity);
   }, [selectedFixtures, fixtureValues, mergedChannels, localSliderValues]);
 
   // Handle channel slider change (batch all fixture changes into single server call)

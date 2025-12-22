@@ -4,7 +4,7 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { useMutation } from "@apollo/client";
 import { FixtureInstance } from "@/types";
 import { UPDATE_FIXTURE_POSITIONS } from "@/graphql/fixtures";
-import { channelValuesToRgb, type InstanceChannelWithValue } from "@/utils/colorConversion";
+import { channelValuesToRgb, applyIntensityToRgb, type InstanceChannelWithValue } from "@/utils/colorConversion";
 
 interface LayoutCanvasProps {
   fixtures: FixtureInstance[];
@@ -319,13 +319,11 @@ export default function LayoutCanvas({
 
       // Use intelligent color conversion to get RGB from all available channels
       // Get unscaled RGB + intensity, then apply intensity for display
-      const { r, g, b, intensity } = channelValuesToRgb(channelsWithValues);
-      const displayR = Math.round(r * intensity);
-      const displayG = Math.round(g * intensity);
-      const displayB = Math.round(b * intensity);
+      const rgbWithIntensity = channelValuesToRgb(channelsWithValues);
+      const displayRgb = applyIntensityToRgb(rgbWithIntensity);
 
       // If no color, use default fixture color (dark gray)
-      if (displayR === 0 && displayG === 0 && displayB === 0) {
+      if (displayRgb.r === 0 && displayRgb.g === 0 && displayRgb.b === 0) {
         return {
           color: DEFAULT_FIXTURE_COLOR.hex,
           r: DEFAULT_FIXTURE_COLOR.r / 255,
@@ -335,10 +333,10 @@ export default function LayoutCanvas({
       }
 
       return {
-        color: `rgb(${displayR}, ${displayG}, ${displayB})`,
-        r: displayR / 255,
-        g: displayG / 255,
-        b: displayB / 255,
+        color: `rgb(${displayRgb.r}, ${displayRgb.g}, ${displayRgb.b})`,
+        r: displayRgb.r / 255,
+        g: displayRgb.g / 255,
+        b: displayRgb.b / 255,
       };
     },
     [fixtureValues],

@@ -7,14 +7,54 @@ export interface RGBColor {
 }
 
 /**
- * RGB color with separate intensity value
- * Used when we need to distinguish between the base color and intensity scaling
+ * RGB color with separate intensity value.
+ * Used when we need to distinguish between the base color and intensity scaling.
+ *
+ * For fixtures WITH an INTENSITY channel:
+ *   - RGB values are unscaled (raw channel values, e.g., RED=255)
+ *   - intensity is normalized to 0-1 (e.g., 128/255 = 0.5)
+ *
+ * For fixtures WITHOUT an INTENSITY channel:
+ *   - RGB values are the channel values
+ *   - intensity is always 1.0
+ *
+ * @example
+ * // Fixture with INTENSITY channel at 50%
+ * const color: RGBColorWithIntensity = { r: 255, g: 0, b: 0, intensity: 0.5 };
+ * // Display color would be: rgb(128, 0, 0) = r * intensity
  */
 export interface RGBColorWithIntensity {
-  r: number;      // Unscaled RGB value (0-255)
+  /** Unscaled RGB red value (0-255) */
+  r: number;
+  /** Unscaled RGB green value (0-255) */
   g: number;
+  /** Unscaled RGB blue value (0-255) */
   b: number;
-  intensity: number;  // Normalized intensity (0-1), 1.0 if no INTENSITY channel
+  /** Normalized intensity (0-1), 1.0 if no INTENSITY channel */
+  intensity: number;
+}
+
+/**
+ * Applies intensity scaling to RGB values for display.
+ *
+ * Takes unscaled RGB values with intensity and returns scaled RGB values
+ * suitable for display. This is commonly used when rendering fixture colors
+ * on the canvas or in UI components.
+ *
+ * @param rgb - Unscaled RGB values with intensity
+ * @returns Scaled RGB values for display (0-255)
+ *
+ * @example
+ * const unscaled = { r: 255, g: 0, b: 0, intensity: 0.5 };
+ * const display = applyIntensityToRgb(unscaled);
+ * // Returns: { r: 128, g: 0, b: 0 }
+ */
+export function applyIntensityToRgb(rgb: RGBColorWithIntensity): RGBColor {
+  return {
+    r: Math.round(rgb.r * rgb.intensity),
+    g: Math.round(rgb.g * rgb.intensity),
+    b: Math.round(rgb.b * rgb.intensity),
+  };
 }
 
 /**
