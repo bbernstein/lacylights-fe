@@ -293,6 +293,10 @@ jobs:
           npm ci
 
       - name: Build static export (for RPi)
+        env:
+          NEXT_PUBLIC_GIT_COMMIT: ${{ github.sha }}
+          NEXT_PUBLIC_BUILD_TIME: ${{ github.event.head_commit.timestamp }}
+          NEXT_PUBLIC_VERSION: ${{ steps.new_version.outputs.version }}
         run: |
           # Build the Next.js application for static export (RPi deployment)
           npm run build:static
@@ -310,6 +314,10 @@ jobs:
           rm -rf lacylights-fe-static
 
       - name: Build server mode (for Mac app)
+        env:
+          NEXT_PUBLIC_GIT_COMMIT: ${{ github.sha }}
+          NEXT_PUBLIC_BUILD_TIME: ${{ github.event.head_commit.timestamp }}
+          NEXT_PUBLIC_VERSION: ${{ steps.new_version.outputs.version }}
         run: |
           # Clean previous build
           rm -rf .next

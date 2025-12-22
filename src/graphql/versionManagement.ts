@@ -46,3 +46,13 @@ export const UPDATE_ALL_REPOSITORIES = gql`
     }
   }
 `;
+
+export const GET_BUILD_INFO = gql`
+  query GetBuildInfo {
+    buildInfo {
+      version
+      gitCommit
+      buildTime
+    }
+  }
+`;

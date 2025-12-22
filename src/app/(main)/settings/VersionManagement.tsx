@@ -1,118 +1,27 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation } from "@apollo/client";
-import {
-  GET_SYSTEM_VERSIONS,
-  GET_AVAILABLE_VERSIONS,
-  UPDATE_REPOSITORY,
-  UPDATE_ALL_REPOSITORIES,
-} from "@/graphql/versionManagement";
-import { RepositoryVersion, UpdateResult } from "@/generated/graphql";
-import { sortVersionsDescending } from "@/utils/versionSort";
+import { useQuery } from "@apollo/client";
+import Link from "next/link";
+import { GET_SYSTEM_VERSIONS, GET_BUILD_INFO } from "@/graphql/versionManagement";
+import { RepositoryVersion } from "@/generated/graphql";
 
+/**
+ * Read-only version display for the Settings page.
+ * For update actions, users are directed to /system-update.
+ */
 export default function VersionManagement() {
-  const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
-  const [selectedVersion, setSelectedVersion] = useState<string>("latest");
-  const [updateResults, setUpdateResults] = useState<UpdateResult[]>([]);
-
-  const { data, loading, error, refetch } = useQuery(GET_SYSTEM_VERSIONS, {
+  const { data, loading, error } = useQuery(GET_SYSTEM_VERSIONS, {
     pollInterval: 30000, // Poll every 30 seconds
   });
 
-  const { data: versionsData, loading: versionsLoading } = useQuery(
-    GET_AVAILABLE_VERSIONS,
-    {
-      variables: { repository: selectedRepo || "" },
-      skip: !selectedRepo,
-    },
-  );
-
-  const [updateRepository, { loading: updating }] = useMutation(
-    UPDATE_REPOSITORY,
-    {
-      onCompleted: (result) => {
-        setUpdateResults([result.updateRepository]);
-        refetch();
-        setSelectedRepo(null);
-        setSelectedVersion("latest");
-      },
-      onError: (error) => {
-        console.error("Error updating repository:", error);
-        setUpdateResults([
-          {
-            repository: selectedRepo || "unknown",
-            success: false,
-            error: error.message,
-            message: "",
-            previousVersion: "",
-            newVersion: "",
-          },
-        ]);
-      },
-    },
-  );
-
-  const [updateAllRepositories, { loading: updatingAll }] = useMutation(
-    UPDATE_ALL_REPOSITORIES,
-    {
-      onCompleted: (result) => {
-        setUpdateResults(result.updateAllRepositories);
-        refetch();
-      },
-      onError: (error) => {
-        console.error("Error updating all repositories:", error);
-        setUpdateResults([
-          {
-            repository: "all",
-            success: false,
-            error: error.message,
-            message: "",
-            previousVersion: "",
-            newVersion: "",
-          },
-        ]);
-      },
-    },
-  );
-
-  const systemVersions = data?.systemVersions;
-  const availableVersions = versionsData?.availableVersions || [];
-  const sortedVersions = sortVersionsDescending(availableVersions);
-
-  const handleUpdateRepository = async () => {
-    if (!selectedRepo) return;
-
-    try {
-      await updateRepository({
-        variables: {
-          repository: selectedRepo,
-          version: selectedVersion === "latest" ? undefined : selectedVersion,
-        },
-      });
-    } catch (err) {
-      console.error("Error updating repository:", err);
-    }
-  };
-
-  const handleUpdateAll = async () => {
-    try {
-      await updateAllRepositories();
-    } catch (err) {
-      console.error("Error updating all repositories:", err);
-    }
-  };
-
-  const handleClearResults = () => {
-    setUpdateResults([]);
-  };
+  const { data: buildInfoData } = useQuery(GET_BUILD_INFO);
 
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-32">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400 mb-3"></div>
         <div className="text-gray-600 dark:text-gray-400">
-          Checking for updates...
+          Checking versions...
         </div>
       </div>
     );
@@ -128,6 +37,9 @@ export default function VersionManagement() {
     );
   }
 
+  const systemVersions = data?.systemVersions;
+  const buildInfo = buildInfoData?.buildInfo;
+
   if (!systemVersions?.versionManagementSupported) {
     return (
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
@@ -136,6 +48,8 @@ export default function VersionManagement() {
             className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3"
             fill="currentColor"
             viewBox="0 0 20 20"
+            role="img"
+            aria-label="Info icon"
           >
             <path
               fillRule="evenodd"
@@ -160,105 +74,59 @@ export default function VersionManagement() {
 
   const repositories = systemVersions?.repositories || [];
   const hasUpdates = repositories.some(
-    (repo: RepositoryVersion) => repo.updateAvailable,
+    (repo: RepositoryVersion) => repo.updateAvailable
   );
 
   return (
     <div className="space-y-4">
-      {/* Update Results */}
-      {updateResults.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-2">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Update Results
-            </h3>
-            <button
-              onClick={handleClearResults}
-              className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-            >
-              Clear
-            </button>
-          </div>
-          {updateResults.map((result) => (
-            <div
-              key={result.repository}
-              className={`p-3 rounded ${
-                result.success
-                  ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
-                  : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
-              }`}
-            >
-              <div className="flex items-start">
-                <svg
-                  className={`w-5 h-5 mt-0.5 mr-3 ${
-                    result.success
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-red-600 dark:text-red-400"
-                  }`}
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  {result.success ? (
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                      clipRule="evenodd"
-                    />
-                  ) : (
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                      clipRule="evenodd"
-                    />
-                  )}
-                </svg>
-                <div className="flex-1">
-                  <p
-                    className={`text-sm font-medium ${
-                      result.success
-                        ? "text-green-800 dark:text-green-200"
-                        : "text-red-800 dark:text-red-200"
-                    }`}
-                  >
-                    {result.repository}
-                  </p>
-                  <p
-                    className={`text-sm mt-1 ${
-                      result.success
-                        ? "text-green-700 dark:text-green-300"
-                        : "text-red-700 dark:text-red-300"
-                    }`}
-                  >
-                    {result.success ? result.message : result.error}
-                  </p>
-                  {result.success && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {result.previousVersion} → {result.newVersion}
-                    </p>
-                  )}
-                </div>
-              </div>
+      {/* Build Info */}
+      {buildInfo && (
+        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Current Server Build
+          </h4>
+          <div className="grid grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="text-gray-500 dark:text-gray-400">Version:</span>
+              <span className="ml-2 text-gray-900 dark:text-white font-medium">
+                {buildInfo.version}
+              </span>
             </div>
-          ))}
+            <div>
+              <span className="text-gray-500 dark:text-gray-400">Commit:</span>
+              <span className="ml-2 font-mono text-gray-900 dark:text-white">
+                {buildInfo.gitCommit?.substring(0, 7)}
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-500 dark:text-gray-400">Built:</span>
+              <span className="ml-2 text-gray-900 dark:text-white">
+                {buildInfo.buildTime
+                  ? new Date(buildInfo.buildTime).toLocaleDateString()
+                  : "unknown"}
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Repository Versions Table */}
+      {/* Version Status Summary */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               System Versions
             </h3>
-            {hasUpdates && (
-              <button
-                onClick={handleUpdateAll}
-                disabled={updating || updatingAll}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-              >
-                {updatingAll ? "Updating All..." : "Update All"}
-              </button>
-            )}
+            <Link
+              href="/system-update"
+              className={`px-4 py-2 rounded-md text-sm font-medium ${
+                hasUpdates
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+              }`}
+            >
+              {hasUpdates ? "Updates Available" : "Manage Updates"}
+            </Link>
           </div>
           {systemVersions?.lastChecked && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -268,96 +136,73 @@ export default function VersionManagement() {
           )}
         </div>
 
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-900">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Repository
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Installed
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Latest
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            {repositories.map((repo: RepositoryVersion) => (
-              <tr
-                key={repo.repository}
-                className="hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {repo.repository}
-                    </span>
-                    {repo.updateAvailable && (
-                      <span className="ml-2 px-2 py-1 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded">
-                        Update Available
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+        {/* Simple Version List */}
+        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          {repositories.map((repo: RepositoryVersion) => (
+            <div
+              key={repo.repository}
+              className="px-6 py-4 flex items-center justify-between"
+            >
+              <div className="flex items-center">
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {repo.repository}
+                </span>
+                {repo.updateAvailable && (
+                  <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded">
+                    Update Available
+                  </span>
+                )}
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                <span className="font-medium text-gray-900 dark:text-white">
                   {repo.installed}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  {repo.latest}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  {selectedRepo === repo.repository ? (
-                    <div className="flex justify-end items-center space-x-2">
-                      <select
-                        value={selectedVersion}
-                        onChange={(e) => setSelectedVersion(e.target.value)}
-                        disabled={versionsLoading}
-                        className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                      >
-                        <option value="latest">Latest</option>
-                        {sortedVersions.map((version: string) => (
-                          <option key={version} value={version}>
-                            {version}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={handleUpdateRepository}
-                        disabled={updating}
-                        className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-200 disabled:opacity-50"
-                      >
-                        {updating ? "Updating..." : "Update"}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedRepo(null);
-                          setSelectedVersion("latest");
-                        }}
-                        disabled={updating}
-                        className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 disabled:opacity-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setSelectedRepo(repo.repository)}
-                      disabled={updating || updatingAll}
-                      className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {repo.updateAvailable ? "Update" : "Change Version"}
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </span>
+                {repo.updateAvailable && (
+                  <>
+                    <span className="mx-2">→</span>
+                    <span className="text-green-600 dark:text-green-400">
+                      {repo.latest}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
+
+      {/* Update Notice */}
+      {hasUpdates && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <div className="flex items-start">
+            <svg
+              className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 mr-3"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+              role="img"
+              aria-label="Warning icon"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <div>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                Updates are available. Go to the{" "}
+                <Link
+                  href="/system-update"
+                  className="font-medium underline hover:no-underline"
+                >
+                  System Update
+                </Link>{" "}
+                page to install updates. The server may restart during updates.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
