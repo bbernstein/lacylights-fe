@@ -157,6 +157,9 @@ export default function MultiSelectControls({
         value: number;
       }> = [];
 
+      // Batch all local slider value updates to avoid multiple re-renders
+      const localUpdates = new Map<string, number>();
+
       selectedFixtures.forEach((fixture) => {
         if (!fixture.channels) return;
 
@@ -176,20 +179,25 @@ export default function MultiSelectControls({
           if (channelIndex !== -1) {
             changes.push({ fixtureId: fixture.id, channelIndex, value });
 
-            // Update local state for responsive UI
+            // Collect local state updates (batch them)
             const mergedChannel = mergedChannels.find(
               (mc) => mc.type === fixture.channels![channelIndex].type && mc.fixtureIds.includes(fixture.id)
             );
             if (mergedChannel) {
-              setLocalSliderValues((prev) => {
-                const newMap = new Map(prev);
-                newMap.set(getChannelKey(mergedChannel), value);
-                return newMap;
-              });
+              localUpdates.set(getChannelKey(mergedChannel), value);
             }
           }
         });
       });
+
+      // Apply all local slider updates in a single state update
+      if (localUpdates.size > 0) {
+        setLocalSliderValues((prev) => {
+          const newMap = new Map(prev);
+          localUpdates.forEach((value, key) => newMap.set(key, value));
+          return newMap;
+        });
+      }
 
       onDebouncedPreviewUpdate(changes);
     },
@@ -208,6 +216,9 @@ export default function MultiSelectControls({
         channelIndex: number;
         value: number;
       }> = [];
+
+      // Batch all local slider value updates to avoid multiple re-renders
+      const localUpdates = new Map<string, number>();
 
       selectedFixtures.forEach((fixture) => {
         if (!fixture.channels) return;
@@ -228,20 +239,25 @@ export default function MultiSelectControls({
           if (channelIndex !== -1) {
             changes.push({ fixtureId: fixture.id, channelIndex, value });
 
-            // Update local state for responsive UI
+            // Collect local state updates (batch them)
             const mergedChannel = mergedChannels.find(
               (mc) => mc.type === fixture.channels![channelIndex].type && mc.fixtureIds.includes(fixture.id)
             );
             if (mergedChannel) {
-              setLocalSliderValues((prev) => {
-                const newMap = new Map(prev);
-                newMap.set(getChannelKey(mergedChannel), value);
-                return newMap;
-              });
+              localUpdates.set(getChannelKey(mergedChannel), value);
             }
           }
         });
       });
+
+      // Apply all local slider updates in a single state update
+      if (localUpdates.size > 0) {
+        setLocalSliderValues((prev) => {
+          const newMap = new Map(prev);
+          localUpdates.forEach((value, key) => newMap.set(key, value));
+          return newMap;
+        });
+      }
 
       onDebouncedPreviewUpdate(changes);
     },
