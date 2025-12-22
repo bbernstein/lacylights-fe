@@ -516,12 +516,19 @@ describe('MultiSelectControls', () => {
         expect(mockOnDebouncedPreviewUpdate).toHaveBeenCalled();
       });
 
-      // Verify that the update was called (indicating INTENSITY channel was set to 255)
+      // Verify that the update was called with correct channel values
       // The base color (RED=255) should be preserved, only INTENSITY should change
       expect(mockOnDebouncedPreviewUpdate).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
             fixtureId: mockFixtureWithIntensity.id,
+            channelIndex: 0, // RED channel
+            value: 255, // Should remain at full red
+          }),
+          expect.objectContaining({
+            fixtureId: mockFixtureWithIntensity.id,
+            channelIndex: 3, // INTENSITY channel
+            value: 255, // Should be set to 100%
           })
         ])
       );
@@ -557,11 +564,18 @@ describe('MultiSelectControls', () => {
       });
 
       // The fixture should now be at full brightness
-      // RED=255 (preserved), INTENSITY=255 (updated)
+      // RED=255 (preserved), INTENSITY=255 (updated from 0)
       expect(mockOnDebouncedPreviewUpdate).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
             fixtureId: mockFixtureWithIntensity.id,
+            channelIndex: 0, // RED channel
+            value: 255, // Should remain at full red
+          }),
+          expect.objectContaining({
+            fixtureId: mockFixtureWithIntensity.id,
+            channelIndex: 3, // INTENSITY channel
+            value: 255, // Should be set to 100% (from 0%)
           })
         ])
       );
@@ -622,6 +636,8 @@ describe('MultiSelectControls', () => {
         expect.arrayContaining([
           expect.objectContaining({
             fixtureId: mockFixture.id,
+            channelIndex: 0, // RED channel
+            value: expect.closeTo(128, 1), // Should be ~50% of 255
           })
         ])
       );
