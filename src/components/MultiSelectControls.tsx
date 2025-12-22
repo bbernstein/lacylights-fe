@@ -109,8 +109,13 @@ export default function MultiSelectControls({
     });
 
     // Use intelligent color conversion to get RGB from all available channels
-    const rgb = channelValuesToRgb(channelsWithValues);
-    return rgb;
+    // Get unscaled RGB + intensity, then apply intensity for display
+    const { r, g, b, intensity } = channelValuesToRgb(channelsWithValues);
+    return {
+      r: Math.round(r * intensity),
+      g: Math.round(g * intensity),
+      b: Math.round(b * intensity),
+    };
   }, [selectedFixtures, fixtureValues, mergedChannels, localSliderValues]);
 
   // Handle channel slider change (batch all fixture changes into single server call)

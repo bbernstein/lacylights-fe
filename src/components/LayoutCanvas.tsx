@@ -318,10 +318,14 @@ export default function LayoutCanvas({
       }));
 
       // Use intelligent color conversion to get RGB from all available channels
-      const rgb = channelValuesToRgb(channelsWithValues);
+      // Get unscaled RGB + intensity, then apply intensity for display
+      const { r, g, b, intensity } = channelValuesToRgb(channelsWithValues);
+      const displayR = Math.round(r * intensity);
+      const displayG = Math.round(g * intensity);
+      const displayB = Math.round(b * intensity);
 
       // If no color, use default fixture color (dark gray)
-      if (rgb.r === 0 && rgb.g === 0 && rgb.b === 0) {
+      if (displayR === 0 && displayG === 0 && displayB === 0) {
         return {
           color: DEFAULT_FIXTURE_COLOR.hex,
           r: DEFAULT_FIXTURE_COLOR.r / 255,
@@ -331,10 +335,10 @@ export default function LayoutCanvas({
       }
 
       return {
-        color: `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`,
-        r: rgb.r / 255,
-        g: rgb.g / 255,
-        b: rgb.b / 255,
+        color: `rgb(${displayR}, ${displayG}, ${displayB})`,
+        r: displayR / 255,
+        g: displayG / 255,
+        b: displayB / 255,
       };
     },
     [fixtureValues],

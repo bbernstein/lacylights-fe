@@ -715,12 +715,10 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
       value: channelValues.get(fixtureId)?.[index] ?? 0,
     }));
 
-    // Get current color from channels
-    const currentColor = channelValuesToRgb(channels);
-
-    // Extract current intensity from INTENSITY channel if present
-    const intensityChannel = channels.find((ch: InstanceChannel & { value: number }) => ch.type === ChannelType.INTENSITY);
-    const currentIntensity = intensityChannel ? intensityChannel.value / 255 : 1.0;
+    // Get UNSCALED color and intensity from channels
+    // This ensures the color picker works correctly with fixtures that have INTENSITY channels
+    const { r, g, b, intensity: currentIntensity } = channelValuesToRgb(channels);
+    const currentColor = { r, g, b };
 
     setSelectedFixtureId(fixtureId);
     setTempColor(currentColor);

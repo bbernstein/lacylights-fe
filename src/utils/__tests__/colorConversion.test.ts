@@ -57,7 +57,7 @@ describe('colorConversion', () => {
   });
 
   describe('channelValuesToRgb', () => {
-    it('converts channel values back to RGB', () => {
+    it('converts channel values back to RGB without INTENSITY channel', () => {
       const channels = [
         { id: '1', type: ChannelType.RED, value: 255, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
         { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
@@ -65,7 +65,7 @@ describe('colorConversion', () => {
       ];
 
       const result = channelValuesToRgb(channels);
-      expect(result).toEqual({ r: 255, g: 0, b: 0 });
+      expect(result).toEqual({ r: 255, g: 0, b: 0, intensity: 1.0 });
     });
 
     it('handles white channel contribution', () => {
@@ -80,11 +80,108 @@ describe('colorConversion', () => {
       expect(result.r).toBeGreaterThan(0);
       expect(result.g).toBeGreaterThan(0);
       expect(result.b).toBeGreaterThan(0);
+      expect(result.intensity).toBe(1.0);
     });
 
     it('returns black for empty channels', () => {
       const result = channelValuesToRgb([]);
-      expect(result).toEqual({ r: 0, g: 0, b: 0 });
+      expect(result).toEqual({ r: 0, g: 0, b: 0, intensity: 1.0 });
+    });
+
+    it('returns unscaled RGB with INTENSITY channel at 50%', () => {
+      const channels = [
+        { id: '1', type: ChannelType.RED, value: 255, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '4', type: ChannelType.INTENSITY, value: 128, offset: 3, name: 'Intensity', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      ];
+
+      const result = channelValuesToRgb(channels);
+      // RGB should be unscaled (not multiplied by intensity)
+      expect(result.r).toBe(255);
+      expect(result.g).toBe(0);
+      expect(result.b).toBe(0);
+      // Intensity should be normalized to 0-1 range
+      expect(result.intensity).toBeCloseTo(0.5, 2);
+    });
+
+    it('returns unscaled RGB with INTENSITY channel at 0%', () => {
+      const channels = [
+        { id: '1', type: ChannelType.RED, value: 255, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '2', type: ChannelType.GREEN, value: 128, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '3', type: ChannelType.BLUE, value: 64, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '4', type: ChannelType.INTENSITY, value: 0, offset: 3, name: 'Intensity', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      ];
+
+      const result = channelValuesToRgb(channels);
+      // RGB should remain unscaled even when intensity is 0
+      expect(result.r).toBe(255);
+      expect(result.g).toBe(128);
+      expect(result.b).toBe(64);
+      expect(result.intensity).toBe(0);
+    });
+
+    it('returns unscaled RGB with INTENSITY channel at 100%', () => {
+      const channels = [
+        { id: '1', type: ChannelType.RED, value: 200, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '2', type: ChannelType.GREEN, value: 100, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '3', type: ChannelType.BLUE, value: 50, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '4', type: ChannelType.INTENSITY, value: 255, offset: 3, name: 'Intensity', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      ];
+
+      const result = channelValuesToRgb(channels);
+      // RGB should be unscaled
+      expect(result.r).toBe(200);
+      expect(result.g).toBe(100);
+      expect(result.b).toBe(50);
+      expect(result.intensity).toBe(1.0);
+    });
+
+    it('correctly calculates display color by multiplying unscaled RGB by intensity', () => {
+      const channels = [
+        { id: '1', type: ChannelType.RED, value: 255, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '4', type: ChannelType.INTENSITY, value: 128, offset: 3, name: 'Intensity', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      ];
+
+      const { r, g, b, intensity } = channelValuesToRgb(channels);
+
+      // Verify unscaled values
+      expect(r).toBe(255);
+      expect(g).toBe(0);
+      expect(b).toBe(0);
+      expect(intensity).toBeCloseTo(0.5, 2);
+
+      // Calculate display color
+      const displayR = Math.round(r * intensity);
+      const displayG = Math.round(g * intensity);
+      const displayB = Math.round(b * intensity);
+
+      // Display color should be half of unscaled (50% intensity)
+      expect(displayR).toBe(128);
+      expect(displayG).toBe(0);
+      expect(displayB).toBe(0);
+    });
+
+    it('handles RGB+I fixture with WHITE channel correctly', () => {
+      const channels = [
+        { id: '1', type: ChannelType.RED, value: 100, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '4', type: ChannelType.WHITE, value: 200, offset: 3, name: 'White', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+        { id: '5', type: ChannelType.INTENSITY, value: 192, offset: 4, name: 'Intensity', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      ];
+
+      const result = channelValuesToRgb(channels);
+
+      // RGB should include white contribution but NOT be scaled by intensity
+      expect(result.r).toBeGreaterThan(100);
+      expect(result.g).toBeGreaterThan(0);
+      expect(result.b).toBeGreaterThan(0);
+
+      // Intensity should be 192/255 = 0.753
+      expect(result.intensity).toBeCloseTo(0.753, 2);
     });
   });
 
