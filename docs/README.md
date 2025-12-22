@@ -18,6 +18,11 @@ This directory contains technical documentation for the LacyLights frontend appl
 - [SUBSCRIPTION_ARCHITECTURE.md](./SUBSCRIPTION_ARCHITECTURE.md) - Real-time GraphQL subscriptions architecture
 - [SCENE_EDITOR_2D_LAYOUT_PLAN.md](./SCENE_EDITOR_2D_LAYOUT_PLAN.md) - Scene editor 2D layout implementation plan
 
+### Completed Features
+- [COLOR_PICKER_INTENSITY_SCALING_PLAN.md](./COLOR_PICKER_INTENSITY_SCALING_PLAN.md) - ✅ Color picker intensity slider fix (PR #99, #100, #102)
+- [RELEASE_NOTES_COLOR_PICKER_INTENSITY_FIX.md](./RELEASE_NOTES_COLOR_PICKER_INTENSITY_FIX.md) - User-facing release notes for intensity fix
+- [COLOR_PICKER_INTENSITY_QUICK_REF.md](./COLOR_PICKER_INTENSITY_QUICK_REF.md) - Quick reference guide for color picker behavior
+
 ## Additional Resources
 
 See the main [README.md](../README.md) in the repository root for general project information and getting started guide.
