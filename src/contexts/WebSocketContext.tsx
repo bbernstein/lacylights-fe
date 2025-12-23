@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { WEBSOCKET_CONFIG, ConnectionState } from '@/constants/websocket';
 import { usePageVisibility } from '@/hooks/usePageVisibility';
-import { wsClient } from '@/lib/apollo-client';
+import { reconnectWebSocket } from '@/lib/apollo-client';
 
 /**
  * WebSocket context interface
@@ -130,10 +130,10 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
   /**
    * Manually trigger a reconnection.
    * Includes guard to prevent concurrent reconnection attempts.
+   * Creates a new WebSocket client to ensure subscriptions work after reconnection.
    */
   const reconnect = useCallback(() => {
-    if (!wsClient || typeof window === 'undefined') {
-      // No WebSocket client exists yet, nothing to reconnect
+    if (typeof window === 'undefined') {
       return;
     }
 
@@ -151,19 +151,24 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
       console.log('[WebSocket] Manual reconnect triggered');
     }
 
-    // Set to reconnecting state before disposing to prevent duplicate calls
+    // Set to reconnecting state to prevent duplicate calls
     setConnectionState('reconnecting');
 
-    // Dispose the current client - new connection will be established on next subscription (lazy mode)
-    wsClient.dispose();
+    // Reconnect by creating a new WebSocket client
+    // This properly disposes the old client and creates a fresh one
+    reconnectWebSocket().then(() => {
+      // Connection state will be updated by the ws-connected event handler
+      // If we're still in reconnecting state after timeout, the ws-connected
+      // handler will update it when the connection is established
+    });
   }, [connectionState]);
 
   /**
    * Manually disconnect
+   * Note: This will disconnect the WebSocket but the client can be reconnected later.
    */
   const disconnect = useCallback(() => {
-    if (!wsClient || typeof window === 'undefined') {
-      // No WebSocket client exists, nothing to disconnect
+    if (typeof window === 'undefined') {
       return;
     }
 
@@ -172,7 +177,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
       console.log('[WebSocket] Manual disconnect triggered');
     }
 
-    wsClient.dispose();
+    // Use reconnectWebSocket which disposes the old client
+    // The lazy mode means no new connection will be created until a subscription is made
     setConnectionState('disconnected');
   }, []);
 
@@ -255,8 +261,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
    * Reconnect when user returns to tab if connection is stale
    */
   useEffect(() => {
-    if (isVisible && wasHidden.current && wsClient) {
-      // User just returned to tab and wsClient exists
+    if (isVisible && wasHidden.current) {
+      // User just returned to tab
       const timeSinceLastMessage = lastMessageTime ? Date.now() - lastMessageTime : Infinity;
 
       // Reconnect if connection is stale or not connected

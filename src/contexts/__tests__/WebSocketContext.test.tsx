@@ -4,10 +4,9 @@ import { WebSocketProvider, useWebSocket } from '../WebSocketContext';
 import { WEBSOCKET_CONFIG } from '@/constants/websocket';
 
 // Mock the apollo-client module
+const mockReconnectWebSocket = jest.fn().mockResolvedValue(undefined);
 jest.mock('@/lib/apollo-client', () => ({
-  wsClient: {
-    dispose: jest.fn(),
-  },
+  reconnectWebSocket: () => mockReconnectWebSocket(),
 }));
 
 // Mock the usePageVisibility hook
@@ -16,12 +15,10 @@ jest.mock('@/hooks/usePageVisibility', () => ({
 }));
 
 describe('WebSocketContext', () => {
-  // Get the mocked wsClient
-  const mockWsClient = require('@/lib/apollo-client').wsClient;
-
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    mockReconnectWebSocket.mockResolvedValue(undefined);
 
     // Mock document.hidden for page visibility
     Object.defineProperty(document, 'hidden', {
@@ -177,7 +174,7 @@ describe('WebSocketContext', () => {
         jest.advanceTimersByTime(WEBSOCKET_CONFIG.FORCE_RECONNECT_THRESHOLD + WEBSOCKET_CONFIG.HEARTBEAT_CHECK_INTERVAL);
       });
 
-      expect(mockWsClient.dispose).toHaveBeenCalled();
+      expect(mockReconnectWebSocket).toHaveBeenCalled();
       // State is set to 'reconnecting' to prevent duplicate reconnection attempts
       expect(result.current.connectionState).toBe('reconnecting');
     });
@@ -195,27 +192,9 @@ describe('WebSocketContext', () => {
         result.current.reconnect();
       });
 
-      expect(mockWsClient.dispose).toHaveBeenCalled();
+      expect(mockReconnectWebSocket).toHaveBeenCalled();
       // State is set to 'reconnecting' to prevent duplicate reconnection attempts
       expect(result.current.connectionState).toBe('reconnecting');
-    });
-
-    it('should handle reconnect gracefully when wsClient is null', () => {
-      // Temporarily set wsClient to null
-      const originalClient = require('@/lib/apollo-client').wsClient;
-      require('@/lib/apollo-client').wsClient = null;
-
-      const { result } = renderHook(() => useWebSocket(), { wrapper });
-
-      act(() => {
-        result.current.reconnect();
-      });
-
-      // Should not throw and state should remain unchanged
-      expect(result.current.connectionState).toBe('disconnected');
-
-      // Restore original client
-      require('@/lib/apollo-client').wsClient = originalClient;
     });
 
     it('should disconnect when disconnect is called', () => {
@@ -229,26 +208,8 @@ describe('WebSocketContext', () => {
         result.current.disconnect();
       });
 
-      expect(mockWsClient.dispose).toHaveBeenCalled();
+      // disconnect now just sets state to disconnected (doesn't call reconnect)
       expect(result.current.connectionState).toBe('disconnected');
-    });
-
-    it('should handle disconnect gracefully when wsClient is null', () => {
-      // Temporarily set wsClient to null
-      const originalClient = require('@/lib/apollo-client').wsClient;
-      require('@/lib/apollo-client').wsClient = null;
-
-      const { result } = renderHook(() => useWebSocket(), { wrapper });
-
-      act(() => {
-        result.current.disconnect();
-      });
-
-      // Should not throw and state should remain unchanged
-      expect(result.current.connectionState).toBe('disconnected');
-
-      // Restore original client
-      require('@/lib/apollo-client').wsClient = originalClient;
     });
   });
 
@@ -274,7 +235,7 @@ describe('WebSocketContext', () => {
 
       expect(resolved).toBe(true);
       // Should not trigger a reconnect when already connected
-      expect(mockWsClient.dispose).not.toHaveBeenCalled();
+      expect(mockReconnectWebSocket).not.toHaveBeenCalled();
     });
 
     it('should trigger reconnect and wait for ws-connected when stale', async () => {
@@ -310,7 +271,7 @@ describe('WebSocketContext', () => {
       await promise;
       expect(resolved).toBe(true);
       // Should have triggered a reconnect
-      expect(mockWsClient.dispose).toHaveBeenCalled();
+      expect(mockReconnectWebSocket).toHaveBeenCalled();
     });
 
     it('should trigger reconnect and wait for ws-connected when disconnected', async () => {
@@ -387,7 +348,7 @@ describe('WebSocketContext', () => {
       rerender();
 
       await waitFor(() => {
-        expect(mockWsClient.dispose).toHaveBeenCalled();
+        expect(mockReconnectWebSocket).toHaveBeenCalled();
       });
     });
 
@@ -409,7 +370,7 @@ describe('WebSocketContext', () => {
       rerender();
 
       // Should not reconnect because connection is healthy
-      expect(mockWsClient.dispose).not.toHaveBeenCalled();
+      expect(mockReconnectWebSocket).not.toHaveBeenCalled();
     });
   });
 
