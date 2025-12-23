@@ -659,6 +659,12 @@ export default function SceneEditorLayout({
       // Build updated fixture values from current local state
       const fixtureValuesMap = new Map<string, FixtureChannelValues>();
 
+      // Build set of existing fixture IDs for quick lookup
+      const existingFixtureIds = new Set(
+        scene.fixtureValues.map((fv: FixtureValue) => fv.fixture.id),
+      );
+
+      // First, process existing fixtures from the scene
       scene.fixtureValues.forEach((fv: FixtureValue) => {
         const localValues = localFixtureValues.get(fv.fixture.id);
         const fixtureActiveChannels = activeChannels.get(fv.fixture.id);
@@ -678,6 +684,25 @@ export default function SceneEditorLayout({
           channels: sparseChannels,
         });
       });
+
+      // Then, add any new fixtures from localFixtureValues that aren't in scene.fixtureValues
+      // These are fixtures that were added but not yet saved
+      for (const [fixtureId, localValues] of localFixtureValues) {
+        if (!existingFixtureIds.has(fixtureId)) {
+          const fixtureActiveChannels = activeChannels.get(fixtureId);
+          const allChannels = denseToSparse(localValues);
+
+          // Filter to only include active channels (or all if no active tracking)
+          const sparseChannels = fixtureActiveChannels
+            ? allChannels.filter((ch) => fixtureActiveChannels.has(ch.offset))
+            : allChannels;
+
+          fixtureValuesMap.set(fixtureId, {
+            fixtureId,
+            channels: sparseChannels,
+          });
+        }
+      }
 
       const updatedFixtureValues = Array.from(fixtureValuesMap.values());
 
