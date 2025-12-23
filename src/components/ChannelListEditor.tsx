@@ -52,7 +52,27 @@ interface ColorSwatchProps {
   onColorClick: () => void;
 }
 
+/**
+ * Converts a normalized color component (0-1) to a 2-digit uppercase hex string.
+ * Exported for testing.
+ *
+ * @param n - Normalized color value between 0 and 1
+ * @returns Uppercase hex string (e.g., 'FF', '00', '82')
+ */
+export const toHex = (n: number): string =>
+  Math.round(n * 255).toString(16).padStart(2, '0').toUpperCase();
 
+/**
+ * Displays a color swatch representing the current RGB values of fixture channels.
+ * Converts channel values to hex color format (#RRGGBB) and shows a brightness
+ * indicator glow effect when the color is active.
+ *
+ * @param props - Component props
+ * @param props.channels - Array of fixture channels to extract color from
+ * @param props.getChannelValue - Function to get current value (0-255) for a channel index
+ * @param props.onColorClick - Callback when swatch is clicked to open color picker
+ * @returns Color swatch component with hex color display, or null if no color channels
+ */
 function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchProps) {
   const colorChannels = useMemo(() =>
     channels.filter(channel =>
@@ -155,7 +175,6 @@ function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchPro
     }
 
     // Convert to RGB values and format as hex
-    const toHex = (n: number) => Math.round(n * 255).toString(16).padStart(2, '0').toUpperCase();
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
   }, [colorChannels, channels, getChannelValue]);
 
