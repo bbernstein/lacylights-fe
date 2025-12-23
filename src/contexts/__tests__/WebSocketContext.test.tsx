@@ -177,7 +177,8 @@ describe('WebSocketContext', () => {
       });
 
       expect(mockWsClient.dispose).toHaveBeenCalled();
-      expect(result.current.connectionState).toBe('disconnected');
+      // State is set to 'reconnecting' to prevent duplicate reconnection attempts
+      expect(result.current.connectionState).toBe('reconnecting');
     });
   });
 
@@ -194,7 +195,8 @@ describe('WebSocketContext', () => {
       });
 
       expect(mockWsClient.dispose).toHaveBeenCalled();
-      expect(result.current.connectionState).toBe('disconnected');
+      // State is set to 'reconnecting' to prevent duplicate reconnection attempts
+      expect(result.current.connectionState).toBe('reconnecting');
     });
 
     it('should handle reconnect gracefully when wsClient is null', () => {

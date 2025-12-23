@@ -122,11 +122,21 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
   }, []);
 
   /**
-   * Manually trigger a reconnection
+   * Manually trigger a reconnection.
+   * Includes guard to prevent concurrent reconnection attempts.
    */
   const reconnect = useCallback(() => {
     if (!wsClient || typeof window === 'undefined') {
       // No WebSocket client exists yet, nothing to reconnect
+      return;
+    }
+
+    // Guard: prevent concurrent reconnections
+    if (connectionState === 'reconnecting') {
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.log('[WebSocket] Reconnection already in progress, skipping');
+      }
       return;
     }
 
@@ -135,14 +145,12 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
       console.log('[WebSocket] Manual reconnect triggered');
     }
 
-    // Dispose the current client
-    wsClient.dispose();
+    // Set to reconnecting state before disposing to prevent duplicate calls
+    setConnectionState('reconnecting');
 
-    // Set to disconnected state since reconnection only happens on next subscription (lazy mode)
-    // The 'reconnecting' state would be misleading as the connection won't be re-established
-    // until a component actually creates a new subscription
-    setConnectionState('disconnected');
-  }, []);
+    // Dispose the current client - new connection will be established on next subscription (lazy mode)
+    wsClient.dispose();
+  }, [connectionState]);
 
   /**
    * Manually disconnect

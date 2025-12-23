@@ -848,10 +848,14 @@ export default function CueListPlayer({
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-bold">{cueList.name}</h1>
           {/* Connection status indicator with reconnect button */}
-          <div className="flex items-center space-x-2">
-            {/* Status dot */}
+          <div
+            className="flex items-center space-x-2"
+            role="status"
+            aria-live="polite"
+          >
+            {/* Status dot - slightly larger (w-2.5 h-2.5) for better visibility during shows */}
             <div
-              className={`w-2 h-2 rounded-full ${
+              className={`w-2.5 h-2.5 rounded-full ${
                 connectionState === "connected" && !isStale
                   ? "bg-green-500"
                   : connectionState === "connected" && isStale
@@ -860,6 +864,16 @@ export default function CueListPlayer({
                       ? "bg-orange-500 animate-pulse"
                       : "bg-red-500"
               }`}
+              role="img"
+              aria-label={
+                connectionState === "connected" && !isStale
+                  ? "Live - receiving updates"
+                  : connectionState === "connected" && isStale
+                    ? "Stale - no recent updates"
+                    : connectionState === "reconnecting"
+                      ? "Reconnecting..."
+                      : "Disconnected"
+              }
               title={
                 connectionState === "connected" && !isStale
                   ? "Live - receiving updates"
@@ -876,12 +890,14 @@ export default function CueListPlayer({
                 onClick={reconnect}
                 className="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white transition-colors flex items-center space-x-1"
                 title="Reconnect to receive real-time updates"
+                aria-label="Reconnect WebSocket to receive real-time updates"
               >
                 <svg
                   className="w-3 h-3"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
+                  aria-hidden="true"
                 >
                   <path
                     strokeLinecap="round"
