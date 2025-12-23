@@ -705,17 +705,24 @@ jobs:
 
           # Build versions.json using jq with proper semver sorting
           # Parse version into numeric components for proper semantic version comparison
-          # Filters out records with null/invalid versions
+          # Filters out records with null/invalid versions and required fields
           echo "$VERSIONS_DATA" | jq -r '
             .Items
-            | map(select(.version.S != null and (.version.S | test("^v?[0-9]+\\.[0-9]+\\.[0-9]+"))))
+            | map(select(
+                .version.S != null
+                and (.version.S | test("^v?[0-9]+\\.[0-9]+\\.[0-9]+(-.*)?$"))
+                and .releaseDate.S != null
+                and .sha256.S != null
+                and .url.S != null
+                and .fileSize.N != null
+              ))
             | map({
               version: .version.S,
               releaseDate: .releaseDate.S,
               isPrerelease: (.isPrerelease.BOOL // false),
               sha256: .sha256.S,
               url: .url.S,
-              fileSize: (.fileSize.N // "0" | tonumber)
+              fileSize: (.fileSize.N | tonumber)
             }) |
             # Parse version string (X.Y.Z or X.Y.Z-prerelease) into numeric components
             # This handles proper semantic versioning where 1.10.0 > 1.9.0
