@@ -99,7 +99,7 @@ export default function SystemUpdatePage() {
     useReconnectPoller({
       maxDuration: 90000, // 90 seconds for updates that include builds
       pollInterval: 2000,
-      onReconnect: async (healthInfo) => {
+      onReconnect: async (_healthInfo) => {
         setUpdateState('verifying');
 
         // Verify version matches expected
@@ -107,32 +107,47 @@ export default function SystemUpdatePage() {
           const { data } = await refetchBuildInfo();
           const currentVersion = data?.buildInfo?.version;
 
-          if (expectedVersion && currentVersion === expectedVersion) {
+          // Normalize versions for comparison (strip 'v' prefix)
+          const normalizeVersion = (v: string | undefined) =>
+            v?.replace(/^v/, '') || '';
+          const normalizedExpected = normalizeVersion(expectedVersion);
+          const normalizedCurrent = normalizeVersion(currentVersion);
+
+          if (expectedVersion && normalizedCurrent === normalizedExpected) {
+            // Version matches expected - success!
             setUpdateState('complete');
             // Force page refresh after short delay to load new frontend
             setTimeout(() => {
               window.location.href = `${window.location.origin}/system-update?updated=true`;
             }, 2000);
-          } else if (expectedVersion) {
-            setUpdateState('complete');
+          } else if (expectedVersion && normalizedCurrent !== normalizedExpected) {
+            // Version doesn't match expected - report error
+            setUpdateState('error');
+            setErrorMessage(
+              `Update verification failed: expected v${normalizedExpected} but server is running v${normalizedCurrent || 'unknown'}. ` +
+              'The update may have failed. Check server logs for details.'
+            );
             setUpdateResults((prev) => [
               ...prev,
               {
-                success: true,
+                success: false,
                 repository: GO_BACKEND_REPO,
                 previousVersion: 'unknown',
-                newVersion: healthInfo.version || 'unknown',
-                message: `Server is running v${healthInfo.version || 'unknown'}`,
+                newVersion: currentVersion || 'unknown',
+                error: `Version mismatch: expected ${expectedVersion}, got ${currentVersion || 'unknown'}`,
               },
             ]);
           } else {
+            // No expected version (shouldn't happen for backend updates)
             setUpdateState('complete');
           }
         } catch (error) {
-          // If we can't verify, still mark complete since server is up
-          // Log the error for debugging but don't block the update flow
+          // If we can't verify, report error since we can't confirm success
           console.error('Failed to verify version after reconnect:', error);
-          setUpdateState('complete');
+          setUpdateState('error');
+          setErrorMessage(
+            'Failed to verify update. Server is running but version could not be confirmed.'
+          );
         }
 
         // Refetch version data
