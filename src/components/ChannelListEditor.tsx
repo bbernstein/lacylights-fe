@@ -154,14 +154,9 @@ function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchPro
       b *= intensity;
     }
 
-    // Convert to RGB values
-    const rgb = {
-      r: Math.round(r * 255),
-      g: Math.round(g * 255),
-      b: Math.round(b * 255),
-    };
-
-    return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+    // Convert to RGB values and format as hex
+    const toHex = (n: number) => Math.round(n * 255).toString(16).padStart(2, '0').toUpperCase();
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
   }, [colorChannels, channels, getChannelValue]);
 
   if (!color) return null;
