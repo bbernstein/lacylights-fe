@@ -1,15 +1,16 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import SystemStatusBar from '../SystemStatusBar';
 import { GET_SYSTEM_INFO, SYSTEM_INFO_UPDATED } from '@/graphql/settings';
 import { GET_GLOBAL_PLAYBACK_STATUS, GLOBAL_PLAYBACK_STATUS_SUBSCRIPTION } from '@/graphql/cueLists';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
 
-// Mock next/navigation
+// Mock next/navigation with a mock push function we can test
+const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
-    push: jest.fn(),
+    push: mockPush,
   }),
 }));
 
@@ -234,6 +235,25 @@ describe('SystemStatusBar', () => {
       expect(screen.getByText('Main Show')).toBeInTheDocument();
       // Should show cue position
       expect(screen.getByText('3/10')).toBeInTheDocument();
+    });
+
+    it('navigates to cue list when Now Playing button is clicked', async () => {
+      // Clear any previous calls to mockPush
+      mockPush.mockClear();
+
+      const mocks = createMocks(mockSystemInfoEnabled, mockGlobalPlaybackPlaying);
+
+      renderWithProviders(<SystemStatusBar />, mocks);
+
+      // Wait for the button to appear
+      const button = await screen.findByLabelText(/Now playing/);
+      expect(button).toBeInTheDocument();
+
+      // Click the button
+      fireEvent.click(button);
+
+      // Verify router.push was called with correct URL
+      expect(mockPush).toHaveBeenCalledWith('/cue-lists/test-list-123?highlightCue=2');
     });
   });
 

@@ -56,9 +56,30 @@ export function useGlobalPlaybackStatus(): UseGlobalPlaybackStatusResult {
   });
 
   // Update state from query data (initial load and refetches)
+  // Apply the same throttling logic as subscription updates for consistency
   useEffect(() => {
     if (queryData?.globalPlaybackStatus) {
-      setPlaybackStatus(queryData.globalPlaybackStatus);
+      const newStatus = queryData.globalPlaybackStatus as GlobalPlaybackStatus;
+      setPlaybackStatus(prevStatus => {
+        if (!prevStatus) return newStatus;
+
+        // Prioritize important state changes (playing status, cue index, fading status)
+        if (prevStatus.isPlaying !== newStatus.isPlaying ||
+            prevStatus.cueListId !== newStatus.cueListId ||
+            prevStatus.currentCueIndex !== newStatus.currentCueIndex ||
+            prevStatus.isFading !== newStatus.isFading) {
+          return newStatus;
+        }
+
+        // For fade progress-only changes, use a threshold to avoid excessive updates.
+        const prevProgress = prevStatus.fadeProgress ?? 0;
+        const newProgress = newStatus.fadeProgress ?? 0;
+        if (Math.abs(prevProgress - newProgress) < FADE_PROGRESS_THRESHOLD) {
+          return prevStatus; // Skip fade progress changes smaller than threshold
+        }
+
+        return newStatus;
+      });
     }
   }, [queryData]);
 

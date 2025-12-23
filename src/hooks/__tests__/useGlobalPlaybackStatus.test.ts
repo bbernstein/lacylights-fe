@@ -271,6 +271,85 @@ describe('useGlobalPlaybackStatus', () => {
     });
   });
 
+  describe('Subscription updates', () => {
+    it('handles subscription updates correctly', async () => {
+      // Note: Subscriptions in mocked Apollo can fire immediately,
+      // so we test that the hook properly handles subscription data
+      const updatedStatus = { ...mockPlaybackStatus };
+
+      const mocks = createMocksWithSubscription(
+        { data: { globalPlaybackStatus: null } },
+        { data: { globalPlaybackStatusUpdated: updatedStatus } }
+      );
+
+      const { result } = renderHook(() => useGlobalPlaybackStatus(), {
+        wrapper: createMockProvider(mocks),
+      });
+
+      // Subscription data should show playing status
+      await waitFor(() => {
+        expect(result.current.playbackStatus?.isPlaying).toBe(true);
+        expect(result.current.playbackStatus?.cueListName).toBe('Main Show');
+      });
+    });
+
+    it('throttles fade progress updates based on threshold', async () => {
+      const initialStatus = { ...mockPlaybackStatus, fadeProgress: 10 };
+      const minorUpdate = { ...mockPlaybackStatus, fadeProgress: 10.5 }; // Less than threshold
+      const majorUpdate = { ...mockPlaybackStatus, fadeProgress: 15 }; // More than threshold
+
+      const mocks = [
+        {
+          request: { query: GET_GLOBAL_PLAYBACK_STATUS },
+          result: { data: { globalPlaybackStatus: initialStatus } },
+        },
+        {
+          request: { query: GLOBAL_PLAYBACK_STATUS_SUBSCRIPTION },
+          result: { data: { globalPlaybackStatusUpdated: minorUpdate } },
+        },
+        {
+          request: { query: GLOBAL_PLAYBACK_STATUS_SUBSCRIPTION },
+          result: { data: { globalPlaybackStatusUpdated: majorUpdate } },
+        },
+      ];
+
+      const { result } = renderHook(() => useGlobalPlaybackStatus(), {
+        wrapper: createMockProvider(mocks),
+      });
+
+      // Initial fade progress
+      await waitFor(() => {
+        expect(result.current.playbackStatus?.fadeProgress).toBe(10);
+      });
+
+      // Minor update should be throttled (less than FADE_PROGRESS_THRESHOLD)
+      // So progress should still be 10
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(result.current.playbackStatus?.fadeProgress).toBe(10);
+    });
+
+    it('always updates on important state changes regardless of fade progress', async () => {
+      // Test that important state changes (cue index) trigger updates
+      // even when fade progress changes are minor
+      const updatedStatus = { ...mockPlaybackStatus, fadeProgress: 50.5, currentCueIndex: 2 };
+
+      const mocks = createMocksWithSubscription(
+        { data: { globalPlaybackStatus: null } },
+        { data: { globalPlaybackStatusUpdated: updatedStatus } }
+      );
+
+      const { result } = renderHook(() => useGlobalPlaybackStatus(), {
+        wrapper: createMockProvider(mocks),
+      });
+
+      // Subscription should provide the updated data
+      await waitFor(() => {
+        expect(result.current.playbackStatus?.currentCueIndex).toBe(2);
+        expect(result.current.playbackStatus?.fadeProgress).toBe(50.5);
+      });
+    });
+  });
+
   describe('GraphQL operation validation', () => {
     it('uses correct GraphQL query', () => {
       expect(GET_GLOBAL_PLAYBACK_STATUS).toBeDefined();

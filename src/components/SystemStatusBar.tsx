@@ -131,6 +131,7 @@ export default function SystemStatusBar() {
                   ? 'bg-green-500 dark:bg-green-400'
                   : 'bg-red-500 dark:bg-red-400'
               }`}
+              aria-hidden="true"
             />
             <span className="text-gray-500 dark:text-gray-400">Art-Net</span>
           </div>
