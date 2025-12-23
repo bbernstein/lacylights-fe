@@ -238,3 +238,35 @@ export const CUE_LIST_PLAYBACK_SUBSCRIPTION = gql`
     }
   }
 `;
+
+export const GET_GLOBAL_PLAYBACK_STATUS = gql`
+  query GetGlobalPlaybackStatus {
+    globalPlaybackStatus {
+      isPlaying
+      isFading
+      cueListId
+      cueListName
+      currentCueIndex
+      cueCount
+      currentCueName
+      fadeProgress
+      lastUpdated
+    }
+  }
+`;
+
+export const GLOBAL_PLAYBACK_STATUS_SUBSCRIPTION = gql`
+  subscription GlobalPlaybackStatusUpdated {
+    globalPlaybackStatusUpdated {
+      isPlaying
+      isFading
+      cueListId
+      cueListName
+      currentCueIndex
+      cueCount
+      currentCueName
+      fadeProgress
+      lastUpdated
+    }
+  }
+`;

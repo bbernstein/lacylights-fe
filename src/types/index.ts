@@ -204,6 +204,27 @@ export interface CueListPlaybackStatus {
   lastUpdated: string;
 }
 
+/** Global playback status - which cue list is currently playing (if any) */
+export interface GlobalPlaybackStatus {
+  /** True if any cue list is currently playing */
+  isPlaying: boolean;
+  /** True if a fade transition is in progress */
+  isFading: boolean;
+  /** ID of the currently playing cue list (null if not playing) */
+  cueListId: string | null;
+  /** Name of the currently playing cue list (null if not playing) */
+  cueListName: string | null;
+  /** Current cue index in the playing cue list (null if not playing) */
+  currentCueIndex: number | null;
+  /** Total number of cues in the playing cue list (null if not playing) */
+  cueCount: number | null;
+  /** Name of the currently playing cue (null if not playing) */
+  currentCueName: string | null;
+  /** Fade progress percentage (0-100) */
+  fadeProgress: number | null;
+  lastUpdated: string;
+}
+
 export interface UniverseOutput {
   universe: number;
   channels: number[];

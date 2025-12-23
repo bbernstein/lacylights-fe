@@ -3,7 +3,15 @@ import { render, screen } from '@testing-library/react';
 import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import SystemStatusBar from '../SystemStatusBar';
 import { GET_SYSTEM_INFO, SYSTEM_INFO_UPDATED } from '@/graphql/settings';
+import { GET_GLOBAL_PLAYBACK_STATUS, GLOBAL_PLAYBACK_STATUS_SUBSCRIPTION } from '@/graphql/cueLists';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
+
+// Mock next/navigation
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+  }),
+}));
 
 // Mock the WebSocket context dependencies
 jest.mock('@/lib/apollo-client', () => ({
@@ -26,7 +34,31 @@ const mockSystemInfoDisabled = {
   artnetBroadcastAddress: '10.0.0.255',
 };
 
-const createMocks = (systemInfo = mockSystemInfoEnabled) => [
+const mockGlobalPlaybackNotPlaying = {
+  isPlaying: false,
+  isFading: false,
+  cueListId: null,
+  cueListName: null,
+  currentCueIndex: null,
+  cueCount: null,
+  currentCueName: null,
+  fadeProgress: null,
+  lastUpdated: '2023-01-01T12:00:00Z',
+};
+
+const mockGlobalPlaybackPlaying = {
+  isPlaying: true,
+  isFading: false,
+  cueListId: 'test-list-123',
+  cueListName: 'Main Show',
+  currentCueIndex: 2,
+  cueCount: 10,
+  currentCueName: 'Scene 3',
+  fadeProgress: 100,
+  lastUpdated: '2023-01-01T12:00:00Z',
+};
+
+const createMocks = (systemInfo = mockSystemInfoEnabled, globalPlayback = mockGlobalPlaybackNotPlaying) => [
   {
     request: {
       query: GET_SYSTEM_INFO,
@@ -43,6 +75,26 @@ const createMocks = (systemInfo = mockSystemInfoEnabled) => [
     },
     result: {
       data: {},
+    },
+  },
+  {
+    request: {
+      query: GET_GLOBAL_PLAYBACK_STATUS,
+    },
+    result: {
+      data: {
+        globalPlaybackStatus: globalPlayback,
+      },
+    },
+  },
+  {
+    request: {
+      query: GLOBAL_PLAYBACK_STATUS_SUBSCRIPTION,
+    },
+    result: {
+      data: {
+        globalPlaybackStatusUpdated: globalPlayback,
+      },
     },
   },
 ];
@@ -85,6 +137,24 @@ describe('SystemStatusBar', () => {
             data: {},
           },
         },
+        {
+          request: {
+            query: GET_GLOBAL_PLAYBACK_STATUS,
+          },
+          result: {
+            data: {
+              globalPlaybackStatus: mockGlobalPlaybackNotPlaying,
+            },
+          },
+        },
+        {
+          request: {
+            query: GLOBAL_PLAYBACK_STATUS_SUBSCRIPTION,
+          },
+          result: {
+            data: {},
+          },
+        },
       ];
 
       renderWithProviders(<SystemStatusBar />, errorMocks);
@@ -95,33 +165,63 @@ describe('SystemStatusBar', () => {
   });
 
   describe('System info display', () => {
-    it('displays Art-Net status when enabled', async () => {
+    it('displays Art-Net compact label when enabled', async () => {
       const mocks = createMocks(mockSystemInfoEnabled);
 
       renderWithProviders(<SystemStatusBar />, mocks);
 
-      await screen.findByText('Art-Net:');
-      expect(screen.getByText('Enabled')).toBeInTheDocument();
+      // Now shows compact "Art-Net" label instead of "Art-Net:"
+      await screen.findByText('Art-Net');
+      expect(screen.getByText('Art-Net')).toBeInTheDocument();
       expect(screen.getByText('192.168.1.255')).toBeInTheDocument();
     });
 
-    it('displays Art-Net status when disabled', async () => {
+    it('displays Art-Net compact label when disabled', async () => {
       const mocks = createMocks(mockSystemInfoDisabled);
 
       renderWithProviders(<SystemStatusBar />, mocks);
 
-      await screen.findByText('Art-Net:');
-      expect(screen.getByText('Disabled')).toBeInTheDocument();
+      // Now shows compact "Art-Net" label instead of "Art-Net:"
+      await screen.findByText('Art-Net');
+      expect(screen.getByText('Art-Net')).toBeInTheDocument();
       expect(screen.getByText('10.0.0.255')).toBeInTheDocument();
     });
 
-    it('displays broadcast address label', async () => {
+    it('displays broadcast address with icon', async () => {
       const mocks = createMocks();
 
       renderWithProviders(<SystemStatusBar />, mocks);
 
-      await screen.findByText('Broadcast Address:');
-      expect(screen.getByText('Broadcast Address:')).toBeInTheDocument();
+      // Address is displayed directly without "Broadcast Address:" label
+      await screen.findByText('192.168.1.255');
+      expect(screen.getByText('192.168.1.255')).toBeInTheDocument();
+      // Icon is present via aria-label
+      expect(screen.getByLabelText('Broadcast')).toBeInTheDocument();
+    });
+  });
+
+  describe('Now Playing button', () => {
+    it('does not show Now Playing button when nothing is playing', async () => {
+      const mocks = createMocks(mockSystemInfoEnabled, mockGlobalPlaybackNotPlaying);
+
+      renderWithProviders(<SystemStatusBar />, mocks);
+
+      await screen.findByText('Art-Net');
+      // Should not find any playing button/text
+      expect(screen.queryByText('Main Show')).not.toBeInTheDocument();
+    });
+
+    it('shows Now Playing button when a cue list is playing', async () => {
+      const mocks = createMocks(mockSystemInfoEnabled, mockGlobalPlaybackPlaying);
+
+      renderWithProviders(<SystemStatusBar />, mocks);
+
+      await screen.findByText('Art-Net');
+      // Wait for global playback status to load
+      await screen.findByText('Main Show');
+      expect(screen.getByText('Main Show')).toBeInTheDocument();
+      // Should show cue position
+      expect(screen.getByText('3/10')).toBeInTheDocument();
     });
   });
 
@@ -148,13 +248,31 @@ describe('SystemStatusBar', () => {
             },
           },
         },
+        {
+          request: {
+            query: GET_GLOBAL_PLAYBACK_STATUS,
+          },
+          result: {
+            data: {
+              globalPlaybackStatus: mockGlobalPlaybackNotPlaying,
+            },
+          },
+        },
+        {
+          request: {
+            query: GLOBAL_PLAYBACK_STATUS_SUBSCRIPTION,
+          },
+          result: {
+            data: {},
+          },
+        },
       ];
 
       renderWithProviders(<SystemStatusBar />, mocks);
 
-      // Should eventually show the subscription data
-      await screen.findByText('Art-Net:');
-      expect(screen.getByText(/Enabled|Disabled/)).toBeInTheDocument();
+      // Should eventually show the Art-Net label
+      await screen.findByText('Art-Net');
+      expect(screen.getByText('Art-Net')).toBeInTheDocument();
     });
   });
 
@@ -174,6 +292,24 @@ describe('SystemStatusBar', () => {
         {
           request: {
             query: SYSTEM_INFO_UPDATED,
+          },
+          result: {
+            data: {},
+          },
+        },
+        {
+          request: {
+            query: GET_GLOBAL_PLAYBACK_STATUS,
+          },
+          result: {
+            data: {
+              globalPlaybackStatus: mockGlobalPlaybackNotPlaying,
+            },
+          },
+        },
+        {
+          request: {
+            query: GLOBAL_PLAYBACK_STATUS_SUBSCRIPTION,
           },
           result: {
             data: {},

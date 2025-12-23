@@ -1,0 +1,70 @@
+import { useQuery, useSubscription } from '@apollo/client';
+import { useState, useEffect } from 'react';
+import { GET_GLOBAL_PLAYBACK_STATUS, GLOBAL_PLAYBACK_STATUS_SUBSCRIPTION } from '../graphql/cueLists';
+import { GlobalPlaybackStatus } from '../types';
+
+interface UseGlobalPlaybackStatusResult {
+  playbackStatus: GlobalPlaybackStatus | null;
+  isLoading: boolean;
+  error?: Error;
+}
+
+/**
+ * Hook to get the global playback status - which cue list is currently playing (if any).
+ * Subscribes to real-time updates via WebSocket.
+ */
+export function useGlobalPlaybackStatus(): UseGlobalPlaybackStatusResult {
+  const [playbackStatus, setPlaybackStatus] = useState<GlobalPlaybackStatus | null>(null);
+
+  // Query initial playback status
+  const { data: queryData, loading: queryLoading, error: queryError } = useQuery(GET_GLOBAL_PLAYBACK_STATUS, {
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
+  });
+
+  // Subscribe to real-time updates
+  const { loading: subscriptionLoading, error: subscriptionError } = useSubscription(GLOBAL_PLAYBACK_STATUS_SUBSCRIPTION, {
+    shouldResubscribe: true,
+    onData: ({ data: subscriptionData }) => {
+      if (subscriptionData?.data?.globalPlaybackStatusUpdated) {
+        const newStatus = subscriptionData.data.globalPlaybackStatusUpdated;
+        setPlaybackStatus(prevStatus => {
+          if (!prevStatus) return newStatus;
+
+          // Prioritize important state changes (playing status, cue index, fading status)
+          if (prevStatus.isPlaying !== newStatus.isPlaying ||
+              prevStatus.cueListId !== newStatus.cueListId ||
+              prevStatus.currentCueIndex !== newStatus.currentCueIndex ||
+              prevStatus.isFading !== newStatus.isFading) {
+            return newStatus;
+          }
+
+          // For fade progress-only changes, use threshold to avoid excessive updates
+          const prevProgress = prevStatus.fadeProgress ?? 0;
+          const newProgress = newStatus.fadeProgress ?? 0;
+          if (Math.abs(prevProgress - newProgress) < 5) {
+            return prevStatus; // Skip minor fade progress changes
+          }
+
+          return newStatus;
+        });
+      }
+    },
+  });
+
+  // Update state from query data (initial load and refetches)
+  useEffect(() => {
+    if (queryData?.globalPlaybackStatus) {
+      setPlaybackStatus(queryData.globalPlaybackStatus);
+    }
+  }, [queryData]);
+
+  // Use local state if available, otherwise fall back to query data
+  const effectivePlaybackStatus = playbackStatus || queryData?.globalPlaybackStatus || null;
+
+  return {
+    playbackStatus: effectivePlaybackStatus,
+    isLoading: queryLoading || subscriptionLoading,
+    error: (queryError || subscriptionError) as Error | undefined,
+  };
+}
