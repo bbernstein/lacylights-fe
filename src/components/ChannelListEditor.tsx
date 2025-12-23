@@ -860,10 +860,9 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
           newSet.delete(delta.fixtureId);
           return newSet;
         });
-        // Remove channel values
+        // Remove channel values from parent's localFixtureValues
         if (useSharedState && sharedState) {
-          // For shared state, we need to remove from parent's localFixtureValues
-          // This is handled by removing from selectedFixturesToAdd which excludes it from activeFixtureValues
+          sharedState.onDeleteFixtureValues(delta.fixtureId);
         } else {
           setLocalChannelValues(prev => {
             const newMap = new Map(prev);
