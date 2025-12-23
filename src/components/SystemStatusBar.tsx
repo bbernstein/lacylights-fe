@@ -29,11 +29,30 @@ function NowPlayingButton() {
     ? `${playbackStatus.currentCueIndex + 1}/${playbackStatus.cueCount}`
     : '';
 
+  // Build accessible aria-label
+  const ariaLabelParts = [
+    `Now playing: ${playbackStatus.cueListName || 'Cue List'}`,
+  ];
+
+  if (
+    typeof playbackStatus.currentCueIndex === 'number' &&
+    typeof playbackStatus.cueCount === 'number'
+  ) {
+    ariaLabelParts.push(
+      `cue ${playbackStatus.currentCueIndex + 1} of ${playbackStatus.cueCount}`,
+    );
+  }
+
+  ariaLabelParts.push('Click to view');
+
+  const ariaLabel = ariaLabelParts.join(', ');
+
   return (
     <button
       onClick={handleClick}
       className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
       title={`Playing: ${playbackStatus.cueListName || 'Cue List'} - Click to view`}
+      aria-label={ariaLabel}
     >
       {/* Play icon with pulse animation when fading */}
       <span className={`relative ${playbackStatus.isFading ? 'animate-pulse' : ''}`}>
@@ -51,11 +70,11 @@ function NowPlayingButton() {
           />
         </svg>
       </span>
-      <span className="text-green-700 dark:text-green-300 font-medium truncate max-w-[120px]">
+      <span className="text-green-700 dark:text-green-300 font-medium truncate max-w-28">
         {playbackStatus.cueListName || 'Playing'}
       </span>
       {cuePosition && (
-        <span className="text-green-600 dark:text-green-400 text-[10px]">
+        <span className="text-green-600 dark:text-green-400 text-xs">
           {cuePosition}
         </span>
       )}

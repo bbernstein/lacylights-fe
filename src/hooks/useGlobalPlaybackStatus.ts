@@ -2,6 +2,7 @@ import { useQuery, useSubscription } from '@apollo/client';
 import { useState, useEffect } from 'react';
 import { GET_GLOBAL_PLAYBACK_STATUS, GLOBAL_PLAYBACK_STATUS_SUBSCRIPTION } from '../graphql/cueLists';
 import { GlobalPlaybackStatus } from '../types';
+import { FADE_PROGRESS_THRESHOLD } from '../constants/playback';
 
 interface UseGlobalPlaybackStatusResult {
   playbackStatus: GlobalPlaybackStatus | null;
@@ -39,11 +40,13 @@ export function useGlobalPlaybackStatus(): UseGlobalPlaybackStatusResult {
             return newStatus;
           }
 
-          // For fade progress-only changes, use threshold to avoid excessive updates
+          // For fade progress-only changes, use a threshold to avoid excessive updates.
+          // A 1 percentage point delta (FADE_PROGRESS_THRESHOLD) is chosen as a balance
+          // between smooth UI updates and reducing unnecessary re-renders.
           const prevProgress = prevStatus.fadeProgress ?? 0;
           const newProgress = newStatus.fadeProgress ?? 0;
-          if (Math.abs(prevProgress - newProgress) < 5) {
-            return prevStatus; // Skip minor fade progress changes
+          if (Math.abs(prevProgress - newProgress) < FADE_PROGRESS_THRESHOLD) {
+            return prevStatus; // Skip fade progress changes smaller than threshold
           }
 
           return newStatus;
