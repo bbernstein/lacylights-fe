@@ -29,7 +29,7 @@ import { channelValuesToRgb, COLOR_CHANNEL_TYPES, createOptimizedColorMapping, E
 import ChannelSlider from './ChannelSlider';
 import { generateUUID } from '@/utils/uuid';
 import { sparseToDense, denseToSparse } from '@/utils/channelConversion';
-import { useUndoStack, UndoDelta, FixtureDelta } from '@/hooks/useUndoStack';
+import { useUndoStack, UndoDelta, FixtureDelta, UndoAction } from '@/hooks/useUndoStack';
 import { SharedEditorState } from './SceneEditorLayout';
 
 interface ChannelListEditorProps {
@@ -849,77 +849,92 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     });
   }, [useSharedState, sharedState]);
 
-  // Handle undo
-  const handleUndo = useCallback(() => {
-    // Check local undo stack first for fixture operations (always use local for fixture add/remove)
-    const localAction = localUndoStack.canUndo ? localUndoStack.undo() : null;
-
-    if (localAction) {
-      // Handle fixture add - undo by removing fixtures
-      if (localAction.type === 'FIXTURE_ADD' && localAction.fixtureDeltas) {
-        localAction.fixtureDeltas.forEach(delta => {
-          // Remove from selectedFixturesToAdd
-          setSelectedFixturesToAdd(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(delta.fixtureId);
-            return newSet;
+  // Helper to apply undo action (handles all action types)
+  const applyUndoAction = useCallback((action: UndoAction) => {
+    // Handle fixture add - undo by removing fixtures
+    if (action.type === 'FIXTURE_ADD' && action.fixtureDeltas) {
+      action.fixtureDeltas.forEach(delta => {
+        // Remove from selectedFixturesToAdd
+        setSelectedFixturesToAdd(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(delta.fixtureId);
+          return newSet;
+        });
+        // Remove channel values
+        if (useSharedState && sharedState) {
+          // For shared state, we need to remove from parent's localFixtureValues
+          // This is handled by removing from selectedFixturesToAdd which excludes it from activeFixtureValues
+        } else {
+          setLocalChannelValues(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(delta.fixtureId);
+            return newMap;
           });
-          // Remove channel values
+        }
+      });
+      return;
+    }
+
+    // Handle fixture remove - undo by restoring fixtures
+    if (action.type === 'FIXTURE_REMOVE' && action.fixtureDeltas) {
+      action.fixtureDeltas.forEach(delta => {
+        if (delta.wasNewFixture) {
+          // Was a newly added fixture, restore to selectedFixturesToAdd
+          setSelectedFixturesToAdd(prev => new Set([...prev, delta.fixtureId]));
+        } else {
+          // Was an existing fixture, remove from removedFixtures
           if (useSharedState && sharedState) {
-            // For shared state, we need to remove from parent's localFixtureValues
-            // This is handled by removing from selectedFixturesToAdd which excludes it from activeFixtureValues
+            sharedState.onUnremoveFixture(delta.fixtureId);
+          } else {
+            setLocalRemovedFixtures(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(delta.fixtureId);
+              return newSet;
+            });
+          }
+        }
+        // Restore channel values if available
+        if (delta.channelValues) {
+          if (useSharedState && sharedState) {
+            // Use no-undo version to avoid creating new undo actions during undo
+            delta.channelValues.forEach((value, index) => {
+              sharedState.onChannelValueChangeNoUndo(delta.fixtureId, index, value);
+            });
           } else {
             setLocalChannelValues(prev => {
               const newMap = new Map(prev);
-              newMap.delete(delta.fixtureId);
+              newMap.set(delta.fixtureId, delta.channelValues!);
               return newMap;
             });
           }
-        });
-        return;
-      }
+        }
+      });
+      return;
+    }
 
-      // Handle fixture remove - undo by restoring fixtures
-      if (localAction.type === 'FIXTURE_REMOVE' && localAction.fixtureDeltas) {
-        localAction.fixtureDeltas.forEach(delta => {
-          if (delta.wasNewFixture) {
-            // Was a newly added fixture, restore to selectedFixturesToAdd
-            setSelectedFixturesToAdd(prev => new Set([...prev, delta.fixtureId]));
-          } else {
-            // Was an existing fixture, remove from removedFixtures
-            if (useSharedState && sharedState) {
-              sharedState.onUnremoveFixture(delta.fixtureId);
-            } else {
-              setLocalRemovedFixtures(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(delta.fixtureId);
-                return newSet;
-              });
-            }
-          }
-          // Restore channel values if available
-          if (delta.channelValues) {
-            if (useSharedState && sharedState) {
-              delta.channelValues.forEach((value, index) => {
-                sharedState.onChannelValueChange(delta.fixtureId, index, value);
-              });
-            } else {
-              setLocalChannelValues(prev => {
-                const newMap = new Map(prev);
-                newMap.set(delta.fixtureId, delta.channelValues!);
-                return newMap;
-              });
-            }
+    // Handle channel deltas
+    if (action.channelDeltas) {
+      if (useSharedState && sharedState) {
+        // In shared state mode, update through parent's callbacks
+        // Use the no-undo version to avoid creating new undo actions during undo
+        action.channelDeltas.forEach(delta => {
+          sharedState.onChannelValueChangeNoUndo(delta.fixtureId, delta.channelIndex, delta.previousValue);
+          // Also update preview if active
+          if (previewMode && previewSessionId) {
+            updatePreviewChannel({
+              variables: {
+                sessionId: previewSessionId,
+                fixtureId: delta.fixtureId,
+                channelIndex: delta.channelIndex,
+                value: delta.previousValue,
+              },
+            });
           }
         });
-        return;
-      }
-
-      // Handle channel deltas (local mode only)
-      if (localAction.channelDeltas) {
+      } else {
         setLocalChannelValues(prev => {
           const newValues = new Map(prev);
-          localAction.channelDeltas!.forEach(delta => {
+          action.channelDeltas!.forEach(delta => {
             const fixtureValues = [...(newValues.get(delta.fixtureId) || [])];
             fixtureValues[delta.channelIndex] = delta.previousValue;
             newValues.set(delta.fixtureId, fixtureValues);
@@ -938,72 +953,117 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
           });
           return newValues;
         });
-        return;
       }
     }
+  }, [useSharedState, sharedState, previewMode, previewSessionId, updatePreviewChannel]);
 
-    // If no local action and using shared state, delegate to parent for channel changes
+  // Handle undo with timestamp-based ordering when using shared state
+  const handleUndo = useCallback(() => {
     if (useSharedState && sharedState) {
-      sharedState.onUndo();
-    }
-  }, [useSharedState, sharedState, localUndoStack, previewMode, previewSessionId, updatePreviewChannel]);
+      // In shared state mode, compare timestamps between local and parent stacks
+      const localPeek = localUndoStack.peekUndo();
+      const parentPeek = sharedState.peekUndoAction();
 
-  // Handle redo
-  const handleRedo = useCallback(() => {
-    // Check local redo stack first for fixture operations
-    const localAction = localUndoStack.canRedo ? localUndoStack.redo() : null;
-
-    if (localAction) {
-      // Handle fixture add - redo by re-adding fixtures
-      if (localAction.type === 'FIXTURE_ADD' && localAction.fixtureDeltas) {
-        localAction.fixtureDeltas.forEach(delta => {
-          // Re-add to selectedFixturesToAdd
-          setSelectedFixturesToAdd(prev => new Set([...prev, delta.fixtureId]));
-          // Restore channel values
-          if (delta.channelValues) {
-            if (useSharedState && sharedState) {
-              delta.channelValues.forEach((value, index) => {
-                sharedState.onChannelValueChange(delta.fixtureId, index, value);
-              });
-            } else {
-              setLocalChannelValues(prev => {
-                const newMap = new Map(prev);
-                newMap.set(delta.fixtureId, delta.channelValues!);
-                return newMap;
-              });
-            }
-          }
-        });
-        return;
+      // Determine which action is more recent
+      let action: UndoAction | null = null;
+      if (localPeek && parentPeek) {
+        // Both stacks have actions - use the more recent one
+        if (localPeek.timestamp >= parentPeek.timestamp) {
+          action = localUndoStack.undo();
+        } else {
+          action = sharedState.rawUndo();
+        }
+      } else if (localPeek) {
+        // Only local stack has actions
+        action = localUndoStack.undo();
+      } else if (parentPeek) {
+        // Only parent stack has actions
+        action = sharedState.rawUndo();
       }
 
-      // Handle fixture remove - redo by re-removing fixtures
-      if (localAction.type === 'FIXTURE_REMOVE' && localAction.fixtureDeltas) {
-        localAction.fixtureDeltas.forEach(delta => {
-          if (delta.wasNewFixture) {
-            // Was a newly added fixture, remove from selectedFixturesToAdd
-            setSelectedFixturesToAdd(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(delta.fixtureId);
-              return newSet;
+      if (action) {
+        applyUndoAction(action);
+      }
+    } else {
+      // Local mode - only use local stack
+      const action = localUndoStack.canUndo ? localUndoStack.undo() : null;
+      if (action) {
+        applyUndoAction(action);
+      }
+    }
+  }, [useSharedState, sharedState, localUndoStack, applyUndoAction]);
+
+  // Helper to apply redo action (handles all action types)
+  const applyRedoAction = useCallback((action: UndoAction) => {
+    // Handle fixture add - redo by re-adding fixtures
+    if (action.type === 'FIXTURE_ADD' && action.fixtureDeltas) {
+      action.fixtureDeltas.forEach(delta => {
+        // Re-add to selectedFixturesToAdd
+        setSelectedFixturesToAdd(prev => new Set([...prev, delta.fixtureId]));
+        // Restore channel values
+        if (delta.channelValues) {
+          if (useSharedState && sharedState) {
+            // Use no-undo version to avoid creating new undo actions during redo
+            delta.channelValues.forEach((value, index) => {
+              sharedState.onChannelValueChangeNoUndo(delta.fixtureId, index, value);
             });
           } else {
-            // Was an existing fixture, add back to removedFixtures
-            if (useSharedState && sharedState) {
-              sharedState.onRemoveFixture(delta.fixtureId);
-            } else {
-              setLocalRemovedFixtures(prev => new Set([...prev, delta.fixtureId]));
-            }
+            setLocalChannelValues(prev => {
+              const newMap = new Map(prev);
+              newMap.set(delta.fixtureId, delta.channelValues!);
+              return newMap;
+            });
+          }
+        }
+      });
+      return;
+    }
+
+    // Handle fixture remove - redo by re-removing fixtures
+    if (action.type === 'FIXTURE_REMOVE' && action.fixtureDeltas) {
+      action.fixtureDeltas.forEach(delta => {
+        if (delta.wasNewFixture) {
+          // Was a newly added fixture, remove from selectedFixturesToAdd
+          setSelectedFixturesToAdd(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(delta.fixtureId);
+            return newSet;
+          });
+        } else {
+          // Was an existing fixture, add back to removedFixtures
+          if (useSharedState && sharedState) {
+            sharedState.onRemoveFixture(delta.fixtureId);
+          } else {
+            setLocalRemovedFixtures(prev => new Set([...prev, delta.fixtureId]));
+          }
+        }
+      });
+      return;
+    }
+
+    // Handle channel deltas
+    if (action.channelDeltas) {
+      if (useSharedState && sharedState) {
+        // In shared state mode, update through parent's callbacks
+        // Use the no-undo version to avoid creating new undo actions during redo
+        action.channelDeltas.forEach(delta => {
+          sharedState.onChannelValueChangeNoUndo(delta.fixtureId, delta.channelIndex, delta.newValue);
+          // Also update preview if active
+          if (previewMode && previewSessionId) {
+            updatePreviewChannel({
+              variables: {
+                sessionId: previewSessionId,
+                fixtureId: delta.fixtureId,
+                channelIndex: delta.channelIndex,
+                value: delta.newValue,
+              },
+            });
           }
         });
-        return;
-      }
-
-      // Handle channel deltas (local mode only)
-      if (localAction.channelDeltas) {
+      } else {
         setLocalChannelValues(prev => {
           const newValues = new Map(prev);
-          localAction.channelDeltas!.forEach(delta => {
+          action.channelDeltas!.forEach(delta => {
             const fixtureValues = [...(newValues.get(delta.fixtureId) || [])];
             fixtureValues[delta.channelIndex] = delta.newValue;
             newValues.set(delta.fixtureId, fixtureValues);
@@ -1022,15 +1082,45 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
           });
           return newValues;
         });
-        return;
       }
     }
+  }, [useSharedState, sharedState, previewMode, previewSessionId, updatePreviewChannel]);
 
-    // If no local action and using shared state, delegate to parent for channel changes
+  // Handle redo with timestamp-based ordering when using shared state
+  const handleRedo = useCallback(() => {
     if (useSharedState && sharedState) {
-      sharedState.onRedo();
+      // In shared state mode, compare timestamps between local and parent stacks
+      const localPeek = localUndoStack.peekRedo();
+      const parentPeek = sharedState.peekRedoAction();
+
+      // Determine which action is more recent (for redo, we want the OLDER action first)
+      let action: UndoAction | null = null;
+      if (localPeek && parentPeek) {
+        // Both stacks have actions - use the older one (redo in chronological order)
+        if (localPeek.timestamp <= parentPeek.timestamp) {
+          action = localUndoStack.redo();
+        } else {
+          action = sharedState.rawRedo();
+        }
+      } else if (localPeek) {
+        // Only local stack has actions
+        action = localUndoStack.redo();
+      } else if (parentPeek) {
+        // Only parent stack has actions
+        action = sharedState.rawRedo();
+      }
+
+      if (action) {
+        applyRedoAction(action);
+      }
+    } else {
+      // Local mode - only use local stack
+      const action = localUndoStack.canRedo ? localUndoStack.redo() : null;
+      if (action) {
+        applyRedoAction(action);
+      }
     }
-  }, [useSharedState, sharedState, localUndoStack, previewMode, previewSessionId, updatePreviewChannel]);
+  }, [useSharedState, sharedState, localUndoStack, applyRedoAction]);
 
   const applyColorToFixture = (fixtureId: string, color: { r: number; g: number; b: number }, _final: boolean, intensityOverride?: number) => {
     // Look for the fixture in activeFixtureValues (includes both saved and newly added fixtures)
@@ -1244,13 +1334,14 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     const currentValues = channelValues.get(fixtureId);
     const wasInSelectedToAdd = selectedFixturesToAdd.has(fixtureId);
 
-    // Push to undo stack (always use local stack for fixture operations)
+    // Push to undo stack - use parent's stack when in shared state mode
     const fixtureDelta: FixtureDelta = {
       fixtureId,
       channelValues: currentValues ? [...currentValues] : undefined,
       wasNewFixture: wasInSelectedToAdd,
     };
-    localUndoStack.pushAction({
+    const pushFn = (useSharedState && sharedState) ? sharedState.onPushAction : localUndoStack.pushAction;
+    pushFn({
       type: 'FIXTURE_REMOVE',
       fixtureDeltas: [fixtureDelta],
       description: wasInSelectedToAdd ? 'Remove pending fixture' : 'Remove fixture',
@@ -1312,9 +1403,10 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
         });
       }
 
-      // Push to undo stack (always use local stack for fixture operations)
+      // Push to undo stack - use parent's stack when in shared state mode
       if (fixtureDeltas.length > 0) {
-        localUndoStack.pushAction({
+        const pushFn = (useSharedState && sharedState) ? sharedState.onPushAction : localUndoStack.pushAction;
+        pushFn({
           type: 'FIXTURE_ADD',
           fixtureDeltas,
           description: fixtureDeltas.length === 1 ? 'Add fixture' : `Add ${fixtureDeltas.length} fixtures`,

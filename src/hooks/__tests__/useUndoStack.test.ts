@@ -661,4 +661,116 @@ describe('useUndoStack', () => {
       expect(redoneAction!.fixtureDeltas![0].fixtureId).toBe('fixture-1');
     });
   });
+
+  describe('peek functions', () => {
+    it('should peek at undo stack without popping', () => {
+      const { result } = renderHook(() => useUndoStack());
+
+      // Empty stack should return null
+      let peeked = result.current.peekUndo();
+      expect(peeked).toBeNull();
+
+      act(() => {
+        result.current.pushAction({
+          type: 'CHANNEL_CHANGE',
+          channelDeltas: [
+            { fixtureId: 'fixture-1', channelIndex: 0, previousValue: 100, newValue: 200 },
+          ],
+          description: 'Changed Dimmer',
+        });
+      });
+
+      // Peek should return the action
+      peeked = result.current.peekUndo();
+      expect(peeked).not.toBeNull();
+      expect(peeked!.type).toBe('CHANNEL_CHANGE');
+      expect(peeked!.description).toBe('Changed Dimmer');
+
+      // Stack should still have the action (peek doesn't pop)
+      expect(result.current.undoStackLength).toBe(1);
+      expect(result.current.canUndo).toBe(true);
+
+      // Peek again should return the same action
+      const peekedAgain = result.current.peekUndo();
+      expect(peekedAgain).toEqual(peeked);
+    });
+
+    it('should peek at redo stack without popping', () => {
+      const { result } = renderHook(() => useUndoStack());
+
+      act(() => {
+        result.current.pushAction({
+          type: 'CHANNEL_CHANGE',
+          channelDeltas: [
+            { fixtureId: 'fixture-1', channelIndex: 0, previousValue: 100, newValue: 200 },
+          ],
+          description: 'Changed Dimmer',
+        });
+      });
+
+      // Empty redo stack should return null
+      let peeked = result.current.peekRedo();
+      expect(peeked).toBeNull();
+
+      act(() => {
+        result.current.undo();
+      });
+
+      // Peek should return the action
+      peeked = result.current.peekRedo();
+      expect(peeked).not.toBeNull();
+      expect(peeked!.type).toBe('CHANNEL_CHANGE');
+
+      // Stack should still have the action (peek doesn't pop)
+      expect(result.current.redoStackLength).toBe(1);
+      expect(result.current.canRedo).toBe(true);
+    });
+
+    it('should peek at correct action in multi-item stack', () => {
+      const { result } = renderHook(() => useUndoStack());
+
+      act(() => {
+        result.current.pushAction({
+          type: 'CHANNEL_CHANGE',
+          channelDeltas: [
+            { fixtureId: 'fixture-1', channelIndex: 0, previousValue: 0, newValue: 100 },
+          ],
+          description: 'First change',
+        });
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(1000); // Past coalesce window
+        result.current.pushAction({
+          type: 'FIXTURE_ADD',
+          fixtureDeltas: [{ fixtureId: 'fixture-2', channelValues: [255, 0, 0] }],
+          description: 'Add fixture',
+        });
+      });
+
+      // Peek should return the most recent action (FIXTURE_ADD)
+      const peeked = result.current.peekUndo();
+      expect(peeked!.type).toBe('FIXTURE_ADD');
+      expect(peeked!.description).toBe('Add fixture');
+    });
+
+    it('should have timestamp on peeked action for comparison', () => {
+      const { result } = renderHook(() => useUndoStack());
+
+      act(() => {
+        result.current.pushAction({
+          type: 'CHANNEL_CHANGE',
+          channelDeltas: [
+            { fixtureId: 'fixture-1', channelIndex: 0, previousValue: 100, newValue: 200 },
+          ],
+          description: 'Changed Dimmer',
+        });
+      });
+
+      const peeked = result.current.peekUndo();
+      expect(peeked).not.toBeNull();
+      expect(typeof peeked!.timestamp).toBe('number');
+      expect(peeked!.timestamp).toBeGreaterThan(0);
+    });
+  });
 });

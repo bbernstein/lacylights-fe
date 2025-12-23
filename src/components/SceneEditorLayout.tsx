@@ -18,7 +18,7 @@ import LayoutCanvas from "./LayoutCanvas";
 import MultiSelectControls from "./MultiSelectControls";
 import UnsavedChangesModal from "./UnsavedChangesModal";
 import { sparseToDense, denseToSparse } from "@/utils/channelConversion";
-import { useUndoStack, UndoDelta } from "@/hooks/useUndoStack";
+import { useUndoStack, UndoDelta, UndoAction } from "@/hooks/useUndoStack";
 
 interface SceneEditorLayoutProps {
   sceneId: string;
@@ -47,8 +47,24 @@ export interface SharedEditorState {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  /** Push action to undo stack (for fixture operations from child) */
+  onPushAction: (action: Omit<UndoAction, "timestamp">) => void;
+  /** Peek at top of parent's undo stack (for timestamp comparison) */
+  peekUndoAction: () => UndoAction | null;
+  /** Peek at top of parent's redo stack (for timestamp comparison) */
+  peekRedoAction: () => UndoAction | null;
+  /** Pop from undo stack without applying (for unified undo handling) */
+  rawUndo: () => UndoAction | null;
+  /** Pop from redo stack without applying (for unified redo handling) */
+  rawRedo: () => UndoAction | null;
   /** Channel value change handler (single channel) */
   onChannelValueChange: (
+    fixtureId: string,
+    channelIndex: number,
+    value: number,
+  ) => void;
+  /** Channel value change without pushing to undo (for undo/redo operations) */
+  onChannelValueChangeNoUndo: (
     fixtureId: string,
     channelIndex: number,
     value: number,
@@ -169,7 +185,7 @@ export default function SceneEditorLayout({
   >(new Map());
 
   // Undo/redo stack
-  const { pushAction, undo, redo, canUndo, canRedo, clearHistory } =
+  const { pushAction, undo, redo, peekUndo, peekRedo, canUndo, canRedo, clearHistory } =
     useUndoStack({
       maxStackSize: 50,
       coalesceWindowMs: 500,
@@ -609,6 +625,26 @@ export default function SceneEditorLayout({
       previewSessionId,
       debouncedPreviewUpdate,
     ],
+  );
+
+  // Handle single channel value change WITHOUT pushing to undo stack
+  // Used by ChannelListEditor when applying undo/redo actions
+  const handleChannelValueChangeNoUndo = useCallback(
+    (fixtureId: string, channelIndex: number, value: number) => {
+      if (!scene) return;
+
+      // Update local state only, no undo push
+      setLocalFixtureValues((prev) => {
+        const newMap = new Map(prev);
+        const values =
+          newMap.get(fixtureId) || serverDenseValues.get(fixtureId) || [];
+        const newValues = [...values];
+        newValues[channelIndex] = value;
+        newMap.set(fixtureId, newValues);
+        return newMap;
+      });
+    },
+    [scene, serverDenseValues],
   );
 
   // Handle batched channel value changes from MultiSelectControls
@@ -1535,7 +1571,13 @@ export default function SceneEditorLayout({
               canRedo,
               onUndo: handleUndo,
               onRedo: handleRedo,
+              onPushAction: pushAction,
+              peekUndoAction: peekUndo,
+              peekRedoAction: peekRedo,
+              rawUndo: undo,
+              rawRedo: redo,
               onChannelValueChange: handleSingleChannelChange,
+              onChannelValueChangeNoUndo: handleChannelValueChangeNoUndo,
               onBatchChannelValueChange: handleBatchedChannelChanges,
               onToggleChannelActive: handleToggleChannelActive,
               onRemoveFixture: handleRemoveFixture,

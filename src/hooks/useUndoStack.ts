@@ -62,6 +62,10 @@ export interface UseUndoStackReturn {
   undo: () => UndoAction | null;
   /** Redo the last undone action, returns the action to re-apply */
   redo: () => UndoAction | null;
+  /** Peek at the top of the undo stack without popping */
+  peekUndo: () => UndoAction | null;
+  /** Peek at the top of the redo stack without popping */
+  peekRedo: () => UndoAction | null;
   /** Whether there are actions to undo */
   canUndo: boolean;
   /** Whether there are actions to redo */
@@ -249,10 +253,30 @@ export function useUndoStack(options?: UseUndoStackOptions): UseUndoStackReturn 
     setVersion((v) => v + 1);
   }, []);
 
+  /**
+   * Peek at the top of the undo stack without popping.
+   * Returns null if stack is empty.
+   */
+  const peekUndo = useCallback(() => {
+    const stack = undoStackRef.current;
+    return stack.length > 0 ? stack[stack.length - 1] : null;
+  }, []);
+
+  /**
+   * Peek at the top of the redo stack without popping.
+   * Returns null if stack is empty.
+   */
+  const peekRedo = useCallback(() => {
+    const stack = redoStackRef.current;
+    return stack.length > 0 ? stack[stack.length - 1] : null;
+  }, []);
+
   return {
     pushAction,
     undo,
     redo,
+    peekUndo,
+    peekRedo,
     canUndo: undoStackRef.current.length > 0,
     canRedo: redoStackRef.current.length > 0,
     clearHistory,
