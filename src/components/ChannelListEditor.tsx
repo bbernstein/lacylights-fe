@@ -594,7 +594,7 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     );
 
     // Check if any fixtures we were adding are now in the server data
-    if (selectedFixturesToAdd.size > 0 && isCurrent) {
+    if (selectedFixturesToAdd.size > 0) {
       const fixturesNowSaved = Array.from(selectedFixturesToAdd).filter(id =>
         serverFixtureIds.has(id)
       );
@@ -611,7 +611,7 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
 
     // Check if any fixtures we marked as removed are now gone from server data
     // Only handle local removed fixtures (shared state is managed by parent)
-    if (!useSharedState && localRemovedFixtures.size > 0 && isCurrent) {
+    if (!useSharedState && localRemovedFixtures.size > 0) {
       const fixturesNowRemoved = Array.from(localRemovedFixtures).filter(id =>
         !serverFixtureIds.has(id)
       );

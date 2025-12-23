@@ -807,14 +807,12 @@ export default function SceneEditorLayout({
         }
 
         const newMap = new Map(prev);
-        const fixtureValue = localFixtureValues.get(fixtureId) as
-          | FixtureValue
-          | undefined;
+        // localFixtureValues stores dense arrays (number[]), not FixtureValue objects
+        const denseChannels = localFixtureValues.get(fixtureId);
 
-        if (fixtureValue && Array.isArray((fixtureValue as FixtureValue).channels)) {
-          const channels = (fixtureValue as FixtureValue).channels as ChannelValue[];
+        if (denseChannels && denseChannels.length > 0) {
           const activeSet = new Set<number>();
-          for (let i = 0; i < channels.length; i++) {
+          for (let i = 0; i < denseChannels.length; i++) {
             activeSet.add(i);
           }
           newMap.set(fixtureId, activeSet);
