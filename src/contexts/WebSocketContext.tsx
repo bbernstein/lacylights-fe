@@ -19,6 +19,12 @@ interface WebSocketContextType {
   reconnect: () => void;
   /** Manually disconnect */
   disconnect: () => void;
+  /**
+   * Ensure connection is active before performing an action.
+   * If stale or disconnected, triggers reconnection and waits for it.
+   * Returns a Promise that resolves when connected (or times out).
+   */
+  ensureConnection: () => Promise<void>;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -171,6 +177,56 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
   }, []);
 
   /**
+   * Ensure connection is active before performing an action.
+   * If stale or disconnected, triggers reconnection and waits for it.
+   * Returns a Promise that resolves when connected (or times out after 3 seconds).
+   */
+  const ensureConnection = useCallback((): Promise<void> => {
+    return new Promise((resolve) => {
+      // If already connected and not stale, resolve immediately
+      if (connectionState === 'connected' && !isStale) {
+        resolve();
+        return;
+      }
+
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.log('[WebSocket] ensureConnection: connection stale/disconnected, triggering reconnect');
+      }
+
+      // Set up listener for connection event
+      const handleConnected = () => {
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.log('[WebSocket] ensureConnection: reconnection successful');
+        }
+        cleanup();
+        resolve();
+      };
+
+      // Timeout after 3 seconds - proceed anyway to avoid blocking UI
+      const timeout = setTimeout(() => {
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.log('[WebSocket] ensureConnection: timeout waiting for connection, proceeding anyway');
+        }
+        cleanup();
+        resolve();
+      }, 3000);
+
+      const cleanup = () => {
+        window.removeEventListener('ws-connected', handleConnected);
+        clearTimeout(timeout);
+      };
+
+      window.addEventListener('ws-connected', handleConnected);
+
+      // Trigger reconnection
+      reconnect();
+    });
+  }, [connectionState, isStale, reconnect]);
+
+  /**
    * Heartbeat monitoring
    * Checks connection health at regular intervals
    */
@@ -224,6 +280,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
     isStale,
     reconnect,
     disconnect,
+    ensureConnection,
   };
 
   return (

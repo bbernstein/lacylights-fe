@@ -24,6 +24,7 @@ jest.mock('../../constants/playback', () => ({
 // Mock WebSocketContext to prevent apollo-client import issues in tests
 const mockReconnect = jest.fn();
 const mockDisconnect = jest.fn();
+const mockEnsureConnection = jest.fn();
 
 // Default mock values - can be overridden in individual tests
 let mockConnectionState = 'connected';
@@ -36,6 +37,7 @@ jest.mock('../../contexts/WebSocketContext', () => ({
     isStale: mockIsStale,
     reconnect: mockReconnect,
     disconnect: mockDisconnect,
+    ensureConnection: mockEnsureConnection,
   }),
 }));
 
@@ -203,6 +205,9 @@ describe('CueListPlayer', () => {
     // Reset WebSocket mock values to defaults
     mockConnectionState = 'connected';
     mockIsStale = false;
+
+    // Configure ensureConnection to return a resolved promise by default
+    mockEnsureConnection.mockResolvedValue(undefined);
 
     // Mock window.addEventListener and removeEventListener
     jest.spyOn(window, 'addEventListener').mockImplementation();
@@ -895,8 +900,8 @@ describe('CueListPlayer', () => {
       const goButton = screen.getByText('GO');
       await userEvent.click(goButton);
 
-      // ensureConnection should have called reconnect because connection was stale
-      expect(mockReconnect).toHaveBeenCalled();
+      // ensureConnection should be called before the mutation
+      expect(mockEnsureConnection).toHaveBeenCalled();
     });
 
     it('calls ensureConnection before GO action when disconnected', async () => {
@@ -924,11 +929,11 @@ describe('CueListPlayer', () => {
       const goButton = screen.getByText('GO');
       await userEvent.click(goButton);
 
-      // ensureConnection should have called reconnect because connection was disconnected
-      expect(mockReconnect).toHaveBeenCalled();
+      // ensureConnection should be called before the mutation
+      expect(mockEnsureConnection).toHaveBeenCalled();
     });
 
-    it('does not call reconnect before GO action when fully connected', async () => {
+    it('calls ensureConnection before GO action even when fully connected', async () => {
       mockConnectionState = 'connected';
       mockIsStale = false;
 
@@ -953,8 +958,8 @@ describe('CueListPlayer', () => {
       const goButton = screen.getByText('GO');
       await userEvent.click(goButton);
 
-      // ensureConnection should NOT have called reconnect because connection was healthy
-      expect(mockReconnect).not.toHaveBeenCalled();
+      // ensureConnection is always called before mutation (it resolves immediately if healthy)
+      expect(mockEnsureConnection).toHaveBeenCalled();
     });
 
     it('does not show reconnect button when fully connected', async () => {

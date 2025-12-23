@@ -149,18 +149,7 @@ export default function CueListPlayer({
 
   // Call all hooks unconditionally (required by React)
   const { playbackStatus } = useCueListPlayback(cueListId);
-  const { connectionState, isStale, reconnect } = useWebSocket();
-
-  /**
-   * Helper to ensure WebSocket connection is active before performing playback actions.
-   * If the connection is stale or disconnected, trigger a reconnect.
-   * This ensures users will see real-time updates after taking action.
-   */
-  const ensureConnection = useCallback(() => {
-    if (connectionState === "disconnected" || connectionState === "error" || isStale) {
-      reconnect();
-    }
-  }, [connectionState, isStale, reconnect]);
+  const { connectionState, isStale, reconnect, ensureConnection } = useWebSocket();
 
   const { data: cueListData, loading } = useQuery(GET_CUE_LIST, {
     variables: { id: cueListId },
@@ -474,8 +463,8 @@ export default function CueListPlayer({
   const handleGo = useCallback(async () => {
     if (!cueList) return;
 
-    // Ensure WebSocket is connected to receive real-time updates
-    ensureConnection();
+    // Wait for WebSocket to be connected before mutation, so we receive real-time updates
+    await ensureConnection();
 
     if (currentCueIndex === -1 && cues.length > 0) {
       await startCueList({
@@ -497,8 +486,8 @@ export default function CueListPlayer({
   const handlePrevious = useCallback(async () => {
     if (!cueList || currentCueIndex <= 0) return;
 
-    // Ensure WebSocket is connected to receive real-time updates
-    ensureConnection();
+    // Wait for WebSocket to be connected before mutation, so we receive real-time updates
+    await ensureConnection();
 
     await previousCueMutation({
       variables: {
@@ -511,8 +500,8 @@ export default function CueListPlayer({
   const handleStop = useCallback(async () => {
     if (!cueList) return;
 
-    // Ensure WebSocket is connected to receive real-time updates
-    ensureConnection();
+    // Wait for WebSocket to be connected before mutation, so we receive real-time updates
+    await ensureConnection();
 
     await stopCueList({
       variables: {
@@ -773,8 +762,8 @@ export default function CueListPlayer({
     async (index: number) => {
       if (!cueList || index < 0 || index >= cues.length) return;
 
-      // Ensure WebSocket is connected to receive real-time updates
-      ensureConnection();
+      // Wait for WebSocket to be connected before mutation, so we receive real-time updates
+      await ensureConnection();
 
       const cue = cues[index];
       await goToCue({

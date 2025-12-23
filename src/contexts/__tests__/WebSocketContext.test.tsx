@@ -61,6 +61,7 @@ describe('WebSocketContext', () => {
       expect(result.current).toHaveProperty('isStale');
       expect(result.current).toHaveProperty('reconnect');
       expect(result.current).toHaveProperty('disconnect');
+      expect(result.current).toHaveProperty('ensureConnection');
     });
   });
 
@@ -248,6 +249,113 @@ describe('WebSocketContext', () => {
 
       // Restore original client
       require('@/lib/apollo-client').wsClient = originalClient;
+    });
+  });
+
+  describe('ensureConnection', () => {
+    it('should resolve immediately when connected and not stale', async () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      // Connect and send a message
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-connected'));
+        window.dispatchEvent(new CustomEvent('ws-message'));
+      });
+
+      expect(result.current.connectionState).toBe('connected');
+      expect(result.current.isStale).toBe(false);
+
+      // ensureConnection should resolve immediately
+      let resolved = false;
+      await act(async () => {
+        await result.current.ensureConnection();
+        resolved = true;
+      });
+
+      expect(resolved).toBe(true);
+      // Should not trigger a reconnect when already connected
+      expect(mockWsClient.dispose).not.toHaveBeenCalled();
+    });
+
+    it('should trigger reconnect and wait for ws-connected when stale', async () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      // Connect and send a message
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-connected'));
+        window.dispatchEvent(new CustomEvent('ws-message'));
+      });
+
+      // Advance time to make it stale
+      act(() => {
+        jest.advanceTimersByTime(WEBSOCKET_CONFIG.STALE_THRESHOLD + WEBSOCKET_CONFIG.HEARTBEAT_CHECK_INTERVAL);
+      });
+
+      expect(result.current.isStale).toBe(true);
+
+      // Start ensureConnection
+      let resolved = false;
+      const promise = act(async () => {
+        const ensurePromise = result.current.ensureConnection();
+
+        // Simulate connection restored
+        act(() => {
+          window.dispatchEvent(new CustomEvent('ws-connected'));
+        });
+
+        await ensurePromise;
+        resolved = true;
+      });
+
+      await promise;
+      expect(resolved).toBe(true);
+      // Should have triggered a reconnect
+      expect(mockWsClient.dispose).toHaveBeenCalled();
+    });
+
+    it('should trigger reconnect and wait for ws-connected when disconnected', async () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      expect(result.current.connectionState).toBe('disconnected');
+
+      // Start ensureConnection
+      let resolved = false;
+      const promise = act(async () => {
+        const ensurePromise = result.current.ensureConnection();
+
+        // Simulate connection established
+        act(() => {
+          window.dispatchEvent(new CustomEvent('ws-connected'));
+        });
+
+        await ensurePromise;
+        resolved = true;
+      });
+
+      await promise;
+      expect(resolved).toBe(true);
+    });
+
+    it('should resolve after timeout if connection is not restored', async () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      expect(result.current.connectionState).toBe('disconnected');
+
+      // Start ensureConnection
+      let resolved = false;
+      const promise = act(async () => {
+        const ensurePromise = result.current.ensureConnection();
+
+        // Advance time to trigger timeout (3 seconds)
+        jest.advanceTimersByTime(3000);
+
+        await ensurePromise;
+        resolved = true;
+      });
+
+      await promise;
+      // Should resolve even without connection (timeout fallback)
+      expect(resolved).toBe(true);
     });
   });
 
