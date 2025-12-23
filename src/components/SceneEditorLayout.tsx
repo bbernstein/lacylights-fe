@@ -75,6 +75,35 @@ type FixtureChannelValues = {
   channels: ChannelValue[];
 };
 
+/**
+ * Helper function to build fixture channel values with active channel filtering.
+ * Converts dense arrays to sparse format and filters by active channels.
+ * Exported for testing.
+ *
+ * @param fixtureId - The fixture ID
+ * @param channelSource - Either dense (number[]) or sparse (ChannelValue[]) channel values
+ * @param fixtureActiveChannels - Set of active channel offsets, or undefined for all channels
+ * @returns FixtureChannelValues object ready for mutation
+ */
+export function buildFixtureChannelValues(
+  fixtureId: string,
+  channelSource: number[] | ChannelValue[],
+  fixtureActiveChannels: Set<number> | undefined,
+): FixtureChannelValues {
+  // Convert to sparse format if needed (dense arrays are number[], sparse are ChannelValue[])
+  const allChannels =
+    Array.isArray(channelSource) && (channelSource.length === 0 || typeof channelSource[0] === "number")
+      ? denseToSparse(channelSource as number[])
+      : (channelSource as ChannelValue[]);
+
+  // Filter to only include active channels (or all if no active tracking)
+  const sparseChannels = fixtureActiveChannels
+    ? allChannels.filter((ch) => fixtureActiveChannels.has(ch.offset))
+    : allChannels;
+
+  return { fixtureId, channels: sparseChannels };
+}
+
 export default function SceneEditorLayout({
   sceneId,
   mode,
@@ -667,22 +696,13 @@ export default function SceneEditorLayout({
       // First, process existing fixtures from the scene
       scene.fixtureValues.forEach((fv: FixtureValue) => {
         const localValues = localFixtureValues.get(fv.fixture.id);
+        const channelSource = localValues || fv.channels || [];
         const fixtureActiveChannels = activeChannels.get(fv.fixture.id);
 
-        // Convert dense local values or sparse server values to sparse format
-        const allChannels = localValues
-          ? denseToSparse(localValues)
-          : fv.channels || [];
-
-        // Filter to only include active channels
-        const sparseChannels = fixtureActiveChannels
-          ? allChannels.filter((ch) => fixtureActiveChannels.has(ch.offset))
-          : allChannels;
-
-        fixtureValuesMap.set(fv.fixture.id, {
-          fixtureId: fv.fixture.id,
-          channels: sparseChannels,
-        });
+        fixtureValuesMap.set(
+          fv.fixture.id,
+          buildFixtureChannelValues(fv.fixture.id, channelSource, fixtureActiveChannels),
+        );
       });
 
       // Then, add any new fixtures from localFixtureValues that aren't in scene.fixtureValues
@@ -690,17 +710,10 @@ export default function SceneEditorLayout({
       for (const [fixtureId, localValues] of localFixtureValues) {
         if (!existingFixtureIds.has(fixtureId)) {
           const fixtureActiveChannels = activeChannels.get(fixtureId);
-          const allChannels = denseToSparse(localValues);
-
-          // Filter to only include active channels (or all if no active tracking)
-          const sparseChannels = fixtureActiveChannels
-            ? allChannels.filter((ch) => fixtureActiveChannels.has(ch.offset))
-            : allChannels;
-
-          fixtureValuesMap.set(fixtureId, {
+          fixtureValuesMap.set(
             fixtureId,
-            channels: sparseChannels,
-          });
+            buildFixtureChannelValues(fixtureId, localValues, fixtureActiveChannels),
+          );
         }
       }
 

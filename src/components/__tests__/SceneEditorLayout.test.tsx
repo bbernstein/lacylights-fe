@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
-import SceneEditorLayout from '../SceneEditorLayout';
+import SceneEditorLayout, { buildFixtureChannelValues } from '../SceneEditorLayout';
 import { GET_SCENE } from '@/graphql/scenes';
 import { FixtureType, ChannelType, FadeBehavior } from '@/types';
 
@@ -252,6 +252,88 @@ describe('SceneEditorLayout', () => {
       await screen.findByTestId('layout-canvas');
       expect(screen.getByTestId('layout-canvas')).toBeInTheDocument();
       expect(screen.queryByText('Loading scene...')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('buildFixtureChannelValues', () => {
+    it('converts dense array to sparse format', () => {
+      const result = buildFixtureChannelValues('fixture-1', [255, 128, 64, 0], undefined);
+
+      expect(result.fixtureId).toBe('fixture-1');
+      expect(result.channels).toEqual([
+        { offset: 0, value: 255 },
+        { offset: 1, value: 128 },
+        { offset: 2, value: 64 },
+        { offset: 3, value: 0 },
+      ]);
+    });
+
+    it('passes through sparse format unchanged', () => {
+      const sparseChannels = [
+        { offset: 0, value: 255 },
+        { offset: 2, value: 64 },
+      ];
+      const result = buildFixtureChannelValues('fixture-1', sparseChannels, undefined);
+
+      expect(result.fixtureId).toBe('fixture-1');
+      expect(result.channels).toEqual(sparseChannels);
+    });
+
+    it('filters channels by active set when provided', () => {
+      const activeChannels = new Set([0, 2]); // Only channels 0 and 2 are active
+      const result = buildFixtureChannelValues('fixture-1', [255, 128, 64, 0], activeChannels);
+
+      expect(result.fixtureId).toBe('fixture-1');
+      expect(result.channels).toEqual([
+        { offset: 0, value: 255 },
+        { offset: 2, value: 64 },
+      ]);
+    });
+
+    it('returns all channels when activeChannels is undefined', () => {
+      const result = buildFixtureChannelValues('fixture-1', [255, 128], undefined);
+
+      expect(result.channels).toHaveLength(2);
+      expect(result.channels).toEqual([
+        { offset: 0, value: 255 },
+        { offset: 1, value: 128 },
+      ]);
+    });
+
+    it('handles empty dense array', () => {
+      const result = buildFixtureChannelValues('fixture-1', [], undefined);
+
+      expect(result.fixtureId).toBe('fixture-1');
+      expect(result.channels).toEqual([]);
+    });
+
+    it('handles empty sparse array', () => {
+      const result = buildFixtureChannelValues('fixture-1', [] as { offset: number; value: number }[], undefined);
+
+      expect(result.fixtureId).toBe('fixture-1');
+      expect(result.channels).toEqual([]);
+    });
+
+    it('filters sparse channels by active set', () => {
+      const sparseChannels = [
+        { offset: 0, value: 255 },
+        { offset: 1, value: 128 },
+        { offset: 2, value: 64 },
+      ];
+      const activeChannels = new Set([1]); // Only channel 1 is active
+
+      const result = buildFixtureChannelValues('fixture-1', sparseChannels, activeChannels);
+
+      expect(result.channels).toEqual([
+        { offset: 1, value: 128 },
+      ]);
+    });
+
+    it('returns empty array when no channels match active set', () => {
+      const activeChannels = new Set([5, 6]); // Channels that don't exist
+      const result = buildFixtureChannelValues('fixture-1', [255, 128, 64], activeChannels);
+
+      expect(result.channels).toEqual([]);
     });
   });
 });
