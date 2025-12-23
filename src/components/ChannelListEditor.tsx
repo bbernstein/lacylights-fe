@@ -335,12 +335,20 @@ function SortableFixtureRow({
         <div className="px-2 py-2 bg-gray-50 dark:bg-gray-700/30 rounded">
           <div className="text-xs font-mono space-x-2">
             <span className="text-gray-500 dark:text-gray-400">Values:</span>
-            {channels.map((_channel: InstanceChannel, channelIndex: number) => (
-              <span key={channelIndex} className="inline-block text-gray-900 dark:text-gray-100">
-                {getChannelValue(channelIndex)}
-                {channelIndex < channels.length - 1 && ','}
-              </span>
-            ))}
+            {channels.map((_channel: InstanceChannel, channelIndex: number) => {
+              const isActive = isChannelActive(fixtureValue.fixture.id, channelIndex);
+              const value = getChannelValue(channelIndex);
+              return (
+                <span
+                  key={channelIndex}
+                  className={`inline-block ${isActive ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}`}
+                  title={isActive ? undefined : 'Inactive channel (not saved)'}
+                >
+                  {isActive ? value : `(${value})`}
+                  {channelIndex < channels.length - 1 && ','}
+                </span>
+              );
+            })}
           </div>
         </div>
       )}
