@@ -38,5 +38,17 @@ describe('ChannelListEditor utilities', () => {
       // Just above 254.5/255 threshold
       expect(toHex(0.999)).toBe('FF');
     });
+
+    it('clamps negative values to 0', () => {
+      expect(toHex(-0.1)).toBe('00');
+      expect(toHex(-1)).toBe('00');
+      expect(toHex(-100)).toBe('00');
+    });
+
+    it('clamps values greater than 1 to FF', () => {
+      expect(toHex(1.1)).toBe('FF');
+      expect(toHex(2)).toBe('FF');
+      expect(toHex(100)).toBe('FF');
+    });
   });
 });

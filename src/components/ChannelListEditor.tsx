@@ -56,11 +56,14 @@ interface ColorSwatchProps {
  * Converts a normalized color component (0-1) to a 2-digit uppercase hex string.
  * Exported for testing.
  *
- * @param n - Normalized color value between 0 and 1
+ * @param n - Normalized color value between 0 and 1. Values outside this range
+ *            are clamped to the nearest bound (0 or 1).
  * @returns Uppercase hex string (e.g., 'FF', '00', '82')
  */
-export const toHex = (n: number): string =>
-  Math.round(n * 255).toString(16).padStart(2, '0').toUpperCase();
+export const toHex = (n: number): string => {
+  const clamped = Math.min(1, Math.max(0, n));
+  return Math.round(clamped * 255).toString(16).padStart(2, '0').toUpperCase();
+};
 
 /**
  * Displays a color swatch representing the current RGB values of fixture channels.
@@ -1093,10 +1096,11 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
       const parentPeek = sharedState.peekRedoAction();
 
       // Determine which action is more recent (for redo, we want the OLDER action first)
+      // Use strict < to ensure deterministic behavior when timestamps are equal
       let action: UndoAction | null = null;
       if (localPeek && parentPeek) {
         // Both stacks have actions - use the older one (redo in chronological order)
-        if (localPeek.timestamp <= parentPeek.timestamp) {
+        if (localPeek.timestamp < parentPeek.timestamp) {
           action = localUndoStack.redo();
         } else {
           action = sharedState.rawRedo();

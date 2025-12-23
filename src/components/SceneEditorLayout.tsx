@@ -115,10 +115,23 @@ export function buildFixtureChannelValues(
   fixtureActiveChannels: Set<number> | undefined,
 ): FixtureChannelValues {
   // Convert to sparse format if needed (dense arrays are number[], sparse are ChannelValue[])
-  const allChannels =
-    Array.isArray(channelSource) && (channelSource.length === 0 || typeof channelSource[0] === "number")
-      ? denseToSparse(channelSource as number[])
-      : (channelSource as ChannelValue[]);
+  // Dense arrays contain raw numbers, sparse arrays contain {offset, value} objects
+  let allChannels: ChannelValue[];
+
+  if (Array.isArray(channelSource)) {
+    if (channelSource.length === 0) {
+      // Empty array - treat as dense and convert (results in empty sparse array)
+      allChannels = denseToSparse(channelSource as number[]);
+    } else if (typeof channelSource[0] === "number") {
+      // First element is a number, so this is a dense array
+      allChannels = denseToSparse(channelSource as number[]);
+    } else {
+      // First element is not a number, so this is already a sparse array
+      allChannels = channelSource as ChannelValue[];
+    }
+  } else {
+    allChannels = channelSource as ChannelValue[];
+  }
 
   // Filter to only include active channels (or all if no active tracking)
   const sparseChannels = fixtureActiveChannels
