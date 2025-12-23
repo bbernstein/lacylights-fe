@@ -577,6 +577,50 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     return false;
   }, [useSharedState, sharedState, localDirtyState, channelValues, initialChannelValues]);
 
+  // Clear selectedFixturesToAdd when those fixtures appear in scene.fixtureValues (after save)
+  // Clear localRemovedFixtures when those fixtures no longer exist in scene.fixtureValues (after save)
+  // This fixes the dirty flag not resetting after save since onCompleted only fires on initial load
+  useEffect(() => {
+    if (!scene?.fixtureValues) return;
+
+    const serverFixtureIds = new Set(
+      scene.fixtureValues.map((fv: SceneFixtureValue) => fv.fixture.id)
+    );
+
+    // Check if any fixtures we were adding are now in the server data
+    if (selectedFixturesToAdd.size > 0) {
+      const fixturesNowSaved = Array.from(selectedFixturesToAdd).filter(id =>
+        serverFixtureIds.has(id)
+      );
+
+      // If any fixtures were saved, clear them from selectedFixturesToAdd
+      if (fixturesNowSaved.length > 0) {
+        setSelectedFixturesToAdd(prev => {
+          const newSet = new Set(prev);
+          fixturesNowSaved.forEach(id => newSet.delete(id));
+          return newSet;
+        });
+      }
+    }
+
+    // Check if any fixtures we marked as removed are now gone from server data
+    // Only handle local removed fixtures (shared state is managed by parent)
+    if (!useSharedState && localRemovedFixtures.size > 0) {
+      const fixturesNowRemoved = Array.from(localRemovedFixtures).filter(id =>
+        !serverFixtureIds.has(id)
+      );
+
+      // If any removed fixtures are now gone from server, clear them from localRemovedFixtures
+      if (fixturesNowRemoved.length > 0) {
+        setLocalRemovedFixtures(prev => {
+          const newSet = new Set(prev);
+          fixturesNowRemoved.forEach(id => newSet.delete(id));
+          return newSet;
+        });
+      }
+    }
+  }, [scene?.fixtureValues, selectedFixturesToAdd, useSharedState, localRemovedFixtures]);
+
   // Get all project fixtures to show available fixtures for adding
   const { data: projectFixturesData } = useQuery(GET_PROJECT_FIXTURES, {
     variables: { projectId: scene?.project?.id },
