@@ -1,6 +1,6 @@
 {
   "name": "lacylights-fe",
-  "version": "0.8.18",
+  "version": "0.8.19",
   "private": true,
   "scripts": {
     "codegen": "graphql-codegen --config codegen.yml",
