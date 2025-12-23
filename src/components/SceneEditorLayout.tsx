@@ -65,6 +65,8 @@ export interface SharedEditorState {
   ) => void;
   /** Mark a fixture as removed */
   onRemoveFixture: (fixtureId: string) => void;
+  /** Unmark a fixture as removed (for undo) */
+  onUnremoveFixture: (fixtureId: string) => void;
   /** Save changes */
   onSave: () => Promise<void>;
   /** Save status */
@@ -719,6 +721,14 @@ export default function SceneEditorLayout({
       const newMap = new Map(prev);
       newMap.delete(fixtureId);
       return newMap;
+    });
+  }, []);
+
+  const handleUnremoveFixture = useCallback((fixtureId: string) => {
+    setRemovedFixtureIds((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(fixtureId);
+      return newSet;
     });
   }, []);
 
@@ -1529,6 +1539,7 @@ export default function SceneEditorLayout({
               onBatchChannelValueChange: handleBatchedChannelChanges,
               onToggleChannelActive: handleToggleChannelActive,
               onRemoveFixture: handleRemoveFixture,
+              onUnremoveFixture: handleUnremoveFixture,
               onSave: handleSaveScene,
               saveStatus,
             }}

@@ -20,13 +20,25 @@ export interface ActiveDelta {
 }
 
 /**
+ * Represents a fixture add/remove change for undo/redo
+ */
+export interface FixtureDelta {
+  fixtureId: string;
+  /** Channel values at the time of add/remove (for restore) */
+  channelValues?: number[];
+  /** Whether the fixture was in selectedFixturesToAdd when removed (for proper undo) */
+  wasNewFixture?: boolean;
+}
+
+/**
  * Represents a single undoable action
  */
 export interface UndoAction {
-  type: 'CHANNEL_CHANGE' | 'ACTIVE_TOGGLE' | 'BATCH_CHANGE';
+  type: 'CHANNEL_CHANGE' | 'ACTIVE_TOGGLE' | 'BATCH_CHANGE' | 'FIXTURE_ADD' | 'FIXTURE_REMOVE';
   timestamp: number;
   channelDeltas?: UndoDelta[];
   activeDeltas?: ActiveDelta[];
+  fixtureDeltas?: FixtureDelta[];
   description: string;
 }
 
@@ -156,6 +168,20 @@ export function useUndoStack(options?: UseUndoStackOptions): UseUndoStackReturn 
           });
         } else if (action.activeDeltas) {
           lastAction.activeDeltas = action.activeDeltas;
+        }
+
+        // Merge fixture deltas
+        if (action.fixtureDeltas && lastAction.fixtureDeltas) {
+          action.fixtureDeltas.forEach((newDelta) => {
+            const existingDelta = lastAction.fixtureDeltas!.find(
+              (d) => d.fixtureId === newDelta.fixtureId
+            );
+            if (!existingDelta) {
+              lastAction.fixtureDeltas!.push(newDelta);
+            }
+          });
+        } else if (action.fixtureDeltas) {
+          lastAction.fixtureDeltas = action.fixtureDeltas;
         }
 
         // Extend the coalesce window
