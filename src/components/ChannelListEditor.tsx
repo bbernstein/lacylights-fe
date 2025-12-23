@@ -586,18 +586,21 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
   useEffect(() => {
     if (!scene?.fixtureValues) return;
 
+    // Track if effect is still current to avoid state updates after unmount
+    let isCurrent = true;
+
     const serverFixtureIds = new Set(
       scene.fixtureValues.map((fv: SceneFixtureValue) => fv.fixture.id)
     );
 
     // Check if any fixtures we were adding are now in the server data
-    if (selectedFixturesToAdd.size > 0) {
+    if (selectedFixturesToAdd.size > 0 && isCurrent) {
       const fixturesNowSaved = Array.from(selectedFixturesToAdd).filter(id =>
         serverFixtureIds.has(id)
       );
 
       // If any fixtures were saved, clear them from selectedFixturesToAdd
-      if (fixturesNowSaved.length > 0) {
+      if (fixturesNowSaved.length > 0 && isCurrent) {
         setSelectedFixturesToAdd(prev => {
           const newSet = new Set(prev);
           fixturesNowSaved.forEach(id => newSet.delete(id));
@@ -608,13 +611,13 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
 
     // Check if any fixtures we marked as removed are now gone from server data
     // Only handle local removed fixtures (shared state is managed by parent)
-    if (!useSharedState && localRemovedFixtures.size > 0) {
+    if (!useSharedState && localRemovedFixtures.size > 0 && isCurrent) {
       const fixturesNowRemoved = Array.from(localRemovedFixtures).filter(id =>
         !serverFixtureIds.has(id)
       );
 
       // If any removed fixtures are now gone from server, clear them from localRemovedFixtures
-      if (fixturesNowRemoved.length > 0) {
+      if (fixturesNowRemoved.length > 0 && isCurrent) {
         setLocalRemovedFixtures(prev => {
           const newSet = new Set(prev);
           fixturesNowRemoved.forEach(id => newSet.delete(id));
@@ -622,6 +625,10 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
         });
       }
     }
+
+    return () => {
+      isCurrent = false;
+    };
   }, [scene?.fixtureValues, selectedFixturesToAdd, useSharedState, localRemovedFixtures]);
 
   // Get all project fixtures to show available fixtures for adding
@@ -1337,17 +1344,24 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     const currentValues = channelValues.get(fixtureId);
     const wasInSelectedToAdd = selectedFixturesToAdd.has(fixtureId);
 
+    // Check current scene state to determine if this fixture already exists on the server.
+    // A fixture is "new" only if it's in selectedFixturesToAdd AND not in scene.fixtureValues.
+    const existsInScene = !!scene?.fixtureValues?.some(
+      (fv: SceneFixtureValue) => fv.fixture.id === fixtureId
+    );
+    const wasNewFixture = wasInSelectedToAdd && !existsInScene;
+
     // Push to undo stack - use parent's stack when in shared state mode
     const fixtureDelta: FixtureDelta = {
       fixtureId,
       channelValues: currentValues ? [...currentValues] : undefined,
-      wasNewFixture: wasInSelectedToAdd,
+      wasNewFixture,
     };
     const pushFn = (useSharedState && sharedState) ? sharedState.onPushAction : localUndoStack.pushAction;
     pushFn({
       type: 'FIXTURE_REMOVE',
       fixtureDeltas: [fixtureDelta],
-      description: wasInSelectedToAdd ? 'Remove pending fixture' : 'Remove fixture',
+      description: wasNewFixture ? 'Remove pending fixture' : 'Remove fixture',
     });
 
     // Use shared state callback when available, otherwise use local state

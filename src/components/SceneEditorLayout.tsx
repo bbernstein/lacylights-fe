@@ -369,6 +369,9 @@ export default function SceneEditorLayout({
   useEffect(() => {
     if (removedFixtureIds.size === 0 || !scene?.fixtureValues) return;
 
+    // Track if effect is still current to avoid state updates after unmount
+    let isCurrent = true;
+
     const serverFixtureIds = new Set(
       scene.fixtureValues.map((fv: FixtureValue) => fv.fixture.id),
     );
@@ -379,13 +382,17 @@ export default function SceneEditorLayout({
     );
 
     // If any removed fixtures are now gone from server, clear them from removedFixtureIds
-    if (fixturesNowRemoved.length > 0) {
+    if (fixturesNowRemoved.length > 0 && isCurrent) {
       setRemovedFixtureIds((prev) => {
         const newSet = new Set(prev);
         fixturesNowRemoved.forEach((id) => newSet.delete(id));
         return newSet;
       });
     }
+
+    return () => {
+      isCurrent = false;
+    };
   }, [scene?.fixtureValues, removedFixtureIds]);
 
   // Auto-activate scene on mount when coming from Player Mode (prevents blackout)
@@ -781,13 +788,43 @@ export default function SceneEditorLayout({
     });
   }, []);
 
-  const handleUnremoveFixture = useCallback((fixtureId: string) => {
-    setRemovedFixtureIds((prev) => {
-      const newSet = new Set(prev);
-      newSet.delete(fixtureId);
-      return newSet;
-    });
-  }, []);
+  const handleUnremoveFixture = useCallback(
+    (fixtureId: string) => {
+      // Mark fixture as no longer removed
+      setRemovedFixtureIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(fixtureId);
+        return newSet;
+      });
+
+      // Ensure active channel tracking exists for the restored fixture.
+      // If we have local fixture values with channel data, initialize all
+      // channels as active by default.
+      setActiveChannels((prev) => {
+        // If active channel state already exists for this fixture, keep it.
+        if (prev.has(fixtureId)) {
+          return prev;
+        }
+
+        const newMap = new Map(prev);
+        const fixtureValue = localFixtureValues.get(fixtureId) as
+          | FixtureValue
+          | undefined;
+
+        if (fixtureValue && Array.isArray((fixtureValue as FixtureValue).channels)) {
+          const channels = (fixtureValue as FixtureValue).channels as ChannelValue[];
+          const activeSet = new Set<number>();
+          for (let i = 0; i < channels.length; i++) {
+            activeSet.add(i);
+          }
+          newMap.set(fixtureId, activeSet);
+        }
+
+        return newMap;
+      });
+    },
+    [localFixtureValues],
+  );
 
   // Delete fixture channel values (for undo of fixture add)
   const handleDeleteFixtureValues = useCallback((fixtureId: string) => {

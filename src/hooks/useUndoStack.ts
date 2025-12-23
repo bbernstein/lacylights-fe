@@ -181,7 +181,19 @@ export function useUndoStack(options?: UseUndoStackOptions): UseUndoStackReturn 
               (d) => d.fixtureId === newDelta.fixtureId
             );
             if (!existingDelta) {
+              // No existing delta for this fixture, so just add it
               lastAction.fixtureDeltas!.push(newDelta);
+            } else {
+              // Preserve any properties already present on the existing delta,
+              // but augment it with properties from the new delta that are missing.
+              // This avoids losing information like channelValues or wasNewFixture
+              // that may be needed for correct undo behavior.
+              if (existingDelta.channelValues === undefined && newDelta.channelValues !== undefined) {
+                existingDelta.channelValues = newDelta.channelValues;
+              }
+              if (existingDelta.wasNewFixture === undefined && newDelta.wasNewFixture !== undefined) {
+                existingDelta.wasNewFixture = newDelta.wasNewFixture;
+              }
             }
           });
         } else if (action.fixtureDeltas) {
