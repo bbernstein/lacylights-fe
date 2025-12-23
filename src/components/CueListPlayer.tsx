@@ -29,6 +29,7 @@ import {
   ACTIVATE_SCENE,
 } from "@/graphql/scenes";
 import { useCueListPlayback } from "@/hooks/useCueListPlayback";
+import { useWebSocket } from "@/contexts/WebSocketContext";
 import { Cue } from "@/types";
 import { convertCueIndexForLocalState } from "@/utils/cueListHelpers";
 import { DEFAULT_FADEOUT_TIME } from "@/constants/playback";
@@ -148,6 +149,18 @@ export default function CueListPlayer({
 
   // Call all hooks unconditionally (required by React)
   const { playbackStatus } = useCueListPlayback(cueListId);
+  const { connectionState, isStale, reconnect } = useWebSocket();
+
+  /**
+   * Helper to ensure WebSocket connection is active before performing playback actions.
+   * If the connection is stale or disconnected, trigger a reconnect.
+   * This ensures users will see real-time updates after taking action.
+   */
+  const ensureConnection = useCallback(() => {
+    if (connectionState === "disconnected" || connectionState === "error" || isStale) {
+      reconnect();
+    }
+  }, [connectionState, isStale, reconnect]);
 
   const { data: cueListData, loading } = useQuery(GET_CUE_LIST, {
     variables: { id: cueListId },
@@ -461,6 +474,9 @@ export default function CueListPlayer({
   const handleGo = useCallback(async () => {
     if (!cueList) return;
 
+    // Ensure WebSocket is connected to receive real-time updates
+    ensureConnection();
+
     if (currentCueIndex === -1 && cues.length > 0) {
       await startCueList({
         variables: {
@@ -476,10 +492,13 @@ export default function CueListPlayer({
         },
       });
     }
-  }, [currentCueIndex, cues, cueList, startCueList, nextCueMutation, nextCue]);
+  }, [currentCueIndex, cues, cueList, startCueList, nextCueMutation, nextCue, ensureConnection]);
 
   const handlePrevious = useCallback(async () => {
     if (!cueList || currentCueIndex <= 0) return;
+
+    // Ensure WebSocket is connected to receive real-time updates
+    ensureConnection();
 
     await previousCueMutation({
       variables: {
@@ -487,10 +506,13 @@ export default function CueListPlayer({
         fadeInTime: cues[currentCueIndex - 1]?.fadeInTime,
       },
     });
-  }, [previousCueMutation, cueList, currentCueIndex, cues]);
+  }, [previousCueMutation, cueList, currentCueIndex, cues, ensureConnection]);
 
   const handleStop = useCallback(async () => {
     if (!cueList) return;
+
+    // Ensure WebSocket is connected to receive real-time updates
+    ensureConnection();
 
     await stopCueList({
       variables: {
@@ -503,7 +525,7 @@ export default function CueListPlayer({
         fadeOutTime: DEFAULT_FADEOUT_TIME,
       },
     });
-  }, [cueList, stopCueList, fadeToBlack]);
+  }, [cueList, stopCueList, fadeToBlack, ensureConnection]);
 
   const handleToggleLoop = useCallback(async () => {
     if (!cueList) return;
@@ -751,6 +773,9 @@ export default function CueListPlayer({
     async (index: number) => {
       if (!cueList || index < 0 || index >= cues.length) return;
 
+      // Ensure WebSocket is connected to receive real-time updates
+      ensureConnection();
+
       const cue = cues[index];
       await goToCue({
         variables: {
@@ -760,7 +785,7 @@ export default function CueListPlayer({
         },
       });
     },
-    [goToCue, cueList, cues],
+    [goToCue, cueList, cues, ensureConnection],
   );
 
   const handleKeyPress = useCallback(
@@ -820,7 +845,56 @@ export default function CueListPlayer({
     <div className="absolute inset-0 bg-gray-900 text-white flex flex-col">
       {/* Header */}
       <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
-        <h1 className="text-lg font-bold">{cueList.name}</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-bold">{cueList.name}</h1>
+          {/* Connection status indicator with reconnect button */}
+          <div className="flex items-center space-x-2">
+            {/* Status dot */}
+            <div
+              className={`w-2 h-2 rounded-full ${
+                connectionState === "connected" && !isStale
+                  ? "bg-green-500"
+                  : connectionState === "connected" && isStale
+                    ? "bg-yellow-500"
+                    : connectionState === "reconnecting"
+                      ? "bg-orange-500 animate-pulse"
+                      : "bg-red-500"
+              }`}
+              title={
+                connectionState === "connected" && !isStale
+                  ? "Live - receiving updates"
+                  : connectionState === "connected" && isStale
+                    ? "Stale - no recent updates"
+                    : connectionState === "reconnecting"
+                      ? "Reconnecting..."
+                      : "Disconnected"
+              }
+            />
+            {/* Show reconnect button when not fully connected */}
+            {(connectionState !== "connected" || isStale) && (
+              <button
+                onClick={reconnect}
+                className="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white transition-colors flex items-center space-x-1"
+                title="Reconnect to receive real-time updates"
+              >
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                <span>Reconnect</span>
+              </button>
+            )}
+          </div>
+        </div>
         {cueList.description && (
           <p className="text-sm text-gray-400 mt-1">{cueList.description}</p>
         )}

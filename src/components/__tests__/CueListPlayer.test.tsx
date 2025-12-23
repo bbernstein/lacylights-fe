@@ -21,6 +21,18 @@ jest.mock('../../constants/playback', () => ({
   DEFAULT_FADEOUT_TIME: 3.0,
 }));
 
+// Mock WebSocketContext to prevent apollo-client import issues in tests
+const mockReconnect = jest.fn();
+jest.mock('../../contexts/WebSocketContext', () => ({
+  useWebSocket: () => ({
+    connectionState: 'connected',
+    lastMessageTime: Date.now(),
+    isStale: false,
+    reconnect: mockReconnect,
+    disconnect: jest.fn(),
+  }),
+}));
+
 const mockUseCueListPlayback = require('../../hooks/useCueListPlayback').useCueListPlayback as jest.Mock;
 
 describe('CueListPlayer', () => {

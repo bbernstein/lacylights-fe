@@ -6,16 +6,16 @@ describe('WebSocket Constants', () => {
       expect(WEBSOCKET_CONFIG.KEEPALIVE_INTERVAL).toBe(12000);
     });
 
-    it('should have correct stale threshold', () => {
-      expect(WEBSOCKET_CONFIG.STALE_THRESHOLD).toBe(20000);
+    it('should have correct stale threshold (2 minutes for long-running shows)', () => {
+      expect(WEBSOCKET_CONFIG.STALE_THRESHOLD).toBe(120000); // 2 minutes
     });
 
     it('should have correct heartbeat check interval', () => {
-      expect(WEBSOCKET_CONFIG.HEARTBEAT_CHECK_INTERVAL).toBe(5000);
+      expect(WEBSOCKET_CONFIG.HEARTBEAT_CHECK_INTERVAL).toBe(10000); // 10 seconds
     });
 
-    it('should have correct force reconnect threshold', () => {
-      expect(WEBSOCKET_CONFIG.FORCE_RECONNECT_THRESHOLD).toBe(30000);
+    it('should have correct force reconnect threshold (1 hour - effectively disabled)', () => {
+      expect(WEBSOCKET_CONFIG.FORCE_RECONNECT_THRESHOLD).toBe(3600000); // 1 hour
     });
 
     it('should have stale threshold greater than keepalive interval', () => {
