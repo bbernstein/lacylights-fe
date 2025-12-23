@@ -426,8 +426,11 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
   // Fixture management state
   const [showAddFixtures, setShowAddFixtures] = useState(false);
   const [selectedFixturesToAdd, setSelectedFixturesToAdd] = useState<Set<string>>(new Set());
-  const [removedFixtures, setRemovedFixtures] = useState<Set<string>>(new Set());
+  const [localRemovedFixtures, setLocalRemovedFixtures] = useState<Set<string>>(new Set());
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+
+  // Use shared state's removed fixtures if provided, otherwise use local state
+  const removedFixtures = useSharedState ? sharedState.removedFixtureIds : localRemovedFixtures;
   const [lastClickedFixtureIndex, setLastClickedFixtureIndex] = useState<number | null>(null);
 
   // Expand/collapse state for fixtures - track which fixtures are expanded
@@ -530,8 +533,8 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
           localUndoStack.clearHistory();
         }
 
-        // Reset fixture management state
-        setRemovedFixtures(new Set());
+        // Reset fixture management state (local state only - shared state is managed by parent)
+        setLocalRemovedFixtures(new Set());
         setSelectedFixturesToAdd(new Set());
       }
     },
@@ -1086,7 +1089,12 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
   }, [scene, removedFixtures, selectedFixturesToAdd, projectFixturesData]);
 
   const handleRemoveFixture = (fixtureId: string) => {
-    setRemovedFixtures(prev => new Set([...prev, fixtureId]));
+    // Use shared state callback when available, otherwise use local state
+    if (useSharedState && sharedState) {
+      sharedState.onRemoveFixture(fixtureId);
+    } else {
+      setLocalRemovedFixtures(prev => new Set([...prev, fixtureId]));
+    }
     // Also remove from newly added if it was there
     setSelectedFixturesToAdd(prev => {
       const newSet = new Set(prev);
@@ -1335,7 +1343,7 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     setPreviewError(null);
     setShowAddFixtures(false);
     setSelectedFixturesToAdd(new Set());
-    setRemovedFixtures(new Set());
+    setLocalRemovedFixtures(new Set());
     setShowSortDropdown(false);
     clearHistory();
 

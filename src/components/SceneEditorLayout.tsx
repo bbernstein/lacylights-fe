@@ -38,6 +38,8 @@ export interface SharedEditorState {
   channelValues: Map<string, number[]>;
   /** Active channels map (fixtureId -> set of active channel indices) */
   activeChannels: Map<string, Set<number>>;
+  /** Set of fixture IDs that have been removed but not yet saved */
+  removedFixtureIds: Set<string>;
   /** Whether there are unsaved changes */
   isDirty: boolean;
   /** Undo stack controls */
@@ -61,6 +63,8 @@ export interface SharedEditorState {
     channelIndex: number,
     isActive: boolean,
   ) => void;
+  /** Mark a fixture as removed */
+  onRemoveFixture: (fixtureId: string) => void;
   /** Save changes */
   onSave: () => Promise<void>;
   /** Save status */
@@ -127,6 +131,11 @@ export default function SceneEditorLayout({
   const [localFixtureValues, setLocalFixtureValues] = useState<
     Map<string, number[]>
   >(new Map());
+
+  // Fixtures that have been removed but not yet saved
+  const [removedFixtureIds, setRemovedFixtureIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Preview mode state
   const [previewMode, setPreviewMode] = useState(false);
@@ -303,6 +312,9 @@ export default function SceneEditorLayout({
 
   // Compute dirty state by comparing local values with server values
   const isDirty = useMemo(() => {
+    // If fixtures have been removed, we're dirty
+    if (removedFixtureIds.size > 0) return true;
+
     // If no local changes, not dirty
     if (localFixtureValues.size === 0) return false;
 
@@ -317,7 +329,7 @@ export default function SceneEditorLayout({
     }
 
     return false;
-  }, [localFixtureValues, serverDenseValues]);
+  }, [localFixtureValues, serverDenseValues, removedFixtureIds]);
 
   // Auto-activate scene on mount when coming from Player Mode (prevents blackout)
   useEffect(() => {
@@ -675,6 +687,17 @@ export default function SceneEditorLayout({
     [],
   );
 
+  // Handle removing a fixture from the scene
+  const handleRemoveFixture = useCallback((fixtureId: string) => {
+    setRemovedFixtureIds((prev) => new Set([...prev, fixtureId]));
+    // Also remove from local fixture values if present
+    setLocalFixtureValues((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(fixtureId);
+      return newMap;
+    });
+  }, []);
+
   // Save current changes to the scene
   const handleSaveScene = useCallback(async () => {
     if (!scene) return;
@@ -693,8 +716,11 @@ export default function SceneEditorLayout({
         scene.fixtureValues.map((fv: FixtureValue) => fv.fixture.id),
       );
 
-      // First, process existing fixtures from the scene
+      // First, process existing fixtures from the scene (excluding removed ones)
       scene.fixtureValues.forEach((fv: FixtureValue) => {
+        // Skip fixtures that have been removed
+        if (removedFixtureIds.has(fv.fixture.id)) return;
+
         const localValues = localFixtureValues.get(fv.fixture.id);
         const channelSource = localValues || fv.channels || [];
         const fixtureActiveChannels = activeChannels.get(fv.fixture.id);
@@ -736,6 +762,7 @@ export default function SceneEditorLayout({
 
       // Reset local state - initialization effect will repopulate from fresh server data
       setLocalFixtureValues(new Map());
+      setRemovedFixtureIds(new Set());
 
       // Show saved indicator
       setSaveStatus("saved");
@@ -763,6 +790,7 @@ export default function SceneEditorLayout({
     updateScene,
     localFixtureValues,
     activeChannels,
+    removedFixtureIds,
     clearHistory,
     refetchScene,
     fromPlayer,
@@ -1467,6 +1495,7 @@ export default function SceneEditorLayout({
                   ? localFixtureValues
                   : serverDenseValues,
               activeChannels,
+              removedFixtureIds,
               isDirty,
               canUndo,
               canRedo,
@@ -1475,6 +1504,7 @@ export default function SceneEditorLayout({
               onChannelValueChange: handleSingleChannelChange,
               onBatchChannelValueChange: handleBatchedChannelChanges,
               onToggleChannelActive: handleToggleChannelActive,
+              onRemoveFixture: handleRemoveFixture,
               onSave: handleSaveScene,
               saveStatus,
             }}
