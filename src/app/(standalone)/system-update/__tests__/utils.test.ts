@@ -1,6 +1,40 @@
-import { isPrerelease, parseVersion, compareVersions } from '../utils';
+import { isPrerelease, parseVersion, compareVersions, normalizeVersion } from '../utils';
 
 describe('system-update utils', () => {
+  describe('normalizeVersion', () => {
+    it('strips v prefix from version strings', () => {
+      expect(normalizeVersion('v1.2.3')).toBe('1.2.3');
+      expect(normalizeVersion('v0.8.15')).toBe('0.8.15');
+    });
+
+    it('returns version unchanged if no v prefix', () => {
+      expect(normalizeVersion('1.2.3')).toBe('1.2.3');
+      expect(normalizeVersion('0.8.15')).toBe('0.8.15');
+    });
+
+    it('handles empty string input', () => {
+      expect(normalizeVersion('')).toBe('');
+    });
+
+    it('handles undefined input', () => {
+      expect(normalizeVersion(undefined)).toBe('');
+    });
+
+    it('handles null input', () => {
+      expect(normalizeVersion(null)).toBe('');
+    });
+
+    it('only strips leading v, not internal v characters', () => {
+      expect(normalizeVersion('v1.2.3-dev')).toBe('1.2.3-dev');
+      expect(normalizeVersion('version1')).toBe('version1');
+    });
+
+    it('handles prerelease versions with v prefix', () => {
+      expect(normalizeVersion('v1.0.0-beta.1')).toBe('1.0.0-beta.1');
+      expect(normalizeVersion('v2.0.0-alpha+build')).toBe('2.0.0-alpha+build');
+    });
+  });
+
   describe('isPrerelease', () => {
     it('returns false for stable versions', () => {
       expect(isPrerelease('1.0.0')).toBe(false);
