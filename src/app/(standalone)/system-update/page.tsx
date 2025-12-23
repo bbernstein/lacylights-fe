@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
 import Link from 'next/link';
 import {
   GET_SYSTEM_VERSIONS,
+  GET_AVAILABLE_VERSIONS,
   UPDATE_REPOSITORY,
   UPDATE_ALL_REPOSITORIES,
   GET_BUILD_INFO,
@@ -12,6 +13,7 @@ import {
 import { UpdateProgress, UpdateState } from '@/components/system-update/UpdateProgress';
 import { ReconnectCountdown } from '@/components/system-update/ReconnectCountdown';
 import { useReconnectPoller } from '@/hooks/useReconnectPoller';
+import { isPrerelease, compareVersions } from './utils';
 
 /** Backend repository names that trigger server restart on update */
 const BACKEND_REPOS = ['lacylights-go', 'lacylights-mcp'] as const;
@@ -43,6 +45,11 @@ export default function SystemUpdatePage() {
   const [updateResults, setUpdateResults] = useState<UpdateResult[]>([]);
   const [expectedVersion, setExpectedVersion] = useState<string>('');
 
+  // Version selection state
+  const [expandedRepo, setExpandedRepo] = useState<string | null>(null);
+  const [selectedVersions, setSelectedVersions] = useState<Record<string, string>>({});
+  const [availableVersions, setAvailableVersions] = useState<Record<string, string[]>>({});
+
   // GraphQL queries
   const {
     data: versionsData,
@@ -64,6 +71,28 @@ export default function SystemUpdatePage() {
   // Mutations
   const [updateRepository] = useMutation(UPDATE_REPOSITORY);
   const [updateAllRepositories] = useMutation(UPDATE_ALL_REPOSITORIES);
+
+  // Lazy query for fetching available versions
+  const [fetchAvailableVersions, { loading: versionsListLoading }] = useLazyQuery(
+    GET_AVAILABLE_VERSIONS,
+    {
+      fetchPolicy: 'network-only',
+      onCompleted: (data) => {
+        if (expandedRepo && data?.availableVersions) {
+          const versions = [...data.availableVersions].sort(compareVersions);
+          setAvailableVersions((prev) => ({
+            ...prev,
+            [expandedRepo]: versions,
+          }));
+        }
+      },
+      onError: () => {
+        setErrorMessage(
+          'Failed to fetch available versions. Please check your connection and try again.'
+        );
+      },
+    }
+  );
 
   // Reconnection poller
   const { countdown, isPolling, startPolling, stopPolling } =
@@ -117,6 +146,30 @@ export default function SystemUpdatePage() {
       },
     });
 
+  // Toggle version selector for a repository
+  const handleToggleVersionSelector = useCallback(
+    (repository: string) => {
+      if (expandedRepo === repository) {
+        setExpandedRepo(null);
+      } else {
+        setExpandedRepo(repository);
+        // Fetch versions if not already cached
+        if (!availableVersions[repository]) {
+          fetchAvailableVersions({ variables: { repository } });
+        }
+      }
+    },
+    [expandedRepo, availableVersions, fetchAvailableVersions]
+  );
+
+  // Handle version selection
+  const handleVersionSelect = useCallback((repository: string, version: string) => {
+    setSelectedVersions((prev) => ({
+      ...prev,
+      [repository]: version,
+    }));
+  }, []);
+
   // Handle update all
   const handleUpdateAll = useCallback(async () => {
     setUpdateState('updating');
@@ -169,14 +222,21 @@ export default function SystemUpdatePage() {
 
   // Handle single repository update
   const handleUpdateRepository = useCallback(
-    async (repository: string) => {
+    async (repository: string, targetVersion?: string) => {
       setUpdateState('updating');
       setErrorMessage('');
       setUpdateResults([]);
+      setExpandedRepo(null);
+      // Clear selected version for this repository to ensure clean state
+      setSelectedVersions((prev) => {
+        const updated = { ...prev };
+        delete updated[repository];
+        return updated;
+      });
 
       try {
         const { data } = await updateRepository({
-          variables: { repository },
+          variables: { repository, version: targetVersion },
         });
 
         const result = data?.updateRepository;
@@ -390,27 +450,123 @@ export default function SystemUpdatePage() {
                     {repositories.map((repo: RepositoryVersion) => (
                       <div
                         key={repo.repository}
-                        className="flex items-center justify-between rounded border border-gray-600 bg-gray-700/50 p-3"
+                        className="rounded border border-gray-600 bg-gray-700/50"
                       >
-                        <div>
-                          <div className="font-medium text-white">
-                            {repo.repository}
+                        {/* Repository header row */}
+                        <div className="flex items-center justify-between p-3">
+                          <div className="flex-1">
+                            <div className="font-medium text-white">
+                              {repo.repository}
+                            </div>
+                            <div className="text-sm text-gray-400">
+                              Installed: {repo.installed}
+                              {repo.updateAvailable && (
+                                <span className="ml-2">
+                                  &rarr; Latest: {repo.latest}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-400">
-                            {repo.installed} &rarr; {repo.latest}
+                          <div className="flex items-center gap-2">
+                            {/* Quick update to latest */}
+                            {repo.updateAvailable && (
+                              <button
+                                onClick={() => handleUpdateRepository(repo.repository)}
+                                className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+                              >
+                                Update
+                              </button>
+                            )}
+                            {!repo.updateAvailable && (
+                              <span className="text-sm text-green-400">
+                                Up to date
+                              </span>
+                            )}
+                            {/* Version selector toggle */}
+                            <button
+                              onClick={() => handleToggleVersionSelector(repo.repository)}
+                              className="rounded bg-gray-600 px-2 py-1 text-sm text-gray-300 hover:bg-gray-500"
+                              title="Select specific version"
+                              aria-label={
+                                expandedRepo === repo.repository
+                                  ? 'Collapse version selector'
+                                  : 'Expand version selector'
+                              }
+                            >
+                              {expandedRepo === repo.repository ? '▲' : '▼'}
+                            </button>
                           </div>
                         </div>
-                        {repo.updateAvailable ? (
-                          <button
-                            onClick={() => handleUpdateRepository(repo.repository)}
-                            className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
-                          >
-                            Update
-                          </button>
-                        ) : (
-                          <span className="text-sm text-green-400">
-                            Up to date
-                          </span>
+
+                        {/* Expanded version selector */}
+                        {expandedRepo === repo.repository && (
+                          <div className="border-t border-gray-600 bg-gray-800/50 p-3">
+                            <div className="mb-2 text-sm text-gray-400">
+                              Select a specific version to install:
+                            </div>
+                            {versionsListLoading ? (
+                              <div className="flex items-center justify-center py-4">
+                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                              </div>
+                            ) : availableVersions[repo.repository]?.length ? (
+                              <>
+                                <select
+                                  value={selectedVersions[repo.repository] || ''}
+                                  onChange={(e) =>
+                                    handleVersionSelect(repo.repository, e.target.value)
+                                  }
+                                  className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-blue-500 focus:outline-none"
+                                >
+                                  <option value="">Choose version...</option>
+                                  {availableVersions[repo.repository].map((version) => {
+                                    const isPre = isPrerelease(version);
+                                    // Normalize both versions by stripping v prefix for comparison
+                                    const normalizedVersion = version.startsWith('v') ? version.slice(1) : version;
+                                    const normalizedInstalled = repo.installed.startsWith('v') ? repo.installed.slice(1) : repo.installed;
+                                    const isCurrent = normalizedVersion === normalizedInstalled;
+                                    return (
+                                      <option
+                                        key={version}
+                                        value={version}
+                                        disabled={isCurrent}
+                                      >
+                                        {version}
+                                        {isPre ? ' (prerelease)' : ''}
+                                        {isCurrent ? ' (current)' : ''}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                                {selectedVersions[repo.repository] && (
+                                  <div className="mt-3 flex items-center justify-between">
+                                    <span className="text-sm text-gray-400">
+                                      {isPrerelease(selectedVersions[repo.repository]) && (
+                                        <span className="mr-2 rounded bg-yellow-600 px-2 py-0.5 text-xs text-white">
+                                          Prerelease
+                                        </span>
+                                      )}
+                                      Install {selectedVersions[repo.repository]}
+                                    </span>
+                                    <button
+                                      onClick={() =>
+                                        handleUpdateRepository(
+                                          repo.repository,
+                                          selectedVersions[repo.repository]
+                                        )
+                                      }
+                                      className="rounded bg-orange-600 px-3 py-1 text-sm text-white hover:bg-orange-700"
+                                    >
+                                      Install Selected
+                                    </button>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="py-2 text-sm text-gray-500">
+                                No versions available
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     ))}

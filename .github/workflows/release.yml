@@ -679,6 +679,91 @@ jobs:
 
           echo "✓ DynamoDB updated: component=$COMPONENT, version=$VERSION"
 
+      - name: Create version index generation script
+        run: |
+          cat > update-versions-index.sh <<'SCRIPT_EOF'
+          #!/bin/bash
+          set -e
+
+          COMPONENT="$1"
+
+          if [ -z "$COMPONENT" ]; then
+            echo "Error: COMPONENT argument required"
+            exit 1
+          fi
+
+          echo "Querying DynamoDB for all $COMPONENT versions..."
+
+          # Query all versions for this component from DynamoDB
+          VERSIONS_DATA=$(aws dynamodb query \
+            --table-name lacylights-releases \
+            --key-condition-expression "component = :comp" \
+            --expression-attribute-values '{":comp": {"S": "'"$COMPONENT"'"}}' \
+            --projection-expression "#v, releaseDate, isPrerelease, sha256, #u, fileSize" \
+            --expression-attribute-names '{"#v": "version", "#u": "url"}' \
+            --output json)
+
+          # Build versions.json using jq with proper semver sorting
+          # Parse version into numeric components for proper semantic version comparison
+          echo "$VERSIONS_DATA" | jq -r '
+            .Items | map({
+              version: .version.S,
+              releaseDate: .releaseDate.S,
+              isPrerelease: .isPrerelease.BOOL,
+              sha256: .sha256.S,
+              url: .url.S,
+              fileSize: (.fileSize.N | tonumber)
+            }) |
+            # Parse version string (X.Y.Z or X.Y.Z-prerelease) into numeric components
+            # This handles proper semantic versioning where 1.10.0 > 1.9.0
+            map(. + {
+              _v: (.version |
+                # Remove v prefix if present
+                (if startswith("v") then .[1:] else . end) |
+                # Split on hyphen to separate base version from prerelease
+                split("-")[0] |
+                # Split into major.minor.patch and convert to numbers
+                split(".") | map(tonumber // 0)
+              )
+            }) |
+            # Sort: stable versions first (by semantic version desc), then prereleases
+            (map(select(.isPrerelease | not)) | sort_by(._v) | reverse) +
+            (map(select(.isPrerelease)) | sort_by(._v) | reverse) |
+            # Remove temporary sort key
+            map(del(._v))
+          ' > versions.json
+
+          echo "Generated versions.json with $(jq length versions.json) versions"
+          cat versions.json
+
+          # Upload versions.json
+          aws s3 cp versions.json \
+            "s3://${{ secrets.AWS_DIST_BUCKET }}/releases/${COMPONENT}/versions.json" \
+            --content-type "application/json" \
+            --cache-control "max-age=300, must-revalidate" \
+            --metadata-directive REPLACE
+
+          echo "✓ versions.json updated for $COMPONENT"
+          SCRIPT_EOF
+
+          chmod +x update-versions-index.sh
+
+      - name: Update versions.json index for static build
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_DIST_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_DIST_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_DIST_REGION }}
+        run: |
+          ./update-versions-index.sh "fe-static"
+
+      - name: Update versions.json index for server build
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_DIST_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_DIST_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_DIST_REGION }}
+        run: |
+          ./update-versions-index.sh "fe-server"
+
       - name: Summary
         run: |
           echo "## Release Created Successfully! 🎉" >> $GITHUB_STEP_SUMMARY
@@ -694,9 +779,11 @@ jobs:
           echo "**Static Build (RPi):**" >> $GITHUB_STEP_SUMMARY
           echo "- Download: https://dist.lacylights.com/releases/fe-static/${{ steps.checksum.outputs.static_artifact }}" >> $GITHUB_STEP_SUMMARY
           echo "- SHA256: \`${{ steps.checksum.outputs.static_sha256 }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- API: https://dist.lacylights.com/releases/fe-static/latest.json" >> $GITHUB_STEP_SUMMARY
+          echo "- Latest: https://dist.lacylights.com/releases/fe-static/latest.json" >> $GITHUB_STEP_SUMMARY
+          echo "- All versions: https://dist.lacylights.com/releases/fe-static/versions.json" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Server Build (Mac App):**" >> $GITHUB_STEP_SUMMARY
           echo "- Download: https://dist.lacylights.com/releases/fe-server/${{ steps.checksum.outputs.server_artifact }}" >> $GITHUB_STEP_SUMMARY
           echo "- SHA256: \`${{ steps.checksum.outputs.server_sha256 }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- API: https://dist.lacylights.com/releases/fe-server/latest.json" >> $GITHUB_STEP_SUMMARY
+          echo "- Latest: https://dist.lacylights.com/releases/fe-server/latest.json" >> $GITHUB_STEP_SUMMARY
+          echo "- All versions: https://dist.lacylights.com/releases/fe-server/versions.json" >> $GITHUB_STEP_SUMMARY
