@@ -146,7 +146,7 @@ export default function ChannelSlider({
         />
       )}
       <label
-        className="text-xs text-gray-700 dark:text-gray-300 w-12 flex-shrink-0 flex items-center space-x-1"
+        className="text-xs text-gray-700 dark:text-gray-100 w-12 flex-shrink-0 flex items-center space-x-1"
         title={displayTooltip}
       >
         {channelColor && (
