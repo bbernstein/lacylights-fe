@@ -34,7 +34,19 @@ const mockSystemInfoDisabled = {
   artnetBroadcastAddress: '10.0.0.255',
 };
 
-const mockGlobalPlaybackNotPlaying = {
+type GlobalPlaybackMock = {
+  isPlaying: boolean;
+  isFading: boolean;
+  cueListId: string | null;
+  cueListName: string | null;
+  currentCueIndex: number | null;
+  cueCount: number | null;
+  currentCueName: string | null;
+  fadeProgress: number | null;
+  lastUpdated: string;
+};
+
+const mockGlobalPlaybackNotPlaying: GlobalPlaybackMock = {
   isPlaying: false,
   isFading: false,
   cueListId: null,
@@ -46,7 +58,7 @@ const mockGlobalPlaybackNotPlaying = {
   lastUpdated: '2023-01-01T12:00:00Z',
 };
 
-const mockGlobalPlaybackPlaying = {
+const mockGlobalPlaybackPlaying: GlobalPlaybackMock = {
   isPlaying: true,
   isFading: false,
   cueListId: 'test-list-123',
@@ -58,7 +70,7 @@ const mockGlobalPlaybackPlaying = {
   lastUpdated: '2023-01-01T12:00:00Z',
 };
 
-const createMocks = (systemInfo = mockSystemInfoEnabled, globalPlayback = mockGlobalPlaybackNotPlaying) => [
+const createMocks = (systemInfo = mockSystemInfoEnabled, globalPlayback: GlobalPlaybackMock = mockGlobalPlaybackNotPlaying) => [
   {
     request: {
       query: GET_SYSTEM_INFO,
