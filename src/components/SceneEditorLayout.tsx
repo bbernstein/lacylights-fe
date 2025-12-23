@@ -331,6 +331,30 @@ export default function SceneEditorLayout({
     return false;
   }, [localFixtureValues, serverDenseValues, removedFixtureIds]);
 
+  // Clear removedFixtureIds when those fixtures no longer exist in server data (after save)
+  // This handles the case where ChannelListEditor saves directly without calling parent's onSave
+  useEffect(() => {
+    if (removedFixtureIds.size === 0 || !scene?.fixtureValues) return;
+
+    const serverFixtureIds = new Set(
+      scene.fixtureValues.map((fv: FixtureValue) => fv.fixture.id),
+    );
+
+    // Check if any fixtures we marked as removed are now gone from server data
+    const fixturesNowRemoved = Array.from(removedFixtureIds).filter(
+      (id) => !serverFixtureIds.has(id),
+    );
+
+    // If any removed fixtures are now gone from server, clear them from removedFixtureIds
+    if (fixturesNowRemoved.length > 0) {
+      setRemovedFixtureIds((prev) => {
+        const newSet = new Set(prev);
+        fixturesNowRemoved.forEach((id) => newSet.delete(id));
+        return newSet;
+      });
+    }
+  }, [scene?.fixtureValues, removedFixtureIds]);
+
   // Auto-activate scene on mount when coming from Player Mode (prevents blackout)
   useEffect(() => {
     if (fromPlayer && sceneId) {
