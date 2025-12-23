@@ -18,7 +18,7 @@ import LayoutCanvas from "./LayoutCanvas";
 import MultiSelectControls from "./MultiSelectControls";
 import UnsavedChangesModal from "./UnsavedChangesModal";
 import { sparseToDense, denseToSparse } from "@/utils/channelConversion";
-import { useUndoStack, UndoDelta } from "@/hooks/useUndoStack";
+import { useUndoStack, UndoDelta, UndoAction } from "@/hooks/useUndoStack";
 
 interface SceneEditorLayoutProps {
   sceneId: string;
@@ -38,6 +38,8 @@ export interface SharedEditorState {
   channelValues: Map<string, number[]>;
   /** Active channels map (fixtureId -> set of active channel indices) */
   activeChannels: Map<string, Set<number>>;
+  /** Set of fixture IDs that have been removed but not yet saved */
+  removedFixtureIds: Set<string>;
   /** Whether there are unsaved changes */
   isDirty: boolean;
   /** Undo stack controls */
@@ -45,8 +47,24 @@ export interface SharedEditorState {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  /** Push action to undo stack (for fixture operations from child) */
+  onPushAction: (action: Omit<UndoAction, "timestamp">) => void;
+  /** Peek at top of parent's undo stack (for timestamp comparison) */
+  peekUndoAction: () => UndoAction | null;
+  /** Peek at top of parent's redo stack (for timestamp comparison) */
+  peekRedoAction: () => UndoAction | null;
+  /** Pop from undo stack without applying (for unified undo handling) */
+  rawUndo: () => UndoAction | null;
+  /** Pop from redo stack without applying (for unified redo handling) */
+  rawRedo: () => UndoAction | null;
   /** Channel value change handler (single channel) */
   onChannelValueChange: (
+    fixtureId: string,
+    channelIndex: number,
+    value: number,
+  ) => void;
+  /** Channel value change without pushing to undo (for undo/redo operations) */
+  onChannelValueChangeNoUndo: (
     fixtureId: string,
     channelIndex: number,
     value: number,
@@ -61,6 +79,12 @@ export interface SharedEditorState {
     channelIndex: number,
     isActive: boolean,
   ) => void;
+  /** Mark a fixture as removed */
+  onRemoveFixture: (fixtureId: string) => void;
+  /** Unmark a fixture as removed (for undo) */
+  onUnremoveFixture: (fixtureId: string) => void;
+  /** Delete fixture channel values (for undo of fixture add) */
+  onDeleteFixtureValues: (fixtureId: string) => void;
   /** Save changes */
   onSave: () => Promise<void>;
   /** Save status */
@@ -74,6 +98,48 @@ type FixtureChannelValues = {
   fixtureId: string;
   channels: ChannelValue[];
 };
+
+/**
+ * Helper function to build fixture channel values with active channel filtering.
+ * Converts dense arrays to sparse format and filters by active channels.
+ * Exported for testing.
+ *
+ * @param fixtureId - The fixture ID
+ * @param channelSource - Either dense (number[]) or sparse (ChannelValue[]) channel values
+ * @param fixtureActiveChannels - Set of active channel offsets, or undefined for all channels
+ * @returns FixtureChannelValues object ready for mutation
+ */
+export function buildFixtureChannelValues(
+  fixtureId: string,
+  channelSource: number[] | ChannelValue[],
+  fixtureActiveChannels: Set<number> | undefined,
+): FixtureChannelValues {
+  // Convert to sparse format if needed (dense arrays are number[], sparse are ChannelValue[])
+  // Dense arrays contain raw numbers, sparse arrays contain {offset, value} objects
+  let allChannels: ChannelValue[];
+
+  if (Array.isArray(channelSource)) {
+    if (channelSource.length === 0) {
+      // Empty array - treat as dense and convert (results in empty sparse array)
+      allChannels = denseToSparse(channelSource as number[]);
+    } else if (typeof channelSource[0] === "number") {
+      // First element is a number, so this is a dense array
+      allChannels = denseToSparse(channelSource as number[]);
+    } else {
+      // First element is not a number, so this is already a sparse array
+      allChannels = channelSource as ChannelValue[];
+    }
+  } else {
+    allChannels = channelSource as ChannelValue[];
+  }
+
+  // Filter to only include active channels (or all if no active tracking)
+  const sparseChannels = fixtureActiveChannels
+    ? allChannels.filter((ch) => fixtureActiveChannels.has(ch.offset))
+    : allChannels;
+
+  return { fixtureId, channels: sparseChannels };
+}
 
 export default function SceneEditorLayout({
   sceneId,
@@ -98,6 +164,11 @@ export default function SceneEditorLayout({
   const [localFixtureValues, setLocalFixtureValues] = useState<
     Map<string, number[]>
   >(new Map());
+
+  // Fixtures that have been removed but not yet saved
+  const [removedFixtureIds, setRemovedFixtureIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Preview mode state
   const [previewMode, setPreviewMode] = useState(false);
@@ -129,7 +200,7 @@ export default function SceneEditorLayout({
   >(new Map());
 
   // Undo/redo stack
-  const { pushAction, undo, redo, canUndo, canRedo, clearHistory } =
+  const { pushAction, undo, redo, peekUndo, peekRedo, canUndo, canRedo, clearHistory } =
     useUndoStack({
       maxStackSize: 50,
       coalesceWindowMs: 500,
@@ -274,6 +345,9 @@ export default function SceneEditorLayout({
 
   // Compute dirty state by comparing local values with server values
   const isDirty = useMemo(() => {
+    // If fixtures have been removed, we're dirty
+    if (removedFixtureIds.size > 0) return true;
+
     // If no local changes, not dirty
     if (localFixtureValues.size === 0) return false;
 
@@ -288,7 +362,38 @@ export default function SceneEditorLayout({
     }
 
     return false;
-  }, [localFixtureValues, serverDenseValues]);
+  }, [localFixtureValues, serverDenseValues, removedFixtureIds]);
+
+  // Clear removedFixtureIds when those fixtures no longer exist in server data (after save)
+  // This handles the case where ChannelListEditor saves directly without calling parent's onSave
+  useEffect(() => {
+    if (removedFixtureIds.size === 0 || !scene?.fixtureValues) return;
+
+    // Track if effect is still current to avoid state updates after unmount
+    let isCurrent = true;
+
+    const serverFixtureIds = new Set(
+      scene.fixtureValues.map((fv: FixtureValue) => fv.fixture.id),
+    );
+
+    // Check if any fixtures we marked as removed are now gone from server data
+    const fixturesNowRemoved = Array.from(removedFixtureIds).filter(
+      (id) => !serverFixtureIds.has(id),
+    );
+
+    // If any removed fixtures are now gone from server, clear them from removedFixtureIds
+    if (fixturesNowRemoved.length > 0 && isCurrent) {
+      setRemovedFixtureIds((prev) => {
+        const newSet = new Set(prev);
+        fixturesNowRemoved.forEach((id) => newSet.delete(id));
+        return newSet;
+      });
+    }
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [scene?.fixtureValues, removedFixtureIds]);
 
   // Auto-activate scene on mount when coming from Player Mode (prevents blackout)
   useEffect(() => {
@@ -544,6 +649,26 @@ export default function SceneEditorLayout({
     ],
   );
 
+  // Handle single channel value change WITHOUT pushing to undo stack
+  // Used by ChannelListEditor when applying undo/redo actions
+  const handleChannelValueChangeNoUndo = useCallback(
+    (fixtureId: string, channelIndex: number, value: number) => {
+      if (!scene) return;
+
+      // Update local state only, no undo push
+      setLocalFixtureValues((prev) => {
+        const newMap = new Map(prev);
+        const values =
+          newMap.get(fixtureId) || serverDenseValues.get(fixtureId) || [];
+        const newValues = [...values];
+        newValues[channelIndex] = value;
+        newMap.set(fixtureId, newValues);
+        return newMap;
+      });
+    },
+    [scene, serverDenseValues],
+  );
+
   // Handle batched channel value changes from MultiSelectControls
   // Changes are saved locally only - user must click Save to persist
   // changes is an array of {fixtureId, channelIndex, value}
@@ -646,6 +771,68 @@ export default function SceneEditorLayout({
     [],
   );
 
+  // Handle removing a fixture from the scene
+  const handleRemoveFixture = useCallback((fixtureId: string) => {
+    setRemovedFixtureIds((prev) => new Set([...prev, fixtureId]));
+    // Also remove from local fixture values if present
+    setLocalFixtureValues((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(fixtureId);
+      return newMap;
+    });
+    // Clean up active channels state to prevent memory leaks
+    setActiveChannels((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(fixtureId);
+      return newMap;
+    });
+  }, []);
+
+  const handleUnremoveFixture = useCallback(
+    (fixtureId: string) => {
+      // Mark fixture as no longer removed
+      setRemovedFixtureIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(fixtureId);
+        return newSet;
+      });
+
+      // Ensure active channel tracking exists for the restored fixture.
+      // If we have local fixture values with channel data, initialize all
+      // channels as active by default.
+      setActiveChannels((prev) => {
+        // If active channel state already exists for this fixture, keep it.
+        if (prev.has(fixtureId)) {
+          return prev;
+        }
+
+        const newMap = new Map(prev);
+        // localFixtureValues stores dense arrays (number[]), not FixtureValue objects
+        const denseChannels = localFixtureValues.get(fixtureId);
+
+        if (denseChannels && denseChannels.length > 0) {
+          const activeSet = new Set<number>();
+          for (let i = 0; i < denseChannels.length; i++) {
+            activeSet.add(i);
+          }
+          newMap.set(fixtureId, activeSet);
+        }
+
+        return newMap;
+      });
+    },
+    [localFixtureValues],
+  );
+
+  // Delete fixture channel values (for undo of fixture add)
+  const handleDeleteFixtureValues = useCallback((fixtureId: string) => {
+    setLocalFixtureValues((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(fixtureId);
+      return newMap;
+    });
+  }, []);
+
   // Save current changes to the scene
   const handleSaveScene = useCallback(async () => {
     if (!scene) return;
@@ -659,25 +846,37 @@ export default function SceneEditorLayout({
       // Build updated fixture values from current local state
       const fixtureValuesMap = new Map<string, FixtureChannelValues>();
 
+      // Build set of existing fixture IDs for quick lookup
+      const existingFixtureIds = new Set(
+        scene.fixtureValues.map((fv: FixtureValue) => fv.fixture.id),
+      );
+
+      // First, process existing fixtures from the scene (excluding removed ones)
       scene.fixtureValues.forEach((fv: FixtureValue) => {
+        // Skip fixtures that have been removed
+        if (removedFixtureIds.has(fv.fixture.id)) return;
+
         const localValues = localFixtureValues.get(fv.fixture.id);
+        const channelSource = localValues || fv.channels || [];
         const fixtureActiveChannels = activeChannels.get(fv.fixture.id);
 
-        // Convert dense local values or sparse server values to sparse format
-        const allChannels = localValues
-          ? denseToSparse(localValues)
-          : fv.channels || [];
-
-        // Filter to only include active channels
-        const sparseChannels = fixtureActiveChannels
-          ? allChannels.filter((ch) => fixtureActiveChannels.has(ch.offset))
-          : allChannels;
-
-        fixtureValuesMap.set(fv.fixture.id, {
-          fixtureId: fv.fixture.id,
-          channels: sparseChannels,
-        });
+        fixtureValuesMap.set(
+          fv.fixture.id,
+          buildFixtureChannelValues(fv.fixture.id, channelSource, fixtureActiveChannels),
+        );
       });
+
+      // Then, add any new fixtures from localFixtureValues that aren't in scene.fixtureValues
+      // These are fixtures that were added but not yet saved
+      for (const [fixtureId, localValues] of localFixtureValues) {
+        if (!existingFixtureIds.has(fixtureId)) {
+          const fixtureActiveChannels = activeChannels.get(fixtureId);
+          fixtureValuesMap.set(
+            fixtureId,
+            buildFixtureChannelValues(fixtureId, localValues, fixtureActiveChannels),
+          );
+        }
+      }
 
       const updatedFixtureValues = Array.from(fixtureValuesMap.values());
 
@@ -698,6 +897,7 @@ export default function SceneEditorLayout({
 
       // Reset local state - initialization effect will repopulate from fresh server data
       setLocalFixtureValues(new Map());
+      setRemovedFixtureIds(new Set());
 
       // Show saved indicator
       setSaveStatus("saved");
@@ -725,6 +925,7 @@ export default function SceneEditorLayout({
     updateScene,
     localFixtureValues,
     activeChannels,
+    removedFixtureIds,
     clearHistory,
     refetchScene,
     fromPlayer,
@@ -1429,14 +1630,24 @@ export default function SceneEditorLayout({
                   ? localFixtureValues
                   : serverDenseValues,
               activeChannels,
+              removedFixtureIds,
               isDirty,
               canUndo,
               canRedo,
               onUndo: handleUndo,
               onRedo: handleRedo,
+              onPushAction: pushAction,
+              peekUndoAction: peekUndo,
+              peekRedoAction: peekRedo,
+              rawUndo: undo,
+              rawRedo: redo,
               onChannelValueChange: handleSingleChannelChange,
+              onChannelValueChangeNoUndo: handleChannelValueChangeNoUndo,
               onBatchChannelValueChange: handleBatchedChannelChanges,
               onToggleChannelActive: handleToggleChannelActive,
+              onRemoveFixture: handleRemoveFixture,
+              onUnremoveFixture: handleUnremoveFixture,
+              onDeleteFixtureValues: handleDeleteFixtureValues,
               onSave: handleSaveScene,
               saveStatus,
             }}

@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { useUndoStack, UndoDelta } from '../useUndoStack';
+import { useUndoStack, UndoDelta, FixtureDelta } from '../useUndoStack';
 
 describe('useUndoStack', () => {
   beforeEach(() => {
@@ -468,6 +468,309 @@ describe('useUndoStack', () => {
       });
 
       expect(undoneAction!.channelDeltas).toHaveLength(3);
+    });
+  });
+
+  describe('fixture add/remove actions', () => {
+    it('should handle FIXTURE_ADD action', () => {
+      const { result } = renderHook(() => useUndoStack());
+
+      const fixtureDelta: FixtureDelta = {
+        fixtureId: 'fixture-1',
+        channelValues: [255, 128, 64, 0],
+      };
+
+      act(() => {
+        result.current.pushAction({
+          type: 'FIXTURE_ADD',
+          fixtureDeltas: [fixtureDelta],
+          description: 'Add fixture',
+        });
+      });
+
+      expect(result.current.undoStackLength).toBe(1);
+      expect(result.current.canUndo).toBe(true);
+
+      let undoneAction: ReturnType<typeof result.current.undo>;
+      act(() => {
+        undoneAction = result.current.undo();
+      });
+
+      expect(undoneAction!.type).toBe('FIXTURE_ADD');
+      expect(undoneAction!.fixtureDeltas).toHaveLength(1);
+      expect(undoneAction!.fixtureDeltas![0].fixtureId).toBe('fixture-1');
+      expect(undoneAction!.fixtureDeltas![0].channelValues).toEqual([255, 128, 64, 0]);
+    });
+
+    it('should handle FIXTURE_REMOVE action', () => {
+      const { result } = renderHook(() => useUndoStack());
+
+      const fixtureDelta: FixtureDelta = {
+        fixtureId: 'fixture-1',
+        channelValues: [255, 128, 64, 0],
+        wasNewFixture: false,
+      };
+
+      act(() => {
+        result.current.pushAction({
+          type: 'FIXTURE_REMOVE',
+          fixtureDeltas: [fixtureDelta],
+          description: 'Remove fixture',
+        });
+      });
+
+      expect(result.current.undoStackLength).toBe(1);
+      expect(result.current.canUndo).toBe(true);
+
+      let undoneAction: ReturnType<typeof result.current.undo>;
+      act(() => {
+        undoneAction = result.current.undo();
+      });
+
+      expect(undoneAction!.type).toBe('FIXTURE_REMOVE');
+      expect(undoneAction!.fixtureDeltas).toHaveLength(1);
+      expect(undoneAction!.fixtureDeltas![0].wasNewFixture).toBe(false);
+    });
+
+    it('should handle FIXTURE_REMOVE with wasNewFixture flag', () => {
+      const { result } = renderHook(() => useUndoStack());
+
+      const fixtureDelta: FixtureDelta = {
+        fixtureId: 'fixture-1',
+        channelValues: [255, 128, 64, 0],
+        wasNewFixture: true,
+      };
+
+      act(() => {
+        result.current.pushAction({
+          type: 'FIXTURE_REMOVE',
+          fixtureDeltas: [fixtureDelta],
+          description: 'Remove pending fixture',
+        });
+      });
+
+      let undoneAction: ReturnType<typeof result.current.undo>;
+      act(() => {
+        undoneAction = result.current.undo();
+      });
+
+      expect(undoneAction!.fixtureDeltas![0].wasNewFixture).toBe(true);
+    });
+
+    it('should handle multiple fixtures in FIXTURE_ADD', () => {
+      const { result } = renderHook(() => useUndoStack());
+
+      act(() => {
+        result.current.pushAction({
+          type: 'FIXTURE_ADD',
+          fixtureDeltas: [
+            { fixtureId: 'fixture-1', channelValues: [255, 0, 0, 255] },
+            { fixtureId: 'fixture-2', channelValues: [0, 255, 0, 255] },
+            { fixtureId: 'fixture-3', channelValues: [0, 0, 255, 255] },
+          ],
+          description: 'Add 3 fixtures',
+        });
+      });
+
+      let undoneAction: ReturnType<typeof result.current.undo>;
+      act(() => {
+        undoneAction = result.current.undo();
+      });
+
+      expect(undoneAction!.fixtureDeltas).toHaveLength(3);
+    });
+
+    it('should coalesce fixture add actions within time window', () => {
+      const { result } = renderHook(() => useUndoStack({ coalesceWindowMs: 500 }));
+
+      act(() => {
+        result.current.pushAction({
+          type: 'FIXTURE_ADD',
+          fixtureDeltas: [{ fixtureId: 'fixture-1', channelValues: [255, 0, 0, 255] }],
+          description: 'Add fixture 1',
+        });
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(200);
+        result.current.pushAction({
+          type: 'FIXTURE_ADD',
+          fixtureDeltas: [{ fixtureId: 'fixture-2', channelValues: [0, 255, 0, 255] }],
+          description: 'Add fixture 2',
+        });
+      });
+
+      // Should be coalesced into 1 action
+      expect(result.current.undoStackLength).toBe(1);
+
+      let undoneAction: ReturnType<typeof result.current.undo>;
+      act(() => {
+        undoneAction = result.current.undo();
+      });
+
+      expect(undoneAction!.fixtureDeltas).toHaveLength(2);
+    });
+
+    it('should not coalesce FIXTURE_ADD and FIXTURE_REMOVE', () => {
+      const { result } = renderHook(() => useUndoStack({ coalesceWindowMs: 500 }));
+
+      act(() => {
+        result.current.pushAction({
+          type: 'FIXTURE_ADD',
+          fixtureDeltas: [{ fixtureId: 'fixture-1', channelValues: [255, 0, 0, 255] }],
+          description: 'Add fixture',
+        });
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(200);
+        result.current.pushAction({
+          type: 'FIXTURE_REMOVE',
+          fixtureDeltas: [{ fixtureId: 'fixture-2', wasNewFixture: false }],
+          description: 'Remove fixture',
+        });
+      });
+
+      // Should be 2 separate actions
+      expect(result.current.undoStackLength).toBe(2);
+    });
+
+    it('should redo fixture add after undo', () => {
+      const { result } = renderHook(() => useUndoStack());
+
+      act(() => {
+        result.current.pushAction({
+          type: 'FIXTURE_ADD',
+          fixtureDeltas: [{ fixtureId: 'fixture-1', channelValues: [255, 128, 64, 0] }],
+          description: 'Add fixture',
+        });
+      });
+
+      act(() => {
+        result.current.undo();
+      });
+
+      expect(result.current.canRedo).toBe(true);
+
+      let redoneAction: ReturnType<typeof result.current.redo>;
+      act(() => {
+        redoneAction = result.current.redo();
+      });
+
+      expect(redoneAction!.type).toBe('FIXTURE_ADD');
+      expect(redoneAction!.fixtureDeltas![0].fixtureId).toBe('fixture-1');
+    });
+  });
+
+  describe('peek functions', () => {
+    it('should peek at undo stack without popping', () => {
+      const { result } = renderHook(() => useUndoStack());
+
+      // Empty stack should return null
+      let peeked = result.current.peekUndo();
+      expect(peeked).toBeNull();
+
+      act(() => {
+        result.current.pushAction({
+          type: 'CHANNEL_CHANGE',
+          channelDeltas: [
+            { fixtureId: 'fixture-1', channelIndex: 0, previousValue: 100, newValue: 200 },
+          ],
+          description: 'Changed Dimmer',
+        });
+      });
+
+      // Peek should return the action
+      peeked = result.current.peekUndo();
+      expect(peeked).not.toBeNull();
+      expect(peeked!.type).toBe('CHANNEL_CHANGE');
+      expect(peeked!.description).toBe('Changed Dimmer');
+
+      // Stack should still have the action (peek doesn't pop)
+      expect(result.current.undoStackLength).toBe(1);
+      expect(result.current.canUndo).toBe(true);
+
+      // Peek again should return the same action
+      const peekedAgain = result.current.peekUndo();
+      expect(peekedAgain).toEqual(peeked);
+    });
+
+    it('should peek at redo stack without popping', () => {
+      const { result } = renderHook(() => useUndoStack());
+
+      act(() => {
+        result.current.pushAction({
+          type: 'CHANNEL_CHANGE',
+          channelDeltas: [
+            { fixtureId: 'fixture-1', channelIndex: 0, previousValue: 100, newValue: 200 },
+          ],
+          description: 'Changed Dimmer',
+        });
+      });
+
+      // Empty redo stack should return null
+      let peeked = result.current.peekRedo();
+      expect(peeked).toBeNull();
+
+      act(() => {
+        result.current.undo();
+      });
+
+      // Peek should return the action
+      peeked = result.current.peekRedo();
+      expect(peeked).not.toBeNull();
+      expect(peeked!.type).toBe('CHANNEL_CHANGE');
+
+      // Stack should still have the action (peek doesn't pop)
+      expect(result.current.redoStackLength).toBe(1);
+      expect(result.current.canRedo).toBe(true);
+    });
+
+    it('should peek at correct action in multi-item stack', () => {
+      const { result } = renderHook(() => useUndoStack());
+
+      act(() => {
+        result.current.pushAction({
+          type: 'CHANNEL_CHANGE',
+          channelDeltas: [
+            { fixtureId: 'fixture-1', channelIndex: 0, previousValue: 0, newValue: 100 },
+          ],
+          description: 'First change',
+        });
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(1000); // Past coalesce window
+        result.current.pushAction({
+          type: 'FIXTURE_ADD',
+          fixtureDeltas: [{ fixtureId: 'fixture-2', channelValues: [255, 0, 0] }],
+          description: 'Add fixture',
+        });
+      });
+
+      // Peek should return the most recent action (FIXTURE_ADD)
+      const peeked = result.current.peekUndo();
+      expect(peeked!.type).toBe('FIXTURE_ADD');
+      expect(peeked!.description).toBe('Add fixture');
+    });
+
+    it('should have timestamp on peeked action for comparison', () => {
+      const { result } = renderHook(() => useUndoStack());
+
+      act(() => {
+        result.current.pushAction({
+          type: 'CHANNEL_CHANGE',
+          channelDeltas: [
+            { fixtureId: 'fixture-1', channelIndex: 0, previousValue: 100, newValue: 200 },
+          ],
+          description: 'Changed Dimmer',
+        });
+      });
+
+      const peeked = result.current.peekUndo();
+      expect(peeked).not.toBeNull();
+      expect(typeof peeked!.timestamp).toBe('number');
+      expect(peeked!.timestamp).toBeGreaterThan(0);
     });
   });
 });

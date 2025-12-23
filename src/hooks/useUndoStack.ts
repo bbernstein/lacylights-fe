@@ -20,13 +20,25 @@ export interface ActiveDelta {
 }
 
 /**
+ * Represents a fixture add/remove change for undo/redo
+ */
+export interface FixtureDelta {
+  fixtureId: string;
+  /** Channel values at the time of add/remove (for restore) */
+  channelValues?: number[];
+  /** Whether the fixture was in selectedFixturesToAdd when removed (for proper undo) */
+  wasNewFixture?: boolean;
+}
+
+/**
  * Represents a single undoable action
  */
 export interface UndoAction {
-  type: 'CHANNEL_CHANGE' | 'ACTIVE_TOGGLE' | 'BATCH_CHANGE';
+  type: 'CHANNEL_CHANGE' | 'ACTIVE_TOGGLE' | 'BATCH_CHANGE' | 'FIXTURE_ADD' | 'FIXTURE_REMOVE';
   timestamp: number;
   channelDeltas?: UndoDelta[];
   activeDeltas?: ActiveDelta[];
+  fixtureDeltas?: FixtureDelta[];
   description: string;
 }
 
@@ -50,6 +62,10 @@ export interface UseUndoStackReturn {
   undo: () => UndoAction | null;
   /** Redo the last undone action, returns the action to re-apply */
   redo: () => UndoAction | null;
+  /** Peek at the top of the undo stack without popping */
+  peekUndo: () => UndoAction | null;
+  /** Peek at the top of the redo stack without popping */
+  peekRedo: () => UndoAction | null;
   /** Whether there are actions to undo */
   canUndo: boolean;
   /** Whether there are actions to redo */
@@ -158,6 +174,32 @@ export function useUndoStack(options?: UseUndoStackOptions): UseUndoStackReturn 
           lastAction.activeDeltas = action.activeDeltas;
         }
 
+        // Merge fixture deltas
+        if (action.fixtureDeltas && lastAction.fixtureDeltas) {
+          action.fixtureDeltas.forEach((newDelta) => {
+            const existingDelta = lastAction.fixtureDeltas!.find(
+              (d) => d.fixtureId === newDelta.fixtureId
+            );
+            if (!existingDelta) {
+              // No existing delta for this fixture, so just add it
+              lastAction.fixtureDeltas!.push(newDelta);
+            } else {
+              // Preserve any properties already present on the existing delta,
+              // but augment it with properties from the new delta that are missing.
+              // This avoids losing information like channelValues or wasNewFixture
+              // that may be needed for correct undo behavior.
+              if (existingDelta.channelValues === undefined && newDelta.channelValues !== undefined) {
+                existingDelta.channelValues = newDelta.channelValues;
+              }
+              if (existingDelta.wasNewFixture === undefined && newDelta.wasNewFixture !== undefined) {
+                existingDelta.wasNewFixture = newDelta.wasNewFixture;
+              }
+            }
+          });
+        } else if (action.fixtureDeltas) {
+          lastAction.fixtureDeltas = action.fixtureDeltas;
+        }
+
         // Extend the coalesce window
         lastAction.timestamp = now;
         // Update description to most recent
@@ -223,10 +265,30 @@ export function useUndoStack(options?: UseUndoStackOptions): UseUndoStackReturn 
     setVersion((v) => v + 1);
   }, []);
 
+  /**
+   * Peek at the top of the undo stack without popping.
+   * Returns null if stack is empty.
+   */
+  const peekUndo = useCallback(() => {
+    const stack = undoStackRef.current;
+    return stack.length > 0 ? stack[stack.length - 1] : null;
+  }, []);
+
+  /**
+   * Peek at the top of the redo stack without popping.
+   * Returns null if stack is empty.
+   */
+  const peekRedo = useCallback(() => {
+    const stack = redoStackRef.current;
+    return stack.length > 0 ? stack[stack.length - 1] : null;
+  }, []);
+
   return {
     pushAction,
     undo,
     redo,
+    peekUndo,
+    peekRedo,
     canUndo: undoStackRef.current.length > 0,
     canRedo: redoStackRef.current.length > 0,
     clearHistory,
