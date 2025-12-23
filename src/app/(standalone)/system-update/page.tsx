@@ -13,7 +13,7 @@ import {
 import { UpdateProgress, UpdateState } from '@/components/system-update/UpdateProgress';
 import { ReconnectCountdown } from '@/components/system-update/ReconnectCountdown';
 import { useReconnectPoller } from '@/hooks/useReconnectPoller';
-import { isPrerelease, compareVersions } from './utils';
+import { isPrerelease, compareVersions, normalizeVersion } from './utils';
 
 /** Backend repository names that trigger server restart on update */
 const BACKEND_REPOS = ['lacylights-go', 'lacylights-mcp'] as const;
@@ -108,8 +108,6 @@ export default function SystemUpdatePage() {
           const currentVersion = data?.buildInfo?.version;
 
           // Normalize versions for comparison (strip 'v' prefix)
-          const normalizeVersion = (v: string | undefined) =>
-            v?.replace(/^v/, '') || '';
           const normalizedExpected = normalizeVersion(expectedVersion);
           const normalizedCurrent = normalizeVersion(currentVersion);
 

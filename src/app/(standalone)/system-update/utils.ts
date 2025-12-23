@@ -4,6 +4,20 @@
  */
 
 /**
+ * Normalize a version string by stripping the 'v' prefix if present.
+ * This allows for consistent comparison regardless of prefix style.
+ * Only strips 'v' when followed by a digit (e.g., "v1.2.3" -> "1.2.3").
+ *
+ * @param version - Version string (e.g., "v1.2.3" or "1.2.3")
+ * @returns Normalized version without 'v' prefix, or empty string for undefined/null
+ */
+export function normalizeVersion(version: string | undefined | null): string {
+  if (!version) return '';
+  // Only strip 'v' when followed by a digit (matches version patterns like v1.2.3)
+  return version.replace(/^v(?=\d)/, '');
+}
+
+/**
  * Check if a version string indicates a prerelease.
  * Per semver: prerelease versions have a hyphen (-) followed by identifiers.
  * Build metadata (+) does NOT indicate a prerelease.
