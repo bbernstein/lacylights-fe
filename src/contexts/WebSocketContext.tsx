@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { WEBSOCKET_CONFIG, ConnectionState } from '@/constants/websocket';
 import { usePageVisibility } from '@/hooks/usePageVisibility';
-import { wsClient } from '@/lib/apollo-client';
+import { reconnectWebSocket } from '@/lib/apollo-client';
 
 /**
  * WebSocket context interface
@@ -19,6 +19,12 @@ interface WebSocketContextType {
   reconnect: () => void;
   /** Manually disconnect */
   disconnect: () => void;
+  /**
+   * Ensure connection is active before performing an action.
+   * If stale or disconnected, triggers reconnection and waits for it.
+   * Returns a Promise that resolves when connected (or times out).
+   */
+  ensureConnection: () => Promise<void>;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -93,6 +99,10 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
 
     const handleConnected = () => {
       setConnectionState('connected');
+      // Reset stale flag when connection is established
+      // This prevents ensureConnection from triggering unnecessary reconnects
+      // after graphql-ws auto-reconnects
+      setIsStale(false);
     };
 
     const handleClosed = () => {
@@ -122,11 +132,21 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
   }, []);
 
   /**
-   * Manually trigger a reconnection
+   * Manually trigger a reconnection.
+   * Includes guard to prevent concurrent reconnection attempts.
+   * Creates a new WebSocket client to ensure subscriptions work after reconnection.
    */
   const reconnect = useCallback(() => {
-    if (!wsClient || typeof window === 'undefined') {
-      // No WebSocket client exists yet, nothing to reconnect
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    // Guard: prevent concurrent reconnections
+    if (connectionState === 'reconnecting') {
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.log('[WebSocket] Reconnection already in progress, skipping');
+      }
       return;
     }
 
@@ -135,21 +155,25 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
       console.log('[WebSocket] Manual reconnect triggered');
     }
 
-    // Dispose the current client
-    wsClient.dispose();
+    // Set to reconnecting state to prevent duplicate calls
+    setConnectionState('reconnecting');
 
-    // Set to disconnected state since reconnection only happens on next subscription (lazy mode)
-    // The 'reconnecting' state would be misleading as the connection won't be re-established
-    // until a component actually creates a new subscription
-    setConnectionState('disconnected');
-  }, []);
+    // Reconnect by creating a new WebSocket client
+    // This properly disposes the old client and creates a fresh one
+    reconnectWebSocket().then(() => {
+      // Connection state will be updated by the ws-connected event handler
+      // If we're still in reconnecting state after timeout, the ws-connected
+      // handler will update it when the connection is established
+    });
+  }, [connectionState]);
 
   /**
    * Manually disconnect
+   * Note: This sets the state to disconnected but does not dispose the WebSocket client.
+   * The client will continue to operate and graphql-ws will handle reconnection automatically.
    */
   const disconnect = useCallback(() => {
-    if (!wsClient || typeof window === 'undefined') {
-      // No WebSocket client exists, nothing to disconnect
+    if (typeof window === 'undefined') {
       return;
     }
 
@@ -158,57 +182,116 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
       console.log('[WebSocket] Manual disconnect triggered');
     }
 
-    wsClient.dispose();
     setConnectionState('disconnected');
   }, []);
 
   /**
+   * Ensure connection is active before performing an action.
+   * If stale or disconnected, waits for graphql-ws to auto-reconnect.
+   * Returns a Promise that resolves when connected (or times out after 5 seconds).
+   *
+   * NOTE: We do NOT force reconnection here because:
+   * 1. graphql-ws handles reconnection automatically with retryAttempts: Infinity
+   * 2. Calling reconnectWebSocket() disposes the client, orphaning existing subscriptions
+   * 3. We just wait for the auto-reconnect to complete
+   */
+  const ensureConnection = useCallback((): Promise<void> => {
+    return new Promise((resolve) => {
+      // If already connected and not stale, resolve immediately
+      if (connectionState === 'connected' && !isStale) {
+        resolve();
+        return;
+      }
+
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.log('[WebSocket] ensureConnection: waiting for graphql-ws auto-reconnect...');
+      }
+
+      // Use AbortController to properly clean up event listener on timeout or unmount
+      const abortController = new AbortController();
+
+      // Set up listener for connection event with abort signal
+      const handleConnected = () => {
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.log('[WebSocket] ensureConnection: connection restored');
+        }
+        cleanup();
+        resolve();
+      };
+
+      // Timeout after 5 seconds - proceed anyway to avoid blocking UI
+      // Match the timeout in reconnectWebSocket for consistency
+      // graphql-ws should reconnect on its own; we're just waiting for it
+      const timeout = setTimeout(() => {
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.log('[WebSocket] ensureConnection: timeout waiting for connection, proceeding anyway');
+        }
+        cleanup();
+        resolve();
+      }, 5000);
+
+      const cleanup = () => {
+        abortController.abort();
+        clearTimeout(timeout);
+      };
+
+      window.addEventListener('ws-connected', handleConnected, { signal: abortController.signal });
+
+      // NOTE: We do NOT call reconnect() here anymore.
+      // graphql-ws with retryAttempts: Infinity will auto-reconnect.
+      // If connection is already in progress, we'll get ws-connected event soon.
+      // If it's truly dead and needs manual intervention, user can click reconnect button.
+    });
+  }, [connectionState, isStale]);
+
+  /**
    * Heartbeat monitoring
-   * Checks connection health at regular intervals
+   * Checks connection health at regular intervals.
+   *
+   * NOTE: We no longer force reconnect based on staleness because:
+   * 1. graphql-ws handles reconnection automatically with retryAttempts: Infinity
+   * 2. Calling reconnectWebSocket() disposes the client, orphaning existing subscriptions
+   * 3. Only manual reconnect button should trigger reconnectWebSocket() as a last resort
    */
   useEffect(() => {
     const interval = setInterval(() => {
       if (lastMessageTime && connectionState === 'connected') {
         const timeSinceLastMessage = Date.now() - lastMessageTime;
 
-        // Update stale state
+        // Update stale state for UI display purposes only
+        // We do NOT force reconnect - let graphql-ws handle it
         if (timeSinceLastMessage > WEBSOCKET_CONFIG.STALE_THRESHOLD) {
           setIsStale(true);
-
-          // Force reconnect if stale for too long
-          if (timeSinceLastMessage > WEBSOCKET_CONFIG.FORCE_RECONNECT_THRESHOLD) {
-            reconnect();
-          }
         }
       }
     }, WEBSOCKET_CONFIG.HEARTBEAT_CHECK_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [lastMessageTime, connectionState, reconnect]);
+  }, [lastMessageTime, connectionState]);
 
   /**
    * Page visibility integration
-   * Reconnect when user returns to tab if connection is stale
+   * Track when user returns to tab for staleness detection.
+   *
+   * NOTE: We no longer force reconnect on page visibility because:
+   * 1. graphql-ws handles reconnection automatically
+   * 2. Calling reconnectWebSocket() orphans existing subscriptions
+   * 3. If the connection is truly dead, user can click manual reconnect
    */
   useEffect(() => {
-    if (isVisible && wasHidden.current && wsClient) {
-      // User just returned to tab and wsClient exists
-      const timeSinceLastMessage = lastMessageTime ? Date.now() - lastMessageTime : Infinity;
-
-      // Reconnect if connection is stale or not connected
-      if (
-        timeSinceLastMessage > WEBSOCKET_CONFIG.STALE_THRESHOLD ||
-        connectionState !== 'connected'
-      ) {
-        if (process.env.NODE_ENV === 'development') {
-          // eslint-disable-next-line no-console
-          console.log('[WebSocket] Page became visible, reconnecting...');
-        }
-        reconnect();
+    if (isVisible && wasHidden.current) {
+      // User just returned to tab - log for debugging but don't force reconnect
+      if (process.env.NODE_ENV === 'development') {
+        const timeSinceLastMessage = lastMessageTime ? Date.now() - lastMessageTime : Infinity;
+        // eslint-disable-next-line no-console
+        console.log(`[WebSocket] Page became visible, time since last message: ${Math.round(timeSinceLastMessage / 1000)}s, state: ${connectionState}`);
       }
     }
     wasHidden.current = !isVisible;
-  }, [isVisible, lastMessageTime, connectionState, reconnect]);
+  }, [isVisible, lastMessageTime, connectionState]);
 
   const contextValue: WebSocketContextType = {
     connectionState,
@@ -216,6 +299,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
     isStale,
     reconnect,
     disconnect,
+    ensureConnection,
   };
 
   return (

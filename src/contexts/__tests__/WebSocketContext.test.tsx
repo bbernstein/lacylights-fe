@@ -1,13 +1,12 @@
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { WebSocketProvider, useWebSocket } from '../WebSocketContext';
 import { WEBSOCKET_CONFIG } from '@/constants/websocket';
 
 // Mock the apollo-client module
+const mockReconnectWebSocket = jest.fn().mockResolvedValue(undefined);
 jest.mock('@/lib/apollo-client', () => ({
-  wsClient: {
-    dispose: jest.fn(),
-  },
+  reconnectWebSocket: () => mockReconnectWebSocket(),
 }));
 
 // Mock the usePageVisibility hook
@@ -16,12 +15,10 @@ jest.mock('@/hooks/usePageVisibility', () => ({
 }));
 
 describe('WebSocketContext', () => {
-  // Get the mocked wsClient
-  const mockWsClient = require('@/lib/apollo-client').wsClient;
-
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    mockReconnectWebSocket.mockResolvedValue(undefined);
 
     // Mock document.hidden for page visibility
     Object.defineProperty(document, 'hidden', {
@@ -61,6 +58,7 @@ describe('WebSocketContext', () => {
       expect(result.current).toHaveProperty('isStale');
       expect(result.current).toHaveProperty('reconnect');
       expect(result.current).toHaveProperty('disconnect');
+      expect(result.current).toHaveProperty('ensureConnection');
     });
   });
 
@@ -162,7 +160,7 @@ describe('WebSocketContext', () => {
       expect(result.current.isStale).toBe(false);
     });
 
-    it('should force reconnect after FORCE_RECONNECT_THRESHOLD', async () => {
+    it('should NOT force reconnect even after FORCE_RECONNECT_THRESHOLD (trusts graphql-ws)', async () => {
       const { result } = renderHook(() => useWebSocket(), { wrapper });
 
       // Connect and send a message
@@ -176,8 +174,12 @@ describe('WebSocketContext', () => {
         jest.advanceTimersByTime(WEBSOCKET_CONFIG.FORCE_RECONNECT_THRESHOLD + WEBSOCKET_CONFIG.HEARTBEAT_CHECK_INTERVAL);
       });
 
-      expect(mockWsClient.dispose).toHaveBeenCalled();
-      expect(result.current.connectionState).toBe('disconnected');
+      // Should NOT call reconnect - we trust graphql-ws to auto-reconnect
+      // Calling reconnectWebSocket would orphan existing subscriptions
+      expect(mockReconnectWebSocket).not.toHaveBeenCalled();
+      // State should still be connected (will become stale via heartbeat check)
+      expect(result.current.connectionState).toBe('connected');
+      expect(result.current.isStale).toBe(true);
     });
   });
 
@@ -193,26 +195,9 @@ describe('WebSocketContext', () => {
         result.current.reconnect();
       });
 
-      expect(mockWsClient.dispose).toHaveBeenCalled();
-      expect(result.current.connectionState).toBe('disconnected');
-    });
-
-    it('should handle reconnect gracefully when wsClient is null', () => {
-      // Temporarily set wsClient to null
-      const originalClient = require('@/lib/apollo-client').wsClient;
-      require('@/lib/apollo-client').wsClient = null;
-
-      const { result } = renderHook(() => useWebSocket(), { wrapper });
-
-      act(() => {
-        result.current.reconnect();
-      });
-
-      // Should not throw and state should remain unchanged
-      expect(result.current.connectionState).toBe('disconnected');
-
-      // Restore original client
-      require('@/lib/apollo-client').wsClient = originalClient;
+      expect(mockReconnectWebSocket).toHaveBeenCalled();
+      // State is set to 'reconnecting' to prevent duplicate reconnection attempts
+      expect(result.current.connectionState).toBe('reconnecting');
     });
 
     it('should disconnect when disconnect is called', () => {
@@ -226,31 +211,122 @@ describe('WebSocketContext', () => {
         result.current.disconnect();
       });
 
-      expect(mockWsClient.dispose).toHaveBeenCalled();
+      // disconnect now just sets state to disconnected (doesn't call reconnect)
       expect(result.current.connectionState).toBe('disconnected');
     });
+  });
 
-    it('should handle disconnect gracefully when wsClient is null', () => {
-      // Temporarily set wsClient to null
-      const originalClient = require('@/lib/apollo-client').wsClient;
-      require('@/lib/apollo-client').wsClient = null;
-
+  describe('ensureConnection', () => {
+    it('should resolve immediately when connected and not stale', async () => {
       const { result } = renderHook(() => useWebSocket(), { wrapper });
 
+      // Connect and send a message
       act(() => {
-        result.current.disconnect();
+        window.dispatchEvent(new CustomEvent('ws-connected'));
+        window.dispatchEvent(new CustomEvent('ws-message'));
       });
 
-      // Should not throw and state should remain unchanged
+      expect(result.current.connectionState).toBe('connected');
+      expect(result.current.isStale).toBe(false);
+
+      // ensureConnection should resolve immediately
+      let resolved = false;
+      await act(async () => {
+        await result.current.ensureConnection();
+        resolved = true;
+      });
+
+      expect(resolved).toBe(true);
+      // Should not trigger a reconnect when already connected
+      expect(mockReconnectWebSocket).not.toHaveBeenCalled();
+    });
+
+    it('should wait for ws-connected when stale (trusts graphql-ws auto-reconnect)', async () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      // Connect and send a message
+      act(() => {
+        window.dispatchEvent(new CustomEvent('ws-connected'));
+        window.dispatchEvent(new CustomEvent('ws-message'));
+      });
+
+      // Advance time to make it stale
+      act(() => {
+        jest.advanceTimersByTime(WEBSOCKET_CONFIG.STALE_THRESHOLD + WEBSOCKET_CONFIG.HEARTBEAT_CHECK_INTERVAL);
+      });
+
+      expect(result.current.isStale).toBe(true);
+
+      // Start ensureConnection
+      let resolved = false;
+      const promise = act(async () => {
+        const ensurePromise = result.current.ensureConnection();
+
+        // Simulate connection restored (by graphql-ws auto-reconnect)
+        act(() => {
+          window.dispatchEvent(new CustomEvent('ws-connected'));
+        });
+
+        await ensurePromise;
+        resolved = true;
+      });
+
+      await promise;
+      expect(resolved).toBe(true);
+      // Should NOT have called reconnectWebSocket - we wait for graphql-ws auto-reconnect
+      expect(mockReconnectWebSocket).not.toHaveBeenCalled();
+    });
+
+    it('should wait for ws-connected when disconnected (trusts graphql-ws auto-reconnect)', async () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
       expect(result.current.connectionState).toBe('disconnected');
 
-      // Restore original client
-      require('@/lib/apollo-client').wsClient = originalClient;
+      // Start ensureConnection
+      let resolved = false;
+      const promise = act(async () => {
+        const ensurePromise = result.current.ensureConnection();
+
+        // Simulate connection established (by graphql-ws auto-reconnect)
+        act(() => {
+          window.dispatchEvent(new CustomEvent('ws-connected'));
+        });
+
+        await ensurePromise;
+        resolved = true;
+      });
+
+      await promise;
+      expect(resolved).toBe(true);
+      // Should NOT have called reconnectWebSocket
+      expect(mockReconnectWebSocket).not.toHaveBeenCalled();
+    });
+
+    it('should resolve after timeout if connection is not restored', async () => {
+      const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+      expect(result.current.connectionState).toBe('disconnected');
+
+      // Start ensureConnection
+      let resolved = false;
+      const promise = act(async () => {
+        const ensurePromise = result.current.ensureConnection();
+
+        // Advance time to trigger timeout (5 seconds - matches reconnectWebSocket timeout)
+        jest.advanceTimersByTime(5000);
+
+        await ensurePromise;
+        resolved = true;
+      });
+
+      await promise;
+      // Should resolve even without connection (timeout fallback)
+      expect(resolved).toBe(true);
     });
   });
 
   describe('Page visibility integration', () => {
-    it('should reconnect when page becomes visible if connection is stale', async () => {
+    it('should NOT reconnect when page becomes visible (trusts graphql-ws auto-reconnect)', async () => {
       const usePageVisibility = require('@/hooks/usePageVisibility').usePageVisibility;
       let isVisible = false;
       usePageVisibility.mockImplementation(() => isVisible);
@@ -276,9 +352,9 @@ describe('WebSocketContext', () => {
       isVisible = true;
       rerender();
 
-      await waitFor(() => {
-        expect(mockWsClient.dispose).toHaveBeenCalled();
-      });
+      // Should NOT call reconnect - we trust graphql-ws to auto-reconnect
+      // Calling reconnectWebSocket would orphan existing subscriptions
+      expect(mockReconnectWebSocket).not.toHaveBeenCalled();
     });
 
     it('should not reconnect when page becomes visible if connection is healthy', () => {
@@ -299,7 +375,7 @@ describe('WebSocketContext', () => {
       rerender();
 
       // Should not reconnect because connection is healthy
-      expect(mockWsClient.dispose).not.toHaveBeenCalled();
+      expect(mockReconnectWebSocket).not.toHaveBeenCalled();
     });
   });
 

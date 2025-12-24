@@ -1,7 +1,7 @@
-import { ApolloClient, InMemoryCache, createHttpLink, split, from } from '@apollo/client';
+import { ApolloClient, InMemoryCache, createHttpLink, split, from, ApolloLink, Observable } from '@apollo/client';
 import { setContext } from '@apollo/client/link/context';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
-import { createClient } from 'graphql-ws';
+import { createClient, Client } from 'graphql-ws';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { WEBSOCKET_CONFIG } from '@/constants/websocket';
 
@@ -9,8 +9,12 @@ import { WEBSOCKET_CONFIG } from '@/constants/websocket';
 let runtimeConfig: { graphqlUrl: string; graphqlWsUrl: string } | null = null;
 let configPromise: Promise<{ graphqlUrl: string; graphqlWsUrl: string }> | null = null;
 
-// Export WebSocket client instance for monitoring and control
-export let wsClient: ReturnType<typeof createClient> | null = null;
+// Mutable WebSocket client reference - can be recreated on reconnect
+export let wsClient: Client | null = null;
+let wsLink: GraphQLWsLink | null = null;
+
+// Flag to prevent multiple simultaneous reconnection attempts
+let isReconnecting = false;
 
 // Fetch runtime configuration from API endpoint
 async function fetchRuntimeConfig(): Promise<{ graphqlUrl: string; graphqlWsUrl: string }> {
@@ -84,8 +88,15 @@ const httpLink = createHttpLink({
   uri: () => getGraphQLUrl(),
 });
 
-// Create WebSocket client if in browser environment
-if (typeof window !== 'undefined') {
+/**
+ * Creates a new WebSocket client and link.
+ * Called on initial setup and when reconnecting.
+ */
+function createWsClient(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
   wsClient = createClient({
     // Use async URL function to ensure config is loaded before connecting
     url: async () => getWebSocketUrl(),
@@ -139,9 +150,114 @@ if (typeof window !== 'undefined') {
       },
     },
   });
+
+  wsLink = new GraphQLWsLink(wsClient);
 }
 
-const wsLink = wsClient ? new GraphQLWsLink(wsClient) : null;
+// Create initial WebSocket client
+createWsClient();
+
+/**
+ * Reconnects the WebSocket by creating a new client.
+ * Returns a Promise that resolves when connected (or times out after 5 seconds).
+ *
+ * IMPORTANT: This disposes the old client which orphans existing subscriptions.
+ * Only call this as a last resort (e.g., manual reconnect button).
+ * For automatic reconnection, rely on graphql-ws's built-in retry mechanism.
+ */
+export function reconnectWebSocket(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') {
+      resolve();
+      return;
+    }
+
+    // Prevent multiple simultaneous reconnection attempts
+    if (isReconnecting) {
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.log('[WebSocket] Reconnection already in progress (module flag), skipping');
+      }
+      resolve();
+      return;
+    }
+
+    isReconnecting = true;
+
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.log('[WebSocket] Reconnecting - creating new client');
+    }
+
+    // Dispose old client if it exists
+    if (wsClient) {
+      try {
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.log('[WebSocket] Disposing old client');
+        }
+        wsClient.dispose();
+      } catch {
+        // Ignore errors from disposing already-disposed client
+      }
+    }
+
+    // Listen for the connected event before creating new client
+    const handleConnected = () => {
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.log('[WebSocket] Reconnection successful');
+      }
+      cleanup();
+      isReconnecting = false;
+      resolve();
+    };
+
+    // Timeout fallback - don't block forever
+    const timeout = setTimeout(() => {
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.log('[WebSocket] Reconnection timeout, proceeding anyway');
+      }
+      cleanup();
+      isReconnecting = false;
+      resolve();
+    }, 5000);
+
+    const cleanup = () => {
+      window.removeEventListener('ws-connected', handleConnected);
+      clearTimeout(timeout);
+    };
+
+    window.addEventListener('ws-connected', handleConnected);
+
+    // Create new client - this will connect lazily on first subscription
+    createWsClient();
+
+    // Force the lazy client to connect now by triggering a subscription check
+    // The wsLink will be picked up by the dynamic link below
+  });
+}
+
+/**
+ * Dynamic WebSocket link that forwards to the current wsLink.
+ * This allows us to swap out the wsLink on reconnection without
+ * recreating the entire Apollo Client.
+ */
+const dynamicWsLink = new ApolloLink((operation) => {
+  if (!wsLink) {
+    throw new Error('WebSocket link not initialized');
+  }
+  // Forward the operation to the current wsLink
+  return new Observable((observer) => {
+    const subscription = wsLink!.request(operation)?.subscribe({
+      next: (result) => observer.next(result),
+      error: (error) => observer.error(error),
+      complete: () => observer.complete(),
+    });
+    return () => subscription?.unsubscribe();
+  });
+});
 
 const authLink = setContext((_, { headers }) => {
   // Get the authentication token from local storage if it exists
@@ -157,6 +273,7 @@ const authLink = setContext((_, { headers }) => {
 });
 
 // Use split link to route subscriptions to WebSocket and queries/mutations to HTTP
+// Uses dynamicWsLink so we can swap the underlying wsLink on reconnection
 const splitLink = typeof window !== 'undefined' && wsLink ? split(
   ({ query }) => {
     const definition = getMainDefinition(query);
@@ -165,7 +282,7 @@ const splitLink = typeof window !== 'undefined' && wsLink ? split(
       definition.operation === 'subscription'
     );
   },
-  wsLink,
+  dynamicWsLink,
   from([configLink, authLink, httpLink]),
 ) : from([configLink, authLink, httpLink]);
 

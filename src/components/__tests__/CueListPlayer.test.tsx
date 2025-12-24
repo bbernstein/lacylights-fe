@@ -21,6 +21,26 @@ jest.mock('../../constants/playback', () => ({
   DEFAULT_FADEOUT_TIME: 3.0,
 }));
 
+// Mock WebSocketContext to prevent apollo-client import issues in tests
+const mockReconnect = jest.fn();
+const mockDisconnect = jest.fn();
+const mockEnsureConnection = jest.fn();
+
+// Default mock values - can be overridden in individual tests
+let mockConnectionState = 'connected';
+let mockIsStale = false;
+
+jest.mock('../../contexts/WebSocketContext', () => ({
+  useWebSocket: () => ({
+    connectionState: mockConnectionState,
+    lastMessageTime: Date.now(),
+    isStale: mockIsStale,
+    reconnect: mockReconnect,
+    disconnect: mockDisconnect,
+    ensureConnection: mockEnsureConnection,
+  }),
+}));
+
 const mockUseCueListPlayback = require('../../hooks/useCueListPlayback').useCueListPlayback as jest.Mock;
 
 describe('CueListPlayer', () => {
@@ -181,6 +201,13 @@ describe('CueListPlayer', () => {
     mockUseCueListPlayback.mockReturnValue({
       playbackStatus: mockPlaybackStatus,
     });
+
+    // Reset WebSocket mock values to defaults
+    mockConnectionState = 'connected';
+    mockIsStale = false;
+
+    // Configure ensureConnection to return a resolved promise by default
+    mockEnsureConnection.mockResolvedValue(undefined);
 
     // Mock window.addEventListener and removeEventListener
     jest.spyOn(window, 'addEventListener').mockImplementation();
@@ -764,6 +791,190 @@ describe('CueListPlayer', () => {
         const goButton = screen.getByTitle('GO (Space/Enter)');
         expect(goButton).toBeDisabled();
       });
+    });
+  });
+
+  describe('WebSocket connection handling', () => {
+    it('shows green status indicator when connected and not stale', async () => {
+      mockConnectionState = 'connected';
+      mockIsStale = false;
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const statusIndicator = screen.getByRole('img', { name: 'Live - receiving updates' });
+        expect(statusIndicator).toBeInTheDocument();
+        expect(statusIndicator).toHaveClass('bg-green-500');
+      });
+    });
+
+    it('shows yellow status indicator and reconnect button when stale', async () => {
+      mockConnectionState = 'connected';
+      mockIsStale = true;
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const statusIndicator = screen.getByRole('img', { name: 'Stale - no recent updates' });
+        expect(statusIndicator).toBeInTheDocument();
+        expect(statusIndicator).toHaveClass('bg-yellow-500');
+
+        const reconnectButton = screen.getByRole('button', { name: /reconnect/i });
+        expect(reconnectButton).toBeInTheDocument();
+      });
+    });
+
+    it('shows red status indicator and reconnect button when disconnected', async () => {
+      mockConnectionState = 'disconnected';
+      mockIsStale = false;
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const statusIndicator = screen.getByRole('img', { name: 'Disconnected' });
+        expect(statusIndicator).toBeInTheDocument();
+        expect(statusIndicator).toHaveClass('bg-red-500');
+
+        const reconnectButton = screen.getByRole('button', { name: /reconnect/i });
+        expect(reconnectButton).toBeInTheDocument();
+      });
+    });
+
+    it('shows orange pulsing status indicator when reconnecting', async () => {
+      mockConnectionState = 'reconnecting';
+      mockIsStale = false;
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const statusIndicator = screen.getByRole('img', { name: 'Reconnecting...' });
+        expect(statusIndicator).toBeInTheDocument();
+        expect(statusIndicator).toHaveClass('bg-orange-500', 'animate-pulse');
+      });
+    });
+
+    it('calls reconnect when reconnect button is clicked', async () => {
+      mockConnectionState = 'disconnected';
+      mockIsStale = false;
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const reconnectButton = screen.getByRole('button', { name: /reconnect/i });
+        expect(reconnectButton).toBeInTheDocument();
+      });
+
+      const reconnectButton = screen.getByRole('button', { name: /reconnect/i });
+      await userEvent.click(reconnectButton);
+
+      expect(mockReconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls ensureConnection before GO action when stale', async () => {
+      mockConnectionState = 'connected';
+      mockIsStale = true;
+
+      const mocks = [
+        ...createMocks(),
+        {
+          request: {
+            query: NEXT_CUE,
+            variables: { cueListId: mockCueListId, fadeInTime: 1.5 },
+          },
+          result: { data: {} },
+        },
+      ];
+
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const goButton = screen.getByText('GO');
+        expect(goButton).toBeInTheDocument();
+      });
+
+      const goButton = screen.getByText('GO');
+      await userEvent.click(goButton);
+
+      // ensureConnection should be called before the mutation
+      expect(mockEnsureConnection).toHaveBeenCalled();
+    });
+
+    it('calls ensureConnection before GO action when disconnected', async () => {
+      mockConnectionState = 'disconnected';
+      mockIsStale = false;
+
+      const mocks = [
+        ...createMocks(),
+        {
+          request: {
+            query: NEXT_CUE,
+            variables: { cueListId: mockCueListId, fadeInTime: 1.5 },
+          },
+          result: { data: {} },
+        },
+      ];
+
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const goButton = screen.getByText('GO');
+        expect(goButton).toBeInTheDocument();
+      });
+
+      const goButton = screen.getByText('GO');
+      await userEvent.click(goButton);
+
+      // ensureConnection should be called before the mutation
+      expect(mockEnsureConnection).toHaveBeenCalled();
+    });
+
+    it('calls ensureConnection before GO action even when fully connected', async () => {
+      mockConnectionState = 'connected';
+      mockIsStale = false;
+
+      const mocks = [
+        ...createMocks(),
+        {
+          request: {
+            query: NEXT_CUE,
+            variables: { cueListId: mockCueListId, fadeInTime: 1.5 },
+          },
+          result: { data: {} },
+        },
+      ];
+
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const goButton = screen.getByText('GO');
+        expect(goButton).toBeInTheDocument();
+      });
+
+      const goButton = screen.getByText('GO');
+      await userEvent.click(goButton);
+
+      // ensureConnection is always called before mutation (it resolves immediately if healthy)
+      expect(mockEnsureConnection).toHaveBeenCalled();
+    });
+
+    it('does not show reconnect button when fully connected', async () => {
+      mockConnectionState = 'connected';
+      mockIsStale = false;
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Cue List')).toBeInTheDocument();
+      });
+
+      const reconnectButton = screen.queryByRole('button', { name: /reconnect/i });
+      expect(reconnectButton).not.toBeInTheDocument();
     });
   });
 });
