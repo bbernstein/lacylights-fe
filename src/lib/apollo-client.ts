@@ -187,9 +187,6 @@ export function reconnectWebSocket(): Promise<void> {
     if (process.env.NODE_ENV === 'development') {
       // eslint-disable-next-line no-console
       console.log('[WebSocket] Reconnecting - creating new client');
-      // Log stack trace to debug unexpected calls
-      // eslint-disable-next-line no-console
-      console.trace('[WebSocket] Reconnection stack trace');
     }
 
     // Dispose old client if it exists
