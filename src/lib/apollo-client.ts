@@ -13,6 +13,9 @@ let configPromise: Promise<{ graphqlUrl: string; graphqlWsUrl: string }> | null 
 export let wsClient: Client | null = null;
 let wsLink: GraphQLWsLink | null = null;
 
+// Flag to prevent multiple simultaneous reconnection attempts
+let isReconnecting = false;
+
 // Fetch runtime configuration from API endpoint
 async function fetchRuntimeConfig(): Promise<{ graphqlUrl: string; graphqlWsUrl: string }> {
   if (runtimeConfig) {
@@ -158,8 +161,9 @@ createWsClient();
  * Reconnects the WebSocket by creating a new client.
  * Returns a Promise that resolves when connected (or times out after 5 seconds).
  *
- * This properly disposes the old client and creates a fresh one, ensuring
- * subscriptions will work after reconnection.
+ * IMPORTANT: This disposes the old client which orphans existing subscriptions.
+ * Only call this as a last resort (e.g., manual reconnect button).
+ * For automatic reconnection, rely on graphql-ws's built-in retry mechanism.
  */
 export function reconnectWebSocket(): Promise<void> {
   return new Promise((resolve) => {
@@ -168,14 +172,33 @@ export function reconnectWebSocket(): Promise<void> {
       return;
     }
 
+    // Prevent multiple simultaneous reconnection attempts
+    if (isReconnecting) {
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.log('[WebSocket] Reconnection already in progress (module flag), skipping');
+      }
+      resolve();
+      return;
+    }
+
+    isReconnecting = true;
+
     if (process.env.NODE_ENV === 'development') {
       // eslint-disable-next-line no-console
       console.log('[WebSocket] Reconnecting - creating new client');
+      // Log stack trace to debug unexpected calls
+      // eslint-disable-next-line no-console
+      console.trace('[WebSocket] Reconnection stack trace');
     }
 
     // Dispose old client if it exists
     if (wsClient) {
       try {
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.log('[WebSocket] Disposing old client');
+        }
         wsClient.dispose();
       } catch {
         // Ignore errors from disposing already-disposed client
@@ -189,6 +212,7 @@ export function reconnectWebSocket(): Promise<void> {
         console.log('[WebSocket] Reconnection successful');
       }
       cleanup();
+      isReconnecting = false;
       resolve();
     };
 
@@ -199,6 +223,7 @@ export function reconnectWebSocket(): Promise<void> {
         console.log('[WebSocket] Reconnection timeout, proceeding anyway');
       }
       cleanup();
+      isReconnecting = false;
       resolve();
     }, 5000);
 

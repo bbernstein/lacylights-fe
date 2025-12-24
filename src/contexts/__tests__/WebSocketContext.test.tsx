@@ -1,4 +1,4 @@
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { WebSocketProvider, useWebSocket } from '../WebSocketContext';
 import { WEBSOCKET_CONFIG } from '@/constants/websocket';
@@ -160,7 +160,7 @@ describe('WebSocketContext', () => {
       expect(result.current.isStale).toBe(false);
     });
 
-    it('should force reconnect after FORCE_RECONNECT_THRESHOLD', async () => {
+    it('should NOT force reconnect even after FORCE_RECONNECT_THRESHOLD (trusts graphql-ws)', async () => {
       const { result } = renderHook(() => useWebSocket(), { wrapper });
 
       // Connect and send a message
@@ -174,9 +174,12 @@ describe('WebSocketContext', () => {
         jest.advanceTimersByTime(WEBSOCKET_CONFIG.FORCE_RECONNECT_THRESHOLD + WEBSOCKET_CONFIG.HEARTBEAT_CHECK_INTERVAL);
       });
 
-      expect(mockReconnectWebSocket).toHaveBeenCalled();
-      // State is set to 'reconnecting' to prevent duplicate reconnection attempts
-      expect(result.current.connectionState).toBe('reconnecting');
+      // Should NOT call reconnect - we trust graphql-ws to auto-reconnect
+      // Calling reconnectWebSocket would orphan existing subscriptions
+      expect(mockReconnectWebSocket).not.toHaveBeenCalled();
+      // State should still be connected (will become stale via heartbeat check)
+      expect(result.current.connectionState).toBe('connected');
+      expect(result.current.isStale).toBe(true);
     });
   });
 
@@ -238,7 +241,7 @@ describe('WebSocketContext', () => {
       expect(mockReconnectWebSocket).not.toHaveBeenCalled();
     });
 
-    it('should trigger reconnect and wait for ws-connected when stale', async () => {
+    it('should wait for ws-connected when stale (trusts graphql-ws auto-reconnect)', async () => {
       const { result } = renderHook(() => useWebSocket(), { wrapper });
 
       // Connect and send a message
@@ -259,7 +262,7 @@ describe('WebSocketContext', () => {
       const promise = act(async () => {
         const ensurePromise = result.current.ensureConnection();
 
-        // Simulate connection restored
+        // Simulate connection restored (by graphql-ws auto-reconnect)
         act(() => {
           window.dispatchEvent(new CustomEvent('ws-connected'));
         });
@@ -270,11 +273,11 @@ describe('WebSocketContext', () => {
 
       await promise;
       expect(resolved).toBe(true);
-      // Should have triggered a reconnect
-      expect(mockReconnectWebSocket).toHaveBeenCalled();
+      // Should NOT have called reconnectWebSocket - we wait for graphql-ws auto-reconnect
+      expect(mockReconnectWebSocket).not.toHaveBeenCalled();
     });
 
-    it('should trigger reconnect and wait for ws-connected when disconnected', async () => {
+    it('should wait for ws-connected when disconnected (trusts graphql-ws auto-reconnect)', async () => {
       const { result } = renderHook(() => useWebSocket(), { wrapper });
 
       expect(result.current.connectionState).toBe('disconnected');
@@ -284,7 +287,7 @@ describe('WebSocketContext', () => {
       const promise = act(async () => {
         const ensurePromise = result.current.ensureConnection();
 
-        // Simulate connection established
+        // Simulate connection established (by graphql-ws auto-reconnect)
         act(() => {
           window.dispatchEvent(new CustomEvent('ws-connected'));
         });
@@ -295,6 +298,8 @@ describe('WebSocketContext', () => {
 
       await promise;
       expect(resolved).toBe(true);
+      // Should NOT have called reconnectWebSocket
+      expect(mockReconnectWebSocket).not.toHaveBeenCalled();
     });
 
     it('should resolve after timeout if connection is not restored', async () => {
@@ -321,7 +326,7 @@ describe('WebSocketContext', () => {
   });
 
   describe('Page visibility integration', () => {
-    it('should reconnect when page becomes visible if connection is stale', async () => {
+    it('should NOT reconnect when page becomes visible (trusts graphql-ws auto-reconnect)', async () => {
       const usePageVisibility = require('@/hooks/usePageVisibility').usePageVisibility;
       let isVisible = false;
       usePageVisibility.mockImplementation(() => isVisible);
@@ -347,9 +352,9 @@ describe('WebSocketContext', () => {
       isVisible = true;
       rerender();
 
-      await waitFor(() => {
-        expect(mockReconnectWebSocket).toHaveBeenCalled();
-      });
+      // Should NOT call reconnect - we trust graphql-ws to auto-reconnect
+      // Calling reconnectWebSocket would orphan existing subscriptions
+      expect(mockReconnectWebSocket).not.toHaveBeenCalled();
     });
 
     it('should not reconnect when page becomes visible if connection is healthy', () => {
