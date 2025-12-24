@@ -169,7 +169,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
 
   /**
    * Manually disconnect
-   * Note: This will disconnect the WebSocket but the client can be reconnected later.
+   * Note: This sets the state to disconnected but does not dispose the WebSocket client.
+   * The client will continue to operate and graphql-ws will handle reconnection automatically.
    */
   const disconnect = useCallback(() => {
     if (typeof window === 'undefined') {
@@ -181,15 +182,13 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
       console.log('[WebSocket] Manual disconnect triggered');
     }
 
-    // Use reconnectWebSocket which disposes the old client
-    // The lazy mode means no new connection will be created until a subscription is made
     setConnectionState('disconnected');
   }, []);
 
   /**
    * Ensure connection is active before performing an action.
    * If stale or disconnected, waits for graphql-ws to auto-reconnect.
-   * Returns a Promise that resolves when connected (or times out after 3 seconds).
+   * Returns a Promise that resolves when connected (or times out after 5 seconds).
    *
    * NOTE: We do NOT force reconnection here because:
    * 1. graphql-ws handles reconnection automatically with retryAttempts: Infinity
@@ -209,7 +208,10 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
         console.log('[WebSocket] ensureConnection: waiting for graphql-ws auto-reconnect...');
       }
 
-      // Set up listener for connection event
+      // Use AbortController to properly clean up event listener on timeout or unmount
+      const abortController = new AbortController();
+
+      // Set up listener for connection event with abort signal
       const handleConnected = () => {
         if (process.env.NODE_ENV === 'development') {
           // eslint-disable-next-line no-console
@@ -219,7 +221,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
         resolve();
       };
 
-      // Timeout after 3 seconds - proceed anyway to avoid blocking UI
+      // Timeout after 5 seconds - proceed anyway to avoid blocking UI
+      // Match the timeout in reconnectWebSocket for consistency
       // graphql-ws should reconnect on its own; we're just waiting for it
       const timeout = setTimeout(() => {
         if (process.env.NODE_ENV === 'development') {
@@ -228,14 +231,14 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
         }
         cleanup();
         resolve();
-      }, 3000);
+      }, 5000);
 
       const cleanup = () => {
-        window.removeEventListener('ws-connected', handleConnected);
+        abortController.abort();
         clearTimeout(timeout);
       };
 
-      window.addEventListener('ws-connected', handleConnected);
+      window.addEventListener('ws-connected', handleConnected, { signal: abortController.signal });
 
       // NOTE: We do NOT call reconnect() here anymore.
       // graphql-ws with retryAttempts: Infinity will auto-reconnect.

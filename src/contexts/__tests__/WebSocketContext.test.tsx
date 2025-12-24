@@ -312,8 +312,8 @@ describe('WebSocketContext', () => {
       const promise = act(async () => {
         const ensurePromise = result.current.ensureConnection();
 
-        // Advance time to trigger timeout (3 seconds)
-        jest.advanceTimersByTime(3000);
+        // Advance time to trigger timeout (5 seconds - matches reconnectWebSocket timeout)
+        jest.advanceTimersByTime(5000);
 
         await ensurePromise;
         resolved = true;

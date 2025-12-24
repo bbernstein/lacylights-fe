@@ -466,6 +466,9 @@ export default function CueListPlayer({
     // Wait for WebSocket to be connected before mutation, so we receive real-time updates
     await ensureConnection();
 
+    // Guard against component unmount during ensureConnection
+    if (!isMounted.current) return;
+
     if (currentCueIndex === -1 && cues.length > 0) {
       await startCueList({
         variables: {
@@ -489,6 +492,9 @@ export default function CueListPlayer({
     // Wait for WebSocket to be connected before mutation, so we receive real-time updates
     await ensureConnection();
 
+    // Guard against component unmount during ensureConnection
+    if (!isMounted.current) return;
+
     await previousCueMutation({
       variables: {
         cueListId: cueList.id,
@@ -502,6 +508,9 @@ export default function CueListPlayer({
 
     // Wait for WebSocket to be connected before mutation, so we receive real-time updates
     await ensureConnection();
+
+    // Guard against component unmount during ensureConnection
+    if (!isMounted.current) return;
 
     await stopCueList({
       variables: {
@@ -764,6 +773,9 @@ export default function CueListPlayer({
 
       // Wait for WebSocket to be connected before mutation, so we receive real-time updates
       await ensureConnection();
+
+      // Guard against component unmount during ensureConnection
+      if (!isMounted.current) return;
 
       const cue = cues[index];
       await goToCue({
