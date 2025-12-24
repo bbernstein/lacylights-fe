@@ -99,6 +99,10 @@ export function WebSocketProvider({ children }: WebSocketProviderProps): JSX.Ele
 
     const handleConnected = () => {
       setConnectionState('connected');
+      // Reset stale flag when connection is established
+      // This prevents ensureConnection from triggering unnecessary reconnects
+      // after graphql-ws auto-reconnects
+      setIsStale(false);
     };
 
     const handleClosed = () => {
