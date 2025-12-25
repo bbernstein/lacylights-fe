@@ -30,6 +30,21 @@ export const WIFI_STATUS = gql`
       ipAddress
       macAddress
       frequency
+      mode
+      apConfig {
+        ssid
+        ipAddress
+        channel
+        clientCount
+        timeoutMinutes
+        minutesRemaining
+      }
+      connectedClients {
+        macAddress
+        ipAddress
+        hostname
+        connectedAt
+      }
     }
   }
 `;
@@ -117,6 +132,104 @@ export const WIFI_STATUS_UPDATED = gql`
       ipAddress
       macAddress
       frequency
+      mode
+      apConfig {
+        ssid
+        ipAddress
+        channel
+        clientCount
+        timeoutMinutes
+        minutesRemaining
+      }
+      connectedClients {
+        macAddress
+        ipAddress
+        hostname
+        connectedAt
+      }
     }
+  }
+`;
+
+/**
+ * Query to get current WiFi mode
+ */
+export const WIFI_MODE = gql`
+  query WiFiMode {
+    wifiMode
+  }
+`;
+
+/**
+ * Query to get AP configuration
+ */
+export const AP_CONFIG = gql`
+  query APConfig {
+    apConfig {
+      ssid
+      ipAddress
+      channel
+      clientCount
+      timeoutMinutes
+      minutesRemaining
+    }
+  }
+`;
+
+/**
+ * Query to get connected AP clients
+ */
+export const AP_CLIENTS = gql`
+  query APClients {
+    apClients {
+      macAddress
+      ipAddress
+      hostname
+      connectedAt
+    }
+  }
+`;
+
+/**
+ * Mutation to start AP mode
+ */
+export const START_AP_MODE = gql`
+  mutation StartAPMode {
+    startAPMode {
+      success
+      message
+      mode
+    }
+  }
+`;
+
+/**
+ * Mutation to stop AP mode and optionally connect to a network
+ */
+export const STOP_AP_MODE = gql`
+  mutation StopAPMode($connectToSSID: String) {
+    stopAPMode(connectToSSID: $connectToSSID) {
+      success
+      message
+      mode
+    }
+  }
+`;
+
+/**
+ * Mutation to reset AP mode timeout
+ */
+export const RESET_AP_TIMEOUT = gql`
+  mutation ResetAPTimeout {
+    resetAPTimeout
+  }
+`;
+
+/**
+ * Subscription to WiFi mode changes
+ */
+export const WIFI_MODE_CHANGED = gql`
+  subscription WiFiModeChanged {
+    wifiModeChanged
   }
 `;

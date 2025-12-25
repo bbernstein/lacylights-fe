@@ -10,10 +10,17 @@ import {
   SET_WIFI_ENABLED,
   FORGET_WIFI_NETWORK,
   WIFI_STATUS_UPDATED,
+  START_AP_MODE,
+  STOP_AP_MODE,
+  RESET_AP_TIMEOUT,
+  WIFI_MODE_CHANGED,
 } from '@/graphql/wifi';
-import { WiFiNetwork, WiFiStatus, WiFiConnectionResult } from '@/types';
+import { WiFiNetwork, WiFiStatus, WiFiConnectionResult, WiFiMode, WiFiModeResult } from '@/types';
 import { WiFiNetworkItem } from '@/components/WiFiNetworkItem';
 import { WiFiConnectionDialog } from '@/components/WiFiConnectionDialog';
+import { WiFiModeIndicator } from '@/components/WiFiModeIndicator';
+import { APModeInstructions } from '@/components/APModeInstructions';
+import { APClientList } from '@/components/APClientList';
 
 /**
  * WiFi Settings Component
@@ -67,8 +74,22 @@ export default function WiFiSettings() {
   const [disconnectWiFi] = useMutation(DISCONNECT_WIFI);
   const [setWiFiEnabled, { loading: togglingWiFi }] = useMutation(SET_WIFI_ENABLED);
   const [forgetWiFiNetwork] = useMutation(FORGET_WIFI_NETWORK);
+  const [startAPMode, { loading: startingAP }] = useMutation(START_AP_MODE);
+  const [stopAPMode, { loading: stoppingAP }] = useMutation(STOP_AP_MODE);
+  const [resetAPTimeout, { loading: resettingTimeout }] = useMutation(RESET_AP_TIMEOUT);
+
+  // Subscribe to WiFi mode changes
+  useSubscription(WIFI_MODE_CHANGED, {
+    onData: ({ data }) => {
+      if (data.data?.wifiModeChanged) {
+        // Mode changed, refetch full status
+        refetchStatus();
+      }
+    },
+  });
 
   const status: WiFiStatus | undefined = statusData?.wifiStatus;
+  const isInAPMode = status?.mode === WiFiMode.AP || status?.mode === WiFiMode.STARTING_AP;
 
   /**
    * Sort networks: remembered networks first, then by signal strength
@@ -203,6 +224,60 @@ export default function WiFiSettings() {
     }
   };
 
+  /**
+   * Handle starting AP mode
+   */
+  const handleStartAPMode = async () => {
+    try {
+      const result = await startAPMode();
+      const modeResult: WiFiModeResult = result.data?.startAPMode;
+
+      if (modeResult.success) {
+        await refetchStatus();
+      } else {
+        console.error('Failed to start AP mode:', modeResult.message);
+      }
+    } catch (error) {
+      console.error('Error starting AP mode:', error);
+    }
+  };
+
+  /**
+   * Handle stopping AP mode
+   */
+  const handleStopAPMode = async (connectToSSID?: string) => {
+    try {
+      const result = await stopAPMode({
+        variables: { connectToSSID },
+      });
+      const modeResult: WiFiModeResult = result.data?.stopAPMode;
+
+      if (modeResult.success) {
+        await refetchStatus();
+        if (!connectToSSID) {
+          // If not connecting to a network, show network list
+          setShowNetworkList(true);
+        }
+      } else {
+        console.error('Failed to stop AP mode:', modeResult.message);
+      }
+    } catch (error) {
+      console.error('Error stopping AP mode:', error);
+    }
+  };
+
+  /**
+   * Handle resetting AP timeout
+   */
+  const handleResetAPTimeout = async () => {
+    try {
+      await resetAPTimeout();
+      await refetchStatus();
+    } catch (error) {
+      console.error('Error resetting AP timeout:', error);
+    }
+  };
+
   // Auto-scan when component mounts if WiFi is enabled and not connected
   // Only runs once on mount to avoid unnecessary rescans
   useEffect(() => {
@@ -233,9 +308,53 @@ export default function WiFiSettings() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">WiFi Configuration</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">WiFi Configuration</h2>
+        {status?.mode && (
+          <WiFiModeIndicator
+            mode={status.mode}
+            clientCount={status.apConfig?.clientCount}
+            ssid={status.connected ? status.ssid : undefined}
+          />
+        )}
+      </div>
       <div className="space-y-6">
-      {/* WiFi Enable/Disable Section */}
+      {/* AP Mode Section */}
+      {isInAPMode && status?.apConfig && (
+        <>
+          <APModeInstructions
+            apConfig={status.apConfig}
+            onResetTimeout={handleResetAPTimeout}
+            resettingTimeout={resettingTimeout}
+          />
+
+          {/* Connected Clients */}
+          {status.connectedClients && status.connectedClients.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+              <APClientList clients={status.connectedClients} />
+            </div>
+          )}
+
+          {/* Exit AP Mode Button */}
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button
+                onClick={() => handleStopAPMode()}
+                disabled={stoppingAP}
+                className="flex-1 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {stoppingAP ? 'Exiting Hotspot Mode...' : 'Exit Hotspot Mode'}
+              </button>
+            </div>
+            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+              Exit hotspot mode to connect to your regular WiFi network.
+            </p>
+          </div>
+        </>
+      )}
+
+      {/* WiFi Enable/Disable Section - Only show when not in AP mode */}
+      {!isInAPMode && (
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <div className="flex items-center justify-between">
           <div className="flex-1">
@@ -261,9 +380,10 @@ export default function WiFiSettings() {
           </button>
         </div>
       </div>
+      )}
 
-      {/* WiFi Network Connection Section */}
-      {status?.enabled && (
+      {/* WiFi Network Connection Section - Only show when not in AP mode */}
+      {status?.enabled && !isInAPMode && (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">Network Connection</h3>
@@ -403,6 +523,38 @@ export default function WiFiSettings() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* Switch to Hotspot Mode - Only show when in client mode and enabled */}
+      {status?.enabled && !isInAPMode && (
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0">
+              <svg className="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0"
+                />
+                <circle cx="12" cy="12" r="3" fill="currentColor" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Hotspot Mode</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Create a WiFi hotspot so other devices can connect directly to LacyLights for initial setup or when no WiFi network is available.
+              </p>
+              <button
+                onClick={handleStartAPMode}
+                disabled={startingAP}
+                className="mt-4 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {startingAP ? 'Starting Hotspot...' : 'Switch to Hotspot Mode'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

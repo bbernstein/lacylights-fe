@@ -272,6 +272,30 @@ export enum WiFiSecurityType {
   OWE = 'OWE',
 }
 
+export enum WiFiMode {
+  CLIENT = 'CLIENT',
+  AP = 'AP',
+  DISABLED = 'DISABLED',
+  CONNECTING = 'CONNECTING',
+  STARTING_AP = 'STARTING_AP',
+}
+
+export interface APConfig {
+  ssid: string;
+  ipAddress: string;
+  channel: number;
+  clientCount: number;
+  timeoutMinutes: number;
+  minutesRemaining?: number;
+}
+
+export interface APClient {
+  macAddress: string;
+  ipAddress?: string;
+  hostname?: string;
+  connectedAt: string;
+}
+
 export interface WiFiStatus {
   available: boolean;
   enabled: boolean;
@@ -281,12 +305,21 @@ export interface WiFiStatus {
   ipAddress?: string;
   macAddress?: string;
   frequency?: string;
+  mode: WiFiMode;
+  apConfig?: APConfig;
+  connectedClients?: APClient[];
 }
 
 export interface WiFiConnectionResult {
   success: boolean;
   message?: string;
   connected: boolean;
+}
+
+export interface WiFiModeResult {
+  success: boolean;
+  message?: string;
+  mode: WiFiMode;
 }
 
 export interface User {
