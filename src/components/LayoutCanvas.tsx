@@ -819,6 +819,9 @@ export default function LayoutCanvas({
       });
 
       if (touchedFixture) {
+        // Prevent default browser behavior (text selection, context menu)
+        e.preventDefault();
+
         // Start long-press timer for toggle selection on fixture
         longPressTimerRef.current = setTimeout(() => {
           setIsLongPressing(true);
@@ -1245,7 +1248,13 @@ export default function LayoutCanvas({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={{ cursor: getCursorStyle(), touchAction: "none" }}
+        style={{
+          cursor: getCursorStyle(),
+          touchAction: "none",
+          WebkitUserSelect: "none",
+          userSelect: "none",
+          WebkitTouchCallout: "none",
+        }}
         className="w-full h-full"
       />
 
