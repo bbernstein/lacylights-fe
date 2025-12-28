@@ -660,10 +660,11 @@ export default function MultiSelectControls({
   }
 
   // Desktop: Render as floating panel
+  // Note: 'dark' class forces dark mode styling since panel always has dark background
   return (
     <>
       <div
-        className="absolute bottom-4 left-4 bg-gray-800 rounded-lg shadow-xl p-2 min-w-[280px] max-w-[360px] max-h-[70vh] overflow-y-auto"
+        className="dark absolute bottom-4 left-4 bg-gray-800 rounded-lg shadow-xl p-2 min-w-[280px] max-w-[360px] max-h-[70vh] overflow-y-auto"
         onMouseLeave={handleMouseLeave}
         data-testid="multi-select-controls"
       >
