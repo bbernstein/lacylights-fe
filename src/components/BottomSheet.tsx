@@ -17,20 +17,25 @@ const SCROLL_LOCK_ATTR = 'data-scroll-lock-count';
 
 /**
  * Gets the current scroll lock count from document.body.
- * Returns 0 if not in browser or attribute not set.
+ * Returns 0 if not in browser, attribute not set, or value is invalid.
  */
 function getScrollLockCount(): number {
   if (typeof document === 'undefined') return 0;
-  return parseInt(document.body.getAttribute(SCROLL_LOCK_ATTR) || '0', 10);
+  const count = parseInt(document.body.getAttribute(SCROLL_LOCK_ATTR) || '0', 10);
+  // Guard against NaN (defensive programming)
+  return isNaN(count) ? 0 : count;
 }
 
 /**
  * Sets the scroll lock count on document.body and manages overflow style.
+ * Clamps to 0 if count would go negative (defensive programming).
  */
 function setScrollLockCount(count: number): void {
   if (typeof document === 'undefined') return;
-  if (count > 0) {
-    document.body.setAttribute(SCROLL_LOCK_ATTR, String(count));
+  // Clamp to 0 to prevent negative counts from cleanup edge cases
+  const safeCount = Math.max(0, count);
+  if (safeCount > 0) {
+    document.body.setAttribute(SCROLL_LOCK_ATTR, String(safeCount));
     document.body.style.overflow = 'hidden';
   } else {
     document.body.removeAttribute(SCROLL_LOCK_ATTR);
