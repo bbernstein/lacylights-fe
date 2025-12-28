@@ -20,7 +20,7 @@ export default function TabNavigation() {
   const pathname = usePathname();
 
   return (
-    <nav className="border-b border-gray-200 dark:border-gray-700">
+    <nav className="border-b border-gray-200 dark:border-gray-700 hidden md:block">
       <div className="flex space-x-8 px-6" aria-label="Tabs">
         {tabs.map((tab) => {
           const isActive = pathname === tab.href || pathname.startsWith(`${tab.href}/`);

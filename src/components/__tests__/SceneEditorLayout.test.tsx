@@ -20,6 +20,11 @@ jest.mock('../LayoutCanvas', () => {
   };
 });
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+}));
+
 const mockProject = {
   id: 'project-1',
   name: 'Test Project',
@@ -100,7 +105,8 @@ describe('SceneEditorLayout', () => {
         </MockedProvider>
       );
 
-      expect(screen.getByText('Back to Scenes')).toBeInTheDocument();
+      // Both mobile and desktop toolbars render back button text
+      expect(screen.getAllByText('Back to Scenes').length).toBeGreaterThan(0);
       expect(screen.getByText('Channel List')).toBeInTheDocument();
       expect(screen.getByText('2D Layout')).toBeInTheDocument();
       // Wait for scene data to load before checking for channel list editor
@@ -115,7 +121,8 @@ describe('SceneEditorLayout', () => {
         </MockedProvider>
       );
 
-      expect(screen.getByText('Back to Scenes')).toBeInTheDocument();
+      // Both mobile and desktop toolbars render back button text
+      expect(screen.getAllByText('Back to Scenes').length).toBeGreaterThan(0);
       expect(screen.getByText('Channel List')).toBeInTheDocument();
       expect(screen.getByText('2D Layout')).toBeInTheDocument();
       // Wait for scene data to load
@@ -213,8 +220,10 @@ describe('SceneEditorLayout', () => {
         </MockedProvider>
       );
 
-      const backButton = screen.getByText('Back to Scenes');
-      await userEvent.click(backButton);
+      // Use getAllByText since both mobile and desktop toolbars render the text
+      // Select the desktop version (second element, as mobile toolbar renders first)
+      const backButtons = screen.getAllByText('Back to Scenes');
+      await userEvent.click(backButtons[0]);
 
       expect(onClose).toHaveBeenCalledTimes(1);
     });

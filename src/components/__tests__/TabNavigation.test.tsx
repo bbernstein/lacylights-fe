@@ -150,6 +150,17 @@ describe('TabNavigation', () => {
     });
   });
 
+  describe('responsive behavior', () => {
+    it('is hidden on mobile screens', () => {
+      mockUsePathname.mockReturnValue('/fixtures');
+
+      render(<TabNavigation />);
+
+      const nav = screen.getByRole('navigation');
+      expect(nav).toHaveClass('hidden', 'md:block');
+    });
+  });
+
   describe('styling classes', () => {
     it('applies correct base classes to all links', () => {
       mockUsePathname.mockReturnValue('/unknown');
