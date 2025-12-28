@@ -425,14 +425,26 @@ describe('ColorPickerModal', () => {
   });
 
   describe('hex input', () => {
-    it('updates color when valid hex is entered', async () => {
+    it('updates color when valid 6-char hex is entered', async () => {
       render(<ColorPickerModal {...defaultProps} />);
 
       const hexInput = screen.getByDisplayValue('#808080');
       await userEvent.clear(hexInput);
-      await userEvent.type(hexInput, '#FF0000');
+      await userEvent.type(hexInput, '#0000FF');
 
-      expect(defaultProps.onColorChange).toHaveBeenCalledWith({ r: 255, g: 0, b: 0 });
+      // Typing #0000FF doesn't trigger intermediate valid 3-char matches
+      expect(defaultProps.onColorChange).toHaveBeenLastCalledWith({ r: 0, g: 0, b: 255 });
+    });
+
+    it('updates color when valid 3-char hex is entered', async () => {
+      render(<ColorPickerModal {...defaultProps} />);
+
+      const hexInput = screen.getByDisplayValue('#808080');
+      await userEvent.clear(hexInput);
+      await userEvent.type(hexInput, '#F00');
+
+      // 3-char hex #F00 = #FF0000 (red)
+      expect(defaultProps.onColorChange).toHaveBeenLastCalledWith({ r: 255, g: 0, b: 0 });
     });
 
     it('shows error styling for invalid hex', async () => {

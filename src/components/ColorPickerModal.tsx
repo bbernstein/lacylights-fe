@@ -56,6 +56,8 @@ export default function ColorPickerModal({
   const [bestMatch, setBestMatch] = useState<(typeof ROSCOLUX_FILTERS[0] & { similarity: number }) | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(!isMobile); // Collapsed by default on mobile
   const prevIsOpenRef = useRef(isOpen);
+  // Track when color is updated from hex input to avoid overwriting user's typing
+  const colorFromHexInputRef = useRef(false);
 
   // Only initialize selectedColor when modal first opens (transition from closed to open)
   useEffect(() => {
@@ -69,8 +71,13 @@ export default function ColorPickerModal({
     prevIsOpenRef.current = isOpen;
   }, [isOpen, currentColor, isMobile]);
 
-  // Update hex input when selected color changes
+  // Update hex input when selected color changes (but not from hex input itself)
   useEffect(() => {
+    // Skip if color was just set from hex input to avoid overwriting user's typing
+    if (colorFromHexInputRef.current) {
+      colorFromHexInputRef.current = false;
+      return;
+    }
     setHexInputValue(rgbToHex(selectedColor.r, selectedColor.g, selectedColor.b));
   }, [selectedColor]);
 
@@ -92,7 +99,8 @@ export default function ColorPickerModal({
   };
 
   const isValidHex = (hex: string): boolean => {
-    return /^#?[0-9A-Fa-f]{6}$/.test(hex);
+    // Support both 3-character (#FFF) and 6-character (#FFFFFF) hex codes
+    return /^#?([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(hex);
   };
 
   const handleHexInputChange = (hex: string) => {
@@ -101,6 +109,8 @@ export default function ColorPickerModal({
     // Only update color if valid hex
     if (isValidHex(hex)) {
       const rgb = hexToRgb(hex);
+      // Mark that this color update came from hex input (prevents effect from overwriting)
+      colorFromHexInputRef.current = true;
       setSelectedColor(rgb);
       onColorChange(rgb);
     }

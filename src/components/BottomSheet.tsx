@@ -1,9 +1,16 @@
 'use client';
 
-import { useEffect, useCallback, useRef, useState, ReactNode } from 'react';
+import { useEffect, useCallback, useRef, ReactNode } from 'react';
 import ReactDOM from 'react-dom';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+
+// Swipe gesture thresholds
+const SWIPE_START_THRESHOLD = 10; // Min px to start recognizing as a swipe
+const SWIPE_DISMISS_THRESHOLD = 100; // Min px to dismiss the sheet
+
+// Body scroll lock management - tracks number of open modals
+let scrollLockCount = 0;
 
 /**
  * Props for the BottomSheet component
@@ -79,12 +86,10 @@ export default function BottomSheet({
   usePortal = true,
 }: BottomSheetProps) {
   const isMobile = useIsMobile();
-  const [portalMounted, setPortalMounted] = useState(false);
 
-  // Ensure portal is only rendered on client side
-  useEffect(() => {
-    setPortalMounted(true);
-  }, []);
+  // Check if we're in browser environment (avoids SSR issues without flash)
+  const canUsePortal = usePortal && typeof window !== 'undefined';
+
   const sheetRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number | null>(null);
@@ -129,8 +134,11 @@ export default function BottomSheet({
   useEffect(() => {
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
-      // Prevent body scroll when sheet is open
-      document.body.style.overflow = 'hidden';
+      // Prevent body scroll when sheet is open (using counter for multiple modals)
+      scrollLockCount++;
+      if (scrollLockCount === 1) {
+        document.body.style.overflow = 'hidden';
+      }
 
       // Focus trapping: Focus the sheet when opened
       if (sheetRef.current) {
@@ -145,9 +153,12 @@ export default function BottomSheet({
     }
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      // Only restore if we set it to hidden
-      if (document.body.style.overflow === 'hidden') {
-        document.body.style.overflow = '';
+      // Only restore scroll when all modals are closed
+      if (isOpen) {
+        scrollLockCount--;
+        if (scrollLockCount === 0) {
+          document.body.style.overflow = '';
+        }
       }
     };
   }, [isOpen, handleKeyDown]);
@@ -196,8 +207,8 @@ export default function BottomSheet({
       const deltaY = touch.clientY - dragStartY.current;
       dragCurrentY.current = touch.clientY;
 
-      // Only start dragging if moved down at least 10px
-      if (deltaY > 10) {
+      // Only start dragging if moved down past threshold
+      if (deltaY > SWIPE_START_THRESHOLD) {
         isDragging.current = true;
       }
 
@@ -216,8 +227,8 @@ export default function BottomSheet({
 
     const deltaY = (dragCurrentY.current ?? 0) - dragStartY.current;
 
-    // If dragged more than 100px down, close the sheet
-    if (deltaY > 100) {
+    // If dragged past dismiss threshold, close the sheet
+    if (deltaY > SWIPE_DISMISS_THRESHOLD) {
       onClose();
     }
 
@@ -371,8 +382,8 @@ export default function BottomSheet({
     );
   }
 
-  // Render via portal if enabled and mounted on client
-  if (usePortal && portalMounted) {
+  // Render via portal if enabled and in browser environment
+  if (canUsePortal) {
     return ReactDOM.createPortal(sheetContent, document.body);
   }
 
