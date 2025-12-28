@@ -29,7 +29,7 @@ function MainLayoutContent({ children }: { children: ReactNode }) {
           <TabNavigation />
         </>
       )}
-      <main className={isFocusMode ? 'flex-1' : 'flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8'}>
+      <main className={isFocusMode ? 'flex-1' : 'flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8'}>
         {children}
       </main>
       {/* Mobile bottom navigation */}

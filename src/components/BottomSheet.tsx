@@ -77,11 +77,35 @@ export default function BottomSheet({
   const dragCurrentY = useRef<number | null>(null);
   const isDragging = useRef(false);
 
-  // Handle escape key to close
+  // Handle escape key to close and Tab key for focus trapping
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (event.key === 'Escape' && closeOnEscape) {
         onClose();
+        return;
+      }
+
+      // Focus trapping: Cycle focus within the modal when Tab is pressed
+      if (event.key === 'Tab' && sheetRef.current) {
+        const focusableElements = sheetRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (event.shiftKey) {
+          // Shift + Tab: If on first element, cycle to last
+          if (document.activeElement === firstElement) {
+            event.preventDefault();
+            lastElement?.focus();
+          }
+        } else {
+          // Tab: If on last element, cycle to first
+          if (document.activeElement === lastElement) {
+            event.preventDefault();
+            firstElement?.focus();
+          }
+        }
       }
     },
     [onClose, closeOnEscape]
@@ -92,10 +116,24 @@ export default function BottomSheet({
       document.addEventListener('keydown', handleKeyDown);
       // Prevent body scroll when sheet is open
       document.body.style.overflow = 'hidden';
+
+      // Focus trapping: Focus the sheet when opened
+      if (sheetRef.current) {
+        const focusableElements = sheetRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusableElements.length > 0) {
+          // Focus the close button or first focusable element
+          focusableElements[0].focus();
+        }
+      }
     }
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
+      // Only restore if we set it to hidden
+      if (document.body.style.overflow === 'hidden') {
+        document.body.style.overflow = '';
+      }
     };
   }, [isOpen, handleKeyDown]);
 
@@ -115,6 +153,8 @@ export default function BottomSheet({
       if (!isMobile || !showHandle) return;
 
       const touch = e.touches[0];
+      if (!touch) return; // Safety check for touch event
+
       dragStartY.current = touch.clientY;
       dragCurrentY.current = touch.clientY;
       isDragging.current = false;
@@ -127,6 +167,8 @@ export default function BottomSheet({
       if (!isMobile || dragStartY.current === null || !showHandle) return;
 
       const touch = e.touches[0];
+      if (!touch) return; // Safety check for touch event
+
       const deltaY = touch.clientY - dragStartY.current;
       dragCurrentY.current = touch.clientY;
 
