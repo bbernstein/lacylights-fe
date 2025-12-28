@@ -56,8 +56,6 @@ export default function ColorPickerModal({
   const [bestMatch, setBestMatch] = useState<(typeof ROSCOLUX_FILTERS[0] & { similarity: number }) | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(!isMobile); // Collapsed by default on mobile
   const prevIsOpenRef = useRef(isOpen);
-  // Track when color is updated from hex input to avoid overwriting user's typing
-  const colorFromHexInputRef = useRef(false);
 
   // Only initialize selectedColor when modal first opens (transition from closed to open)
   useEffect(() => {
@@ -69,16 +67,37 @@ export default function ColorPickerModal({
       setShowAdvanced(!isMobile);
     }
     prevIsOpenRef.current = isOpen;
-  }, [isOpen, currentColor, isMobile]);
+    // Note: currentColor and isMobile are in deps but we only act on isOpen transitions
+    // This is intentional - we want fresh values when modal opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
-  // Update hex input when selected color changes (but not from hex input itself)
+  // Track whether the last color change came from the hex input
+  // Using a ref with the hex value that caused the color change
+  const lastHexInputColorRef = useRef<string | null>(null);
+
+  // Update hex input when selected color changes from external sources (color wheel, roscolux)
+  // Skip if the color was set from hex input to avoid overwriting user's typing
   useEffect(() => {
-    // Skip if color was just set from hex input to avoid overwriting user's typing
-    if (colorFromHexInputRef.current) {
-      colorFromHexInputRef.current = false;
-      return;
+    const colorHex = rgbToHex(selectedColor.r, selectedColor.g, selectedColor.b).toLowerCase();
+
+    // Check if this color was set from hex input by comparing RGB values
+    if (lastHexInputColorRef.current) {
+      const lastInputRgb = hexToRgb(lastHexInputColorRef.current);
+      if (
+        lastInputRgb.r === selectedColor.r &&
+        lastInputRgb.g === selectedColor.g &&
+        lastInputRgb.b === selectedColor.b
+      ) {
+        // Color matches the hex input that set it - don't overwrite
+        lastHexInputColorRef.current = null;
+        return;
+      }
     }
-    setHexInputValue(rgbToHex(selectedColor.r, selectedColor.g, selectedColor.b));
+
+    // Color came from external source (color wheel, roscolux) - update hex input
+    setHexInputValue(colorHex);
+    lastHexInputColorRef.current = null;
   }, [selectedColor]);
 
   // Update Roscolux match when color changes
@@ -109,8 +128,8 @@ export default function ColorPickerModal({
     // Only update color if valid hex
     if (isValidHex(hex)) {
       const rgb = hexToRgb(hex);
-      // Mark that this color update came from hex input (prevents effect from overwriting)
-      colorFromHexInputRef.current = true;
+      // Store the hex value to prevent effect from overwriting user's input
+      lastHexInputColorRef.current = hex;
       setSelectedColor(rgb);
       onColorChange(rgb);
     }
