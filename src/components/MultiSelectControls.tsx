@@ -537,10 +537,10 @@ export default function MultiSelectControls({
   ) => {
     if (channels.length === 0) return null;
     return (
-      <div className="border-b border-gray-700 last:border-b-0">
+      <div className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center justify-between w-full py-2 text-sm font-medium text-gray-300 touch-manipulation"
+          className="flex items-center justify-between w-full py-2 text-sm font-medium text-gray-700 dark:text-gray-300 touch-manipulation"
         >
           <span>{title} ({channels.length})</span>
           {isOpen ? (
@@ -564,20 +564,20 @@ export default function MultiSelectControls({
     <>
       {/* RGB Color Picker swatch */}
       {displayRgbColor && (
-        <div className="mb-1.5 pb-1.5 border-b border-gray-700">
-          <label className="block text-gray-300 text-xs font-medium mb-0.5">
+        <div className="mb-1.5 pb-1.5 border-b border-gray-200 dark:border-gray-700">
+          <label className="block text-gray-700 dark:text-gray-300 text-xs font-medium mb-0.5">
             Color
           </label>
           <div className="flex items-center gap-2">
             <button
               onClick={handleOpenColorPicker}
-              className="w-12 h-8 rounded border-2 border-gray-600 hover:border-blue-500 transition-colors cursor-pointer touch-manipulation min-h-[44px] min-w-[44px]"
+              className="w-12 h-8 rounded border-2 border-gray-300 dark:border-gray-600 hover:border-blue-500 transition-colors cursor-pointer touch-manipulation min-h-[44px] min-w-[44px]"
               style={{
                 backgroundColor: `rgb(${displayRgbColor.r}, ${displayRgbColor.g}, ${displayRgbColor.b})`,
               }}
               title="Click to open color picker"
             />
-            <span className="text-gray-400 text-xs font-mono">
+            <span className="text-gray-600 dark:text-gray-400 text-xs font-mono">
               {rgbToHex(
                 displayRgbColor.r,
                 displayRgbColor.g,
@@ -605,7 +605,7 @@ export default function MultiSelectControls({
 
       {/* Info text */}
       {mergedChannels.length === 0 && (
-        <div className="text-gray-400 text-xs text-center py-2">
+        <div className="text-gray-500 dark:text-gray-400 text-xs text-center py-2">
           Selected fixtures have no controllable channels
         </div>
       )}
