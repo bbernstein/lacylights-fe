@@ -67,8 +67,13 @@ export default function ColorPickerModal({
       setShowAdvanced(!isMobile);
     }
     prevIsOpenRef.current = isOpen;
-    // Note: currentColor and isMobile are in deps but we only act on isOpen transitions
-    // This is intentional - we want fresh values when modal opens
+    // INTENTIONAL: Omitting currentColor and isMobile from dependency array.
+    // WHY IT'S SAFE:
+    // 1. This effect only initializes state when modal OPENS (isOpen: false → true)
+    // 2. While modal is open, color changes are handled by ColorWheelPicker/RoscoluxSwatchPicker
+    // 3. Including currentColor would cause unwanted resets during user interaction
+    // 4. isMobile only affects initial UI state (showAdvanced), not ongoing behavior
+    // 5. Fresh values are captured from closure when the condition is met
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
