@@ -2,6 +2,15 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import FadeBehaviorEditModal from '../FadeBehaviorEditModal';
 import { FadeBehavior, ChannelType, InstanceChannel } from '@/types';
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+}));
+
+import { useIsMobile } from '@/hooks/useMediaQuery';
+
+const mockUseIsMobile = useIsMobile as jest.Mock;
+
 const mockChannel: InstanceChannel = {
   id: 'channel-1',
   offset: 0,
@@ -33,6 +42,7 @@ describe('FadeBehaviorEditModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseIsMobile.mockReturnValue(false); // Default to desktop
   });
 
   describe('visibility', () => {
@@ -167,22 +177,19 @@ describe('FadeBehaviorEditModal', () => {
       const onClose = jest.fn();
       render(<FadeBehaviorEditModal {...defaultProps} onClose={onClose} />);
 
-      const closeButton = screen.getByRole('button', { name: /close fade behavior modal/i });
+      const closeButton = screen.getByTestId('fade-behavior-edit-modal-close-button');
       fireEvent.click(closeButton);
       expect(onClose).toHaveBeenCalled();
     });
 
     it('calls onClose when clicking backdrop', () => {
       const onClose = jest.fn();
-      const { container } = render(<FadeBehaviorEditModal {...defaultProps} onClose={onClose} />);
+      render(<FadeBehaviorEditModal {...defaultProps} onClose={onClose} />);
 
-      // Click on the backdrop (the outer div with bg-black)
-      const backdrop = container.querySelector('.bg-black');
-      if (backdrop) {
-        // Simulate clicking directly on the backdrop, not a child element
-        fireEvent.click(backdrop);
-        expect(onClose).toHaveBeenCalled();
-      }
+      // Click on the backdrop using BottomSheet's testId
+      const backdrop = screen.getByTestId('fade-behavior-edit-modal-backdrop');
+      fireEvent.click(backdrop);
+      expect(onClose).toHaveBeenCalled();
     });
 
     it('calls onClose when Escape key is pressed', async () => {
@@ -204,6 +211,50 @@ describe('FadeBehaviorEditModal', () => {
       // Click on the modal content
       fireEvent.click(screen.getByText('Fade'));
       expect(onClose).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('mobile behavior', () => {
+    beforeEach(() => {
+      mockUseIsMobile.mockReturnValue(true);
+    });
+
+    it('stacks buttons vertically on mobile', () => {
+      render(<FadeBehaviorEditModal {...defaultProps} />);
+
+      const saveButton = screen.getByRole('button', { name: /save/i });
+      const buttonContainer = saveButton.parentElement;
+      expect(buttonContainer).toHaveClass('flex-col');
+    });
+
+    it('shows save button first on mobile', () => {
+      render(<FadeBehaviorEditModal {...defaultProps} />);
+
+      const buttons = screen.getAllByRole('button');
+      const buttonLabels = buttons.map(b => b.textContent);
+      // Save should come before Cancel on mobile
+      const saveIndex = buttonLabels.indexOf('Save');
+      const cancelIndex = buttonLabels.indexOf('Cancel');
+      expect(saveIndex).toBeLessThan(cancelIndex);
+    });
+
+    it('has larger touch targets on mobile', () => {
+      render(<FadeBehaviorEditModal {...defaultProps} />);
+
+      // Select a different behavior to enable the save button
+      const snapRadio = screen.getByDisplayValue(FadeBehavior.SNAP);
+      fireEvent.click(snapRadio);
+
+      const saveButton = screen.getByRole('button', { name: /save/i });
+      expect(saveButton).toHaveClass('min-h-[44px]');
+    });
+
+    it('renders as BottomSheet dialog', () => {
+      render(<FadeBehaviorEditModal {...defaultProps} />);
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
     });
   });
 });

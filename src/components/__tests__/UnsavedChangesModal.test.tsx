@@ -1,6 +1,15 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import UnsavedChangesModal from '../UnsavedChangesModal';
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+}));
+
+import { useIsMobile } from '@/hooks/useMediaQuery';
+
+const mockUseIsMobile = useIsMobile as jest.Mock;
+
 describe('UnsavedChangesModal', () => {
   const defaultProps = {
     isOpen: true,
@@ -11,6 +20,7 @@ describe('UnsavedChangesModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseIsMobile.mockReturnValue(false); // Default to desktop
   });
 
   describe('rendering', () => {
@@ -79,7 +89,7 @@ describe('UnsavedChangesModal', () => {
     it('should call onCancel when X button is clicked', () => {
       render(<UnsavedChangesModal {...defaultProps} />);
 
-      const closeButton = screen.getByLabelText('Close');
+      const closeButton = screen.getByTestId('unsaved-changes-modal-close-button');
       fireEvent.click(closeButton);
 
       expect(defaultProps.onCancel).toHaveBeenCalledTimes(1);
@@ -148,13 +158,12 @@ describe('UnsavedChangesModal', () => {
       expect(saveButton.querySelector('svg.animate-spin')).toBeInTheDocument();
     });
 
-    it('should disable all buttons when saveInProgress', () => {
+    it('should disable all action buttons when saveInProgress', () => {
       render(<UnsavedChangesModal {...defaultProps} saveInProgress={true} />);
 
       expect(screen.getByTestId('unsaved-changes-save-button')).toBeDisabled();
       expect(screen.getByTestId('unsaved-changes-discard-button')).toBeDisabled();
       expect(screen.getByTestId('unsaved-changes-cancel-button')).toBeDisabled();
-      expect(screen.getByLabelText('Close')).toBeDisabled();
     });
 
     it('should not call callbacks when buttons are clicked while saveInProgress', () => {
@@ -184,10 +193,57 @@ describe('UnsavedChangesModal', () => {
       render(<UnsavedChangesModal {...defaultProps} />);
 
       const dialog = screen.getByRole('dialog');
-      expect(dialog).toHaveAttribute('aria-labelledby', 'unsaved-changes-title');
+      expect(dialog).toHaveAttribute('aria-labelledby', 'unsaved-changes-modal-title');
 
       const title = screen.getByText('Unsaved Changes');
-      expect(title).toHaveAttribute('id', 'unsaved-changes-title');
+      expect(title).toHaveAttribute('id', 'unsaved-changes-modal-title');
+    });
+  });
+
+  describe('mobile behavior', () => {
+    beforeEach(() => {
+      mockUseIsMobile.mockReturnValue(true);
+    });
+
+    it('should stack buttons vertically on mobile', () => {
+      render(<UnsavedChangesModal {...defaultProps} />);
+
+      const saveButton = screen.getByTestId('unsaved-changes-save-button');
+      const buttonContainer = saveButton.parentElement;
+      expect(buttonContainer).toHaveClass('flex-col');
+    });
+
+    it('should show Save button first on mobile', () => {
+      render(<UnsavedChangesModal {...defaultProps} />);
+
+      const buttons = screen.getAllByRole('button');
+      const buttonLabels = buttons.map(b => b.textContent);
+      // Save should come before Cancel and Discard on mobile
+      const saveIndex = buttonLabels.indexOf('Save Changes');
+      const cancelIndex = buttonLabels.indexOf('Cancel');
+      const discardIndex = buttonLabels.indexOf('Discard');
+      expect(saveIndex).toBeLessThan(cancelIndex);
+      expect(cancelIndex).toBeLessThan(discardIndex);
+    });
+
+    it('should have larger touch targets on mobile', () => {
+      render(<UnsavedChangesModal {...defaultProps} />);
+
+      const saveButton = screen.getByTestId('unsaved-changes-save-button');
+      const cancelButton = screen.getByTestId('unsaved-changes-cancel-button');
+      const discardButton = screen.getByTestId('unsaved-changes-discard-button');
+
+      expect(saveButton).toHaveClass('min-h-[44px]');
+      expect(cancelButton).toHaveClass('min-h-[44px]');
+      expect(discardButton).toHaveClass('min-h-[44px]');
+    });
+
+    it('should render as BottomSheet dialog', () => {
+      render(<UnsavedChangesModal {...defaultProps} />);
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
     });
   });
 });

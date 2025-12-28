@@ -10,7 +10,7 @@
 * All code must have unit tests that pass before being committed.
 * Unit tests need to have coverage above the thresholds set in the coverage settings.
 * If new code causes coverage to drop below the threshold, address the issue before committing.
-* Never raise the coverage thresholds without a good reason and manual prompting.
+* You should raise the coverage thresholds when new tests increase coverage above current thredholds.
 * Always check the current branch of the repo before making code changes. If in main branch, create a new branch to represent the new code changes.
 * All lint warnings should be considered errors, so they must be fixed before commiting code.
 * Every function must have a unit test unless that's very difficult to do.

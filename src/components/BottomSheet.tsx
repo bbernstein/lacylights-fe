@@ -164,6 +164,8 @@ export default function BottomSheet({
 
   // Track whether this instance incremented the scroll lock counter
   const didIncrementScrollLockRef = useRef(false);
+  // Track whether we've done initial focus (prevents re-focusing on every render)
+  const didInitialFocusRef = useRef(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -172,8 +174,9 @@ export default function BottomSheet({
       setScrollLockCount(getScrollLockCount() + 1);
       didIncrementScrollLockRef.current = true;
 
-      // Focus trapping: Focus the sheet when opened
-      if (sheetRef.current) {
+      // Focus trapping: Focus the sheet when opened - only on initial open
+      // This prevents re-focusing when handleKeyDown changes due to parent re-renders
+      if (!didInitialFocusRef.current && sheetRef.current) {
         const focusableElements = sheetRef.current.querySelectorAll<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
         );
@@ -181,6 +184,7 @@ export default function BottomSheet({
           // Focus the close button or first focusable element
           focusableElements[0].focus();
         }
+        didInitialFocusRef.current = true;
       }
     }
     return () => {
@@ -192,6 +196,13 @@ export default function BottomSheet({
       }
     };
   }, [isOpen, handleKeyDown]);
+
+  // Reset initial focus ref when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      didInitialFocusRef.current = false;
+    }
+  }, [isOpen]);
 
   // Handle backdrop click to close
   const handleBackdropClick = useCallback(
