@@ -32,6 +32,8 @@ interface BottomSheetProps {
   fullHeightMobile?: boolean;
   /** Test ID for the component */
   testId?: string;
+  /** Whether to add safe area padding to footer for mobile nav (default: true) */
+  safeAreaFooter?: boolean;
 }
 
 /**
@@ -70,12 +72,15 @@ export default function BottomSheet({
   footer,
   fullHeightMobile = false,
   testId = 'bottom-sheet',
+  safeAreaFooter = true,
 }: BottomSheetProps) {
   const isMobile = useIsMobile();
   const sheetRef = useRef<HTMLDivElement>(null);
+  const handleRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number | null>(null);
   const dragCurrentY = useRef<number | null>(null);
   const isDragging = useRef(false);
+  const canSwipe = useRef(false); // Only true when touch starts on handle
 
   // Handle escape key to close and Tab key for focus trapping
   const handleKeyDown = useCallback(
@@ -148,9 +153,17 @@ export default function BottomSheet({
   );
 
   // Touch handlers for swipe-to-dismiss on mobile
+  // Only triggered when touch starts on the drag handle area
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
       if (!isMobile || !showHandle) return;
+
+      // Only enable swipe if touch started on the handle area
+      const target = e.target as HTMLElement;
+      const isOnHandle = handleRef.current?.contains(target) ?? false;
+      canSwipe.current = isOnHandle;
+
+      if (!isOnHandle) return;
 
       const touch = e.touches[0];
       if (!touch) return; // Safety check for touch event
@@ -164,7 +177,8 @@ export default function BottomSheet({
 
   const handleTouchMove = useCallback(
     (e: React.TouchEvent) => {
-      if (!isMobile || dragStartY.current === null || !showHandle) return;
+      // Only process if swipe was started from handle
+      if (!isMobile || !canSwipe.current || dragStartY.current === null || !showHandle) return;
 
       const touch = e.touches[0];
       if (!touch) return; // Safety check for touch event
@@ -187,7 +201,8 @@ export default function BottomSheet({
   );
 
   const handleTouchEnd = useCallback(() => {
-    if (!isMobile || dragStartY.current === null || !showHandle) return;
+    // Only process if swipe was started from handle
+    if (!isMobile || !canSwipe.current || dragStartY.current === null || !showHandle) return;
 
     const deltaY = (dragCurrentY.current ?? 0) - dragStartY.current;
 
@@ -205,6 +220,7 @@ export default function BottomSheet({
     dragStartY.current = null;
     dragCurrentY.current = null;
     isDragging.current = false;
+    canSwipe.current = false;
   }, [isMobile, showHandle, onClose]);
 
   if (!isOpen) return null;
@@ -232,9 +248,12 @@ export default function BottomSheet({
           aria-labelledby={title ? `${testId}-title` : undefined}
           data-testid={testId}
         >
-          {/* Drag Handle */}
+          {/* Drag Handle - touch here to swipe-dismiss */}
           {showHandle && (
-            <div className="flex justify-center pt-3 pb-2 touch-none">
+            <div
+              ref={handleRef}
+              className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
+            >
               <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
             </div>
           )}
@@ -270,11 +289,15 @@ export default function BottomSheet({
             {children}
           </div>
 
-          {/* Footer */}
+          {/* Footer - with safe area padding for mobile nav */}
           {footer && (
-            <div className="px-4 py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className={`px-4 py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${safeAreaFooter ? 'pb-24' : ''}`}>
               {footer}
             </div>
+          )}
+          {/* Safe area spacer when no footer but safe area is needed */}
+          {!footer && safeAreaFooter && (
+            <div className="pb-20" />
           )}
         </div>
       </div>

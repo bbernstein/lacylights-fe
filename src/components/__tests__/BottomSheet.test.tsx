@@ -195,13 +195,17 @@ describe('BottomSheet', () => {
       mockUseIsMobile.mockReturnValue(true);
     });
 
-    it('handles touch events for swipe to dismiss', () => {
+    it('handles touch events for swipe to dismiss when started on handle', () => {
       const onClose = jest.fn();
       render(<BottomSheet {...defaultProps} onClose={onClose} />);
       const sheet = screen.getByTestId('bottom-sheet');
+      // Find the drag handle container (parent of the rounded pill)
+      const handleContainer = sheet.querySelector('.cursor-grab');
+      expect(handleContainer).toBeTruthy();
 
-      // Simulate swipe down (more than 100px should close)
-      fireEvent.touchStart(sheet, {
+      // Simulate swipe down starting from the handle (more than 100px should close)
+      // Touch events bubble up, so we start from the handle element
+      fireEvent.touchStart(handleContainer!, {
         touches: [{ clientY: 100 }],
       });
       fireEvent.touchMove(sheet, {
@@ -212,17 +216,39 @@ describe('BottomSheet', () => {
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
-    it('does not close on small swipes', () => {
+    it('does not close on small swipes from handle', () => {
       const onClose = jest.fn();
       render(<BottomSheet {...defaultProps} onClose={onClose} />);
       const sheet = screen.getByTestId('bottom-sheet');
+      const handleContainer = sheet.querySelector('.cursor-grab');
+      expect(handleContainer).toBeTruthy();
 
-      // Simulate small swipe (less than 100px should not close)
-      fireEvent.touchStart(sheet, {
+      // Simulate small swipe from handle (less than 100px should not close)
+      fireEvent.touchStart(handleContainer!, {
         touches: [{ clientY: 100 }],
       });
       fireEvent.touchMove(sheet, {
         touches: [{ clientY: 150 }],
+      });
+      fireEvent.touchEnd(sheet);
+
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('does not trigger swipe when touch starts on content', () => {
+      const onClose = jest.fn();
+      render(<BottomSheet {...defaultProps} onClose={onClose} />);
+      const sheet = screen.getByTestId('bottom-sheet');
+      // Find content area (not the handle)
+      const content = screen.getByTestId('content');
+
+      // Simulate swipe down starting from content (should not trigger close)
+      // Touch starts on content element, not handle
+      fireEvent.touchStart(content, {
+        touches: [{ clientY: 100 }],
+      });
+      fireEvent.touchMove(sheet, {
+        touches: [{ clientY: 250 }],
       });
       fireEvent.touchEnd(sheet);
 

@@ -118,10 +118,10 @@ export default function ColorPickerModal({
     onClose();
   };
 
-  // Header with Roscolux match display
+  // Header with Roscolux match display - always reserve space to prevent layout shift
   const headerContent = (
-    <div className="flex-1">
-      {bestMatch && (
+    <div className="h-5 flex items-center">
+      {bestMatch ? (
         <div className="flex items-center text-xs">
           <span className="text-gray-600 dark:text-gray-400">Matches:</span>
           <span className="ml-2 font-medium text-gray-900 dark:text-white">
@@ -130,6 +130,11 @@ export default function ColorPickerModal({
           <span className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
             {bestMatch.similarity.toFixed(1)}%
           </span>
+        </div>
+      ) : (
+        <div className="text-xs text-gray-400 dark:text-gray-500">
+          {/* Placeholder text to maintain height */}
+          No Roscolux match
         </div>
       )}
     </div>
@@ -163,12 +168,10 @@ export default function ColorPickerModal({
       fullHeightMobile={true}
       testId="color-picker-modal"
     >
-      {/* Roscolux match display below title */}
-      {bestMatch && (
-        <div className="mb-3 -mt-2">
-          {headerContent}
-        </div>
-      )}
+      {/* Roscolux match display below title - always rendered to prevent layout shift */}
+      <div className="mb-3 -mt-2">
+        {headerContent}
+      </div>
 
       {/* Tab Navigation */}
       <div className="flex border-b border-gray-200 dark:border-gray-700 -mx-4 px-4 mb-4">
