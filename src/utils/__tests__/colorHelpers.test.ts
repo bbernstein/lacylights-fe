@@ -49,6 +49,30 @@ describe('colorHelpers', () => {
       expect(hexToRgb('#4080C0')).toEqual({ r: 64, g: 128, b: 192 });
     });
 
+    it('converts 3-digit shorthand hex to RGB', () => {
+      expect(hexToRgb('#F00')).toEqual({ r: 255, g: 0, b: 0 });
+      expect(hexToRgb('#0F0')).toEqual({ r: 0, g: 255, b: 0 });
+      expect(hexToRgb('#00F')).toEqual({ r: 0, g: 0, b: 255 });
+      expect(hexToRgb('#FFF')).toEqual({ r: 255, g: 255, b: 255 });
+      expect(hexToRgb('#000')).toEqual({ r: 0, g: 0, b: 0 });
+    });
+
+    it('handles lowercase 3-digit hex', () => {
+      expect(hexToRgb('#f00')).toEqual({ r: 255, g: 0, b: 0 });
+      expect(hexToRgb('#0f0')).toEqual({ r: 0, g: 255, b: 0 });
+      expect(hexToRgb('#00f')).toEqual({ r: 0, g: 0, b: 255 });
+    });
+
+    it('handles 3-digit hex without # prefix', () => {
+      expect(hexToRgb('F00')).toEqual({ r: 255, g: 0, b: 0 });
+      expect(hexToRgb('0F0')).toEqual({ r: 0, g: 255, b: 0 });
+    });
+
+    it('converts intermediate 3-digit hex values', () => {
+      expect(hexToRgb('#888')).toEqual({ r: 136, g: 136, b: 136 });
+      expect(hexToRgb('#48C')).toEqual({ r: 68, g: 136, b: 204 });
+    });
+
     it('returns black for invalid hex', () => {
       expect(hexToRgb('invalid')).toEqual({ r: 0, g: 0, b: 0 });
       expect(hexToRgb('#GGGGGG')).toEqual({ r: 0, g: 0, b: 0 });
@@ -127,9 +151,19 @@ describe('colorHelpers', () => {
       expect(getContrastingTextColor('#00ff00')).toBe('#1a1a1a');
     });
 
+    it('handles 3-digit shorthand hex colors', () => {
+      expect(getContrastingTextColor('#FFF')).toBe('#1a1a1a');
+      expect(getContrastingTextColor('#000')).toBe('#f5f5f5');
+      expect(getContrastingTextColor('#F00')).toBe('#f5f5f5');
+      expect(getContrastingTextColor('#0F0')).toBe('#1a1a1a');
+      expect(getContrastingTextColor('#00F')).toBe('#f5f5f5');
+    });
+
     it('handles colors without # prefix', () => {
       expect(getContrastingTextColor('ffffff')).toBe('#1a1a1a');
       expect(getContrastingTextColor('000000')).toBe('#f5f5f5');
+      expect(getContrastingTextColor('FFF')).toBe('#1a1a1a');
+      expect(getContrastingTextColor('000')).toBe('#f5f5f5');
     });
 
     it('handles invalid colors gracefully', () => {
