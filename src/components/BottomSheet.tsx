@@ -5,12 +5,38 @@ import ReactDOM from 'react-dom';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 
-// Swipe gesture thresholds
-const SWIPE_START_THRESHOLD = 10; // Min px to start recognizing as a swipe
-const SWIPE_DISMISS_THRESHOLD = 100; // Min px to dismiss the sheet
+// Swipe gesture thresholds - based on common touch UX patterns
+// 10px: Prevents accidental swipes from taps or micro-movements
+const SWIPE_START_THRESHOLD = 10;
+// 100px: Ensures intentional dismiss gesture (roughly 1/3 of small phone height)
+const SWIPE_DISMISS_THRESHOLD = 100;
 
-// Body scroll lock management - tracks number of open modals
-let scrollLockCount = 0;
+// Data attribute key for scroll lock counter on document.body
+// Using DOM storage avoids SSR issues and test pollution from module-level state
+const SCROLL_LOCK_ATTR = 'data-scroll-lock-count';
+
+/**
+ * Gets the current scroll lock count from document.body.
+ * Returns 0 if not in browser or attribute not set.
+ */
+function getScrollLockCount(): number {
+  if (typeof document === 'undefined') return 0;
+  return parseInt(document.body.getAttribute(SCROLL_LOCK_ATTR) || '0', 10);
+}
+
+/**
+ * Sets the scroll lock count on document.body and manages overflow style.
+ */
+function setScrollLockCount(count: number): void {
+  if (typeof document === 'undefined') return;
+  if (count > 0) {
+    document.body.setAttribute(SCROLL_LOCK_ATTR, String(count));
+    document.body.style.overflow = 'hidden';
+  } else {
+    document.body.removeAttribute(SCROLL_LOCK_ATTR);
+    document.body.style.overflow = '';
+  }
+}
 
 /**
  * Props for the BottomSheet component
@@ -134,11 +160,8 @@ export default function BottomSheet({
   useEffect(() => {
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
-      // Prevent body scroll when sheet is open (using counter for multiple modals)
-      scrollLockCount++;
-      if (scrollLockCount === 1) {
-        document.body.style.overflow = 'hidden';
-      }
+      // Prevent body scroll when sheet is open (using DOM-based counter for multiple modals)
+      setScrollLockCount(getScrollLockCount() + 1);
 
       // Focus trapping: Focus the sheet when opened
       if (sheetRef.current) {
@@ -153,12 +176,9 @@ export default function BottomSheet({
     }
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      // Only restore scroll when all modals are closed
+      // Decrement scroll lock counter when modal closes
       if (isOpen) {
-        scrollLockCount--;
-        if (scrollLockCount === 0) {
-          document.body.style.overflow = '';
-        }
+        setScrollLockCount(getScrollLockCount() - 1);
       }
     };
   }, [isOpen, handleKeyDown]);
