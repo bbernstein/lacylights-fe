@@ -1,4 +1,4 @@
-import { rgbToHex, hexToRgb } from '../colorHelpers';
+import { rgbToHex, hexToRgb, getContrastingTextColor } from '../colorHelpers';
 
 describe('colorHelpers', () => {
   describe('rgbToHex', () => {
@@ -80,6 +80,63 @@ describe('colorHelpers', () => {
         const convertedBack = hexToRgb(hex);
         expect(convertedBack).toEqual(color);
       });
+    });
+  });
+
+  describe('getContrastingTextColor', () => {
+    it('returns dark grey for white background', () => {
+      expect(getContrastingTextColor('#ffffff')).toBe('#1a1a1a');
+      expect(getContrastingTextColor('#FFFFFF')).toBe('#1a1a1a');
+    });
+
+    it('returns light grey for black background', () => {
+      expect(getContrastingTextColor('#000000')).toBe('#f5f5f5');
+      expect(getContrastingTextColor('#000')).toBe('#f5f5f5');
+    });
+
+    it('returns dark grey for light backgrounds', () => {
+      // Light yellow
+      expect(getContrastingTextColor('#ffff99')).toBe('#1a1a1a');
+      // Light cyan
+      expect(getContrastingTextColor('#99ffff')).toBe('#1a1a1a');
+      // Light pink
+      expect(getContrastingTextColor('#ffccff')).toBe('#1a1a1a');
+      // Light green
+      expect(getContrastingTextColor('#ccffcc')).toBe('#1a1a1a');
+    });
+
+    it('returns light grey for dark backgrounds', () => {
+      // Dark blue
+      expect(getContrastingTextColor('#000080')).toBe('#f5f5f5');
+      // Dark red
+      expect(getContrastingTextColor('#800000')).toBe('#f5f5f5');
+      // Dark green
+      expect(getContrastingTextColor('#008000')).toBe('#f5f5f5');
+      // Dark grey
+      expect(getContrastingTextColor('#333333')).toBe('#f5f5f5');
+    });
+
+    it('handles medium brightness colors appropriately', () => {
+      // Medium grey (luminance ~0.21, below threshold)
+      expect(getContrastingTextColor('#808080')).toBe('#f5f5f5');
+      // Medium blue (dark, low luminance)
+      expect(getContrastingTextColor('#0000ff')).toBe('#f5f5f5');
+      // Medium red (dark, low luminance)
+      expect(getContrastingTextColor('#ff0000')).toBe('#f5f5f5');
+      // Medium green (bright, high luminance due to green weight in formula)
+      expect(getContrastingTextColor('#00ff00')).toBe('#1a1a1a');
+    });
+
+    it('handles colors without # prefix', () => {
+      expect(getContrastingTextColor('ffffff')).toBe('#1a1a1a');
+      expect(getContrastingTextColor('000000')).toBe('#f5f5f5');
+    });
+
+    it('handles invalid colors gracefully', () => {
+      // Invalid colors default to black (r:0, g:0, b:0) via hexToRgb
+      expect(getContrastingTextColor('invalid')).toBe('#f5f5f5');
+      expect(getContrastingTextColor('')).toBe('#f5f5f5');
+      expect(getContrastingTextColor('#GGGGGG')).toBe('#f5f5f5');
     });
   });
 });
