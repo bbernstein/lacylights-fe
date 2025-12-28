@@ -13,6 +13,7 @@ import { channelValuesToRgb, applyIntensityToRgb, createOptimizedColorMapping, t
 import ChannelSlider from "./ChannelSlider";
 import ColorPickerModal from "./ColorPickerModal";
 import BottomSheet from "./BottomSheet";
+import MobileFixtureToolbar from "./MobileFixtureToolbar";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 
 interface MultiSelectControlsProps {
@@ -82,6 +83,7 @@ export default function MultiSelectControls({
   const isMobile = useIsMobile();
   const [mergedChannels, setMergedChannels] = useState<MergedChannel[]>([]);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [colorPickerIntensity, setColorPickerIntensity] = useState<number>(1);
   // Base color for intensity slider - maintains original color so intensity can go 0-100% and back
   const [baseColorForIntensity, setBaseColorForIntensity] = useState<{r: number; g: number; b: number} | null>(null);
@@ -556,47 +558,34 @@ export default function MultiSelectControls({
     );
   };
 
-  // Controls content (shared between desktop and mobile)
+  // Controls content (shared between desktop and mobile expanded view)
+  // Note: ColorPickerModal is rendered separately at root level
   const controlsContent = (
     <>
-      {/* RGB Color Picker */}
+      {/* RGB Color Picker swatch */}
       {displayRgbColor && (
-        <>
-          <div className="mb-1.5 pb-1.5 border-b border-gray-700">
-            <label className="block text-gray-300 text-xs font-medium mb-0.5">
-              Color
-            </label>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleOpenColorPicker}
-                className="w-12 h-8 rounded border-2 border-gray-600 hover:border-blue-500 transition-colors cursor-pointer touch-manipulation min-h-[44px] min-w-[44px]"
-                style={{
-                  backgroundColor: `rgb(${displayRgbColor.r}, ${displayRgbColor.g}, ${displayRgbColor.b})`,
-                }}
-                title="Click to open color picker"
-              />
-              <span className="text-gray-400 text-xs font-mono">
-                {rgbToHex(
-                  displayRgbColor.r,
-                  displayRgbColor.g,
-                  displayRgbColor.b,
-                ).toUpperCase()}
-              </span>
-            </div>
+        <div className="mb-1.5 pb-1.5 border-b border-gray-700">
+          <label className="block text-gray-300 text-xs font-medium mb-0.5">
+            Color
+          </label>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenColorPicker}
+              className="w-12 h-8 rounded border-2 border-gray-600 hover:border-blue-500 transition-colors cursor-pointer touch-manipulation min-h-[44px] min-w-[44px]"
+              style={{
+                backgroundColor: `rgb(${displayRgbColor.r}, ${displayRgbColor.g}, ${displayRgbColor.b})`,
+              }}
+              title="Click to open color picker"
+            />
+            <span className="text-gray-400 text-xs font-mono">
+              {rgbToHex(
+                displayRgbColor.r,
+                displayRgbColor.g,
+                displayRgbColor.b,
+              ).toUpperCase()}
+            </span>
           </div>
-
-          {/* Color Picker Modal */}
-          <ColorPickerModal
-            isOpen={isColorPickerOpen}
-            onClose={handleCloseColorPicker}
-            currentColor={displayRgbColor}
-            onColorChange={handleColorPickerChange}
-            onColorSelect={handleColorPickerSelect}
-            intensity={colorPickerIntensity}
-            onIntensityChange={handleIntensityChange}
-            showIntensity={true}
-          />
-        </>
+        </div>
       )}
 
       {/* Channel Sliders */}
@@ -623,58 +612,104 @@ export default function MultiSelectControls({
     </>
   );
 
-  // Mobile: Render as bottom sheet
+  // Mobile: Render compact toolbar or expanded bottom sheet
   if (isMobile) {
     return (
-      <BottomSheet
-        isOpen={selectedFixtures.length > 0}
-        onClose={onDeselectAll}
-        title={`${selectedFixtures.length} fixture${selectedFixtures.length > 1 ? "s" : ""} selected`}
-        showHandle={true}
-        closeOnBackdrop={false}
-        closeOnEscape={false}
-        testId="multi-select-controls"
-      >
-        {controlsContent}
-      </BottomSheet>
+      <>
+        {/* Compact toolbar when not expanded */}
+        {!isExpanded && (
+          <MobileFixtureToolbar
+            selectedCount={selectedFixtures.length}
+            color={displayRgbColor}
+            onColorClick={handleOpenColorPicker}
+            onExpand={() => setIsExpanded(true)}
+            onDeselectAll={onDeselectAll}
+          />
+        )}
+
+        {/* Expanded controls in BottomSheet */}
+        {isExpanded && (
+          <BottomSheet
+            isOpen={true}
+            onClose={() => setIsExpanded(false)}
+            title={`${selectedFixtures.length} fixture${selectedFixtures.length > 1 ? "s" : ""} selected`}
+            showHandle={true}
+            closeOnBackdrop={false}
+            closeOnEscape={false}
+            testId="multi-select-controls"
+          >
+            {controlsContent}
+          </BottomSheet>
+        )}
+
+        {/* ColorPickerModal at root level (always outside BottomSheet) */}
+        {displayRgbColor && (
+          <ColorPickerModal
+            isOpen={isColorPickerOpen}
+            onClose={handleCloseColorPicker}
+            currentColor={displayRgbColor}
+            onColorChange={handleColorPickerChange}
+            onColorSelect={handleColorPickerSelect}
+            intensity={colorPickerIntensity}
+            onIntensityChange={handleIntensityChange}
+            showIntensity={true}
+          />
+        )}
+      </>
     );
   }
 
   // Desktop: Render as floating panel
   return (
-    <div
-      className="absolute bottom-4 left-4 bg-gray-800 rounded-lg shadow-xl p-2 min-w-[280px] max-w-[360px] max-h-[70vh] overflow-y-auto"
-      onMouseLeave={handleMouseLeave}
-      data-testid="multi-select-controls"
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-1.5">
-        <h3 className="text-white font-semibold text-sm">
-          Selected: {selectedFixtures.length} fixture
-          {selectedFixtures.length > 1 ? "s" : ""}
-        </h3>
-        <button
-          onClick={onDeselectAll}
-          className="text-gray-400 hover:text-white transition-colors text-sm"
-          title="Deselect all fixtures"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+    <>
+      <div
+        className="absolute bottom-4 left-4 bg-gray-800 rounded-lg shadow-xl p-2 min-w-[280px] max-w-[360px] max-h-[70vh] overflow-y-auto"
+        onMouseLeave={handleMouseLeave}
+        data-testid="multi-select-controls"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-1.5">
+          <h3 className="text-white font-semibold text-sm">
+            Selected: {selectedFixtures.length} fixture
+            {selectedFixtures.length > 1 ? "s" : ""}
+          </h3>
+          <button
+            onClick={onDeselectAll}
+            className="text-gray-400 hover:text-white transition-colors text-sm"
+            title="Deselect all fixtures"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {controlsContent}
       </div>
 
-      {controlsContent}
-    </div>
+      {/* ColorPickerModal at root level */}
+      {displayRgbColor && (
+        <ColorPickerModal
+          isOpen={isColorPickerOpen}
+          onClose={handleCloseColorPicker}
+          currentColor={displayRgbColor}
+          onColorChange={handleColorPickerChange}
+          onColorSelect={handleColorPickerSelect}
+          intensity={colorPickerIntensity}
+          onIntensityChange={handleIntensityChange}
+          showIntensity={true}
+        />
+      )}
+    </>
   );
 }

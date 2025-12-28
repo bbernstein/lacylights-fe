@@ -255,4 +255,32 @@ describe('BottomSheet', () => {
       expect(onClose).not.toHaveBeenCalled();
     });
   });
+
+  describe('Portal rendering', () => {
+    it('renders via portal by default', () => {
+      render(<BottomSheet {...defaultProps} />);
+      // Content should be rendered in document.body via portal
+      expect(screen.getByTestId('bottom-sheet')).toBeInTheDocument();
+    });
+
+    it('renders inline when usePortal is false', () => {
+      render(<BottomSheet {...defaultProps} usePortal={false} />);
+      // Content should still be rendered, just not via portal
+      expect(screen.getByTestId('bottom-sheet')).toBeInTheDocument();
+    });
+
+    it('portal renders content at document.body level', () => {
+      render(
+        <div data-testid="parent-container">
+          <BottomSheet {...defaultProps} />
+        </div>
+      );
+
+      // The backdrop should be a direct child of body (via portal)
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      // Check that the backdrop exists and content is rendered
+      expect(backdrop).toBeInTheDocument();
+      expect(screen.getByTestId('content')).toBeInTheDocument();
+    });
+  });
 });

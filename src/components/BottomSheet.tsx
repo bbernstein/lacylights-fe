@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useCallback, useRef, ReactNode } from 'react';
+import { useEffect, useCallback, useRef, useState, ReactNode } from 'react';
+import ReactDOM from 'react-dom';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 
@@ -34,6 +35,8 @@ interface BottomSheetProps {
   testId?: string;
   /** Whether to add safe area padding to footer for mobile nav (default: true) */
   safeAreaFooter?: boolean;
+  /** Whether to render via React portal to document.body (default: true) */
+  usePortal?: boolean;
 }
 
 /**
@@ -73,8 +76,15 @@ export default function BottomSheet({
   fullHeightMobile = false,
   testId = 'bottom-sheet',
   safeAreaFooter = true,
+  usePortal = true,
 }: BottomSheetProps) {
   const isMobile = useIsMobile();
+  const [portalMounted, setPortalMounted] = useState(false);
+
+  // Ensure portal is only rendered on client side
+  useEffect(() => {
+    setPortalMounted(true);
+  }, []);
   const sheetRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number | null>(null);
@@ -225,9 +235,12 @@ export default function BottomSheet({
 
   if (!isOpen) return null;
 
-  // Mobile: Bottom sheet that slides up
+  // Build sheet content based on mobile/desktop
+  let sheetContent: React.ReactNode;
+
   if (isMobile) {
-    return (
+    // Mobile: Bottom sheet that slides up
+    sheetContent = (
       <div
         className="fixed inset-0 bg-black bg-opacity-50 z-50"
         onClick={handleBackdropClick}
@@ -302,59 +315,66 @@ export default function BottomSheet({
         </div>
       </div>
     );
+  } else {
+    // Desktop: Centered modal
+    sheetContent = (
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        onClick={handleBackdropClick}
+        data-testid={`${testId}-backdrop`}
+      >
+        <div
+          ref={sheetRef}
+          className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl ${maxWidth} w-full mx-4
+                     max-h-[90vh] flex flex-col animate-fade-in`}
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={title ? `${testId}-title` : undefined}
+          data-testid={testId}
+        >
+          {/* Header */}
+          {(title || showCloseButton) && (
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              {title ? (
+                <h2
+                  id={`${testId}-title`}
+                  className="text-lg font-semibold text-gray-900 dark:text-white"
+                >
+                  {title}
+                </h2>
+              ) : (
+                <div />
+              )}
+              {showCloseButton && (
+                <button
+                  onClick={onClose}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                  aria-label="Close"
+                  data-testid={`${testId}-close-button`}
+                >
+                  <XMarkIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-4">{children}</div>
+
+          {/* Footer */}
+          {footer && (
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700">{footer}</div>
+          )}
+        </div>
+      </div>
+    );
   }
 
-  // Desktop: Centered modal
-  return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      onClick={handleBackdropClick}
-      data-testid={`${testId}-backdrop`}
-    >
-      <div
-        ref={sheetRef}
-        className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl ${maxWidth} w-full mx-4
-                   max-h-[90vh] flex flex-col animate-fade-in`}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={title ? `${testId}-title` : undefined}
-        data-testid={testId}
-      >
-        {/* Header */}
-        {(title || showCloseButton) && (
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-            {title ? (
-              <h2
-                id={`${testId}-title`}
-                className="text-lg font-semibold text-gray-900 dark:text-white"
-              >
-                {title}
-              </h2>
-            ) : (
-              <div />
-            )}
-            {showCloseButton && (
-              <button
-                onClick={onClose}
-                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-                aria-label="Close"
-                data-testid={`${testId}-close-button`}
-              >
-                <XMarkIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-              </button>
-            )}
-          </div>
-        )}
+  // Render via portal if enabled and mounted on client
+  if (usePortal && portalMounted) {
+    return ReactDOM.createPortal(sheetContent, document.body);
+  }
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">{children}</div>
-
-        {/* Footer */}
-        {footer && (
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700">{footer}</div>
-        )}
-      </div>
-    </div>
-  );
+  return sheetContent;
 }
