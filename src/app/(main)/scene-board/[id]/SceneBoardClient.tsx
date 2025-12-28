@@ -24,6 +24,7 @@ import {
   Rect,
   ButtonPosition,
 } from "@/lib/canvasUtils";
+import { getContrastingTextColor } from "@/utils/colorHelpers";
 import ContextMenu from "@/components/ContextMenu";
 
 // Grid configuration
@@ -2519,7 +2520,14 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                     }
                   >
                     <div className="text-center">
-                      <div className="font-semibold text-white text-lg">
+                      <div
+                        className="font-semibold text-lg"
+                        style={
+                          button.color
+                            ? { color: getContrastingTextColor(button.color) }
+                            : { color: '#f5f5f5' }
+                        }
+                      >
                         {button.label || button.scene.name}
                       </div>
                     </div>
