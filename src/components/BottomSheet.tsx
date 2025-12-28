@@ -162,11 +162,15 @@ export default function BottomSheet({
     [onClose, closeOnEscape]
   );
 
+  // Track whether this instance incremented the scroll lock counter
+  const didIncrementScrollLockRef = useRef(false);
+
   useEffect(() => {
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
       // Prevent body scroll when sheet is open (using DOM-based counter for multiple modals)
       setScrollLockCount(getScrollLockCount() + 1);
+      didIncrementScrollLockRef.current = true;
 
       // Focus trapping: Focus the sheet when opened
       if (sheetRef.current) {
@@ -181,9 +185,10 @@ export default function BottomSheet({
     }
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      // Decrement scroll lock counter when modal closes
-      if (isOpen) {
+      // Only decrement if we actually incremented (prevents negative counts)
+      if (didIncrementScrollLockRef.current) {
         setScrollLockCount(getScrollLockCount() - 1);
+        didIncrementScrollLockRef.current = false;
       }
     };
   }, [isOpen, handleKeyDown]);
