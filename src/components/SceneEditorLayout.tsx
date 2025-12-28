@@ -17,6 +17,9 @@ import ChannelListEditor from "./ChannelListEditor";
 import LayoutCanvas from "./LayoutCanvas";
 import MultiSelectControls from "./MultiSelectControls";
 import UnsavedChangesModal from "./UnsavedChangesModal";
+import SceneEditorMobileToolbar from "./SceneEditorMobileToolbar";
+import SceneEditorBottomActions from "./SceneEditorBottomActions";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 import { sparseToDense, denseToSparse } from "@/utils/channelConversion";
 import { useUndoStack, UndoDelta, UndoAction } from "@/hooks/useUndoStack";
 
@@ -151,6 +154,7 @@ export default function SceneEditorLayout({
   returnCueNumber,
 }: SceneEditorLayoutProps) {
   const router = useRouter();
+  const isMobile = useIsMobile();
 
   // Track mounted state to prevent state updates after unmount
   const isMounted = useRef<boolean>(true);
@@ -1292,8 +1296,17 @@ export default function SceneEditorLayout({
 
   return (
     <div className="fixed inset-0 bg-gray-900 flex flex-col">
-      {/* Top bar with mode switcher and controls */}
-      <div className="flex-none bg-gray-800 border-b border-gray-700 px-4 py-3">
+      {/* Mobile toolbar */}
+      <SceneEditorMobileToolbar
+        sceneName={scene?.name || "Loading..."}
+        mode={mode}
+        fromPlayer={fromPlayer}
+        onClose={handleClose}
+        onToggleMode={handleModeSwitch}
+      />
+
+      {/* Desktop top bar with mode switcher and controls */}
+      <div className="flex-none bg-gray-800 border-b border-gray-700 px-4 py-3 hidden md:block">
         <div className="flex items-center justify-between">
           {/* Back button - context-aware */}
           <button
@@ -1615,7 +1628,7 @@ export default function SceneEditorLayout({
       </div>
 
       {/* Editor content area */}
-      <div className="flex-1 overflow-hidden relative">
+      <div className={`flex-1 overflow-hidden relative ${isMobile ? 'pb-20' : ''}`}>
         {sceneLoading ? (
           <div className="h-full flex items-center justify-center text-gray-400">
             Loading scene...
@@ -1712,6 +1725,19 @@ export default function SceneEditorLayout({
           </div>
         )}
       </div>
+
+      {/* Mobile bottom actions */}
+      <SceneEditorBottomActions
+        isDirty={isDirty}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        previewMode={previewMode}
+        saveStatus={saveStatus}
+        onSave={handleSaveScene}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onTogglePreview={handleTogglePreview}
+      />
 
       {/* Unsaved changes modal */}
       <UnsavedChangesModal
