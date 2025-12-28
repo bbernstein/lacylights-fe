@@ -1,9 +1,17 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ColorPickerModal from '../ColorPickerModal';
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+  useIsTablet: jest.fn(() => false),
+  useIsDesktop: jest.fn(() => true),
+  useMediaQuery: jest.fn(() => false),
+}));
+
 jest.mock('../ColorWheelPicker', () => {
-  return function MockColorWheelPicker({ currentColor, onColorChange, onColorSelect }: unknown) {
+  return function MockColorWheelPicker({ currentColor, onColorChange, onColorSelect }: { currentColor: { r: number; g: number; b: number }; onColorChange: (color: { r: number; g: number; b: number }) => void; onColorSelect: (color: { r: number; g: number; b: number }) => void }) {
     return (
       <div data-testid="color-wheel-picker">
         <div>Current: rgb({currentColor.r}, {currentColor.g}, {currentColor.b})</div>
@@ -23,7 +31,7 @@ jest.mock('../ColorWheelPicker', () => {
 });
 
 jest.mock('../RoscoluxSwatchPicker', () => {
-  return function MockRoscoluxSwatchPicker({ currentColor, onColorSelect }: unknown) {
+  return function MockRoscoluxSwatchPicker({ currentColor, onColorSelect }: { currentColor: { r: number; g: number; b: number }; onColorSelect: (color: { r: number; g: number; b: number }) => void }) {
     return (
       <div data-testid="roscolux-swatch-picker">
         <div>Current: rgb({currentColor.r}, {currentColor.g}, {currentColor.b})</div>
@@ -84,8 +92,12 @@ describe('ColorPickerModal', () => {
     it('displays current color in color preview div', () => {
       render(<ColorPickerModal {...defaultProps} />);
 
-      const colorPreview = screen.getByText('RGB(128, 128, 128)').parentElement?.querySelector('div');
-      expect(colorPreview).toHaveStyle('background-color: rgb(128, 128, 128)');
+      // Find the color preview div by its style
+      const colorPreviewDivs = document.querySelectorAll('div[style*="background-color"]');
+      const colorPreview = Array.from(colorPreviewDivs).find(div =>
+        (div as HTMLElement).style.backgroundColor === 'rgb(128, 128, 128)'
+      );
+      expect(colorPreview).toBeInTheDocument();
     });
   });
 
@@ -169,10 +181,11 @@ describe('ColorPickerModal', () => {
   });
 
   describe('modal interactions', () => {
-    it('calls onClose when X button is clicked', async () => {
+    it('calls onClose when close button is clicked', async () => {
       render(<ColorPickerModal {...defaultProps} />);
 
-      const closeButton = screen.getByRole('button', { name: '' });
+      // BottomSheet close button has aria-label="Close"
+      const closeButton = screen.getByRole('button', { name: /close/i });
       await userEvent.click(closeButton);
 
       expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
@@ -212,8 +225,8 @@ describe('ColorPickerModal', () => {
     it('calls onClose when clicking backdrop', async () => {
       render(<ColorPickerModal {...defaultProps} />);
 
-      const backdrop = screen.getByText('Color Picker').closest('.fixed');
-      fireEvent.click(backdrop!);
+      const backdrop = screen.getByTestId('color-picker-modal-backdrop');
+      await userEvent.click(backdrop);
 
       expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
     });
@@ -221,88 +234,33 @@ describe('ColorPickerModal', () => {
     it('does not close when clicking modal content', async () => {
       render(<ColorPickerModal {...defaultProps} />);
 
-      const modalContent = screen.getByText('Color Picker').parentElement;
-      fireEvent.click(modalContent!);
+      const modalContent = screen.getByTestId('color-picker-modal');
+      await userEvent.click(modalContent);
 
       expect(defaultProps.onClose).not.toHaveBeenCalled();
-    });
-
-    it('prevents event propagation on backdrop click', async () => {
-      const handleClick = jest.fn();
-      render(
-        <div onClick={handleClick}>
-          <ColorPickerModal {...defaultProps} />
-        </div>
-      );
-
-      const backdrop = screen.getByText('Color Picker').closest('.fixed');
-      fireEvent.click(backdrop!);
-
-      expect(handleClick).not.toHaveBeenCalled();
-    });
-
-    it('prevents event propagation on modal content click', async () => {
-      const handleClick = jest.fn();
-      render(
-        <div onClick={handleClick}>
-          <ColorPickerModal {...defaultProps} />
-        </div>
-      );
-
-      const modalContent = screen.getByText('Color Picker').parentElement;
-      fireEvent.click(modalContent!);
-
-      expect(handleClick).not.toHaveBeenCalled();
     });
   });
 
   describe('keyboard navigation', () => {
-    it('closes modal when Escape is pressed', () => {
+    it('closes modal when Escape is pressed', async () => {
       render(<ColorPickerModal {...defaultProps} />);
 
-      fireEvent.keyDown(document, { key: 'Escape' });
+      await userEvent.keyboard('{Escape}');
 
       expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
     });
 
-    it('does not close modal when other keys are pressed', () => {
+    it('does not close modal when non-escape keys are pressed on backdrop', async () => {
       render(<ColorPickerModal {...defaultProps} />);
 
-      fireEvent.keyDown(document, { key: 'Enter' });
-      fireEvent.keyDown(document, { key: 'Space' });
+      // Focus the backdrop (not a button) and press other keys
+      const backdrop = screen.getByTestId('color-picker-modal-backdrop');
+      backdrop.focus();
+
+      await userEvent.keyboard('a');
+      await userEvent.keyboard('1');
 
       expect(defaultProps.onClose).not.toHaveBeenCalled();
-    });
-
-    it('adds keydown listener when modal opens', () => {
-      const addEventListenerSpy = jest.spyOn(document, 'addEventListener');
-
-      render(<ColorPickerModal {...defaultProps} />);
-
-      expect(addEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
-
-      addEventListenerSpy.mockRestore();
-    });
-
-    it('removes keydown listener when modal closes', () => {
-      const removeEventListenerSpy = jest.spyOn(document, 'removeEventListener');
-
-      const { rerender } = render(<ColorPickerModal {...defaultProps} />);
-      rerender(<ColorPickerModal {...defaultProps} isOpen={false} />);
-
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
-
-      removeEventListenerSpy.mockRestore();
-    });
-
-    it('does not add keydown listener when modal is closed', () => {
-      const addEventListenerSpy = jest.spyOn(document, 'addEventListener');
-
-      render(<ColorPickerModal {...defaultProps} isOpen={false} />);
-
-      expect(addEventListenerSpy).not.toHaveBeenCalledWith('keydown', expect.any(Function));
-
-      addEventListenerSpy.mockRestore();
     });
   });
 
@@ -341,10 +299,10 @@ describe('ColorPickerModal', () => {
       expect(screen.getByRole('button', { name: /apply color/i })).toBeInTheDocument();
     });
 
-    it('has proper heading structure', () => {
+    it('has proper dialog role', () => {
       render(<ColorPickerModal {...defaultProps} />);
 
-      expect(screen.getByRole('heading', { name: /color picker/i })).toBeInTheDocument();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
     it('has proper focus management', () => {
@@ -359,22 +317,6 @@ describe('ColorPickerModal', () => {
   });
 
   describe('styling', () => {
-    it('applies correct modal backdrop classes', () => {
-      render(<ColorPickerModal {...defaultProps} />);
-
-      const backdrop = screen.getByText('Color Picker').closest('.fixed');
-      expect(backdrop).toHaveClass('fixed', 'inset-0', 'bg-black', 'bg-opacity-50', 'z-50');
-    });
-
-    it('applies correct modal content classes', () => {
-      render(<ColorPickerModal {...defaultProps} />);
-
-      // Modal content is the parent of the header div which contains "Color Picker"
-      const header = screen.getByText('Color Picker').closest('.border-b');
-      const modalContent = header?.parentElement;
-      expect(modalContent).toHaveClass('bg-white', 'dark:bg-gray-800', 'rounded-lg', 'shadow-xl');
-    });
-
     it('applies correct tab button classes', () => {
       render(<ColorPickerModal {...defaultProps} />);
 
@@ -422,13 +364,96 @@ describe('ColorPickerModal', () => {
       expect(screen.getByTestId('roscolux-swatch-picker')).toBeInTheDocument();
     });
 
-    it('handles multiple keydown events', () => {
+    it('handles multiple escape key presses', async () => {
       render(<ColorPickerModal {...defaultProps} />);
 
-      fireEvent.keyDown(document, { key: 'Escape' });
-      fireEvent.keyDown(document, { key: 'Escape' });
+      await userEvent.keyboard('{Escape}');
+      await userEvent.keyboard('{Escape}');
 
       expect(defaultProps.onClose).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('mobile behavior', () => {
+    beforeEach(() => {
+      // Reset to mobile
+      jest.requireMock('@/hooks/useMediaQuery').useIsMobile.mockReturnValue(true);
+    });
+
+    afterEach(() => {
+      // Reset back to desktop
+      jest.requireMock('@/hooks/useMediaQuery').useIsMobile.mockReturnValue(false);
+    });
+
+    it('shows collapsible advanced section on mobile', () => {
+      render(<ColorPickerModal {...defaultProps} />);
+
+      // On mobile, the selected color section has a toggle button
+      const selectedColorButton = screen.getByRole('button', { name: /selected color/i });
+      expect(selectedColorButton).toBeInTheDocument();
+    });
+
+    it('toggles advanced section when clicked on mobile', async () => {
+      render(<ColorPickerModal {...defaultProps} />);
+
+      // Initially collapsed on mobile
+      expect(screen.queryByText('Hex:')).not.toBeInTheDocument();
+
+      // Click to expand
+      const selectedColorButton = screen.getByRole('button', { name: /selected color/i });
+      await userEvent.click(selectedColorButton);
+
+      // Now visible
+      expect(screen.getByText('Hex:')).toBeInTheDocument();
+
+      // Click to collapse
+      await userEvent.click(selectedColorButton);
+
+      // Hidden again
+      expect(screen.queryByText('Hex:')).not.toBeInTheDocument();
+    });
+
+    it('stacks buttons vertically on mobile', () => {
+      render(<ColorPickerModal {...defaultProps} />);
+
+      const cancelButton = screen.getByText('Cancel');
+      const applyButton = screen.getByText('Apply Color');
+
+      expect(cancelButton).toHaveClass('w-full');
+      expect(applyButton).toHaveClass('w-full');
+    });
+  });
+
+  describe('hex input', () => {
+    it('updates color when valid hex is entered', async () => {
+      render(<ColorPickerModal {...defaultProps} />);
+
+      const hexInput = screen.getByDisplayValue('#808080');
+      await userEvent.clear(hexInput);
+      await userEvent.type(hexInput, '#FF0000');
+
+      expect(defaultProps.onColorChange).toHaveBeenCalledWith({ r: 255, g: 0, b: 0 });
+    });
+
+    it('shows error styling for invalid hex', async () => {
+      render(<ColorPickerModal {...defaultProps} />);
+
+      const hexInput = screen.getByDisplayValue('#808080');
+      await userEvent.clear(hexInput);
+      await userEvent.type(hexInput, 'invalid');
+
+      expect(hexInput).toHaveClass('border-red-500');
+    });
+
+    it('resets to valid hex on blur if invalid', async () => {
+      render(<ColorPickerModal {...defaultProps} />);
+
+      const hexInput = screen.getByDisplayValue('#808080');
+      await userEvent.clear(hexInput);
+      await userEvent.type(hexInput, 'invalid');
+      await userEvent.tab();
+
+      expect(hexInput).toHaveValue('#808080');
     });
   });
 });

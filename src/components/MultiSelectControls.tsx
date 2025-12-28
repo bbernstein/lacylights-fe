@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 import { FixtureInstance, ChannelType } from "@/types";
 import {
   mergeFixtureChannels,
@@ -11,6 +12,8 @@ import {
 import { channelValuesToRgb, applyIntensityToRgb, createOptimizedColorMapping, type InstanceChannelWithValue } from "@/utils/colorConversion";
 import ChannelSlider from "./ChannelSlider";
 import ColorPickerModal from "./ColorPickerModal";
+import BottomSheet from "./BottomSheet";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 
 interface MultiSelectControlsProps {
   selectedFixtures: FixtureInstance[];
@@ -28,6 +31,45 @@ interface MultiSelectControlsProps {
   onToggleChannelActive?: (fixtureId: string, channelIndex: number, isActive: boolean) => void;
 }
 
+/**
+ * Channel type groups for organizing sliders on mobile
+ */
+const COLOR_CHANNEL_TYPES = new Set([
+  ChannelType.RED,
+  ChannelType.GREEN,
+  ChannelType.BLUE,
+  ChannelType.WHITE,
+  ChannelType.AMBER,
+  ChannelType.UV,
+  ChannelType.LIME,
+  ChannelType.CYAN,
+  ChannelType.MAGENTA,
+  ChannelType.INDIGO,
+  ChannelType.YELLOW,
+  ChannelType.COLD_WHITE,
+  ChannelType.WARM_WHITE,
+  ChannelType.COLOR_WHEEL,
+]);
+
+const INTENSITY_CHANNEL_TYPES = new Set([
+  ChannelType.INTENSITY,
+]);
+
+/**
+ * Multi-select controls component for controlling multiple fixtures at once.
+ * On desktop, renders as a floating panel. On mobile, renders as a bottom sheet.
+ *
+ * @example
+ * ```tsx
+ * <MultiSelectControls
+ *   selectedFixtures={selectedFixtures}
+ *   fixtureValues={fixtureValues}
+ *   onBatchedChannelChanges={handleBatchChanges}
+ *   onDebouncedPreviewUpdate={handlePreview}
+ *   onDeselectAll={handleDeselectAll}
+ * />
+ * ```
+ */
 export default function MultiSelectControls({
   selectedFixtures,
   fixtureValues,
@@ -37,11 +79,17 @@ export default function MultiSelectControls({
   activeChannels,
   onToggleChannelActive,
 }: MultiSelectControlsProps) {
+  const isMobile = useIsMobile();
   const [mergedChannels, setMergedChannels] = useState<MergedChannel[]>([]);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [colorPickerIntensity, setColorPickerIntensity] = useState<number>(1);
   // Base color for intensity slider - maintains original color so intensity can go 0-100% and back
   const [baseColorForIntensity, setBaseColorForIntensity] = useState<{r: number; g: number; b: number} | null>(null);
+
+  // Mobile section collapse states
+  const [showColorChannels, setShowColorChannels] = useState(true);
+  const [showIntensityChannels, setShowIntensityChannels] = useState(true);
+  const [showOtherChannels, setShowOtherChannels] = useState(false);
 
   // Local state for responsive slider updates (synced with server values)
   const [localSliderValues, setLocalSliderValues] = useState<
@@ -54,6 +102,25 @@ export default function MultiSelectControls({
   // Generate unique key for each channel (composite key including fixture IDs to guarantee uniqueness)
   const getChannelKey = (channel: MergedChannel) =>
     `${channel.type}-${channel.name}-${channel.fixtureIds.join(",")}`;
+
+  // Group channels by type for mobile view
+  const groupedChannels = useMemo(() => {
+    const colorChannels: MergedChannel[] = [];
+    const intensityChannels: MergedChannel[] = [];
+    const otherChannels: MergedChannel[] = [];
+
+    mergedChannels.forEach((channel) => {
+      if (COLOR_CHANNEL_TYPES.has(channel.type as ChannelType)) {
+        colorChannels.push(channel);
+      } else if (INTENSITY_CHANNEL_TYPES.has(channel.type as ChannelType)) {
+        intensityChannels.push(channel);
+      } else {
+        otherChannels.push(channel);
+      }
+    });
+
+    return { colorChannels, intensityChannels, otherChannels };
+  }, [mergedChannels]);
 
   // Merge channels whenever selection or values change
   useEffect(() => {
@@ -436,38 +503,62 @@ export default function MultiSelectControls({
     return null;
   }
 
-  return (
-    <div
-      className="absolute bottom-4 left-4 bg-gray-800 rounded-lg shadow-xl p-2 min-w-[280px] max-w-[360px] max-h-[70vh] overflow-y-auto"
-      onMouseLeave={handleMouseLeave}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-1.5">
-        <h3 className="text-white font-semibold text-sm">
-          Selected: {selectedFixtures.length} fixture
-          {selectedFixtures.length > 1 ? "s" : ""}
-        </h3>
-        <button
-          onClick={onDeselectAll}
-          className="text-gray-400 hover:text-white transition-colors text-sm"
-          title="Deselect all fixtures"
+  // Render a channel slider
+  const renderChannelSlider = (channel: MergedChannel, index: number) => (
+    <div key={`${channel.type}-${index}`} className="relative">
+      <ChannelSlider
+        channel={channel}
+        value={getSliderValue(channel)}
+        onChange={(value) => handleSliderInput(channel, value)}
+        onChangeComplete={(value) => handleSliderMouseUp(channel, value)}
+        tooltip={getChannelTooltip(channel)}
+        isActive={onToggleChannelActive ? isMergedChannelActive(channel) : undefined}
+        onToggleActive={onToggleChannelActive ? (active) => handleToggleMergedChannelActive(channel, active) : undefined}
+      />
+      {channel.hasVariation && (
+        <div
+          className="absolute right-14 top-1/2 -translate-y-1/2 text-yellow-500 text-xs pointer-events-none"
+          title="Values differ across selected fixtures"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
+          ≈
+        </div>
+      )}
+    </div>
+  );
 
+  // Render a collapsible section for mobile
+  const renderCollapsibleSection = (
+    title: string,
+    channels: MergedChannel[],
+    isOpen: boolean,
+    setIsOpen: (open: boolean) => void
+  ) => {
+    if (channels.length === 0) return null;
+    return (
+      <div className="border-b border-gray-700 last:border-b-0">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex items-center justify-between w-full py-2 text-sm font-medium text-gray-300 touch-manipulation"
+        >
+          <span>{title} ({channels.length})</span>
+          {isOpen ? (
+            <ChevronUpIcon className="h-4 w-4 text-gray-500" />
+          ) : (
+            <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+          )}
+        </button>
+        {isOpen && (
+          <div className="space-y-0 pb-2">
+            {channels.map((channel, index) => renderChannelSlider(channel, index))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Controls content (shared between desktop and mobile)
+  const controlsContent = (
+    <>
       {/* RGB Color Picker */}
       {displayRgbColor && (
         <>
@@ -478,7 +569,7 @@ export default function MultiSelectControls({
             <div className="flex items-center gap-2">
               <button
                 onClick={handleOpenColorPicker}
-                className="w-12 h-8 rounded border-2 border-gray-600 hover:border-blue-500 transition-colors cursor-pointer"
+                className="w-12 h-8 rounded border-2 border-gray-600 hover:border-blue-500 transition-colors cursor-pointer touch-manipulation min-h-[44px] min-w-[44px]"
                 style={{
                   backgroundColor: `rgb(${displayRgbColor.r}, ${displayRgbColor.g}, ${displayRgbColor.b})`,
                 }}
@@ -509,29 +600,19 @@ export default function MultiSelectControls({
       )}
 
       {/* Channel Sliders */}
-      <div className="space-y-0">
-        {mergedChannels.map((channel, index) => (
-          <div key={`${channel.type}-${index}`} className="relative">
-            <ChannelSlider
-              channel={channel}
-              value={getSliderValue(channel)}
-              onChange={(value) => handleSliderInput(channel, value)}
-              onChangeComplete={(value) => handleSliderMouseUp(channel, value)}
-              tooltip={getChannelTooltip(channel)}
-              isActive={onToggleChannelActive ? isMergedChannelActive(channel) : undefined}
-              onToggleActive={onToggleChannelActive ? (active) => handleToggleMergedChannelActive(channel, active) : undefined}
-            />
-            {channel.hasVariation && (
-              <div
-                className="absolute right-14 top-1/2 -translate-y-1/2 text-yellow-500 text-xs pointer-events-none"
-                title="Values differ across selected fixtures"
-              >
-                ≈
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+      {isMobile ? (
+        // Mobile: Grouped collapsible sections
+        <div className="space-y-0">
+          {renderCollapsibleSection("Color Channels", groupedChannels.colorChannels, showColorChannels, setShowColorChannels)}
+          {renderCollapsibleSection("Intensity", groupedChannels.intensityChannels, showIntensityChannels, setShowIntensityChannels)}
+          {renderCollapsibleSection("Other Channels", groupedChannels.otherChannels, showOtherChannels, setShowOtherChannels)}
+        </div>
+      ) : (
+        // Desktop: Flat list
+        <div className="space-y-0">
+          {mergedChannels.map((channel, index) => renderChannelSlider(channel, index))}
+        </div>
+      )}
 
       {/* Info text */}
       {mergedChannels.length === 0 && (
@@ -539,6 +620,61 @@ export default function MultiSelectControls({
           Selected fixtures have no controllable channels
         </div>
       )}
+    </>
+  );
+
+  // Mobile: Render as bottom sheet
+  if (isMobile) {
+    return (
+      <BottomSheet
+        isOpen={selectedFixtures.length > 0}
+        onClose={onDeselectAll}
+        title={`${selectedFixtures.length} fixture${selectedFixtures.length > 1 ? "s" : ""} selected`}
+        showHandle={true}
+        closeOnBackdrop={false}
+        closeOnEscape={false}
+        testId="multi-select-controls"
+      >
+        {controlsContent}
+      </BottomSheet>
+    );
+  }
+
+  // Desktop: Render as floating panel
+  return (
+    <div
+      className="absolute bottom-4 left-4 bg-gray-800 rounded-lg shadow-xl p-2 min-w-[280px] max-w-[360px] max-h-[70vh] overflow-y-auto"
+      onMouseLeave={handleMouseLeave}
+      data-testid="multi-select-controls"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-1.5">
+        <h3 className="text-white font-semibold text-sm">
+          Selected: {selectedFixtures.length} fixture
+          {selectedFixtures.length > 1 ? "s" : ""}
+        </h3>
+        <button
+          onClick={onDeselectAll}
+          className="text-gray-400 hover:text-white transition-colors text-sm"
+          title="Deselect all fixtures"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
+
+      {controlsContent}
     </div>
   );
 }

@@ -3,6 +3,14 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import MultiSelectControls from '../MultiSelectControls';
 import { FixtureInstance, ChannelType, FixtureType, FadeBehavior } from '@/types';
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+  useIsTablet: jest.fn(() => false),
+  useIsDesktop: jest.fn(() => true),
+  useMediaQuery: jest.fn(() => false),
+}));
+
 // Mock the child components
 jest.mock('../ChannelSlider', () => {
   return function MockChannelSlider({ channel, value, onChange }: {
