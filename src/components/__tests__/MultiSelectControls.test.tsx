@@ -3,6 +3,14 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import MultiSelectControls from '../MultiSelectControls';
 import { FixtureInstance, ChannelType, FixtureType, FadeBehavior } from '@/types';
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+  useIsTablet: jest.fn(() => false),
+  useIsDesktop: jest.fn(() => true),
+  useMediaQuery: jest.fn(() => false),
+}));
+
 // Mock the child components
 jest.mock('../ChannelSlider', () => {
   return function MockChannelSlider({ channel, value, onChange }: {
@@ -63,6 +71,43 @@ jest.mock('../ColorPickerModal', () => {
     );
   };
 });
+
+jest.mock('../MobileFixtureToolbar', () => {
+  return function MockMobileFixtureToolbar({
+    selectedCount,
+    color,
+    onColorClick,
+    onExpand,
+    onDeselectAll,
+  }: {
+    selectedCount: number;
+    color: { r: number; g: number; b: number } | null;
+    onColorClick: () => void;
+    onExpand: () => void;
+    onDeselectAll: () => void;
+  }) {
+    return (
+      <div data-testid="mobile-fixture-toolbar">
+        <span>{selectedCount} fixtures</span>
+        {color && (
+          <button onClick={onColorClick} data-testid="mobile-color-click">
+            Color
+          </button>
+        )}
+        <button onClick={onExpand} data-testid="mobile-expand">
+          Expand
+        </button>
+        <button onClick={onDeselectAll} data-testid="mobile-deselect">
+          Deselect
+        </button>
+      </div>
+    );
+  };
+});
+
+import { useIsMobile } from '@/hooks/useMediaQuery';
+
+const mockUseIsMobile = useIsMobile as jest.Mock;
 
 const mockFixture = {
   id: 'fixture-1',
@@ -625,6 +670,137 @@ describe('MultiSelectControls', () => {
           })
         ])
       );
+    });
+  });
+
+  describe('Mobile behavior', () => {
+    beforeEach(() => {
+      mockUseIsMobile.mockReturnValue(true);
+    });
+
+    afterEach(() => {
+      mockUseIsMobile.mockReturnValue(false);
+    });
+
+    it('renders MobileFixtureToolbar on mobile when not expanded', () => {
+      const fixtureValues = new Map([[mockFixture.id, [255, 128, 64]]]);
+
+      render(
+        <MultiSelectControls
+          selectedFixtures={[mockFixture]}
+          fixtureValues={fixtureValues}
+          onBatchedChannelChanges={mockOnBatchedChannelChanges}
+          onDebouncedPreviewUpdate={mockOnDebouncedPreviewUpdate}
+          onDeselectAll={mockOnDeselectAll}
+        />
+      );
+
+      expect(screen.getByTestId('mobile-fixture-toolbar')).toBeInTheDocument();
+      expect(screen.queryByTestId('multi-select-controls')).not.toBeInTheDocument();
+    });
+
+    it('expands to BottomSheet when expand button is clicked', () => {
+      const fixtureValues = new Map([[mockFixture.id, [255, 128, 64]]]);
+
+      render(
+        <MultiSelectControls
+          selectedFixtures={[mockFixture]}
+          fixtureValues={fixtureValues}
+          onBatchedChannelChanges={mockOnBatchedChannelChanges}
+          onDebouncedPreviewUpdate={mockOnDebouncedPreviewUpdate}
+          onDeselectAll={mockOnDeselectAll}
+        />
+      );
+
+      // Click expand button
+      fireEvent.click(screen.getByTestId('mobile-expand'));
+
+      // Should now show BottomSheet (via data-testid)
+      expect(screen.getByTestId('multi-select-controls')).toBeInTheDocument();
+      expect(screen.queryByTestId('mobile-fixture-toolbar')).not.toBeInTheDocument();
+    });
+
+    it('opens color picker from toolbar color swatch', () => {
+      const fixtureValues = new Map([[mockFixture.id, [255, 128, 64]]]);
+
+      render(
+        <MultiSelectControls
+          selectedFixtures={[mockFixture]}
+          fixtureValues={fixtureValues}
+          onBatchedChannelChanges={mockOnBatchedChannelChanges}
+          onDebouncedPreviewUpdate={mockOnDebouncedPreviewUpdate}
+          onDeselectAll={mockOnDeselectAll}
+        />
+      );
+
+      // Click color swatch in toolbar
+      fireEvent.click(screen.getByTestId('mobile-color-click'));
+
+      // Color picker should open (rendered at root level)
+      expect(screen.getByTestId('color-picker-modal')).toBeInTheDocument();
+    });
+
+    it('calls onDeselectAll from toolbar', () => {
+      const fixtureValues = new Map([[mockFixture.id, [255, 128, 64]]]);
+
+      render(
+        <MultiSelectControls
+          selectedFixtures={[mockFixture]}
+          fixtureValues={fixtureValues}
+          onBatchedChannelChanges={mockOnBatchedChannelChanges}
+          onDebouncedPreviewUpdate={mockOnDebouncedPreviewUpdate}
+          onDeselectAll={mockOnDeselectAll}
+        />
+      );
+
+      // Click deselect in toolbar
+      fireEvent.click(screen.getByTestId('mobile-deselect'));
+
+      expect(mockOnDeselectAll).toHaveBeenCalled();
+    });
+
+    it('ColorPickerModal renders at root level on mobile', () => {
+      const fixtureValues = new Map([[mockFixture.id, [255, 128, 64]]]);
+
+      render(
+        <MultiSelectControls
+          selectedFixtures={[mockFixture]}
+          fixtureValues={fixtureValues}
+          onBatchedChannelChanges={mockOnBatchedChannelChanges}
+          onDebouncedPreviewUpdate={mockOnDebouncedPreviewUpdate}
+          onDeselectAll={mockOnDeselectAll}
+        />
+      );
+
+      // Open color picker from toolbar
+      fireEvent.click(screen.getByTestId('mobile-color-click'));
+
+      // Color picker should be visible and not blocked by any container
+      expect(screen.getByTestId('color-picker-modal')).toBeInTheDocument();
+    });
+
+    it('ColorPickerModal remains accessible when expanded controls are shown', () => {
+      const fixtureValues = new Map([[mockFixture.id, [255, 128, 64]]]);
+
+      render(
+        <MultiSelectControls
+          selectedFixtures={[mockFixture]}
+          fixtureValues={fixtureValues}
+          onBatchedChannelChanges={mockOnBatchedChannelChanges}
+          onDebouncedPreviewUpdate={mockOnDebouncedPreviewUpdate}
+          onDeselectAll={mockOnDeselectAll}
+        />
+      );
+
+      // First expand to BottomSheet
+      fireEvent.click(screen.getByTestId('mobile-expand'));
+
+      // Then open color picker from expanded view
+      const colorSwatchButton = screen.getByTitle('Click to open color picker');
+      fireEvent.click(colorSwatchButton);
+
+      // Color picker should be open
+      expect(screen.getByTestId('color-picker-modal')).toBeInTheDocument();
     });
   });
 });

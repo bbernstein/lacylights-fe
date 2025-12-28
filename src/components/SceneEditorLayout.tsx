@@ -1628,7 +1628,7 @@ export default function SceneEditorLayout({
       </div>
 
       {/* Editor content area */}
-      <div className={`flex-1 overflow-hidden relative ${isMobile ? 'pb-20' : ''}`}>
+      <div className={`flex-1 overflow-hidden relative ${isMobile ? 'pb-36' : ''}`}>
         {sceneLoading ? (
           <div className="h-full flex items-center justify-center text-gray-400">
             Loading scene...
