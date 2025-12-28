@@ -560,25 +560,25 @@ export default function MultiSelectControls({
 
   // Controls content (shared between desktop and mobile expanded view)
   // Note: ColorPickerModal is rendered separately at root level
-  // Desktop panel always has dark background, mobile BottomSheet respects system theme
+  // Both desktop and mobile now use consistent theming (respects system dark/light mode)
   const controlsContent = (
     <>
       {/* RGB Color Picker swatch */}
       {displayRgbColor && (
-        <div className={`mb-1.5 pb-1.5 border-b ${isMobile ? 'border-gray-200 dark:border-gray-700' : 'border-gray-700'}`}>
-          <label className={`block text-xs font-medium mb-0.5 ${isMobile ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300'}`}>
+        <div className="mb-1.5 pb-1.5 border-b border-gray-200 dark:border-gray-700">
+          <label className="block text-xs font-medium mb-0.5 text-gray-700 dark:text-gray-300">
             Color
           </label>
           <div className="flex items-center gap-2">
             <button
               onClick={handleOpenColorPicker}
-              className={`w-12 h-8 rounded border-2 hover:border-blue-500 transition-colors cursor-pointer touch-manipulation min-h-[44px] min-w-[44px] ${isMobile ? 'border-gray-300 dark:border-gray-600' : 'border-gray-600'}`}
+              className="w-12 h-8 rounded border-2 border-gray-300 dark:border-gray-600 hover:border-blue-500 transition-colors cursor-pointer touch-manipulation min-h-[44px] min-w-[44px]"
               style={{
                 backgroundColor: `rgb(${displayRgbColor.r}, ${displayRgbColor.g}, ${displayRgbColor.b})`,
               }}
               title="Click to open color picker"
             />
-            <span className={`text-xs font-mono ${isMobile ? 'text-gray-600 dark:text-gray-400' : 'text-gray-300'}`}>
+            <span className="text-xs font-mono text-gray-600 dark:text-gray-400">
               {rgbToHex(
                 displayRgbColor.r,
                 displayRgbColor.g,
@@ -606,7 +606,7 @@ export default function MultiSelectControls({
 
       {/* Info text */}
       {mergedChannels.length === 0 && (
-        <div className={`text-xs text-center py-2 ${isMobile ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400'}`}>
+        <div className="text-xs text-center py-2 text-gray-500 dark:text-gray-400">
           Selected fixtures have no controllable channels
         </div>
       )}
@@ -660,23 +660,23 @@ export default function MultiSelectControls({
     );
   }
 
-  // Desktop: Render as floating panel (always dark background)
+  // Desktop: Render as floating panel (respects system theme)
   return (
     <>
       <div
-        className="absolute bottom-4 left-4 bg-gray-800 rounded-lg shadow-xl p-2 min-w-[280px] max-w-[360px] max-h-[70vh] overflow-y-auto"
+        className="absolute bottom-4 left-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-2 min-w-[280px] max-w-[360px] max-h-[70vh] overflow-y-auto"
         onMouseLeave={handleMouseLeave}
         data-testid="multi-select-controls"
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-1.5">
-          <h3 className="text-white font-semibold text-sm">
+          <h3 className="text-gray-900 dark:text-white font-semibold text-sm">
             Selected: {selectedFixtures.length} fixture
             {selectedFixtures.length > 1 ? "s" : ""}
           </h3>
           <button
             onClick={onDeselectAll}
-            className="text-gray-400 hover:text-white transition-colors text-sm"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors text-sm"
             title="Deselect all fixtures"
           >
             <svg
