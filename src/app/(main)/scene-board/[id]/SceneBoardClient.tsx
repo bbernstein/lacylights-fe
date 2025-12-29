@@ -2244,6 +2244,8 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
               onClick={() => setIsAddSceneModalOpen(true)}
               className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 dark:disabled:opacity-50"
               disabled={mode === "play"}
+              aria-disabled={mode === "play"}
+              aria-label={mode === "play" ? "Add Scene (disabled in Play Mode)" : "Add Scene"}
               title={mode === "play" ? "Switch to Layout Mode to add scenes" : "Add scenes to the board"}
             >
               + Add Scene
