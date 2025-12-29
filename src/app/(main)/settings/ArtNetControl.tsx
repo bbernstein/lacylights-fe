@@ -10,14 +10,23 @@ import {
 import { DEFAULT_FADEOUT_TIME } from '@/constants/playback';
 import { SystemInfo } from '@/types';
 
+/** Minimum fade time in seconds */
+const MIN_FADE_TIME = 0;
+/** Maximum fade time in seconds */
+const MAX_FADE_TIME = 30;
+
 /**
  * ArtNetControl component for enabling/disabling ArtNet output.
  * When disabled, all lights fade to black and ArtNet transmission stops,
  * allowing other DMX controllers on the network to take over.
  */
 export default function ArtNetControl() {
+  /** Fade duration in seconds when disabling ArtNet (0-30) */
   const [fadeTime, setFadeTime] = useState<number>(DEFAULT_FADEOUT_TIME);
+  /** Whether to show advanced fade options */
   const [showAdvanced, setShowAdvanced] = useState(false);
+  /** Error message to display to user */
+  const [error, setError] = useState<string | null>(null);
 
   const { data: systemInfoData, refetch } = useQuery(GET_SYSTEM_INFO);
   const [setArtNetEnabled, { loading: toggling }] = useMutation(SET_ARTNET_ENABLED);
@@ -30,7 +39,13 @@ export default function ArtNetControl() {
   const systemInfo: SystemInfo | undefined = systemInfoData?.systemInfo;
   const isEnabled = systemInfo?.artnetEnabled ?? true;
 
+  /**
+   * Toggles ArtNet output on/off.
+   * When disabling, fades lights to black over the specified duration.
+   * When enabling, restores ArtNet transmission immediately.
+   */
   const handleToggle = async () => {
+    setError(null);
     try {
       await setArtNetEnabled({
         variables: {
@@ -40,8 +55,21 @@ export default function ArtNetControl() {
         },
       });
       await refetch();
-    } catch (error) {
-      console.error('Error toggling ArtNet:', error);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error occurred';
+      setError(`Failed to toggle ArtNet: ${message}`);
+      console.error('Error toggling ArtNet:', err);
+    }
+  };
+
+  /**
+   * Handles fade time input changes with validation.
+   * @param value - The new fade time value from the input
+   */
+  const handleFadeTimeChange = (value: string) => {
+    const parsed = parseFloat(value);
+    if (!isNaN(parsed) && parsed >= MIN_FADE_TIME && parsed <= MAX_FADE_TIME) {
+      setFadeTime(parsed);
     }
   };
 
@@ -76,6 +104,13 @@ export default function ArtNetControl() {
         </button>
       </div>
 
+      {/* Error message display */}
+      {error && (
+        <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+        </div>
+      )}
+
       {/* Advanced options - fade time (only shown when enabled) */}
       {isEnabled && (
         <div className="mt-4">
@@ -98,9 +133,9 @@ export default function ArtNetControl() {
                 id="fadeTime"
                 type="number"
                 value={fadeTime}
-                onChange={(e) => setFadeTime(parseFloat(e.target.value) || 0)}
-                min="0"
-                max="30"
+                onChange={(e) => handleFadeTimeChange(e.target.value)}
+                min={MIN_FADE_TIME}
+                max={MAX_FADE_TIME}
                 step="0.5"
                 className="w-20 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               />
