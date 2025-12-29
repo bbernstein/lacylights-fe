@@ -44,6 +44,7 @@ export default function SystemUpdatePage() {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [updateResults, setUpdateResults] = useState<UpdateResult[]>([]);
   const [expectedVersion, setExpectedVersion] = useState<string>('');
+  const [refreshCountdown, setRefreshCountdown] = useState<number>(0);
 
   // Version selection state
   const [expandedRepo, setExpandedRepo] = useState<string | null>(null);
@@ -114,10 +115,7 @@ export default function SystemUpdatePage() {
           if (expectedVersion && normalizedCurrent === normalizedExpected) {
             // Version matches expected - success!
             setUpdateState('complete');
-            // Force page refresh after short delay to load new frontend
-            setTimeout(() => {
-              window.location.href = `${window.location.origin}/system-update?updated=true`;
-            }, 2000);
+            startRefreshCountdown();
           } else if (expectedVersion && normalizedCurrent !== normalizedExpected) {
             // Version doesn't match expected - report error
             setUpdateState('error');
@@ -138,6 +136,7 @@ export default function SystemUpdatePage() {
           } else {
             // No expected version (shouldn't happen for backend updates)
             setUpdateState('complete');
+            startRefreshCountdown();
           }
         } catch (error) {
           // If we can't verify, report error since we can't confirm success
@@ -183,6 +182,21 @@ export default function SystemUpdatePage() {
     }));
   }, []);
 
+  /**
+   * Start the refresh countdown (sets countdown to 5 seconds)
+   * Gives the server time to fully initialize after health check passes
+   */
+  const startRefreshCountdown = useCallback(() => {
+    setRefreshCountdown(5);
+  }, []);
+
+  /**
+   * Manually trigger page refresh
+   */
+  const handleManualRefresh = useCallback(() => {
+    window.location.reload();
+  }, []);
+
   // Handle update all
   const handleUpdateAll = useCallback(async () => {
     setUpdateState('updating');
@@ -221,17 +235,14 @@ export default function SystemUpdatePage() {
           setErrorMessage(errors);
         } else {
           setUpdateState('complete');
-          // Refresh page after frontend update
-          setTimeout(() => {
-            window.location.reload();
-          }, 2000);
+          startRefreshCountdown();
         }
       }
     } catch (err) {
       setUpdateState('error');
       setErrorMessage(err instanceof Error ? err.message : 'Update failed');
     }
-  }, [updateAllRepositories, startPolling]);
+  }, [updateAllRepositories, startPolling, startRefreshCountdown]);
 
   // Handle single repository update
   const handleUpdateRepository = useCallback(
@@ -276,17 +287,14 @@ export default function SystemUpdatePage() {
           }, 3000);
         } else {
           setUpdateState('complete');
-          // Refresh page after frontend update
-          setTimeout(() => {
-            window.location.reload();
-          }, 2000);
+          startRefreshCountdown();
         }
       } catch (err) {
         setUpdateState('error');
         setErrorMessage(err instanceof Error ? err.message : 'Update failed');
       }
     },
-    [updateRepository, startPolling]
+    [updateRepository, startPolling, startRefreshCountdown]
   );
 
   // Check for updated query param (after refresh)
@@ -297,6 +305,19 @@ export default function SystemUpdatePage() {
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
+
+  // Handle refresh countdown when update is complete
+  useEffect(() => {
+    if (updateState === 'complete' && refreshCountdown > 0) {
+      const timer = setTimeout(() => {
+        setRefreshCountdown((prev) => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (updateState === 'complete' && refreshCountdown === 0 && updateResults.length > 0) {
+      // Countdown finished, perform refresh
+      window.location.reload();
+    }
+  }, [updateState, refreshCountdown, updateResults.length]);
 
   const repositories = versionsData?.systemVersions?.repositories || [];
   const versionManagementSupported =
@@ -413,12 +434,25 @@ export default function SystemUpdatePage() {
                 </div>
               )}
 
-              {/* Complete message */}
+              {/* Complete message with countdown */}
               {updateState === 'complete' && (
                 <div className="mt-6 text-center">
                   <p className="text-green-400">
-                    Update completed successfully! Refreshing page...
+                    Update completed successfully!
                   </p>
+                  {refreshCountdown > 0 ? (
+                    <p className="mt-2 text-gray-400">
+                      Refreshing page in {refreshCountdown} second{refreshCountdown !== 1 ? 's' : ''}...
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-gray-400">Refreshing page...</p>
+                  )}
+                  <button
+                    onClick={handleManualRefresh}
+                    className="mt-3 rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                  >
+                    Refresh Now
+                  </button>
                 </div>
               )}
 
