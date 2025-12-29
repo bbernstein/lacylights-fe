@@ -19,6 +19,9 @@ import { isPrerelease, compareVersions, normalizeVersion } from './utils';
 const BACKEND_REPOS = ['lacylights-go', 'lacylights-mcp'] as const;
 const GO_BACKEND_REPO = 'lacylights-go';
 
+/** Seconds to wait before auto-refreshing after update completes */
+const REFRESH_COUNTDOWN_SECONDS = 5;
+
 interface RepositoryVersion {
   repository: string;
   installed: string;
@@ -183,11 +186,11 @@ export default function SystemUpdatePage() {
   }, []);
 
   /**
-   * Start the refresh countdown (sets countdown to 5 seconds)
+   * Start the refresh countdown
    * Gives the server time to fully initialize after health check passes
    */
   const startRefreshCountdown = useCallback(() => {
-    setRefreshCountdown(5);
+    setRefreshCountdown(REFRESH_COUNTDOWN_SECONDS);
   }, []);
 
   /**
@@ -307,17 +310,19 @@ export default function SystemUpdatePage() {
   }, []);
 
   // Handle refresh countdown when update is complete
+  // Note: The condition is safe because updateState starts as 'idle', not 'complete',
+  // so the reload won't trigger on initial mount even though refreshCountdown starts at 0
   useEffect(() => {
     if (updateState === 'complete' && refreshCountdown > 0) {
       const timer = setTimeout(() => {
         setRefreshCountdown((prev) => prev - 1);
       }, 1000);
       return () => clearTimeout(timer);
-    } else if (updateState === 'complete' && refreshCountdown === 0 && updateResults.length > 0) {
+    } else if (updateState === 'complete' && refreshCountdown === 0) {
       // Countdown finished, perform refresh
       window.location.reload();
     }
-  }, [updateState, refreshCountdown, updateResults.length]);
+  }, [updateState, refreshCountdown]);
 
   const repositories = versionsData?.systemVersions?.repositories || [];
   const versionManagementSupported =
@@ -440,16 +445,19 @@ export default function SystemUpdatePage() {
                   <p className="text-green-400">
                     Update completed successfully!
                   </p>
-                  {refreshCountdown > 0 ? (
-                    <p className="mt-2 text-gray-400">
-                      Refreshing page in {refreshCountdown} second{refreshCountdown !== 1 ? 's' : ''}...
-                    </p>
-                  ) : (
-                    <p className="mt-2 text-gray-400">Refreshing page...</p>
-                  )}
+                  <div aria-live="polite" aria-atomic="true">
+                    {refreshCountdown > 0 ? (
+                      <p className="mt-2 text-gray-400">
+                        Refreshing page in {refreshCountdown} second{refreshCountdown !== 1 ? 's' : ''}...
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-gray-400">Refreshing page...</p>
+                    )}
+                  </div>
                   <button
                     onClick={handleManualRefresh}
                     className="mt-3 rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                    aria-label="Refresh the page now instead of waiting for countdown"
                   >
                     Refresh Now
                   </button>
