@@ -45,6 +45,9 @@ export default function ArtNetControl() {
    * When enabling, restores ArtNet transmission immediately.
    */
   const handleToggle = async () => {
+    // Prevent concurrent toggle requests (race condition)
+    if (toggling) return;
+
     setError(null);
     try {
       await setArtNetEnabled({
@@ -64,12 +67,15 @@ export default function ArtNetControl() {
 
   /**
    * Handles fade time input changes with validation.
+   * Clamps values to valid range and ignores non-numeric input.
    * @param value - The new fade time value from the input
    */
   const handleFadeTimeChange = (value: string) => {
     const parsed = parseFloat(value);
-    if (!isNaN(parsed) && parsed >= MIN_FADE_TIME && parsed <= MAX_FADE_TIME) {
-      setFadeTime(parsed);
+    if (!isNaN(parsed)) {
+      // Clamp to valid range
+      const clamped = Math.max(MIN_FADE_TIME, Math.min(MAX_FADE_TIME, parsed));
+      setFadeTime(clamped);
     }
   };
 
