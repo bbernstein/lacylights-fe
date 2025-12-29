@@ -2,6 +2,14 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AddCueDialog from '../AddCueDialog';
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+}));
+
+import { useIsMobile } from '@/hooks/useMediaQuery';
+const mockUseIsMobile = useIsMobile as jest.Mock;
+
 const mockScenes = [
   { id: 'scene-1', name: 'Scene 1', description: 'First scene' },
   { id: 'scene-2', name: 'Scene 2', description: 'Second scene' },
@@ -319,10 +327,10 @@ describe('AddCueDialog', () => {
       expect(mockOnClose).toHaveBeenCalled();
     });
 
-    it('calls onClose when clicking overlay', () => {
-      const { container } = render(<AddCueDialog {...defaultProps} />);
-      const overlay = container.querySelector('.fixed.inset-0.bg-gray-500') as HTMLElement;
-      fireEvent.click(overlay);
+    it('calls onClose when clicking backdrop', () => {
+      render(<AddCueDialog {...defaultProps} />);
+      const backdrop = screen.getByTestId('add-cue-dialog-backdrop');
+      fireEvent.click(backdrop);
       expect(mockOnClose).toHaveBeenCalled();
     });
 
@@ -374,6 +382,62 @@ describe('AddCueDialog', () => {
           name: 'Padded Name',
         })
       );
+    });
+  });
+
+  describe('Mobile Layout', () => {
+    beforeEach(() => {
+      mockUseIsMobile.mockReturnValue(true);
+    });
+
+    afterEach(() => {
+      mockUseIsMobile.mockReturnValue(false);
+    });
+
+    it('stacks buttons vertically on mobile', () => {
+      render(<AddCueDialog {...defaultProps} />);
+
+      const addEditButton = screen.getByText('Add & Edit');
+      const buttonContainer = addEditButton.parentElement;
+      expect(buttonContainer).toHaveClass('flex-col');
+    });
+
+    it('shows primary action first on mobile', () => {
+      render(<AddCueDialog {...defaultProps} />);
+
+      const buttons = screen.getAllByRole('button').filter(btn =>
+        ['Add & Edit', 'Add Only', 'Cancel'].includes(btn.textContent || '')
+      );
+      const buttonLabels = buttons.map(b => b.textContent);
+
+      // Primary action (Add & Edit) should be first on mobile
+      expect(buttonLabels[0]).toBe('Add & Edit');
+      expect(buttonLabels[1]).toBe('Add Only');
+      expect(buttonLabels[2]).toBe('Cancel');
+    });
+
+    it('has proper touch targets on mobile', () => {
+      render(<AddCueDialog {...defaultProps} />);
+
+      const addEditButton = screen.getByText('Add & Edit');
+      const addOnlyButton = screen.getByText('Add Only');
+      const cancelButton = screen.getByText('Cancel');
+
+      expect(addEditButton).toHaveClass('min-h-[44px]');
+      expect(addOnlyButton).toHaveClass('min-h-[44px]');
+      expect(cancelButton).toHaveClass('min-h-[44px]');
+    });
+
+    it('has touch-manipulation class on mobile buttons', () => {
+      render(<AddCueDialog {...defaultProps} />);
+
+      const addEditButton = screen.getByText('Add & Edit');
+      const addOnlyButton = screen.getByText('Add Only');
+      const cancelButton = screen.getByText('Cancel');
+
+      expect(addEditButton).toHaveClass('touch-manipulation');
+      expect(addOnlyButton).toHaveClass('touch-manipulation');
+      expect(cancelButton).toHaveClass('touch-manipulation');
     });
   });
 });

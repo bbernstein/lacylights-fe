@@ -2,6 +2,14 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import EditCueDialog from '../EditCueDialog';
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+}));
+
+import { useIsMobile } from '@/hooks/useMediaQuery';
+const mockUseIsMobile = useIsMobile as jest.Mock;
+
 const mockScenes = [
   { id: 'scene-1', name: 'Scene 1', description: 'First scene' },
   { id: 'scene-2', name: 'Scene 2', description: 'Second scene' },
@@ -415,10 +423,10 @@ describe('EditCueDialog', () => {
       expect(mockOnClose).toHaveBeenCalled();
     });
 
-    it('calls onClose when clicking overlay', () => {
-      const { container } = render(<EditCueDialog {...defaultProps} />);
-      const overlay = container.querySelector('.fixed.inset-0.bg-gray-500') as HTMLElement;
-      fireEvent.click(overlay);
+    it('calls onClose when clicking backdrop', () => {
+      render(<EditCueDialog {...defaultProps} />);
+      const backdrop = screen.getByTestId('edit-cue-dialog-backdrop');
+      fireEvent.click(backdrop);
       expect(mockOnClose).toHaveBeenCalled();
     });
 
@@ -489,6 +497,62 @@ describe('EditCueDialog', () => {
           followTime: undefined,
         })
       );
+    });
+  });
+
+  describe('Mobile Layout', () => {
+    beforeEach(() => {
+      mockUseIsMobile.mockReturnValue(true);
+    });
+
+    afterEach(() => {
+      mockUseIsMobile.mockReturnValue(false);
+    });
+
+    it('stacks buttons vertically on mobile', () => {
+      render(<EditCueDialog {...defaultProps} />);
+
+      const saveEditButton = screen.getByText('Save & Edit Scene');
+      const buttonContainer = saveEditButton.parentElement;
+      expect(buttonContainer).toHaveClass('flex-col');
+    });
+
+    it('shows primary action first on mobile', () => {
+      render(<EditCueDialog {...defaultProps} />);
+
+      const buttons = screen.getAllByRole('button').filter(btn =>
+        ['Save & Edit Scene', 'Save', 'Cancel'].includes(btn.textContent || '')
+      );
+      const buttonLabels = buttons.map(b => b.textContent);
+
+      // Primary action (Save & Edit Scene) should be first on mobile
+      expect(buttonLabels[0]).toBe('Save & Edit Scene');
+      expect(buttonLabels[1]).toBe('Save');
+      expect(buttonLabels[2]).toBe('Cancel');
+    });
+
+    it('has proper touch targets on mobile', () => {
+      render(<EditCueDialog {...defaultProps} />);
+
+      const saveEditButton = screen.getByText('Save & Edit Scene');
+      const saveButton = screen.getByText('Save');
+      const cancelButton = screen.getByText('Cancel');
+
+      expect(saveEditButton).toHaveClass('min-h-[44px]');
+      expect(saveButton).toHaveClass('min-h-[44px]');
+      expect(cancelButton).toHaveClass('min-h-[44px]');
+    });
+
+    it('has touch-manipulation class on mobile buttons', () => {
+      render(<EditCueDialog {...defaultProps} />);
+
+      const saveEditButton = screen.getByText('Save & Edit Scene');
+      const saveButton = screen.getByText('Save');
+      const cancelButton = screen.getByText('Cancel');
+
+      expect(saveEditButton).toHaveClass('touch-manipulation');
+      expect(saveButton).toHaveClass('touch-manipulation');
+      expect(cancelButton).toHaveClass('touch-manipulation');
     });
   });
 });

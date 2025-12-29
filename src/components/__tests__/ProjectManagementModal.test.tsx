@@ -1,15 +1,20 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
 import ProjectManagementModal from '../ProjectManagementModal';
 import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '../../graphql/projects';
 
-// Mock heroicons
+// Mock heroicons - need to include XMarkIcon as BottomSheet uses it
 jest.mock('@heroicons/react/24/outline', () => ({
   XMarkIcon: ({ className }: { className?: string }) => <div className={className} data-testid="x-mark-icon">X</div>,
   TrashIcon: ({ className }: { className?: string }) => <div className={className} data-testid="trash-icon">🗑</div>,
   PlusIcon: ({ className }: { className?: string }) => <div className={className} data-testid="plus-icon">+</div>,
   PencilIcon: ({ className }: { className?: string }) => <div className={className} data-testid="pencil-icon">✏️</div>,
+}));
+
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
 }));
 
 // Mock the useProject hook
@@ -149,7 +154,7 @@ describe('ProjectManagementModal', () => {
       renderWithProvider();
       expect(screen.getByText('Manage Projects')).toBeInTheDocument();
       expect(screen.getByText('New Project')).toBeInTheDocument();
-      expect(screen.getByTestId('x-mark-icon')).toBeInTheDocument();
+      expect(screen.getByText('Close')).toBeInTheDocument();
     });
 
     it('shows loading state initially', () => {
@@ -175,20 +180,20 @@ describe('ProjectManagementModal', () => {
   });
 
   describe('modal interactions', () => {
-    it('calls onClose when close button is clicked', async () => {
+    it('calls onClose when Close button is clicked', async () => {
       renderWithProvider();
 
-      const closeButton = screen.getByTestId('x-mark-icon');
+      const closeButton = screen.getByText('Close');
       await userEvent.click(closeButton);
 
       expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
     });
 
-    it('calls onClose when X button is clicked', async () => {
+    it('calls onClose when backdrop is clicked', async () => {
       renderWithProvider();
 
-      const xButton = screen.getByTestId('x-mark-icon');
-      await userEvent.click(xButton);
+      const backdrop = screen.getByTestId('project-management-modal-backdrop');
+      fireEvent.click(backdrop);
 
       expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
     });
@@ -328,11 +333,12 @@ describe('ProjectManagementModal', () => {
   });
 
   describe('styling', () => {
-    it('applies correct modal backdrop classes', () => {
+    it('renders as BottomSheet modal', () => {
       renderWithProvider();
 
-      const backdrop = screen.getByText('Manage Projects').closest('.fixed');
-      expect(backdrop).toHaveClass('fixed', 'inset-0');
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
     });
 
     it('displays create button properly', () => {
