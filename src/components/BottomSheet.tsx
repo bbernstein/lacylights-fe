@@ -60,7 +60,7 @@ interface BottomSheetProps {
   /** Whether to show the close button in header (default: true) */
   showCloseButton?: boolean;
   /** Maximum width for desktop modal (default: 'max-w-lg') */
-  maxWidth?: 'max-w-sm' | 'max-w-md' | 'max-w-lg' | 'max-w-xl' | 'max-w-2xl' | 'max-w-3xl' | 'max-w-4xl';
+  maxWidth?: 'max-w-sm' | 'max-w-md' | 'max-w-lg' | 'max-w-xl' | 'max-w-2xl' | 'max-w-3xl' | 'max-w-4xl' | 'max-w-5xl' | 'max-w-6xl';
   /** Whether clicking backdrop should close (default: true) */
   closeOnBackdrop?: boolean;
   /** Whether pressing Escape should close (default: true) */
