@@ -2123,94 +2123,31 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
           </button>
         </div>
       ) : (
-        /* Normal Header - Compact on mobile */
-        <div className="bg-white border-b px-3 py-2 md:px-6 md:py-4 flex items-center justify-between dark:bg-gray-900 dark:border-gray-700">
-          {/* Left side - always visible */}
-          <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
-            <button
-              onClick={() => router.push("/scene-board")}
-              className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white shrink-0"
-              aria-label="Back to scene boards"
-            >
-              ←
-            </button>
-            <div className="min-w-0">
-              <h1 className="text-lg md:text-2xl font-bold dark:text-white truncate">
-                {board.name}
-              </h1>
-              {/* Info visible only on desktop */}
-              <p className="hidden md:block text-sm text-gray-600 dark:text-gray-300">
-                {board.buttons.length} scenes • Fade: {board.defaultFadeTime}s
-              </p>
+        /* Normal Header - Compact on mobile, two-row on desktop */
+        <div className="bg-white border-b dark:bg-gray-900 dark:border-gray-700">
+          {/* Row 1: Title and Mode Toggle */}
+          <div className="px-3 py-2 md:px-6 md:py-3 flex items-center justify-between">
+            {/* Left side - Back button and title */}
+            <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
+              <button
+                onClick={() => router.push("/scene-board")}
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white shrink-0"
+                aria-label="Back to scene boards"
+              >
+                ←
+              </button>
+              <div className="min-w-0">
+                <h1 className="text-lg md:text-2xl font-bold dark:text-white truncate">
+                  {board.name}
+                </h1>
+                <p className="hidden md:block text-sm text-gray-600 dark:text-gray-300">
+                  {board.buttons.length} scenes • Fade: {board.defaultFadeTime}s
+                </p>
+              </div>
             </div>
-          </div>
 
-          {/* Right side - desktop only */}
-          <div className="hidden md:flex items-center gap-2">
-            <button
-              onClick={enterFocusMode}
-              className="px-3 py-2 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300"
-              title="Enter focus mode (full screen)"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                />
-              </svg>
-            </button>
-            <button
-              onClick={zoomToFit}
-              className="px-3 py-2 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300"
-              title="Zoom to fit all scenes"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
-                />
-              </svg>
-            </button>
-            <button
-              onClick={openEditSettings}
-              className="px-3 py-2 border rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300"
-            >
-              Settings
-            </button>
-            <button
-              onClick={() => setIsAddSceneModalOpen(true)}
-              className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 dark:disabled:opacity-50"
-              disabled={mode === "play"}
-              aria-disabled={mode === "play"}
-              aria-describedby={
-                mode === "play" ? "add-scene-disabled-msg" : undefined
-              }
-            >
-              + Add Scene
-            </button>
-            {mode === "play" && (
-              <span
-                id="add-scene-disabled-msg"
-                className="ml-2 text-sm text-gray-500 dark:text-gray-400"
-              >
-                Switch to Layout Mode to add scenes
-              </span>
-            )}
-            <div className="border-l dark:border-gray-600 pl-2 ml-2">
+            {/* Right side - Mode toggle (desktop) */}
+            <div className="hidden md:flex items-center">
               <button
                 onClick={() => setMode("play")}
                 className={`px-4 py-2 rounded-l ${
@@ -2232,28 +2169,86 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                 Layout Mode
               </button>
             </div>
+
+            {/* Hamburger menu - mobile only */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white shrink-0"
+              aria-label="Toggle menu"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
           </div>
 
-          {/* Hamburger menu - mobile only */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white shrink-0"
-            aria-label="Toggle menu"
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          {/* Row 2: Action buttons (desktop only) */}
+          <div className="hidden md:flex items-center gap-2 px-6 py-2 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <button
+              onClick={enterFocusMode}
+              className="px-3 py-1.5 border rounded hover:bg-white text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300 flex items-center gap-1.5"
+              title="Enter focus mode (full screen)"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                />
+              </svg>
+              <span className="text-sm">Focus</span>
+            </button>
+            <button
+              onClick={zoomToFit}
+              className="px-3 py-1.5 border rounded hover:bg-white text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300 flex items-center gap-1.5"
+              title="Zoom to fit all scenes"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+                />
+              </svg>
+              <span className="text-sm">Fit</span>
+            </button>
+            <button
+              onClick={openEditSettings}
+              className="px-3 py-1.5 border rounded hover:bg-white text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300 text-sm"
+            >
+              Settings
+            </button>
+            <button
+              onClick={() => setIsAddSceneModalOpen(true)}
+              className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 dark:disabled:opacity-50"
+              disabled={mode === "play"}
+              title={mode === "play" ? "Switch to Layout Mode to add scenes" : "Add scenes to the board"}
+            >
+              + Add Scene
+            </button>
+          </div>
         </div>
       )}
 
