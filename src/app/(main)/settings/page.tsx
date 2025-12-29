@@ -7,6 +7,7 @@ import { Setting, UpdateSettingInput, NetworkInterfaceOption, SystemInfo } from 
 import WiFiSettings from './WiFiSettings';
 import VersionManagement from './VersionManagement';
 import OFLManagement from './OFLManagement';
+import ArtNetControl from './ArtNetControl';
 
 interface SettingDefinition {
   key: string;
@@ -360,6 +361,12 @@ export default function SettingsPage() {
       <div>
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Fade Engine Configuration</h2>
         {renderSettingsTable(fadeEngineSettings)}
+      </div>
+
+      {/* Art-Net Output Control Section */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Art-Net Output</h2>
+        <ArtNetControl />
       </div>
 
       {/* Art-Net Configuration Section */}

@@ -244,6 +244,11 @@ export interface SystemInfo {
   fadeUpdateRateHz: number;
 }
 
+export interface ArtNetStatus {
+  enabled: boolean;
+  broadcastAddress: string;
+}
+
 export interface NetworkInterfaceOption {
   name: string;
   address: string;

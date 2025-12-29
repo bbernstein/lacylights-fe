@@ -67,3 +67,21 @@ export const SYSTEM_INFO_UPDATED = gql`
     }
   }
 `;
+
+export const GET_ARTNET_STATUS = gql`
+  query GetArtNetStatus {
+    artNetStatus {
+      enabled
+      broadcastAddress
+    }
+  }
+`;
+
+export const SET_ARTNET_ENABLED = gql`
+  mutation SetArtNetEnabled($enabled: Boolean!, $fadeTime: Float) {
+    setArtNetEnabled(enabled: $enabled, fadeTime: $fadeTime) {
+      enabled
+      broadcastAddress
+    }
+  }
+`;
