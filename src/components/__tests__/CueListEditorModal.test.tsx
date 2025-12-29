@@ -3,6 +3,12 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
 import CueListEditorModal from '../CueListEditorModal';
+
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+}));
+
 import {
   GET_CUE_LIST,
   UPDATE_CUE_LIST,
@@ -549,9 +555,10 @@ describe('CueListEditorModal', () => {
       expect(screen.getAllByText('Cue #')).toHaveLength(2); // One in table header, one in form
       expect(screen.getAllByText('Name')).toHaveLength(2); // One in table header, one in form
       expect(screen.getAllByText('Scene')).toHaveLength(2); // One in table header, one in form
-      expect(screen.getByText('Fade In (sec)')).toBeInTheDocument();
-      expect(screen.getByText('Fade Out (sec)')).toBeInTheDocument();
-      expect(screen.getByText('Follow (sec)')).toBeInTheDocument();
+      // Fade In/Out/Follow appear in both table header and form
+      expect(screen.getAllByText('Fade In')).toHaveLength(2);
+      expect(screen.getAllByText('Fade Out')).toHaveLength(2);
+      expect(screen.getAllByText('Follow')).toHaveLength(2);
       expect(screen.getByText('Notes (optional)')).toBeInTheDocument();
     });
 
@@ -824,11 +831,9 @@ describe('CueListEditorModal', () => {
         expect(screen.getByRole('heading', { name: 'Edit Cue List' })).toBeInTheDocument();
       });
 
-      const backdrop = document.querySelector('.bg-gray-500');
-      if (backdrop) {
-        fireEvent.click(backdrop);
-        expect(defaultProps.onClose).toHaveBeenCalled();
-      }
+      const backdrop = screen.getByTestId('cuelist-editor-modal-backdrop');
+      fireEvent.click(backdrop);
+      expect(defaultProps.onClose).toHaveBeenCalled();
     });
   });
 
@@ -939,7 +944,8 @@ describe('CueListEditorModal', () => {
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: 'Add Cue' })).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+        // BottomSheet has two Close buttons: header (aria-label) and footer (text)
+        expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(2);
       });
 
       expect(screen.getAllByTitle('Edit cue')).toHaveLength(2);

@@ -6,6 +6,8 @@ import { GET_CUE_LIST, UPDATE_CUE_LIST, CREATE_CUE, UPDATE_CUE, DELETE_CUE, REOR
 import { GET_PROJECT_SCENES } from '@/graphql/scenes';
 import { Cue, Scene } from '@/types';
 import BulkFadeUpdateModal from './BulkFadeUpdateModal';
+import BottomSheet from './BottomSheet';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 import {
   DndContext,
   closestCenter,
@@ -297,6 +299,7 @@ const CueRow = React.forwardRef<HTMLTableRowElement, CueRowInternalProps>(
 CueRow.displayName = 'CueRow';
 
 export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueListUpdated, onRunCueList }: CueListEditorModalProps) {
+  const isMobile = useIsMobile();
   const [cueListName, setCueListName] = useState('');
   const [cueListDescription, setCueListDescription] = useState('');
   const [cueListLoop, setCueListLoop] = useState(false);
@@ -542,293 +545,321 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
 
   if (!isOpen || !cueListId) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={handleClose} />
+  const formContent = loading ? (
+    <div className="text-center py-8">
+      <p className="text-gray-500 dark:text-gray-400">Loading cue list...</p>
+    </div>
+  ) : !cueList ? (
+    <div className="text-center py-8">
+      <p className="text-red-500">Cue list not found</p>
+    </div>
+  ) : (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="cuelist-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Cue List Name *
+          </label>
+          <input
+            id="cuelist-name"
+            type="text"
+            value={cueListName}
+            onChange={(e) => setCueListName(e.target.value)}
+            onBlur={handleUpdateCueList}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          />
+        </div>
 
-        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl w-full sm:p-6">
-          {loading ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500 dark:text-gray-400">Loading cue list...</p>
-            </div>
-          ) : !cueList ? (
-            <div className="text-center py-8">
-              <p className="text-red-500">Cue list not found</p>
-            </div>
-          ) : (
-            <div>
-              <div className="mb-6">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                  Edit Cue List
-                </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label htmlFor="cuelist-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Cue List Name *
-                    </label>
-                    <input
-                      id="cuelist-name"
-                      type="text"
-                      value={cueListName}
-                      onChange={(e) => setCueListName(e.target.value)}
-                      onBlur={handleUpdateCueList}
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    />
-                  </div>
+        <div>
+          <label htmlFor="cuelist-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Description
+          </label>
+          <input
+            id="cuelist-description"
+            type="text"
+            value={cueListDescription}
+            onChange={(e) => setCueListDescription(e.target.value)}
+            onBlur={handleUpdateCueList}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          />
+        </div>
+      </div>
 
-                  <div>
-                    <label htmlFor="cuelist-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Description
-                    </label>
-                    <input
-                      id="cuelist-description"
-                      type="text"
-                      value={cueListDescription}
-                      onChange={(e) => setCueListDescription(e.target.value)}
-                      onBlur={handleUpdateCueList}
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    />
-                  </div>
-                </div>
+      <div>
+        <label className="flex items-center space-x-2 cursor-pointer min-h-[44px] touch-manipulation">
+          <input
+            type="checkbox"
+            checked={cueListLoop}
+            onChange={(e) => {
+              const newLoopValue = e.target.checked;
+              setCueListLoop(newLoopValue);
+              handleUpdateCueList({ loop: newLoopValue });
+            }}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-5 w-5"
+          />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Loop cue list (restart from first cue after last cue finishes)
+          </span>
+        </label>
+      </div>
 
-                <div className="mb-4">
-                  <label className="flex items-center space-x-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={cueListLoop}
-                      onChange={(e) => {
-                        const newLoopValue = e.target.checked;
-                        setCueListLoop(newLoopValue);
-                        // Update immediately with new value (don't wait for state update)
-                        handleUpdateCueList({ loop: newLoopValue });
-                      }}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Loop cue list (restart from first cue after last cue finishes)
-                    </span>
-                  </label>
-                </div>
-              </div>
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-red-800 dark:text-red-200">{error}</p>
+        </div>
+      )}
 
-              {error && (
-                <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                  <p className="text-red-800 dark:text-red-200">{error}</p>
-                </div>
-              )}
-
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center space-x-4">
-                  <h4 className="text-md font-medium text-gray-900 dark:text-white">
-                    Cues ({cueList.cues.length})
-                  </h4>
-                  {selectedCueIds.size > 0 && (
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {selectedCueIds.size} selected
-                      </span>
-                      <button
-                        onClick={handleBulkUpdate}
-                        className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700"
-                      >
-                        Update Fades
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => setShowAddCue(!showAddCue)}
-                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  {showAddCue ? 'Cancel' : 'Add Cue'}
-                </button>
-              </div>
-
-              {showAddCue && (
-                <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg w-full max-w-full">
-                  <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Add New Cue</h5>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 w-full">
-                    <div className="min-w-0">
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Cue #</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={newCue.cueNumber}
-                        onChange={(e) => setNewCue({ ...newCue, cueNumber: e.target.value })}
-                        className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
-                      />
-                    </div>
-                    <div className="md:col-span-2 min-w-0">
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
-                      <input
-                        type="text"
-                        value={newCue.name}
-                        onChange={(e) => setNewCue({ ...newCue, name: e.target.value })}
-                        className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3 w-full">
-                    <div className="min-w-0">
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Scene</label>
-                      <select
-                        value={newCue.sceneId}
-                        onChange={(e) => setNewCue({ ...newCue, sceneId: e.target.value })}
-                        className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
-                      >
-                        <option value="">Select scene...</option>
-                        {scenes.map((scene: Scene) => (
-                          <option key={scene.id} value={scene.id}>{scene.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="min-w-0">
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional)</label>
-                      <input
-                        type="text"
-                        value={newCue.notes}
-                        onChange={(e) => setNewCue({ ...newCue, notes: e.target.value })}
-                        placeholder="Optional notes..."
-                        className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 w-full">
-                    <div className="min-w-0">
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fade In (sec)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={newCue.fadeInTime}
-                        onChange={(e) => setNewCue({ ...newCue, fadeInTime: e.target.value })}
-                        className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fade Out (sec)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={newCue.fadeOutTime}
-                        onChange={(e) => setNewCue({ ...newCue, fadeOutTime: e.target.value })}
-                        className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Follow (sec)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={newCue.followTime}
-                        onChange={(e) => setNewCue({ ...newCue, followTime: e.target.value })}
-                        className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <button
-                      onClick={handleAddCue}
-                      disabled={!newCue.name || !newCue.sceneId}
-                      className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
-                    >
-                      Add Cue
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="overflow-x-auto">
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-700">
-                      <tr>
-                        <th className="px-4 py-3 text-left">
-                          <input
-                            type="checkbox"
-                            checked={selectedCueIds.size > 0 && selectedCueIds.size === cueList.cues.length}
-                            onChange={(e) => handleSelectAll(e.target.checked)}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Cue #</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Name</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Scene</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Fade In</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Fade Out</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Follow</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
-                      </tr>
-                    </thead>
-                    <SortableContext
-                      items={cueList.cues.map((cue: Cue) => cue.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {cueList.cues.length === 0 ? (
-                          <tr>
-                            <td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                              No cues yet. Add your first cue to get started.
-                            </td>
-                          </tr>
-                        ) : (
-                          cueList.cues.map((cue: Cue) => (
-                            <SortableCueRow
-                              key={cue.id}
-                              cue={cue}
-                              scenes={scenes}
-                              onUpdate={handleUpdateCue}
-                              onDelete={handleDeleteCue}
-                              isSelected={selectedCueIds.has(cue.id)}
-                              onSelect={handleSelectCue}
-                            />
-                          ))
-                        )}
-                      </tbody>
-                    </SortableContext>
-                  </table>
-                </DndContext>
-              </div>
-
-              <div className="mt-6 flex justify-between">
-                <div>
-                  {onRunCueList && cueList.cues.length > 0 && (
-                    <button
-                      onClick={() => {
-                        handleClose();
-                        onRunCueList(cueList.id);
-                      }}
-                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Run Cue List
-                    </button>
-                  )}
-                </div>
-                <button
-                  onClick={handleClose}
-                  className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
-                >
-                  Close
-                </button>
-              </div>
+      <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'justify-between items-center'}`}>
+        <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'items-center space-x-4'}`}>
+          <h4 className="text-md font-medium text-gray-900 dark:text-white">
+            Cues ({cueList.cues.length})
+          </h4>
+          {selectedCueIds.size > 0 && (
+            <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'items-center space-x-2'}`}>
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                {selectedCueIds.size} selected
+              </span>
+              <button
+                onClick={handleBulkUpdate}
+                className={`${isMobile ? 'w-full' : ''} inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 min-h-[44px] touch-manipulation`}
+              >
+                Update Fades
+              </button>
             </div>
           )}
         </div>
+        <button
+          onClick={() => setShowAddCue(!showAddCue)}
+          className={`${isMobile ? 'w-full' : ''} inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 min-h-[44px] touch-manipulation`}
+        >
+          {showAddCue ? 'Cancel' : 'Add Cue'}
+        </button>
       </div>
-      
+
+      {showAddCue && (
+        <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg w-full">
+          <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Add New Cue</h5>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Cue #</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                value={newCue.cueNumber}
+                onChange={(e) => setNewCue({ ...newCue, cueNumber: e.target.value })}
+                className="w-full rounded border-gray-300 text-base dark:bg-gray-700 dark:border-gray-600"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+              <input
+                type="text"
+                value={newCue.name}
+                onChange={(e) => setNewCue({ ...newCue, name: e.target.value })}
+                className="w-full rounded border-gray-300 text-base dark:bg-gray-700 dark:border-gray-600"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Scene</label>
+              <select
+                value={newCue.sceneId}
+                onChange={(e) => setNewCue({ ...newCue, sceneId: e.target.value })}
+                className="w-full rounded border-gray-300 text-base dark:bg-gray-700 dark:border-gray-600"
+              >
+                <option value="">Select scene...</option>
+                {scenes.map((scene: Scene) => (
+                  <option key={scene.id} value={scene.id}>{scene.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional)</label>
+              <input
+                type="text"
+                value={newCue.notes}
+                onChange={(e) => setNewCue({ ...newCue, notes: e.target.value })}
+                placeholder="Optional notes..."
+                className="w-full rounded border-gray-300 text-base dark:bg-gray-700 dark:border-gray-600"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3 mb-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fade In</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                value={newCue.fadeInTime}
+                onChange={(e) => setNewCue({ ...newCue, fadeInTime: e.target.value })}
+                className="w-full rounded border-gray-300 text-base dark:bg-gray-700 dark:border-gray-600"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fade Out</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                value={newCue.fadeOutTime}
+                onChange={(e) => setNewCue({ ...newCue, fadeOutTime: e.target.value })}
+                className="w-full rounded border-gray-300 text-base dark:bg-gray-700 dark:border-gray-600"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Follow</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                value={newCue.followTime}
+                onChange={(e) => setNewCue({ ...newCue, followTime: e.target.value })}
+                className="w-full rounded border-gray-300 text-base dark:bg-gray-700 dark:border-gray-600"
+              />
+            </div>
+          </div>
+          <div className={`flex ${isMobile ? 'flex-col' : 'justify-end'}`}>
+            <button
+              onClick={handleAddCue}
+              disabled={!newCue.name || !newCue.sceneId}
+              className={`${isMobile ? 'w-full' : ''} inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 min-h-[44px] touch-manipulation`}
+            >
+              Add Cue
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="overflow-x-auto -mx-4 px-4">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700">
+              <tr>
+                <th className="px-2 md:px-4 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={selectedCueIds.size > 0 && selectedCueIds.size === cueList.cues.length}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-5 w-5"
+                  />
+                </th>
+                <th className="px-2 md:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Cue #</th>
+                <th className="px-2 md:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Name</th>
+                <th className="px-2 md:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Scene</th>
+                <th className="px-2 md:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap">Fade In</th>
+                <th className="px-2 md:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap">Fade Out</th>
+                <th className="px-2 md:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Follow</th>
+                <th className="px-2 md:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <SortableContext
+              items={cueList.cues.map((cue: Cue) => cue.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {cueList.cues.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                      No cues yet. Add your first cue to get started.
+                    </td>
+                  </tr>
+                ) : (
+                  cueList.cues.map((cue: Cue) => (
+                    <SortableCueRow
+                      key={cue.id}
+                      cue={cue}
+                      scenes={scenes}
+                      onUpdate={handleUpdateCue}
+                      onDelete={handleDeleteCue}
+                      isSelected={selectedCueIds.has(cue.id)}
+                      onSelect={handleSelectCue}
+                    />
+                  ))
+                )}
+              </tbody>
+            </SortableContext>
+          </table>
+        </DndContext>
+      </div>
+    </div>
+  );
+
+  const footerContent = (
+    <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'justify-between'}`}>
+      {isMobile ? (
+        <>
+          {onRunCueList && cueList && cueList.cues.length > 0 && (
+            <button
+              onClick={() => {
+                handleClose();
+                onRunCueList(cueList.id);
+              }}
+              className="w-full inline-flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-green-600 hover:bg-green-700 min-h-[44px] touch-manipulation"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Run Cue List
+            </button>
+          )}
+          <button
+            onClick={handleClose}
+            className="w-full inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 min-h-[44px] touch-manipulation"
+          >
+            Close
+          </button>
+        </>
+      ) : (
+        <>
+          <div>
+            {onRunCueList && cueList && cueList.cues.length > 0 && (
+              <button
+                onClick={() => {
+                  handleClose();
+                  onRunCueList(cueList.id);
+                }}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Run Cue List
+              </button>
+            )}
+          </div>
+          <button
+            onClick={handleClose}
+            className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+          >
+            Close
+          </button>
+        </>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      <BottomSheet
+        isOpen={isOpen}
+        onClose={handleClose}
+        title="Edit Cue List"
+        footer={footerContent}
+        maxWidth="max-w-6xl"
+        testId="cuelist-editor-modal"
+      >
+        {formContent}
+      </BottomSheet>
+
       {/* Bulk Update Modal */}
       <BulkFadeUpdateModal
         isOpen={showBulkUpdateModal}
@@ -836,6 +867,6 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
         selectedCues={selectedCues}
         onUpdate={refetch}
       />
-    </div>
+    </>
   );
 }

@@ -2,6 +2,11 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import EditCueDialog from '../EditCueDialog';
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+}));
+
 const mockScenes = [
   { id: 'scene-1', name: 'Scene 1', description: 'First scene' },
   { id: 'scene-2', name: 'Scene 2', description: 'Second scene' },
@@ -415,10 +420,10 @@ describe('EditCueDialog', () => {
       expect(mockOnClose).toHaveBeenCalled();
     });
 
-    it('calls onClose when clicking overlay', () => {
-      const { container } = render(<EditCueDialog {...defaultProps} />);
-      const overlay = container.querySelector('.fixed.inset-0.bg-gray-500') as HTMLElement;
-      fireEvent.click(overlay);
+    it('calls onClose when clicking backdrop', () => {
+      render(<EditCueDialog {...defaultProps} />);
+      const backdrop = screen.getByTestId('edit-cue-dialog-backdrop');
+      fireEvent.click(backdrop);
       expect(mockOnClose).toHaveBeenCalled();
     });
 

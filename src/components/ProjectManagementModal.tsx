@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
-import { XMarkIcon, TrashIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '@/graphql/projects';
 import { useProject } from '@/contexts/ProjectContext';
 import { Project } from '@/types';
 import ImportExportButtons from './ImportExportButtons';
+import BottomSheet from './BottomSheet';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 interface ProjectManagementModalProps {
   isOpen: boolean;
@@ -14,6 +16,7 @@ interface ProjectManagementModalProps {
 }
 
 export default function ProjectManagementModal({ isOpen, onClose }: ProjectManagementModalProps) {
+  const isMobile = useIsMobile();
   const { refetchAndSelectById, selectProjectById, selectedProjectId } = useProject();
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
   const [isCreating, setIsCreating] = useState(false);
@@ -169,194 +172,204 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     setError(errorMessage);
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-white">Manage Projects</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            <XMarkIcon className="h-6 w-6" />
-          </button>
+  const formContent = (
+    <div className="space-y-4">
+      {error && (
+        <div className="p-3 bg-red-500/20 border border-red-500 rounded text-red-200 text-sm">
+          {error}
         </div>
+      )}
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded text-red-200 text-sm">
-            {error}
-          </div>
+      <div className={`flex gap-2 flex-wrap ${isMobile ? 'flex-col' : ''}`}>
+        <button
+          onClick={() => setIsCreating(true)}
+          className={`${isMobile ? 'w-full' : ''} px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 min-h-[44px] touch-manipulation`}
+        >
+          <PlusIcon className="h-4 w-4" />
+          New Project
+        </button>
+
+        <ImportExportButtons
+          onImportComplete={handleImportComplete}
+          onError={handleExportError}
+        />
+
+        {selectedProjects.size > 0 && (
+          <button
+            onClick={handleDeleteSelected}
+            className={`${isMobile ? 'w-full' : ''} px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center justify-center gap-2 min-h-[44px] touch-manipulation`}
+          >
+            <TrashIcon className="h-4 w-4" />
+            Delete Selected ({selectedProjects.size})
+          </button>
         )}
 
-        <div className="mb-4 flex gap-2 flex-wrap">
+        {data?.projects?.length > 0 && (
           <button
-            onClick={() => setIsCreating(true)}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex items-center gap-2"
+            onClick={handleSelectAll}
+            className={`${isMobile ? 'w-full' : ''} px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors min-h-[44px] touch-manipulation`}
           >
-            <PlusIcon className="h-4 w-4" />
-            New Project
+            {selectedProjects.size === data?.projects.length ? 'Deselect All' : 'Select All'}
           </button>
+        )}
+      </div>
 
-          <ImportExportButtons
-            onImportComplete={handleImportComplete}
-            onError={handleExportError}
+      {isCreating && (
+        <div className="p-4 bg-gray-700 rounded">
+          <h3 className="text-white font-medium mb-2">Create New Project</h3>
+          <input
+            type="text"
+            placeholder="Project Name"
+            value={newProjectName}
+            onChange={(e) => setNewProjectName(e.target.value)}
+            className="w-full px-3 py-2 bg-gray-600 text-white rounded mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+            autoFocus
           />
-
-          {selectedProjects.size > 0 && (
+          <textarea
+            placeholder="Description (optional)"
+            value={newProjectDescription}
+            onChange={(e) => setNewProjectDescription(e.target.value)}
+            className="w-full px-3 py-2 bg-gray-600 text-white rounded mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-base"
+            rows={2}
+          />
+          <div className={`flex gap-2 ${isMobile ? 'flex-col' : ''}`}>
             <button
-              onClick={handleDeleteSelected}
-              className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center gap-2"
+              onClick={handleCreateProject}
+              disabled={!newProjectName.trim()}
+              className={`${isMobile ? 'w-full' : ''} px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation`}
             >
-              <TrashIcon className="h-4 w-4" />
-              Delete Selected ({selectedProjects.size})
+              Create
             </button>
-          )}
-
-          {data?.projects?.length > 0 && (
             <button
-              onClick={handleSelectAll}
-              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+              onClick={() => {
+                setIsCreating(false);
+                setNewProjectName('');
+                setNewProjectDescription('');
+              }}
+              className={`${isMobile ? 'w-full' : ''} px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors min-h-[44px] touch-manipulation`}
             >
-              {selectedProjects.size === data?.projects.length ? 'Deselect All' : 'Select All'}
+              Cancel
             </button>
-          )}
-        </div>
-
-        {isCreating && (
-          <div className="mb-4 p-4 bg-gray-700 rounded">
-            <h3 className="text-white font-medium mb-2">Create New Project</h3>
-            <input
-              type="text"
-              placeholder="Project Name"
-              value={newProjectName}
-              onChange={(e) => setNewProjectName(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-600 text-white rounded mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              autoFocus
-            />
-            <textarea
-              placeholder="Description (optional)"
-              value={newProjectDescription}
-              onChange={(e) => setNewProjectDescription(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-600 text-white rounded mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              rows={2}
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={handleCreateProject}
-                disabled={!newProjectName.trim()}
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Create
-              </button>
-              <button
-                onClick={() => {
-                  setIsCreating(false);
-                  setNewProjectName('');
-                  setNewProjectDescription('');
-                }}
-                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
           </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="text-gray-400 text-center py-8">Loading projects...</div>
-          ) : data?.projects?.length === 0 ? (
-            <div className="text-gray-400 text-center py-8">No projects found</div>
-          ) : (
-            <div className="space-y-2">
-              {data?.projects.map((project: Project) => (
-                <div
-                  key={project.id}
-                  className={`flex items-center gap-3 p-3 rounded ${
-                    selectedProjectId === project.id ? 'bg-gray-700' : 'bg-gray-700/50'
-                  } hover:bg-gray-700 transition-colors`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedProjects.has(project.id)}
-                    onChange={() => handleToggleSelect(project.id)}
-                    className="h-4 w-4 text-blue-500 bg-gray-600 border-gray-500 rounded focus:ring-blue-500"
-                  />
-                  <div className="flex-1">
-                    {editingProject && editingProject.id === project.id ? (
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          value={editingProject.name}
-                          onChange={(e) => setEditingProject({...editingProject, name: e.target.value})}
-                          className="w-full px-2 py-1 bg-gray-600 text-white rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          autoFocus
-                        />
-                        <textarea
-                          value={editingProject.description}
-                          onChange={(e) => setEditingProject({...editingProject, description: e.target.value})}
-                          className="w-full px-2 py-1 bg-gray-600 text-white rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                          rows={2}
-                          placeholder="Description (optional)"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handleUpdateProject}
-                            disabled={!editingProject.name.trim()}
-                            className="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={handleCancelEdit}
-                            className="px-2 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <div className="text-white font-medium">{project.name}</div>
-                        {project.description && (
-                          <div className="text-gray-400 text-sm">{project.description}</div>
-                        )}
-                        <div className="text-gray-500 text-xs mt-1">
-                          Created: {new Date(project.createdAt).toLocaleDateString()}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  {selectedProjectId === project.id && (
-                    <span className="text-green-500 text-sm">Current</span>
-                  )}
-                  <div className="flex gap-2 items-center">
-                    <ImportExportButtons
-                      projectId={project.id}
-                      onError={handleExportError}
-                      exportOnly={true}
-                    />
-                    <button
-                      onClick={() => handleStartEdit(project)}
-                      className="text-gray-400 hover:text-blue-500 transition-colors"
-                      title="Rename project"
-                    >
-                      <PencilIcon className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteSingle(project.id)}
-                      className="text-gray-400 hover:text-red-500 transition-colors"
-                      title="Delete project"
-                    >
-                      <TrashIcon className="h-5 w-5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
+      )}
+
+      <div className="space-y-2">
+        {loading ? (
+          <div className="text-gray-400 text-center py-8">Loading projects...</div>
+        ) : data?.projects?.length === 0 ? (
+          <div className="text-gray-400 text-center py-8">No projects found</div>
+        ) : (
+          data?.projects.map((project: Project) => (
+            <div
+              key={project.id}
+              className={`flex items-center gap-3 p-3 rounded ${
+                selectedProjectId === project.id ? 'bg-gray-700' : 'bg-gray-700/50'
+              } hover:bg-gray-700 transition-colors`}
+            >
+              <input
+                type="checkbox"
+                checked={selectedProjects.has(project.id)}
+                onChange={() => handleToggleSelect(project.id)}
+                className="h-5 w-5 text-blue-500 bg-gray-600 border-gray-500 rounded focus:ring-blue-500"
+              />
+              <div className="flex-1 min-w-0">
+                {editingProject && editingProject.id === project.id ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={editingProject.name}
+                      onChange={(e) => setEditingProject({...editingProject, name: e.target.value})}
+                      className="w-full px-2 py-1 bg-gray-600 text-white rounded text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
+                    />
+                    <textarea
+                      value={editingProject.description}
+                      onChange={(e) => setEditingProject({...editingProject, description: e.target.value})}
+                      className="w-full px-2 py-1 bg-gray-600 text-white rounded text-base focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      rows={2}
+                      placeholder="Description (optional)"
+                    />
+                    <div className={`flex gap-2 ${isMobile ? 'flex-col' : ''}`}>
+                      <button
+                        onClick={handleUpdateProject}
+                        disabled={!editingProject.name.trim()}
+                        className={`${isMobile ? 'w-full' : ''} px-2 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation`}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancelEdit}
+                        className={`${isMobile ? 'w-full' : ''} px-2 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors min-h-[44px] touch-manipulation`}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="text-white font-medium truncate">{project.name}</div>
+                    {project.description && (
+                      <div className="text-gray-400 text-sm truncate">{project.description}</div>
+                    )}
+                    <div className="text-gray-500 text-xs mt-1">
+                      Created: {new Date(project.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {selectedProjectId === project.id && (
+                <span className="text-green-500 text-sm shrink-0">Current</span>
+              )}
+              <div className="flex gap-2 items-center shrink-0">
+                <ImportExportButtons
+                  projectId={project.id}
+                  onError={handleExportError}
+                  exportOnly={true}
+                />
+                <button
+                  onClick={() => handleStartEdit(project)}
+                  className="text-gray-400 hover:text-blue-500 transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                  title="Rename project"
+                >
+                  <PencilIcon className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => handleDeleteSingle(project.id)}
+                  className="text-gray-400 hover:text-red-500 transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                  title="Delete project"
+                >
+                  <TrashIcon className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
+  );
+
+  const footerContent = (
+    <div className={`flex ${isMobile ? 'flex-col' : 'justify-end'}`}>
+      <button
+        onClick={onClose}
+        className={`${isMobile ? 'w-full' : ''} px-4 py-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 min-h-[44px] touch-manipulation`}
+      >
+        Close
+      </button>
+    </div>
+  );
+
+  return (
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Manage Projects"
+      footer={footerContent}
+      maxWidth="max-w-2xl"
+      testId="project-management-modal"
+    >
+      {formContent}
+    </BottomSheet>
   );
 }

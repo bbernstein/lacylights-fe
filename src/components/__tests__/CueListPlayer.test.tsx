@@ -21,6 +21,11 @@ jest.mock('../../constants/playback', () => ({
   DEFAULT_FADEOUT_TIME: 3.0,
 }));
 
+// Mock useIsMobile hook for dialogs that use BottomSheet
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false),
+}));
+
 // Mock WebSocketContext to prevent apollo-client import issues in tests
 const mockReconnect = jest.fn();
 const mockDisconnect = jest.fn();
