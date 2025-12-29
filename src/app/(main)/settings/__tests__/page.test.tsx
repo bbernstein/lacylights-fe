@@ -25,6 +25,11 @@ jest.mock('../OFLManagement', () => ({
   default: () => <div data-testid="ofl-management">OFL Management</div>,
 }));
 
+jest.mock('../ArtNetControl', () => ({
+  __esModule: true,
+  default: () => <div data-testid="artnet-control">ArtNet Control</div>,
+}));
+
 const mockSettings = [
   {
     id: '1',
