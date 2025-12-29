@@ -3,6 +3,15 @@ import { MockedProvider } from '@apollo/client/testing';
 import ImportOFLFixtureModal from '../ImportOFLFixtureModal';
 import { IMPORT_OFL_FIXTURE } from '@/graphql/fixtures';
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+}));
+
+import { useIsMobile } from '@/hooks/useMediaQuery';
+
+const mockUseIsMobile = useIsMobile as jest.Mock;
+
 const mockOnClose = jest.fn();
 const mockOnFixtureImported = jest.fn();
 const validOFLJson = JSON.stringify({
@@ -27,6 +36,7 @@ const validOFLJson = JSON.stringify({
 describe('ImportOFLFixtureModal (Full)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseIsMobile.mockReturnValue(false); // Default to desktop
   });
 
   it('should not render when isOpen is false', () => {
@@ -60,7 +70,7 @@ describe('ImportOFLFixtureModal (Full)', () => {
   });
 
   it('should have proper ARIA attributes on main dialog', () => {
-    const { container } = render(
+    render(
       <MockedProvider mocks={[]}>
         <ImportOFLFixtureModal
           isOpen={true}
@@ -70,13 +80,13 @@ describe('ImportOFLFixtureModal (Full)', () => {
       </MockedProvider>
     );
 
-    const dialog = container.querySelector('[role="dialog"]');
+    const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveAttribute('aria-modal', 'true');
-    expect(dialog).toHaveAttribute('aria-labelledby', 'import-dialog-title');
+    expect(dialog).toHaveAttribute('aria-labelledby', 'import-ofl-modal-title');
   });
 
   it('should have aria-hidden on decorative SVGs', () => {
-    const { container } = render(
+    render(
       <MockedProvider mocks={[]}>
         <ImportOFLFixtureModal
           isOpen={true}
@@ -86,7 +96,9 @@ describe('ImportOFLFixtureModal (Full)', () => {
       </MockedProvider>
     );
 
-    const svg = container.querySelector('svg');
+    // Find the close button's SVG (BottomSheet renders via portal)
+    const closeButton = screen.getByLabelText('Close');
+    const svg = closeButton.querySelector('svg');
     expect(svg).toHaveAttribute('aria-hidden', 'true');
   });
 
@@ -101,7 +113,7 @@ describe('ImportOFLFixtureModal (Full)', () => {
       </MockedProvider>
     );
 
-    const closeButton = screen.getByLabelText('Close import dialog');
+    const closeButton = screen.getByLabelText('Close');
     expect(closeButton).toBeInTheDocument();
   });
 
@@ -116,7 +128,7 @@ describe('ImportOFLFixtureModal (Full)', () => {
       </MockedProvider>
     );
 
-    const closeButton = screen.getByLabelText('Close import dialog');
+    const closeButton = screen.getByLabelText('Close');
     fireEvent.click(closeButton);
 
     expect(mockOnClose).toHaveBeenCalledTimes(1);
@@ -394,7 +406,7 @@ describe('ImportOFLFixtureModal (Full)', () => {
       },
     ];
 
-    const { container } = render(
+    render(
       <MockedProvider mocks={mocks} addTypename={false}>
         <ImportOFLFixtureModal
           isOpen={true}
@@ -413,9 +425,9 @@ describe('ImportOFLFixtureModal (Full)', () => {
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      const dialog = container.querySelector('[role="dialog"]');
+      const dialog = screen.getByRole('dialog');
       expect(dialog).toHaveAttribute('aria-modal', 'true');
-      expect(dialog).toHaveAttribute('aria-labelledby', 'replace-dialog-title');
+      expect(dialog).toHaveAttribute('aria-labelledby', 'import-ofl-replace-modal-title');
     });
   });
 
@@ -436,7 +448,7 @@ describe('ImportOFLFixtureModal (Full)', () => {
       },
     ];
 
-    const { container } = render(
+    render(
       <MockedProvider mocks={mocks} addTypename={false}>
         <ImportOFLFixtureModal
           isOpen={true}
@@ -458,15 +470,11 @@ describe('ImportOFLFixtureModal (Full)', () => {
       expect(screen.getByText('Fixture Already Exists')).toBeInTheDocument();
     });
 
-    // Find the backdrop (the first child of the dialog wrapper)
-    const backdrop = container.querySelector('.fixed.inset-0.bg-black');
+    // Find the backdrop using testId
+    const backdrop = screen.getByTestId('import-ofl-replace-modal-backdrop');
 
-    // The backdrop should not have an onClick handler (we removed it for safety)
-    // We can't directly test for absence of onClick, but we can verify
-    // that clicking it doesn't trigger handleReplaceCancel
-    if (backdrop) {
-      fireEvent.click(backdrop);
-    }
+    // Click the backdrop - it should not close the dialog
+    fireEvent.click(backdrop);
 
     // The dialog should still be open (not closed)
     expect(screen.getByText('Fixture Already Exists')).toBeInTheDocument();
@@ -730,6 +738,115 @@ describe('ImportOFLFixtureModal (Full)', () => {
     await waitFor(() => {
       expect(mockOnFixtureImported).toHaveBeenCalledTimes(1);
       expect(mockOnClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('mobile behavior', () => {
+    beforeEach(() => {
+      mockUseIsMobile.mockReturnValue(true);
+    });
+
+    it('stacks buttons vertically on mobile', () => {
+      render(
+        <MockedProvider mocks={[]}>
+          <ImportOFLFixtureModal
+            isOpen={true}
+            onClose={mockOnClose}
+            onFixtureImported={mockOnFixtureImported}
+          />
+        </MockedProvider>
+      );
+
+      const importButton = screen.getByRole('button', { name: /import fixture/i });
+      const buttonContainer = importButton.parentElement;
+      expect(buttonContainer).toHaveClass('flex-col');
+    });
+
+    it('shows Import Fixture button first on mobile', () => {
+      render(
+        <MockedProvider mocks={[]}>
+          <ImportOFLFixtureModal
+            isOpen={true}
+            onClose={mockOnClose}
+            onFixtureImported={mockOnFixtureImported}
+          />
+        </MockedProvider>
+      );
+
+      const buttons = screen.getAllByRole('button').filter(btn =>
+        btn.textContent === 'Import Fixture' || btn.textContent === 'Cancel'
+      );
+      const buttonLabels = buttons.map(b => b.textContent);
+      const importIndex = buttonLabels.indexOf('Import Fixture');
+      const cancelIndex = buttonLabels.indexOf('Cancel');
+      expect(importIndex).toBeLessThan(cancelIndex);
+    });
+
+    it('has larger touch targets on mobile', () => {
+      render(
+        <MockedProvider mocks={[]}>
+          <ImportOFLFixtureModal
+            isOpen={true}
+            onClose={mockOnClose}
+            onFixtureImported={mockOnFixtureImported}
+          />
+        </MockedProvider>
+      );
+
+      const importButton = screen.getByRole('button', { name: /import fixture/i });
+      const cancelButton = screen.getByRole('button', { name: /cancel/i });
+
+      expect(importButton).toHaveClass('min-h-[44px]');
+      expect(cancelButton).toHaveClass('min-h-[44px]');
+    });
+
+    it('has touch-manipulation class on mobile buttons', () => {
+      render(
+        <MockedProvider mocks={[]}>
+          <ImportOFLFixtureModal
+            isOpen={true}
+            onClose={mockOnClose}
+            onFixtureImported={mockOnFixtureImported}
+          />
+        </MockedProvider>
+      );
+
+      const importButton = screen.getByRole('button', { name: /import fixture/i });
+      const cancelButton = screen.getByRole('button', { name: /cancel/i });
+
+      expect(importButton).toHaveClass('touch-manipulation');
+      expect(cancelButton).toHaveClass('touch-manipulation');
+    });
+
+    it('renders as BottomSheet dialog', () => {
+      render(
+        <MockedProvider mocks={[]}>
+          <ImportOFLFixtureModal
+            isOpen={true}
+            onClose={mockOnClose}
+            onFixtureImported={mockOnFixtureImported}
+          />
+        </MockedProvider>
+      );
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
+    });
+
+    it('has shorter textarea on mobile', () => {
+      render(
+        <MockedProvider mocks={[]}>
+          <ImportOFLFixtureModal
+            isOpen={true}
+            onClose={mockOnClose}
+            onFixtureImported={mockOnFixtureImported}
+          />
+        </MockedProvider>
+      );
+
+      const jsonInput = screen.getByLabelText('OFL Fixture JSON *');
+      expect(jsonInput).toHaveAttribute('rows', '10');
     });
   });
 });

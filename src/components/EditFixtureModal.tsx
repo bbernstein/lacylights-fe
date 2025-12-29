@@ -5,6 +5,8 @@ import { useLazyQuery, useMutation, useQuery } from '@apollo/client';
 import { GET_MANUFACTURERS, GET_MODELS, UPDATE_FIXTURE_INSTANCE, DELETE_FIXTURE_INSTANCE, GET_PROJECT_FIXTURES } from '@/graphql/fixtures';
 import { FixtureInstance } from '@/types';
 import Autocomplete from './Autocomplete';
+import BottomSheet from './BottomSheet';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 interface EditFixtureModalProps {
   isOpen: boolean;
@@ -14,6 +16,7 @@ interface EditFixtureModalProps {
 }
 
 export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUpdated }: EditFixtureModalProps) {
+  const isMobile = useIsMobile();
   const [manufacturer, setManufacturer] = useState('');
   const [model, setModel] = useState('');
   const [universe, setUniverse] = useState(1);
@@ -287,243 +290,274 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
     onClose();
   };
 
-  if (!isOpen || !fixture) return null;
+  if (!fixture) return null;
+
+  const formContent = (
+    <form id="edit-fixture-form" onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                Error updating fixture
+              </h3>
+              <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                <p className="whitespace-pre-wrap select-all">{error}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div>
+        <label htmlFor="edit-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Fixture Name
+        </label>
+        <input
+          id="edit-name"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="edit-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Description
+        </label>
+        <textarea
+          id="edit-description"
+          rows={3}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Optional description for this fixture..."
+          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+        />
+      </div>
+
+      <Autocomplete
+        label="Manufacturer"
+        value={manufacturer}
+        onChange={setManufacturer}
+        onInputChange={handleManufacturerSearch}
+        options={manufacturers}
+        placeholder="Search manufacturers..."
+        loading={loadingManufacturers}
+        required
+      />
+
+      <Autocomplete
+        label="Model"
+        value={model}
+        onChange={handleModelSelect}
+        onInputChange={() => {}}
+        options={models.map(m => m.model)}
+        placeholder={manufacturer ? "Select model..." : "Select manufacturer first"}
+        loading={loadingModels}
+        required
+      />
+
+      {selectedModelData && selectedModelData.modes.length > 0 && (
+        <div>
+          <label htmlFor="edit-mode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Mode
+          </label>
+          <select
+            id="edit-mode"
+            value={selectedModeId}
+            onChange={(e) => handleModeSelect(e.target.value)}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          >
+            <option value="">Select mode...</option>
+            {selectedModelData.modes.map((mode) => (
+              <option key={mode.id} value={mode.id}>
+                {mode.name} ({mode.channelCount} channels)
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div>
+        <label htmlFor="edit-universe" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Universe
+        </label>
+        <input
+          id="edit-universe"
+          type="number"
+          min="1"
+          max="32768"
+          value={universe}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value === '') {
+              setUniverse(1);
+            } else {
+              const num = parseInt(value);
+              if (!isNaN(num)) {
+                setUniverse(num);
+              }
+            }
+          }}
+          onFocus={(e) => e.target.select()}
+          required
+          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="edit-startChannel" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Start Channel
+        </label>
+        <div className="flex gap-2">
+          <input
+            id="edit-startChannel"
+            type="number"
+            min="1"
+            max="512"
+            value={startChannel}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === '') {
+                setStartChannel(1);
+              } else {
+                const num = parseInt(value);
+                if (!isNaN(num)) {
+                  setStartChannel(num);
+                  setAutoSelectChannel(false);
+                }
+              }
+            }}
+            onFocus={(e) => e.target.select()}
+            required
+            disabled={autoSelectChannel}
+            className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setAutoSelectChannel(!autoSelectChannel);
+            }}
+            disabled={!selectedModeId}
+            className={`px-3 py-2 text-base font-medium rounded-md border min-h-[44px] ${autoSelectChannel
+              ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+            title={selectedModeId ? "Auto-select next available channel" : "Select a mode first"}
+          >
+            Auto
+          </button>
+        </div>
+        {autoSelectChannel && startChannel > 0 && (
+          <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+            Auto-selected channel {startChannel}
+          </p>
+        )}
+      </div>
+
+      {showDeleteConfirm && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-sm text-red-800 dark:text-red-200 mb-3">
+            Are you sure you want to delete this fixture? This action cannot be undone.
+          </p>
+          <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'space-x-2'}`}>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className={`${isMobile ? 'w-full' : ''} inline-flex justify-center rounded-md bg-red-600 px-3 py-2 text-base font-medium text-white hover:bg-red-700 disabled:opacity-50 min-h-[44px]`}
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(false)}
+              className={`${isMobile ? 'w-full' : ''} inline-flex justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 min-h-[44px]`}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </form>
+  );
+
+  const footerContent = (
+    <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'justify-between'}`}>
+      {isMobile ? (
+        <>
+          <button
+            type="submit"
+            form="edit-fixture-form"
+            disabled={updating || !selectedDefinitionId}
+            className="w-full px-4 py-3 text-base font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
+          >
+            {updating ? 'Updating...' : 'Update Fixture'}
+          </button>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="w-full px-4 py-3 text-base font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[44px] touch-manipulation"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="w-full px-4 py-3 text-base font-medium text-red-700 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 min-h-[44px] touch-manipulation"
+          >
+            Delete Fixture
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="px-4 py-2 text-sm font-medium text-red-700 dark:text-red-400 border border-red-300 dark:border-red-600 bg-white dark:bg-gray-700 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+          >
+            Delete
+          </button>
+
+          <div className="flex space-x-3">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="edit-fixture-form"
+              disabled={updating || !selectedDefinitionId}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {updating ? 'Updating...' : 'Update Fixture'}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={handleClose} />
-
-        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Edit Fixture</h3>
-            </div>
-
-            {error && (
-              <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
-                      Error updating fixture
-                    </h3>
-                    <div className="mt-2 text-sm text-red-700 dark:text-red-300">
-                      <p className="whitespace-pre-wrap select-all">{error}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="edit-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Fixture Name
-                </label>
-                <input
-                  id="edit-name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="edit-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Description
-                </label>
-                <textarea
-                  id="edit-description"
-                  rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Optional description for this fixture..."
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                />
-              </div>
-
-              <Autocomplete
-                label="Manufacturer"
-                value={manufacturer}
-                onChange={setManufacturer}
-                onInputChange={handleManufacturerSearch}
-                options={manufacturers}
-                placeholder="Search manufacturers..."
-                loading={loadingManufacturers}
-                required
-              />
-
-              <Autocomplete
-                label="Model"
-                value={model}
-                onChange={handleModelSelect}
-                onInputChange={() => {}}
-                options={models.map(m => m.model)}
-                placeholder={manufacturer ? "Select model..." : "Select manufacturer first"}
-                loading={loadingModels}
-                required
-              />
-
-              {selectedModelData && selectedModelData.modes.length > 0 && (
-                <div>
-                  <label htmlFor="edit-mode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Mode
-                  </label>
-                  <select
-                    id="edit-mode"
-                    value={selectedModeId}
-                    onChange={(e) => handleModeSelect(e.target.value)}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  >
-                    <option value="">Select mode...</option>
-                    {selectedModelData.modes.map((mode) => (
-                      <option key={mode.id} value={mode.id}>
-                        {mode.name} ({mode.channelCount} channels)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label htmlFor="edit-universe" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Universe
-                </label>
-                <input
-                  id="edit-universe"
-                  type="number"
-                  min="1"
-                  max="32768"
-                  value={universe}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === '') {
-                      setUniverse(1);
-                    } else {
-                      const num = parseInt(value);
-                      if (!isNaN(num)) {
-                        setUniverse(num);
-                      }
-                    }
-                  }}
-                  onFocus={(e) => e.target.select()}
-                  required
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="edit-startChannel" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Start Channel
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id="edit-startChannel"
-                    type="number"
-                    min="1"
-                    max="512"
-                    value={startChannel}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === '') {
-                        setStartChannel(1);
-                      } else {
-                        const num = parseInt(value);
-                        if (!isNaN(num)) {
-                          setStartChannel(num);
-                          setAutoSelectChannel(false);
-                        }
-                      }
-                    }}
-                    onFocus={(e) => e.target.select()}
-                    required
-                    disabled={autoSelectChannel}
-                    className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAutoSelectChannel(!autoSelectChannel);
-                    }}
-                    disabled={!selectedModeId}
-                    className={`px-3 py-2 text-sm font-medium rounded-md border ${autoSelectChannel 
-                      ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' 
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    title={selectedModeId ? "Auto-select next available channel" : "Select a mode first"}
-                  >
-                    Auto
-                  </button>
-                </div>
-                {autoSelectChannel && startChannel > 0 && (
-                  <p className="mt-1 text-xs text-green-600 dark:text-green-400">
-                    Auto-selected channel {startChannel}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {showDeleteConfirm && (
-              <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p className="text-sm text-red-800 dark:text-red-200 mb-3">
-                  Are you sure you want to delete this fixture? This action cannot be undone.
-                </p>
-                <div className="flex space-x-2">
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    className="inline-flex justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-                  >
-                    {deleting ? 'Deleting...' : 'Delete'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteConfirm(false)}
-                    className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="mt-6 flex space-x-3 justify-between">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                className="inline-flex justify-center rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:bg-gray-700 dark:text-red-400 dark:border-red-600 dark:hover:bg-red-900/20"
-              >
-                Delete
-              </button>
-              
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={updating || !selectedDefinitionId}
-                  className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {updating ? 'Updating...' : 'Update Fixture'}
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Edit Fixture"
+      footer={footerContent}
+      maxWidth="max-w-lg"
+      testId="edit-fixture-modal"
+    >
+      {formContent}
+    </BottomSheet>
   );
 }

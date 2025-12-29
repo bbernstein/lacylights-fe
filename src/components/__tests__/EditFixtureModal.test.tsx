@@ -11,6 +11,15 @@ import {
 } from '../../graphql/fixtures';
 import { FixtureType, ChannelType, FadeBehavior } from '../../types';
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+}));
+
+import { useIsMobile } from '@/hooks/useMediaQuery';
+
+const mockUseIsMobile = useIsMobile as jest.Mock;
+
 // Mock Autocomplete to simplify testing
 jest.mock('../Autocomplete', () => {
   return function MockAutocomplete({ value, onChange, onSelect, options = [], placeholder }: {
@@ -224,6 +233,7 @@ const renderWithProvider = (mocks = createMocks(), props = {}) => {
 describe('EditFixtureModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseIsMobile.mockReturnValue(false); // Default to desktop
   });
 
   describe('rendering', () => {
@@ -451,6 +461,64 @@ describe('EditFixtureModal', () => {
       const channelInput = screen.getByDisplayValue('10');
       expect(channelInput).toBeInTheDocument();
       expect(channelInput).toHaveValue(10);
+    });
+  });
+
+  describe('mobile behavior', () => {
+    beforeEach(() => {
+      mockUseIsMobile.mockReturnValue(true);
+    });
+
+    it('stacks buttons vertically on mobile', () => {
+      renderWithProvider();
+
+      const updateButton = screen.getByRole('button', { name: 'Update Fixture' });
+      const buttonContainer = updateButton.parentElement;
+      expect(buttonContainer).toHaveClass('flex-col');
+    });
+
+    it('shows Update Fixture button first on mobile', () => {
+      renderWithProvider();
+
+      const buttons = screen.getAllByRole('button').filter(btn =>
+        btn.textContent === 'Update Fixture' || btn.textContent === 'Cancel' || btn.textContent === 'Delete Fixture'
+      );
+      const buttonLabels = buttons.map(b => b.textContent);
+      const updateIndex = buttonLabels.indexOf('Update Fixture');
+      const cancelIndex = buttonLabels.indexOf('Cancel');
+      expect(updateIndex).toBeLessThan(cancelIndex);
+    });
+
+    it('has larger touch targets on mobile', () => {
+      renderWithProvider();
+
+      const updateButton = screen.getByRole('button', { name: 'Update Fixture' });
+      const cancelButton = screen.getByRole('button', { name: 'Cancel' });
+      const deleteButton = screen.getByRole('button', { name: 'Delete Fixture' });
+
+      expect(updateButton).toHaveClass('min-h-[44px]');
+      expect(cancelButton).toHaveClass('min-h-[44px]');
+      expect(deleteButton).toHaveClass('min-h-[44px]');
+    });
+
+    it('has touch-manipulation class on mobile buttons', () => {
+      renderWithProvider();
+
+      const updateButton = screen.getByRole('button', { name: 'Update Fixture' });
+      const cancelButton = screen.getByRole('button', { name: 'Cancel' });
+      const deleteButton = screen.getByRole('button', { name: 'Delete Fixture' });
+
+      expect(updateButton).toHaveClass('touch-manipulation');
+      expect(cancelButton).toHaveClass('touch-manipulation');
+      expect(deleteButton).toHaveClass('touch-manipulation');
+    });
+
+    it('renders as BottomSheet dialog', () => {
+      renderWithProvider();
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
     });
   });
 });
