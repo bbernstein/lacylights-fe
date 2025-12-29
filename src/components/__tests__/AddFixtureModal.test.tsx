@@ -10,6 +10,15 @@ import {
 } from '../../graphql/fixtures';
 import { FadeBehavior } from '../../types';
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+}));
+
+import { useIsMobile } from '@/hooks/useMediaQuery';
+
+const mockUseIsMobile = useIsMobile as jest.Mock;
+
 // Mock the Autocomplete component to simplify testing
 jest.mock('../Autocomplete', () => {
   return function MockAutocomplete({ value, onChange, onSelect, options = [], placeholder }: {
@@ -178,6 +187,7 @@ const renderWithProvider = (mocks = createMocks(), props = {}) => {
 describe('AddFixtureModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseIsMobile.mockReturnValue(false); // Default to desktop
   });
 
   describe('basic rendering', () => {
@@ -390,6 +400,60 @@ describe('AddFixtureModal', () => {
       await userEvent.type(numInput, '100');
 
       expect(numInput).toHaveValue(100);
+    });
+  });
+
+  describe('mobile behavior', () => {
+    beforeEach(() => {
+      mockUseIsMobile.mockReturnValue(true);
+    });
+
+    it('stacks buttons vertically on mobile', () => {
+      renderWithProvider();
+
+      const addButton = screen.getByRole('button', { name: 'Add Fixture' });
+      const buttonContainer = addButton.parentElement;
+      expect(buttonContainer).toHaveClass('flex-col');
+    });
+
+    it('shows Add Fixture button first on mobile', () => {
+      renderWithProvider();
+
+      const buttons = screen.getAllByRole('button').filter(btn =>
+        btn.textContent === 'Add Fixture' || btn.textContent === 'Cancel'
+      );
+      const buttonLabels = buttons.map(b => b.textContent);
+      const addIndex = buttonLabels.indexOf('Add Fixture');
+      const cancelIndex = buttonLabels.indexOf('Cancel');
+      expect(addIndex).toBeLessThan(cancelIndex);
+    });
+
+    it('has larger touch targets on mobile', () => {
+      renderWithProvider();
+
+      const addButton = screen.getByRole('button', { name: 'Add Fixture' });
+      const cancelButton = screen.getByRole('button', { name: 'Cancel' });
+
+      expect(addButton).toHaveClass('min-h-[44px]');
+      expect(cancelButton).toHaveClass('min-h-[44px]');
+    });
+
+    it('has touch-manipulation class on mobile buttons', () => {
+      renderWithProvider();
+
+      const addButton = screen.getByRole('button', { name: 'Add Fixture' });
+      const cancelButton = screen.getByRole('button', { name: 'Cancel' });
+
+      expect(addButton).toHaveClass('touch-manipulation');
+      expect(cancelButton).toHaveClass('touch-manipulation');
+    });
+
+    it('renders as BottomSheet dialog', () => {
+      renderWithProvider();
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
     });
   });
 });

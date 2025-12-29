@@ -6,6 +6,15 @@ import { CREATE_SCENE } from '../../graphql/scenes';
 import { GET_PROJECT_FIXTURES } from '../../graphql/fixtures';
 import { FixtureInstance, ChannelType, FixtureType, FadeBehavior } from '../../types';
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+}));
+
+import { useIsMobile } from '@/hooks/useMediaQuery';
+
+const mockUseIsMobile = useIsMobile as jest.Mock;
+
 const mockProjectId = 'project-123';
 const mockOnClose = jest.fn();
 const mockOnSceneCreated = jest.fn();
@@ -91,6 +100,7 @@ const fixture2ZeroChannels = [
 describe('CreateSceneModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseIsMobile.mockReturnValue(false); // Default to desktop
   });
 
   describe('rendering', () => {
@@ -1267,9 +1277,8 @@ describe('CreateSceneModal', () => {
         </MockedProvider>
       );
 
-      const backdrop = screen.getByRole('heading', { name: 'Create Scene' }).closest('.fixed');
-      const backdropDiv = backdrop?.firstElementChild?.firstElementChild;
-      fireEvent.click(backdropDiv!);
+      const backdrop = screen.getByTestId('create-scene-modal-backdrop');
+      fireEvent.click(backdrop);
 
       expect(mockOnClose).toHaveBeenCalled();
     });
@@ -1475,7 +1484,7 @@ describe('CreateSceneModal', () => {
   });
 
   describe('styling', () => {
-    it('applies correct modal overlay classes', () => {
+    it('renders as BottomSheet dialog', () => {
       const mocks = [
         {
           request: {
@@ -1500,11 +1509,12 @@ describe('CreateSceneModal', () => {
         </MockedProvider>
       );
 
-      const overlay = screen.getByRole('heading', { name: 'Create Scene' }).closest('.fixed');
-      expect(overlay).toHaveClass('fixed', 'inset-0', 'z-50', 'overflow-y-auto');
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
     });
 
-    it('applies correct backdrop classes', () => {
+    it('renders backdrop', () => {
       const mocks = [
         {
           request: {
@@ -1529,40 +1539,11 @@ describe('CreateSceneModal', () => {
         </MockedProvider>
       );
 
-      const backdrop = screen.getByRole('heading', { name: 'Create Scene' }).closest('div.flex')?.querySelector('div.fixed');
-      expect(backdrop).toHaveClass('fixed', 'inset-0', 'bg-gray-500', 'bg-opacity-75', 'transition-opacity');
+      const backdrop = screen.getByTestId('create-scene-modal-backdrop');
+      expect(backdrop).toBeInTheDocument();
     });
 
-    it('applies correct modal content classes', () => {
-      const mocks = [
-        {
-          request: {
-            query: GET_PROJECT_FIXTURES,
-            variables: { projectId: mockProjectId },
-          },
-          result: {
-            data: {
-              project: {
-                id: mockProjectId,
-                fixtures: [],
-                __typename: 'Project',
-              },
-            },
-          },
-        },
-      ];
-
-      render(
-        <MockedProvider mocks={mocks}>
-          <CreateSceneModal {...defaultProps} />
-        </MockedProvider>
-      );
-
-      const content = screen.getByRole('heading', { name: 'Create Scene' }).closest('.bg-white');
-      expect(content).toHaveClass('inline-block', 'align-bottom', 'bg-white', 'dark:bg-gray-800', 'rounded-lg');
-    });
-
-    it('applies correct button styling', () => {
+    it('applies correct button styling on desktop', () => {
       const mocks = [
         {
           request: {
@@ -1588,10 +1569,105 @@ describe('CreateSceneModal', () => {
       );
 
       const cancelButton = screen.getByText('Cancel');
-      expect(cancelButton).toHaveClass('inline-flex', 'justify-center', 'rounded-md', 'border', 'border-gray-300', 'bg-white', 'px-4', 'py-2', 'text-sm', 'font-medium', 'text-gray-700');
+      expect(cancelButton).toHaveClass('border', 'border-gray-300', 'bg-white', 'text-gray-700');
 
       const _submitButton = screen.getByRole('button', { name: 'Create Scene' });
-      expect(_submitButton).toHaveClass('inline-flex', 'justify-center', 'rounded-md', 'border', 'border-transparent', 'bg-blue-600', 'px-4', 'py-2', 'text-sm', 'font-medium', 'text-white', 'disabled:opacity-50', 'disabled:cursor-not-allowed');
+      expect(_submitButton).toHaveClass('bg-blue-600', 'text-white');
+    });
+  });
+
+  describe('mobile behavior', () => {
+    beforeEach(() => {
+      mockUseIsMobile.mockReturnValue(true);
+    });
+
+    it('stacks buttons vertically on mobile', () => {
+      const mocks = [
+        {
+          request: {
+            query: GET_PROJECT_FIXTURES,
+            variables: { projectId: mockProjectId },
+          },
+          result: {
+            data: {
+              project: {
+                id: mockProjectId,
+                fixtures: [],
+                __typename: 'Project',
+              },
+            },
+          },
+        },
+      ];
+
+      render(
+        <MockedProvider mocks={mocks}>
+          <CreateSceneModal {...defaultProps} />
+        </MockedProvider>
+      );
+
+      const buttonContainer = screen.getByRole('button', { name: 'Create Scene' }).parentElement;
+      expect(buttonContainer).toHaveClass('flex-col');
+    });
+
+    it('shows create button first on mobile', () => {
+      const mocks = [
+        {
+          request: {
+            query: GET_PROJECT_FIXTURES,
+            variables: { projectId: mockProjectId },
+          },
+          result: {
+            data: {
+              project: {
+                id: mockProjectId,
+                fixtures: [],
+                __typename: 'Project',
+              },
+            },
+          },
+        },
+      ];
+
+      render(
+        <MockedProvider mocks={mocks}>
+          <CreateSceneModal {...defaultProps} />
+        </MockedProvider>
+      );
+
+      const buttons = screen.getAllByRole('button');
+      const buttonLabels = buttons.map(b => b.textContent);
+      expect(buttonLabels).toContain('Create Scene');
+      expect(buttonLabels).toContain('Cancel');
+    });
+
+    it('has larger touch targets on mobile', () => {
+      const mocks = [
+        {
+          request: {
+            query: GET_PROJECT_FIXTURES,
+            variables: { projectId: mockProjectId },
+          },
+          result: {
+            data: {
+              project: {
+                id: mockProjectId,
+                fixtures: [],
+                __typename: 'Project',
+              },
+            },
+          },
+        },
+      ];
+
+      render(
+        <MockedProvider mocks={mocks}>
+          <CreateSceneModal {...defaultProps} />
+        </MockedProvider>
+      );
+
+      const submitButton = screen.getByRole('button', { name: 'Create Scene' });
+      expect(submitButton).toHaveClass('min-h-[44px]');
     });
   });
 

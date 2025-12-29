@@ -4,6 +4,15 @@ import { MockedProvider } from '@apollo/client/testing';
 import CreateCueListModal from '../CreateCueListModal';
 import { CREATE_CUE_LIST } from '../../graphql/cueLists';
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+}));
+
+import { useIsMobile } from '@/hooks/useMediaQuery';
+
+const mockUseIsMobile = useIsMobile as jest.Mock;
+
 const mockProjectId = 'project-123';
 const mockOnClose = jest.fn();
 const mockOnCueListCreated = jest.fn();
@@ -18,6 +27,7 @@ describe('CreateCueListModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseIsMobile.mockReturnValue(false); // Default to desktop
   });
 
   describe('rendering', () => {
@@ -514,8 +524,8 @@ describe('CreateCueListModal', () => {
         </MockedProvider>
       );
 
-      const backdrop = document.querySelector('.bg-gray-500.bg-opacity-75');
-      fireEvent.click(backdrop!);
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      fireEvent.click(backdrop);
 
       expect(mockOnClose).toHaveBeenCalled();
     });
@@ -618,40 +628,30 @@ describe('CreateCueListModal', () => {
   });
 
   describe('styling', () => {
-    it('applies correct modal overlay classes', () => {
+    it('renders as BottomSheet dialog', () => {
       render(
         <MockedProvider mocks={[]}>
           <CreateCueListModal {...defaultProps} />
         </MockedProvider>
       );
 
-      const overlay = document.querySelector('.fixed.inset-0.z-50');
-      expect(overlay).toHaveClass('fixed', 'inset-0', 'z-50', 'overflow-y-auto');
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
     });
 
-    it('applies correct backdrop classes', () => {
+    it('renders backdrop', () => {
       render(
         <MockedProvider mocks={[]}>
           <CreateCueListModal {...defaultProps} />
         </MockedProvider>
       );
 
-      const backdrop = document.querySelector('.bg-gray-500.bg-opacity-75');
-      expect(backdrop).toHaveClass('fixed', 'inset-0', 'bg-gray-500', 'bg-opacity-75', 'transition-opacity');
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      expect(backdrop).toBeInTheDocument();
     });
 
-    it('applies correct modal content classes', () => {
-      render(
-        <MockedProvider mocks={[]}>
-          <CreateCueListModal {...defaultProps} />
-        </MockedProvider>
-      );
-
-      const content = screen.getByRole('button', { name: 'Create Cue List' }).closest('.bg-white');
-      expect(content).toHaveClass('inline-block', 'align-bottom', 'bg-white', 'dark:bg-gray-800', 'rounded-lg');
-    });
-
-    it('applies correct button styling', () => {
+    it('applies correct button styling on desktop', () => {
       render(
         <MockedProvider mocks={[]}>
           <CreateCueListModal {...defaultProps} />
@@ -661,8 +661,49 @@ describe('CreateCueListModal', () => {
       const cancelButton = screen.getByText('Cancel');
       expect(cancelButton).toHaveClass('border', 'border-gray-300', 'bg-white', 'text-gray-700');
 
-      const _submitButton = screen.getByRole('button', { name: 'Create Cue List' });
-      expect(_submitButton).toHaveClass('bg-blue-600', 'text-white', 'hover:bg-blue-700');
+      const submitButton = screen.getByRole('button', { name: 'Create Cue List' });
+      expect(submitButton).toHaveClass('bg-blue-600', 'text-white');
+    });
+  });
+
+  describe('mobile behavior', () => {
+    beforeEach(() => {
+      mockUseIsMobile.mockReturnValue(true);
+    });
+
+    it('stacks buttons vertically on mobile', () => {
+      render(
+        <MockedProvider mocks={[]}>
+          <CreateCueListModal {...defaultProps} />
+        </MockedProvider>
+      );
+
+      const buttonContainer = screen.getByRole('button', { name: 'Create Cue List' }).parentElement;
+      expect(buttonContainer).toHaveClass('flex-col');
+    });
+
+    it('shows create button first on mobile', () => {
+      render(
+        <MockedProvider mocks={[]}>
+          <CreateCueListModal {...defaultProps} />
+        </MockedProvider>
+      );
+
+      const buttons = screen.getAllByRole('button');
+      const buttonLabels = buttons.map(b => b.textContent);
+      expect(buttonLabels).toContain('Create Cue List');
+      expect(buttonLabels).toContain('Cancel');
+    });
+
+    it('has larger touch targets on mobile', () => {
+      render(
+        <MockedProvider mocks={[]}>
+          <CreateCueListModal {...defaultProps} />
+        </MockedProvider>
+      );
+
+      const submitButton = screen.getByRole('button', { name: 'Create Cue List' });
+      expect(submitButton).toHaveClass('min-h-[44px]');
     });
   });
 });

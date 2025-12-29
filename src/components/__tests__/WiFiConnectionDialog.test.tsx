@@ -3,6 +3,15 @@ import userEvent from '@testing-library/user-event';
 import { WiFiConnectionDialog } from '../WiFiConnectionDialog';
 import { WiFiNetwork, WiFiSecurityType } from '@/types';
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+}));
+
+import { useIsMobile } from '@/hooks/useMediaQuery';
+
+const mockUseIsMobile = useIsMobile as jest.Mock;
+
 describe('WiFiConnectionDialog', () => {
   const mockNetwork: WiFiNetwork = {
     ssid: 'Test Network',
@@ -20,6 +29,7 @@ describe('WiFiConnectionDialog', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseIsMobile.mockReturnValue(false); // Default to desktop
   });
 
   describe('rendering', () => {
@@ -206,9 +216,9 @@ describe('WiFiConnectionDialog', () => {
     });
 
     it('calls onCancel when backdrop is clicked', () => {
-      const { container } = render(<WiFiConnectionDialog network={mockNetwork} isOpen={true} connecting={false} {...mockHandlers} />);
+      render(<WiFiConnectionDialog network={mockNetwork} isOpen={true} connecting={false} {...mockHandlers} />);
 
-      const backdrop = container.querySelector('.bg-gray-500') as HTMLElement;
+      const backdrop = screen.getByTestId('wifi-connection-dialog-backdrop');
       fireEvent.click(backdrop);
 
       expect(mockHandlers.onCancel).toHaveBeenCalledTimes(1);
@@ -283,7 +293,7 @@ describe('WiFiConnectionDialog', () => {
 
       const dialog = screen.getByRole('dialog');
       expect(dialog).toHaveAttribute('aria-modal', 'true');
-      expect(dialog).toHaveAttribute('aria-labelledby', 'modal-title');
+      expect(dialog).toHaveAttribute('aria-labelledby', 'wifi-connection-dialog-title');
     });
 
     it('has accessible form labels', () => {
@@ -333,9 +343,10 @@ describe('WiFiConnectionDialog', () => {
 
   describe('signal strength indicator', () => {
     it('displays signal strength in network info', () => {
-      const { container } = render(<WiFiConnectionDialog network={mockNetwork} isOpen={true} connecting={false} {...mockHandlers} />);
+      render(<WiFiConnectionDialog network={mockNetwork} isOpen={true} connecting={false} {...mockHandlers} />);
 
-      const signalIndicator = container.querySelector('[title="Signal strength: 75%"]');
+      // Use aria-label to find the signal indicator (works with portals)
+      const signalIndicator = screen.getByLabelText('Signal strength: 75%');
       expect(signalIndicator).toBeInTheDocument();
     });
   });
@@ -348,6 +359,71 @@ describe('WiFiConnectionDialog', () => {
 
       // HTML5 validation should prevent submission
       expect(passwordInput).toHaveAttribute('required');
+    });
+  });
+
+  describe('mobile behavior', () => {
+    beforeEach(() => {
+      mockUseIsMobile.mockReturnValue(true);
+    });
+
+    it('stacks buttons vertically on mobile', () => {
+      render(<WiFiConnectionDialog network={mockNetwork} isOpen={true} connecting={false} {...mockHandlers} />);
+
+      const connectButton = screen.getByText('Connect');
+      const buttonContainer = connectButton.parentElement;
+      expect(buttonContainer).toHaveClass('flex-col');
+    });
+
+    it('shows Connect button first on mobile', () => {
+      render(<WiFiConnectionDialog network={mockNetwork} isOpen={true} connecting={false} {...mockHandlers} />);
+
+      const buttons = screen.getAllByRole('button').filter(btn =>
+        btn.textContent === 'Connect' || btn.textContent === 'Cancel'
+      );
+      const buttonLabels = buttons.map(b => b.textContent);
+      // Connect should come before Cancel on mobile
+      const connectIndex = buttonLabels.indexOf('Connect');
+      const cancelIndex = buttonLabels.indexOf('Cancel');
+      expect(connectIndex).toBeLessThan(cancelIndex);
+    });
+
+    it('has larger touch targets on mobile', () => {
+      render(<WiFiConnectionDialog network={mockNetwork} isOpen={true} connecting={false} {...mockHandlers} />);
+
+      const connectButton = screen.getByText('Connect');
+      const cancelButton = screen.getByText('Cancel');
+
+      expect(connectButton).toHaveClass('min-h-[44px]');
+      expect(cancelButton).toHaveClass('min-h-[44px]');
+    });
+
+    it('has touch-manipulation class on mobile buttons', () => {
+      render(<WiFiConnectionDialog network={mockNetwork} isOpen={true} connecting={false} {...mockHandlers} />);
+
+      const connectButton = screen.getByText('Connect');
+      const cancelButton = screen.getByText('Cancel');
+
+      expect(connectButton).toHaveClass('touch-manipulation');
+      expect(cancelButton).toHaveClass('touch-manipulation');
+    });
+
+    it('renders as BottomSheet dialog', () => {
+      render(<WiFiConnectionDialog network={mockNetwork} isOpen={true} connecting={false} {...mockHandlers} />);
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
+    });
+
+    it('does not allow backdrop click when connecting', () => {
+      render(<WiFiConnectionDialog network={mockNetwork} isOpen={true} connecting={true} {...mockHandlers} />);
+
+      const backdrop = screen.getByTestId('wifi-connection-dialog-backdrop');
+      fireEvent.click(backdrop);
+
+      // onCancel should not be called when connecting
+      expect(mockHandlers.onCancel).not.toHaveBeenCalled();
     });
   });
 });

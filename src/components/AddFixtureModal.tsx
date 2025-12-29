@@ -11,6 +11,8 @@ import {
 } from "@/graphql/fixtures";
 import Autocomplete from "./Autocomplete";
 import { FixtureDefinition } from "@/types";
+import BottomSheet from "./BottomSheet";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 
 interface AddFixtureModalProps {
   isOpen: boolean;
@@ -36,6 +38,7 @@ export default function AddFixtureModal({
   initialMode,
   initialUniverse,
 }: AddFixtureModalProps) {
+  const isMobile = useIsMobile();
   const [manufacturer, setManufacturer] = useState("");
   const [model, setModel] = useState("");
   const [universe, setUniverse] = useState(1);
@@ -497,306 +500,327 @@ export default function AddFixtureModal({
     onClose();
   };
 
-  if (!isOpen) return null;
+  const formContent = (
+    <form id="add-fixture-form" onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-red-400"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                Error creating fixture
+              </h3>
+              <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                <p className="whitespace-pre-wrap select-all">{error}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div>
+        <label
+          htmlFor="name"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+        >
+          Fixture Name
+        </label>
+        <input
+          id="name"
+          type="text"
+          value={name}
+          onChange={(e) => handleNameChange(e.target.value)}
+          placeholder="Auto-generated if empty"
+          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="description"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+        >
+          Description
+        </label>
+        <textarea
+          id="description"
+          rows={3}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Optional description for this fixture..."
+          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+        />
+      </div>
+
+      <Autocomplete
+        label="Manufacturer"
+        value={manufacturer}
+        onChange={setManufacturer}
+        onInputChange={handleManufacturerSearch}
+        options={manufacturers}
+        placeholder="Search manufacturers..."
+        loading={loadingManufacturers}
+        required
+      />
+
+      <Autocomplete
+        label="Model"
+        value={model}
+        onChange={handleModelSelect}
+        onInputChange={() => {}}
+        options={models.map((m) => m.model)}
+        placeholder={
+          manufacturer ? "Select model..." : "Select manufacturer first"
+        }
+        loading={loadingModels}
+        required
+      />
+
+      {selectedModelData && selectedModelData.modes.length > 0 && (
+        <div>
+          <label
+            htmlFor="mode"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
+            Mode
+          </label>
+          <select
+            id="mode"
+            value={selectedModeId}
+            onChange={(e) => handleModeSelect(e.target.value)}
+            required
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          >
+            <option value="">Select mode...</option>
+            {selectedModelData.modes.map((mode) => (
+              <option key={mode.id} value={mode.id}>
+                {mode.name} ({mode.channelCount} channels)
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div>
+        <label
+          htmlFor="numFixtures"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+        >
+          Number of Fixtures
+        </label>
+        <input
+          ref={numFixturesInputRef}
+          id="numFixtures"
+          type="number"
+          min="1"
+          max="512"
+          value={numFixtures}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value === '') {
+              setNumFixtures(1);
+            } else {
+              const num = parseInt(value);
+              if (!isNaN(num)) {
+                setNumFixtures(num);
+              }
+            }
+          }}
+          onFocus={(e) => e.target.select()}
+          required
+          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+        />
+        {numFixtures > 1 && selectedModeId && (
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Will use channels {startChannel} -{" "}
+            {startChannel +
+              getSelectedModeChannelCount() * numFixtures -
+              1}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label
+          htmlFor="universe"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+        >
+          Universe
+        </label>
+        <input
+          id="universe"
+          type="number"
+          min="1"
+          max="32768"
+          value={universe}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value === '') {
+              setUniverse(1);
+            } else {
+              const num = parseInt(value);
+              if (!isNaN(num)) {
+                setUniverse(num);
+              }
+            }
+          }}
+          onFocus={(e) => e.target.select()}
+          required
+          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="startChannel"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+        >
+          Start Channel
+        </label>
+        <div className="flex gap-2">
+          <input
+            id="startChannel"
+            type="number"
+            min="1"
+            max="512"
+            value={startChannel}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === '') {
+                setStartChannel(1);
+              } else {
+                const num = parseInt(value);
+                if (!isNaN(num)) {
+                  setStartChannel(num);
+                }
+              }
+            }}
+            onFocus={(e) => e.target.select()}
+            required
+            className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              // Manually trigger channel assignment refresh
+              if (selectedModeId && manufacturer && model) {
+                const channelCount = getSelectedModeChannelCount();
+                const mode = selectedModelData?.modes.find((m) => m.id === selectedModeId);
+                const fixtureSpecs = Array.from({ length: numFixtures }, (_, i) => ({
+                  name: `${manufacturer} ${model} ${i + 1}`,
+                  manufacturer,
+                  model,
+                  mode: mode?.name,
+                  channelCount,
+                }));
+                suggestChannelAssignment({
+                  variables: {
+                    input: {
+                      projectId,
+                      universe,
+                      startingChannel: 1,
+                      fixtureSpecs,
+                    },
+                  },
+                });
+              }
+            }}
+            disabled={!selectedModeId || suggestingChannels}
+            className="px-3 py-2 text-base font-medium rounded-md border bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+            title={selectedModeId ? "Refresh channel assignment" : "Select a mode first"}
+          >
+            {suggestingChannels ? "..." : "Auto"}
+          </button>
+        </div>
+        {startChannel > 0 && (
+          <div className="mt-1">
+            {formatChannelAssignments ? (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Non-contiguous assignments: {formatChannelAssignments}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Suggested channel based on available space
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </form>
+  );
+
+  const footerContent = (
+    <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'flex-row space-x-3 justify-end'}`}>
+      {isMobile ? (
+        <>
+          <button
+            type="submit"
+            form="add-fixture-form"
+            disabled={creating || !selectedDefinitionId || !selectedModeId}
+            className="w-full px-4 py-3 text-base font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
+          >
+            {creating
+              ? "Adding..."
+              : numFixtures === 1
+                ? "Add Fixture"
+                : `Add ${numFixtures} Fixtures`}
+          </button>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="w-full px-4 py-3 text-base font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[44px] touch-manipulation"
+          >
+            Cancel
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="add-fixture-form"
+            disabled={creating || !selectedDefinitionId || !selectedModeId}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {creating
+              ? "Adding..."
+              : numFixtures === 1
+                ? "Add Fixture"
+                : `Add ${numFixtures} Fixtures`}
+          </button>
+        </>
+      )}
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-          onClick={handleClose}
-        />
-
-        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                Add Fixture
-              </h3>
-            </div>
-
-            {error && (
-              <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg
-                      className="h-5 w-5 text-red-400"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
-                      Error creating fixture
-                    </h3>
-                    <div className="mt-2 text-sm text-red-700 dark:text-red-300">
-                      <p className="whitespace-pre-wrap select-all">{error}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="name"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                >
-                  Fixture Name
-                </label>
-                <input
-                  id="name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  placeholder="Auto-generated if empty"
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="description"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                >
-                  Description
-                </label>
-                <textarea
-                  id="description"
-                  rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Optional description for this fixture..."
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                />
-              </div>
-
-              <Autocomplete
-                label="Manufacturer"
-                value={manufacturer}
-                onChange={setManufacturer}
-                onInputChange={handleManufacturerSearch}
-                options={manufacturers}
-                placeholder="Search manufacturers..."
-                loading={loadingManufacturers}
-                required
-              />
-
-              <Autocomplete
-                label="Model"
-                value={model}
-                onChange={handleModelSelect}
-                onInputChange={() => {}}
-                options={models.map((m) => m.model)}
-                placeholder={
-                  manufacturer ? "Select model..." : "Select manufacturer first"
-                }
-                loading={loadingModels}
-                required
-              />
-
-              {selectedModelData && selectedModelData.modes.length > 0 && (
-                <div>
-                  <label
-                    htmlFor="mode"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                  >
-                    Mode
-                  </label>
-                  <select
-                    id="mode"
-                    value={selectedModeId}
-                    onChange={(e) => handleModeSelect(e.target.value)}
-                    required
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  >
-                    <option value="">Select mode...</option>
-                    {selectedModelData.modes.map((mode) => (
-                      <option key={mode.id} value={mode.id}>
-                        {mode.name} ({mode.channelCount} channels)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label
-                  htmlFor="numFixtures"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                >
-                  Number of Fixtures
-                </label>
-                <input
-                  ref={numFixturesInputRef}
-                  id="numFixtures"
-                  type="number"
-                  min="1"
-                  max="512"
-                  value={numFixtures}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === '') {
-                      setNumFixtures(1);
-                    } else {
-                      const num = parseInt(value);
-                      if (!isNaN(num)) {
-                        setNumFixtures(num);
-                      }
-                    }
-                  }}
-                  onFocus={(e) => e.target.select()}
-                  required
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                />
-                {numFixtures > 1 && selectedModeId && (
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Will use channels {startChannel} -{" "}
-                    {startChannel +
-                      getSelectedModeChannelCount() * numFixtures -
-                      1}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label
-                  htmlFor="universe"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                >
-                  Universe
-                </label>
-                <input
-                  id="universe"
-                  type="number"
-                  min="1"
-                  max="32768"
-                  value={universe}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === '') {
-                      setUniverse(1);
-                    } else {
-                      const num = parseInt(value);
-                      if (!isNaN(num)) {
-                        setUniverse(num);
-                      }
-                    }
-                  }}
-                  onFocus={(e) => e.target.select()}
-                  required
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="startChannel"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                >
-                  Start Channel
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id="startChannel"
-                    type="number"
-                    min="1"
-                    max="512"
-                    value={startChannel}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === '') {
-                        setStartChannel(1);
-                      } else {
-                        const num = parseInt(value);
-                        if (!isNaN(num)) {
-                          setStartChannel(num);
-                        }
-                      }
-                    }}
-                    onFocus={(e) => e.target.select()}
-                    required
-                    className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      // Manually trigger channel assignment refresh
-                      if (selectedModeId && manufacturer && model) {
-                        const channelCount = getSelectedModeChannelCount();
-                        const mode = selectedModelData?.modes.find((m) => m.id === selectedModeId);
-                        const fixtureSpecs = Array.from({ length: numFixtures }, (_, i) => ({
-                          name: `${manufacturer} ${model} ${i + 1}`,
-                          manufacturer,
-                          model,
-                          mode: mode?.name,
-                          channelCount,
-                        }));
-                        suggestChannelAssignment({
-                          variables: {
-                            input: {
-                              projectId,
-                              universe,
-                              startingChannel: 1,
-                              fixtureSpecs,
-                            },
-                          },
-                        });
-                      }
-                    }}
-                    disabled={!selectedModeId || suggestingChannels}
-                    className="px-3 py-2 text-sm font-medium rounded-md border bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={selectedModeId ? "Refresh channel assignment" : "Select a mode first"}
-                  >
-                    {suggestingChannels ? "..." : "Auto"}
-                  </button>
-                </div>
-                {startChannel > 0 && (
-                  <div className="mt-1">
-                    {formatChannelAssignments ? (
-                      <p className="text-xs text-amber-600 dark:text-amber-400">
-                        ⚠ Non-contiguous assignments: {formatChannelAssignments}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Suggested channel based on available space
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-6 flex space-x-3 justify-end">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={creating || !selectedDefinitionId || !selectedModeId}
-                className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {creating
-                  ? "Adding..."
-                  : numFixtures === 1
-                    ? "Add Fixture"
-                    : `Add ${numFixtures} Fixtures`}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Add Fixture"
+      footer={footerContent}
+      maxWidth="max-w-lg"
+      testId="add-fixture-modal"
+    >
+      {formContent}
+    </BottomSheet>
   );
 }

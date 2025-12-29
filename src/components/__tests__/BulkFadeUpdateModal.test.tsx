@@ -5,6 +5,15 @@ import BulkFadeUpdateModal from '../BulkFadeUpdateModal';
 import { BULK_UPDATE_CUES } from '../../graphql/cueLists';
 import { Cue, Scene } from '../../types';
 
+// Mock useIsMobile hook
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+}));
+
+import { useIsMobile } from '@/hooks/useMediaQuery';
+
+const mockUseIsMobile = useIsMobile as jest.Mock;
+
 const mockSelectedCues: Cue[] = [
   {
     id: '1',
@@ -41,6 +50,7 @@ const defaultProps = {
 describe('BulkFadeUpdateModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseIsMobile.mockReturnValue(false); // Default to desktop
   });
 
   describe('rendering', () => {
@@ -230,7 +240,7 @@ describe('BulkFadeUpdateModal', () => {
         </MockedProvider>
       );
 
-      const form = screen.getByText('Update Cues').closest('form');
+      const form = document.getElementById('bulk-fade-update-form');
       fireEvent.submit(form!);
 
       expect(screen.getByText('Please select at least one timing to update')).toBeInTheDocument();
@@ -263,11 +273,11 @@ describe('BulkFadeUpdateModal', () => {
 
       const checkbox = screen.getByLabelText('Fade In Time (seconds)');
       const input = screen.getAllByPlaceholderText('3.0')[0];
-      const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(checkbox);
       await userEvent.type(input, '-1');
-      fireEvent.submit(screen.getByText('Update Cues').closest('form')!);
+      const form = document.getElementById('bulk-fade-update-form');
+      fireEvent.submit(form!);
 
       expect(screen.getByText('Fade in time must be a valid positive number')).toBeInTheDocument();
     });
@@ -299,11 +309,11 @@ describe('BulkFadeUpdateModal', () => {
 
       const checkbox = screen.getByLabelText('Follow Time (seconds)');
       const input = screen.getByPlaceholderText('0.0');
-      const _submitButton = screen.getByText('Update Cues');
 
       await userEvent.click(checkbox);
       await userEvent.type(input, '-5');
-      fireEvent.submit(screen.getByText('Update Cues').closest('form')!);
+      const form = document.getElementById('bulk-fade-update-form');
+      fireEvent.submit(form!);
 
       expect(screen.getByText('Follow time must be a valid positive number or empty to clear')).toBeInTheDocument();
     });
@@ -552,16 +562,17 @@ describe('BulkFadeUpdateModal', () => {
 
       const checkbox = screen.getByLabelText('Fade In Time (seconds)');
       const input = screen.getAllByPlaceholderText('3.0')[0];
-      const _submitButton = screen.getByText('Update Cues');
+      const submitButton = screen.getByText('Update Cues');
 
       // First trigger an error
-      fireEvent.submit(screen.getByText('Update Cues').closest('form')!);
+      const form = document.getElementById('bulk-fade-update-form');
+      fireEvent.submit(form!);
       expect(screen.getByText('Please select at least one timing to update')).toBeInTheDocument();
 
       // Then submit successfully
       await userEvent.click(checkbox);
       await userEvent.type(input, '3');
-      fireEvent.click(_submitButton);
+      fireEvent.click(submitButton);
 
       await waitFor(() => {
         expect(screen.queryByText('Please select at least one timing to update')).not.toBeInTheDocument();
@@ -706,8 +717,8 @@ describe('BulkFadeUpdateModal', () => {
         </MockedProvider>
       );
 
-      const _submitButton = screen.getByText('Update Cues');
-      fireEvent.submit(screen.getByText('Update Cues').closest('form')!);
+      const form = document.getElementById('bulk-fade-update-form');
+      fireEvent.submit(form!);
 
       const errorElement = screen.getByText('Please select at least one timing to update');
       const errorContainer = errorElement.parentElement;
@@ -820,8 +831,8 @@ describe('BulkFadeUpdateModal', () => {
         </MockedProvider>
       );
 
-      const overlay = screen.getByText('Bulk Update Fade Times').closest('.fixed');
-      expect(overlay).toHaveClass('fixed', 'inset-0', 'bg-black', 'bg-opacity-50', 'flex', 'items-center', 'justify-center', 'z-50');
+      const backdrop = screen.getByTestId('bulk-fade-update-modal-backdrop');
+      expect(backdrop).toHaveClass('fixed', 'inset-0', 'bg-black', 'bg-opacity-50', 'z-50');
     });
 
     it('applies correct modal content classes', () => {
@@ -831,8 +842,8 @@ describe('BulkFadeUpdateModal', () => {
         </MockedProvider>
       );
 
-      const content = screen.getByText('Bulk Update Fade Times').closest('.bg-white');
-      expect(content).toHaveClass('bg-white', 'dark:bg-gray-800', 'rounded-lg', 'shadow-xl', 'p-6', 'w-full', 'max-w-md', 'mx-4');
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toHaveClass('bg-white', 'dark:bg-gray-800', 'rounded-lg', 'shadow-xl');
     });
 
     it('applies correct checkbox styling', () => {
@@ -843,7 +854,7 @@ describe('BulkFadeUpdateModal', () => {
       );
 
       const checkbox = screen.getByLabelText('Fade In Time (seconds)');
-      expect(checkbox).toHaveClass('rounded', 'border-gray-300', 'text-blue-600', 'focus:ring-blue-500');
+      expect(checkbox).toHaveClass('rounded', 'border-gray-300', 'text-blue-600', 'focus:ring-blue-500', 'h-5', 'w-5');
     });
 
     it('applies correct input styling', () => {
@@ -854,10 +865,10 @@ describe('BulkFadeUpdateModal', () => {
       );
 
       const input = screen.getAllByPlaceholderText('3.0')[0];
-      expect(input).toHaveClass('w-20', 'px-2', 'py-1', 'border', 'border-gray-300', 'dark:border-gray-600', 'rounded-md', 'text-sm', 'focus:ring-blue-500', 'focus:border-blue-500', 'dark:bg-gray-700', 'dark:text-white', 'disabled:opacity-50');
+      expect(input).toHaveClass('w-24', 'px-3', 'py-2', 'border', 'border-gray-300', 'dark:border-gray-600', 'rounded-md', 'text-base', 'focus:ring-blue-500', 'focus:border-blue-500', 'dark:bg-gray-700', 'dark:text-white', 'disabled:opacity-50');
     });
 
-    it('applies correct button styling', () => {
+    it('applies correct button styling on desktop', () => {
       render(
         <MockedProvider mocks={[]}>
           <BulkFadeUpdateModal {...defaultProps} />
@@ -867,8 +878,8 @@ describe('BulkFadeUpdateModal', () => {
       const cancelButton = screen.getByText('Cancel');
       expect(cancelButton).toHaveClass('px-4', 'py-2', 'text-sm', 'font-medium', 'text-gray-700', 'dark:text-gray-300', 'bg-white', 'dark:bg-gray-700', 'border', 'border-gray-300', 'dark:border-gray-600', 'rounded-md');
 
-      const _submitButton = screen.getByText('Update Cues');
-      expect(_submitButton).toHaveClass('px-4', 'py-2', 'text-sm', 'font-medium', 'text-white', 'bg-blue-600', 'border', 'border-transparent', 'rounded-md', 'disabled:opacity-50', 'disabled:cursor-not-allowed');
+      const submitButton = screen.getByText('Update Cues');
+      expect(submitButton).toHaveClass('px-4', 'py-2', 'text-sm', 'font-medium', 'text-white', 'bg-blue-600', 'border', 'border-transparent', 'rounded-md', 'disabled:opacity-50', 'disabled:cursor-not-allowed');
     });
   });
 
@@ -984,6 +995,79 @@ describe('BulkFadeUpdateModal', () => {
       await waitFor(() => {
         expect(mockOnUpdate).toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('mobile behavior', () => {
+    beforeEach(() => {
+      mockUseIsMobile.mockReturnValue(true);
+    });
+
+    it('stacks buttons vertically on mobile', () => {
+      render(
+        <MockedProvider mocks={[]}>
+          <BulkFadeUpdateModal {...defaultProps} />
+        </MockedProvider>
+      );
+
+      const submitButton = screen.getByText('Update Cues');
+      const buttonContainer = submitButton.parentElement;
+      expect(buttonContainer).toHaveClass('flex-col');
+    });
+
+    it('shows Update Cues button first on mobile', () => {
+      render(
+        <MockedProvider mocks={[]}>
+          <BulkFadeUpdateModal {...defaultProps} />
+        </MockedProvider>
+      );
+
+      const buttons = screen.getAllByRole('button');
+      const buttonLabels = buttons.map(b => b.textContent);
+      // Update Cues should come before Cancel on mobile
+      const updateIndex = buttonLabels.indexOf('Update Cues');
+      const cancelIndex = buttonLabels.indexOf('Cancel');
+      expect(updateIndex).toBeLessThan(cancelIndex);
+    });
+
+    it('has larger touch targets on mobile', () => {
+      render(
+        <MockedProvider mocks={[]}>
+          <BulkFadeUpdateModal {...defaultProps} />
+        </MockedProvider>
+      );
+
+      const submitButton = screen.getByText('Update Cues');
+      const cancelButton = screen.getByText('Cancel');
+
+      expect(submitButton).toHaveClass('min-h-[44px]');
+      expect(cancelButton).toHaveClass('min-h-[44px]');
+    });
+
+    it('has touch-manipulation class on mobile buttons', () => {
+      render(
+        <MockedProvider mocks={[]}>
+          <BulkFadeUpdateModal {...defaultProps} />
+        </MockedProvider>
+      );
+
+      const submitButton = screen.getByText('Update Cues');
+      const cancelButton = screen.getByText('Cancel');
+
+      expect(submitButton).toHaveClass('touch-manipulation');
+      expect(cancelButton).toHaveClass('touch-manipulation');
+    });
+
+    it('renders as BottomSheet dialog', () => {
+      render(
+        <MockedProvider mocks={[]}>
+          <BulkFadeUpdateModal {...defaultProps} />
+        </MockedProvider>
+      );
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
     });
   });
 });
