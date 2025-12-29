@@ -143,8 +143,34 @@ describe('ArtNetControl', () => {
     expect(input).toHaveValue(5);
   });
 
-  it('toggles ArtNet state on click', async () => {
-    const mocks = createMocks(true, mockArtNetStatusDisabled);
+  it('toggles ArtNet state on click and calls mutation with correct variables', async () => {
+    let mutationCalled = false;
+    const mocks: MockedResponse[] = [
+      {
+        request: { query: GET_SYSTEM_INFO },
+        result: { data: { systemInfo: mockSystemInfoEnabled } },
+      },
+      {
+        request: { query: SYSTEM_INFO_UPDATED },
+        result: { data: { systemInfoUpdated: mockSystemInfoEnabled } },
+      },
+      {
+        request: {
+          query: SET_ARTNET_ENABLED,
+          variables: { enabled: false, fadeTime: 3 },
+        },
+        result: () => {
+          mutationCalled = true;
+          return { data: { setArtNetEnabled: mockArtNetStatusDisabled } };
+        },
+      },
+      // Mock for refetch after mutation
+      {
+        request: { query: GET_SYSTEM_INFO },
+        result: { data: { systemInfo: mockSystemInfoDisabled } },
+      },
+    ];
+
     renderComponent(mocks);
 
     await waitFor(() => {
@@ -154,7 +180,63 @@ describe('ArtNetControl', () => {
     const toggle = screen.getByRole('switch');
     fireEvent.click(toggle);
 
-    // The mutation was triggered - in a real test we'd verify the state change
-    // but MockedProvider doesn't automatically refetch
+    // Verify mutation was called with correct variables
+    await waitFor(() => {
+      expect(mutationCalled).toBe(true);
+    });
+  });
+
+  it('displays error message when toggle fails', async () => {
+    const errorMocks: MockedResponse[] = [
+      {
+        request: { query: GET_SYSTEM_INFO },
+        result: { data: { systemInfo: mockSystemInfoEnabled } },
+      },
+      {
+        request: { query: SYSTEM_INFO_UPDATED },
+        result: { data: { systemInfoUpdated: mockSystemInfoEnabled } },
+      },
+      {
+        request: {
+          query: SET_ARTNET_ENABLED,
+          variables: { enabled: false, fadeTime: 3 },
+        },
+        error: new Error('Network error'),
+      },
+    ];
+
+    renderComponent(errorMocks);
+
+    await waitFor(() => {
+      expect(screen.getByRole('switch')).toBeInTheDocument();
+    });
+
+    const toggle = screen.getByRole('switch');
+    fireEvent.click(toggle);
+
+    // Verify error message is displayed
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to toggle ArtNet/)).toBeInTheDocument();
+    });
+  });
+
+  it('clamps fade time to valid range', async () => {
+    renderComponent(createMocks(true));
+
+    await waitFor(() => {
+      expect(screen.getByText('Show fade options')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Show fade options'));
+
+    const input = screen.getByRole('spinbutton');
+
+    // Test value above max (30) gets clamped
+    fireEvent.change(input, { target: { value: '50' } });
+    expect(input).toHaveValue(30);
+
+    // Test value below min (0) gets clamped
+    fireEvent.change(input, { target: { value: '-5' } });
+    expect(input).toHaveValue(0);
   });
 });

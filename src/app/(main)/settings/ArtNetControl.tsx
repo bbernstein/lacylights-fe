@@ -27,9 +27,14 @@ export default function ArtNetControl() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   /** Error message to display to user */
   const [error, setError] = useState<string | null>(null);
+  /** Local toggle state to prevent race conditions before mutation loading state updates */
+  const [isToggling, setIsToggling] = useState(false);
 
   const { data: systemInfoData, refetch } = useQuery(GET_SYSTEM_INFO);
-  const [setArtNetEnabled, { loading: toggling }] = useMutation(SET_ARTNET_ENABLED);
+  const [setArtNetEnabled, { loading: mutationLoading }] = useMutation(SET_ARTNET_ENABLED);
+
+  // Combined loading state from both local and mutation states
+  const toggling = isToggling || mutationLoading;
 
   // Subscribe to system info updates
   useSubscription(SYSTEM_INFO_UPDATED, {
@@ -48,6 +53,7 @@ export default function ArtNetControl() {
     // Prevent concurrent toggle requests (race condition)
     if (toggling) return;
 
+    setIsToggling(true);
     setError(null);
     try {
       await setArtNetEnabled({
@@ -62,6 +68,8 @@ export default function ArtNetControl() {
       const message = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(`Failed to toggle ArtNet: ${message}`);
       console.error('Error toggling ArtNet:', err);
+    } finally {
+      setIsToggling(false);
     }
   };
 
