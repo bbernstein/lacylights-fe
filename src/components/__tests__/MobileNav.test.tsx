@@ -22,6 +22,7 @@ describe('MobileNav', () => {
   it('renders all navigation items', () => {
     render(<MobileNav />);
 
+    expect(screen.getByTestId('mobile-nav-item-')).toBeInTheDocument(); // Dashboard at root
     expect(screen.getByTestId('mobile-nav-item-fixtures')).toBeInTheDocument();
     expect(screen.getByTestId('mobile-nav-item-scenes')).toBeInTheDocument();
     expect(screen.getByTestId('mobile-nav-item-scene-board')).toBeInTheDocument();
@@ -84,6 +85,7 @@ describe('MobileNav', () => {
   it('displays abbreviated labels for items', () => {
     render(<MobileNav />);
 
+    expect(screen.getByText('Home')).toBeInTheDocument(); // Dashboard shortName
     expect(screen.getByText('Board')).toBeInTheDocument();
     expect(screen.getByText('Cues')).toBeInTheDocument();
   });
@@ -91,6 +93,10 @@ describe('MobileNav', () => {
   it('renders links with correct href attributes', () => {
     render(<MobileNav />);
 
+    expect(screen.getByTestId('mobile-nav-item-')).toHaveAttribute(
+      'href',
+      '/'
+    );
     expect(screen.getByTestId('mobile-nav-item-fixtures')).toHaveAttribute(
       'href',
       '/fixtures'
@@ -129,7 +135,7 @@ describe('MobileNav', () => {
     render(<MobileNav />);
 
     const links = screen.getAllByRole('link');
-    expect(links).toHaveLength(5);
+    expect(links).toHaveLength(6); // Dashboard, Fixtures, Scenes, Scene Board, Cue Lists, Settings
   });
 
   it('is fixed to the bottom of the viewport', () => {
@@ -196,6 +202,7 @@ describe('navItems configuration', () => {
 
   it('has all expected navigation destinations', () => {
     const hrefs = navItems.map((item) => item.href);
+    expect(hrefs).toContain('/');
     expect(hrefs).toContain('/fixtures');
     expect(hrefs).toContain('/scenes');
     expect(hrefs).toContain('/scene-board');

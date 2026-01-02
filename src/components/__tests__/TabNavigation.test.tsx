@@ -31,6 +31,7 @@ describe('TabNavigation', () => {
 
       render(<TabNavigation />);
 
+      expect(screen.getByText('Dashboard')).toBeInTheDocument();
       expect(screen.getByText('Fixtures')).toBeInTheDocument();
       expect(screen.getByText('Scenes')).toBeInTheDocument();
       expect(screen.getByText('Scene Board')).toBeInTheDocument();
@@ -42,11 +43,13 @@ describe('TabNavigation', () => {
 
       render(<TabNavigation />);
 
+      const dashboardLink = screen.getByRole('link', { name: 'Dashboard' });
       const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
       const scenesLink = screen.getByRole('link', { name: 'Scenes' });
       const sceneBoardLink = screen.getByRole('link', { name: 'Scene Board' });
       const cueListsLink = screen.getByRole('link', { name: 'Cue Lists' });
 
+      expect(dashboardLink).toHaveAttribute('href', '/');
       expect(fixturesLink).toHaveAttribute('href', '/fixtures');
       expect(scenesLink).toHaveAttribute('href', '/scenes');
       expect(sceneBoardLink).toHaveAttribute('href', '/scene-board');
@@ -214,7 +217,7 @@ describe('TabNavigation', () => {
       render(<TabNavigation />);
 
       const links = screen.getAllByRole('link');
-      expect(links).toHaveLength(5); // Fixtures, Scenes, Scene Board, Cue Lists, Settings
+      expect(links).toHaveLength(6); // Dashboard, Fixtures, Scenes, Scene Board, Cue Lists, Settings
 
       links.forEach((link) => {
         expect(link).toHaveAttribute('href');
@@ -229,6 +232,7 @@ describe('TabNavigation', () => {
       render(<TabNavigation />);
 
       const expectedTabs = [
+        { name: 'Dashboard', href: '/' },
         { name: 'Fixtures', href: '/fixtures' },
         { name: 'Scenes', href: '/scenes' },
         { name: 'Scene Board', href: '/scene-board' },
@@ -260,10 +264,13 @@ describe('TabNavigation', () => {
 
       render(<TabNavigation />);
 
-      const links = screen.getAllByRole('link');
-      links.forEach((link) => {
-        expect(link).toHaveClass('border-transparent', 'text-gray-500');
-      });
+      // Dashboard should be active at root path
+      const dashboardLink = screen.getByRole('link', { name: 'Dashboard' });
+      expect(dashboardLink).toHaveClass('border-blue-500', 'text-blue-600');
+
+      // Other links should be inactive
+      const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
+      expect(fixturesLink).toHaveClass('border-transparent', 'text-gray-500');
     });
 
     it('handles case sensitivity', () => {
