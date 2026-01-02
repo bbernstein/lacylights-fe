@@ -164,12 +164,13 @@ export default function SystemStatusBar() {
             </span>
           </div>
 
-          {/* Now Playing button - hidden on mobile */}
-          <div className="hidden md:block">
-            <NowPlayingButton />
-          </div>
+          {/* Now Playing button - visible on all screen sizes */}
+          <NowPlayingButton />
         </div>
-        <ConnectionStatusIndicator />
+        {/* Connection status - hidden on mobile */}
+        <div className="hidden md:block">
+          <ConnectionStatusIndicator />
+        </div>
       </div>
     </div>
   );
