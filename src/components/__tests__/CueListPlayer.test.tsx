@@ -314,7 +314,11 @@ describe("CueListPlayer", () => {
       await waitFor(() => {
         const progressDots = screen.getAllByTitle(/\d+: .+/);
         expect(progressDots).toHaveLength(3);
-        expect(progressDots[0]).toHaveAttribute("title", "1: Opening Scene");
+        // Current cue (index 0) has "(scroll to view)" in title
+        expect(progressDots[0]).toHaveAttribute(
+          "title",
+          "1: Opening Scene (scroll to view)",
+        );
         expect(progressDots[1]).toHaveAttribute("title", "2: Mid Scene");
         expect(progressDots[2]).toHaveAttribute("title", "3: Closing Scene");
       });
@@ -614,7 +618,7 @@ describe("CueListPlayer", () => {
       }
     });
 
-    it("does not allow jumping to current cue", async () => {
+    it("clicking current cue scrolls to it (does not jump)", async () => {
       const mocks = createMocks();
       renderWithProvider(mocks);
 
@@ -622,11 +626,13 @@ describe("CueListPlayer", () => {
         expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
       });
 
-      // Current cue should not have cursor-pointer class (get from cue list, not NOW PLAYING)
+      // All cues including current have cursor-pointer class (current scrolls, others jump)
+      // Find the outer cue card div that has cursor-pointer
       const openingSceneElements = screen.getAllByText("Opening Scene");
-      const currentCue =
-        openingSceneElements[openingSceneElements.length - 1].closest("div");
-      expect(currentCue).not.toHaveClass("cursor-pointer");
+      const currentCue = openingSceneElements[
+        openingSceneElements.length - 1
+      ].closest('div[class*="cursor-pointer"]');
+      expect(currentCue).toBeInTheDocument();
     });
   });
 

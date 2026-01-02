@@ -18,7 +18,6 @@ import {
   GO_TO_CUE,
   STOP_CUE_LIST,
   FADE_TO_BLACK,
-  UPDATE_CUE_LIST,
   CREATE_CUE,
   UPDATE_CUE,
   DELETE_CUE,
@@ -183,7 +182,6 @@ export default function CueListPlayer({
   const [goToCue] = useMutation(GO_TO_CUE, refetchConfig);
   const [stopCueList] = useMutation(STOP_CUE_LIST, refetchConfig);
   const [fadeToBlack] = useMutation(FADE_TO_BLACK, fadeToBlackRefetchConfig);
-  const [updateCueList] = useMutation(UPDATE_CUE_LIST);
   const [createCue] = useMutation(CREATE_CUE);
   const [updateCue] = useMutation(UPDATE_CUE);
   const [deleteCue] = useMutation(DELETE_CUE);
@@ -534,22 +532,20 @@ export default function CueListPlayer({
     });
   }, [cueList, stopCueList, fadeToBlack, ensureConnection]);
 
-  const handleToggleLoop = useCallback(async () => {
-    if (!cueList) return;
-
-    await updateCueList({
-      variables: {
-        id: cueList.id,
-        input: {
-          name: cueList.name,
-          description: cueList.description || undefined,
-          loop: !cueList.loop,
-          projectId: cueList.project.id,
-        },
-      },
-      refetchQueries: [{ query: GET_CUE_LIST, variables: { id: cueList.id } }],
-    });
-  }, [cueList, updateCueList]);
+  /**
+   * Scrolls the current live cue into view, centered in the viewport.
+   * Used when user clicks the "scroll to live" button, clicks on the current cue's
+   * progress dot, or clicks on the live cue in the list.
+   */
+  const scrollToLiveCue = useCallback(() => {
+    if (currentCueRef.current && currentCueIndex >= 0) {
+      currentCueRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest",
+      });
+    }
+  }, [currentCueIndex]);
 
   // Context menu handlers
   const handleCueContextMenu = useCallback(
@@ -915,18 +911,20 @@ export default function CueListPlayer({
                 <div
                   key={cue.id}
                   ref={isCurrent ? currentCueRef : null}
-                  className={`relative rounded-lg p-4 border transition-all duration-200 overflow-hidden select-none ${
+                  className={`relative rounded-lg p-4 border transition-all duration-200 overflow-hidden select-none cursor-pointer ${
                     cue.id === highlightedCueId
                       ? "bg-gray-700 border-yellow-500 border-2 shadow-lg animate-pulse"
                       : isCurrent
                         ? "bg-gray-700 border-green-500 border-2 scale-[1.02] shadow-lg"
                         : isPrevious
-                          ? "bg-gray-800/50 border-gray-600 opacity-60"
+                          ? "bg-gray-800/50 border-gray-600 opacity-60 hover:bg-gray-700/70"
                           : isNext
-                            ? "bg-gray-800/70 border-gray-600 opacity-80"
-                            : "bg-gray-800 border-gray-700"
-                  } ${!isCurrent ? "cursor-pointer hover:bg-gray-700/70" : ""}`}
-                  onClick={() => !isCurrent && handleJumpToCue(index)}
+                            ? "bg-gray-800/70 border-gray-600 opacity-80 hover:bg-gray-700/70"
+                            : "bg-gray-800 border-gray-700 hover:bg-gray-700/70"
+                  }`}
+                  onClick={() =>
+                    isCurrent ? scrollToLiveCue() : handleJumpToCue(index)
+                  }
                   onContextMenu={(e) => handleCueContextMenu(e, cue, index)}
                   onTouchStart={(e) => handleTouchStart(e, cue, index)}
                   onTouchMove={handleTouchMove}
@@ -1025,19 +1023,12 @@ export default function CueListPlayer({
       {/* Control Bar - with bottom padding for mobile nav bar clearance */}
       <div className="bg-gray-800 border-t border-gray-700 p-4 pb-20">
         <div className="flex items-center justify-center space-x-4">
-          {/* Loop toggle button */}
+          {/* Scroll to live cue button */}
           <button
-            onClick={handleToggleLoop}
-            className={`p-3 rounded-lg transition-colors ${
-              cueList.loop
-                ? "bg-blue-600 hover:bg-blue-700 text-white"
-                : "bg-gray-700 hover:bg-gray-600 text-gray-300"
-            }`}
-            title={
-              cueList.loop
-                ? "Loop enabled - Click to disable"
-                : "Loop disabled - Click to enable"
-            }
+            onClick={scrollToLiveCue}
+            disabled={currentCueIndex < 0}
+            className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-300 transition-colors"
+            title="Scroll to live cue"
           >
             <svg
               className="w-6 h-6"
@@ -1049,7 +1040,13 @@ export default function CueListPlayer({
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
               />
             </svg>
           </button>
@@ -1135,20 +1132,29 @@ export default function CueListPlayer({
 
         {/* Cue List Progress */}
         <div className="mt-4 flex items-center justify-center space-x-2">
-          {cues.map((cue: Cue, index: number) => (
-            <button
-              key={cue.id}
-              onClick={() => handleJumpToCue(index)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                index === currentCueIndex
-                  ? "bg-green-500 w-3 h-3"
-                  : index < currentCueIndex
-                    ? "bg-gray-600"
-                    : "bg-gray-700 hover:bg-gray-600"
-              }`}
-              title={`${cue.cueNumber}: ${cue.name}`}
-            />
-          ))}
+          {cues.map((cue: Cue, index: number) => {
+            const isCurrent = index === currentCueIndex;
+            return (
+              <button
+                key={cue.id}
+                onClick={() =>
+                  isCurrent ? scrollToLiveCue() : handleJumpToCue(index)
+                }
+                className={`w-2 h-2 rounded-full transition-all ${
+                  isCurrent
+                    ? "bg-green-500 w-3 h-3"
+                    : index < currentCueIndex
+                      ? "bg-gray-600"
+                      : "bg-gray-700 hover:bg-gray-600"
+                }`}
+                title={
+                  isCurrent
+                    ? `${cue.cueNumber}: ${cue.name} (scroll to view)`
+                    : `${cue.cueNumber}: ${cue.name}`
+                }
+              />
+            );
+          })}
         </div>
 
         <div className="mt-3 text-center text-xs text-gray-500">
