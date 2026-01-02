@@ -124,7 +124,7 @@ export default function SystemStatusBar() {
           {/* Art-Net status indicator - clickable link to settings */}
           <Link
             href="/settings"
-            className="flex items-center space-x-1.5 hover:opacity-80 transition-opacity"
+            className="flex items-center space-x-1 hover:opacity-80 transition-opacity"
             title={`Art-Net: ${systemInfo.artnetEnabled ? 'Enabled' : 'Disabled'}${systemInfo.artnetBroadcastAddress ? ` - ${systemInfo.artnetBroadcastAddress}` : ''} - Click to view settings`}
           >
             <span
@@ -135,6 +135,16 @@ export default function SystemStatusBar() {
               }`}
               aria-hidden="true"
             />
+            <span
+              className={`text-sm ${
+                systemInfo.artnetEnabled
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-500 dark:text-red-400 grayscale'
+              }`}
+              aria-label={systemInfo.artnetEnabled ? 'Transmitting' : 'Not transmitting'}
+            >
+              📡
+            </span>
             {/* Show "Art-Net" text only on desktop */}
             <span className="hidden md:inline text-gray-500 dark:text-gray-400">Art-Net</span>
           </Link>
