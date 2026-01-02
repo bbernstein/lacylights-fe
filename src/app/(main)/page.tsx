@@ -417,7 +417,7 @@ export default function DashboardPage() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600 dark:text-gray-300">
-                  ArtNet Output
+                  Art-Net Output
                 </span>
                 <span
                   className={`text-sm font-medium ${

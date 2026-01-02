@@ -126,6 +126,7 @@ export default function SystemStatusBar() {
             href="/settings"
             className="flex items-center space-x-1 hover:opacity-80 transition-opacity"
             title={`Art-Net: ${systemInfo.artnetEnabled ? 'Enabled' : 'Disabled'}${systemInfo.artnetBroadcastAddress ? ` - ${systemInfo.artnetBroadcastAddress}` : ''} - Click to view settings`}
+            aria-label={`Art-Net ${systemInfo.artnetEnabled ? 'enabled and transmitting' : 'disabled'}. Click to configure Art-Net settings.`}
           >
             <span
               className={`w-2 h-2 rounded-full ${
@@ -141,7 +142,7 @@ export default function SystemStatusBar() {
                   ? 'text-green-600 dark:text-green-400'
                   : 'text-red-500 dark:text-red-400 grayscale'
               }`}
-              aria-label={systemInfo.artnetEnabled ? 'Transmitting' : 'Not transmitting'}
+              aria-hidden="true"
             >
               📡
             </span>

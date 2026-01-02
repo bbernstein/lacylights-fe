@@ -398,6 +398,50 @@ describe("DashboardPage", () => {
 
       expect(screen.getByText("No fixtures configured")).toBeInTheDocument();
     });
+
+    it("truncates fixtures list and shows '+X more' when more than 5 fixtures", async () => {
+      const manyFixtures = Array.from({ length: 7 }, (_, i) => ({
+        id: `fixture-${i + 1}`,
+        name: `Fixture ${i + 1}`,
+        description: "",
+        universe: 1,
+        startChannel: i * 8 + 1,
+        tags: [],
+        projectOrder: i,
+        createdAt: "2024-01-01",
+        definitionId: `def-${i + 1}`,
+        manufacturer: "Test",
+        model: "Model",
+        type: FixtureType.LED_PAR,
+        modeName: "8-channel",
+        channelCount: 8,
+        channels: [],
+      }));
+
+      const mocks = createMocks({ fixtures: manyFixtures });
+
+      render(
+        <MockedProvider
+          mocks={[...mocks, createSubscriptionMock()]}
+          addTypename={false}
+        >
+          <DashboardPage />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("fixtures-card")).toBeInTheDocument();
+      });
+
+      const fixturesCard = screen.getByTestId("fixtures-card");
+      // Should show first 5 fixtures
+      expect(fixturesCard).toHaveTextContent("Fixture 1");
+      expect(fixturesCard).toHaveTextContent("Fixture 5");
+      // Should show "+2 more..." for remaining fixtures
+      expect(fixturesCard).toHaveTextContent("+2 more...");
+      // Should NOT show fixtures beyond 5
+      expect(fixturesCard).not.toHaveTextContent("Fixture 6");
+    });
   });
 
   describe("scenes card", () => {
@@ -441,6 +485,41 @@ describe("DashboardPage", () => {
       });
 
       expect(screen.getByText("No scenes created")).toBeInTheDocument();
+    });
+
+    it("truncates scenes list and shows '+X more' when more than 8 scenes", async () => {
+      const manyScenes = Array.from({ length: 10 }, (_, i) => ({
+        id: `scene-${i + 1}`,
+        name: `Scene ${i + 1}`,
+        description: "",
+        createdAt: "2024-01-01",
+        updatedAt: "2024-01-01",
+        fixtureValues: [],
+      }));
+
+      const mocks = createMocks({ scenes: manyScenes });
+
+      render(
+        <MockedProvider
+          mocks={[...mocks, createSubscriptionMock()]}
+          addTypename={false}
+        >
+          <DashboardPage />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("scenes-card")).toBeInTheDocument();
+      });
+
+      const scenesCard = screen.getByTestId("scenes-card");
+      // Should show first 8 scenes
+      expect(scenesCard).toHaveTextContent("Scene 1");
+      expect(scenesCard).toHaveTextContent("Scene 8");
+      // Should show "+2 more..." for remaining scenes
+      expect(scenesCard).toHaveTextContent("+2 more...");
+      // Should NOT show scenes beyond 8
+      expect(scenesCard).not.toHaveTextContent("Scene 9");
     });
   });
 
@@ -587,7 +666,7 @@ describe("DashboardPage", () => {
       });
 
       const settingsCard = screen.getByTestId("settings-card");
-      expect(settingsCard).toHaveTextContent("ArtNet Output");
+      expect(settingsCard).toHaveTextContent("Art-Net Output");
       expect(settingsCard).toHaveTextContent("Enabled");
       expect(settingsCard).toHaveTextContent("192.168.1.255");
     });

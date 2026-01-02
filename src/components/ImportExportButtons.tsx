@@ -304,17 +304,18 @@ export default function ImportExportButtons({
   // Dropdown menu items for use inside a parent dropdown
   if (inDropdown) {
     return (
-      <div className="space-y-1">
+      <div className="space-y-1" role="menu" aria-label="Import and Export options">
         {/* Import options - Only show if not export-only mode */}
         {!exportOnly && (
           <>
-            <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+            <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1" role="presentation">
               Import Project
             </div>
             <button
               onClick={() => handleImport('auto')}
               disabled={disabled || isImporting}
               className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+              role="menuitem"
             >
               {isImporting ? 'Importing...' : 'Auto-detect format'}
             </button>
@@ -322,6 +323,7 @@ export default function ImportExportButtons({
               onClick={() => handleImport('lacylights')}
               disabled={disabled || isImporting}
               className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+              role="menuitem"
             >
               LacyLights (.json)
             </button>
@@ -329,6 +331,7 @@ export default function ImportExportButtons({
               onClick={() => handleImport('qlcplus')}
               disabled={disabled || isImporting}
               className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+              role="menuitem"
             >
               QLC+ (.qxw)
             </button>
@@ -338,13 +341,14 @@ export default function ImportExportButtons({
         {/* Export options */}
         {projectId && (
           <>
-            <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1 mt-2">
+            <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1 mt-2" role="presentation">
               Export Current Project
             </div>
             <button
               onClick={() => handleExport('lacylights')}
               disabled={disabled || isExporting}
               className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+              role="menuitem"
             >
               {isExporting ? 'Exporting...' : 'LacyLights (.json)'}
             </button>
@@ -352,6 +356,7 @@ export default function ImportExportButtons({
               onClick={() => handleExport('qlcplus')}
               disabled={disabled || isExporting}
               className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+              role="menuitem"
             >
               QLC+ (.qxw)
             </button>
