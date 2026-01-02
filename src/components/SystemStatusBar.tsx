@@ -2,6 +2,7 @@
 
 import { useQuery, useSubscription } from '@apollo/client';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { GET_SYSTEM_INFO, SYSTEM_INFO_UPDATED } from '@/graphql/settings';
 import { SystemInfo } from '@/types';
 import ConnectionStatusIndicator from './ConnectionStatusIndicator';
@@ -120,10 +121,12 @@ export default function SystemStatusBar() {
     <div className="bg-gray-100 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
       <div className="max-w-7xl mx-auto flex items-center justify-between text-xs">
         <div className="flex items-center space-x-4">
-          {/* Art-Net status indicator - compact green/red dot */}
-          <div
-            className="flex items-center space-x-1.5"
-            title={`Art-Net: ${systemInfo.artnetEnabled ? 'Enabled' : 'Disabled'}`}
+          {/* Art-Net status indicator - clickable link to settings */}
+          <Link
+            href="/settings"
+            className="flex items-center space-x-1 hover:opacity-80 transition-opacity"
+            title={`Art-Net: ${systemInfo.artnetEnabled ? 'Enabled' : 'Disabled'}${systemInfo.artnetBroadcastAddress ? ` - ${systemInfo.artnetBroadcastAddress}` : ''} - Click to view settings`}
+            aria-label={`Art-Net ${systemInfo.artnetEnabled ? 'enabled and transmitting' : 'disabled'}. Click to configure Art-Net settings.`}
           >
             <span
               className={`w-2 h-2 rounded-full ${
@@ -133,12 +136,23 @@ export default function SystemStatusBar() {
               }`}
               aria-hidden="true"
             />
-            <span className="text-gray-500 dark:text-gray-400">Art-Net</span>
-          </div>
+            <span
+              className={`text-sm ${
+                systemInfo.artnetEnabled
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-500 dark:text-red-400 grayscale'
+              }`}
+              aria-hidden="true"
+            >
+              📡
+            </span>
+            {/* Show "Art-Net" text only on desktop */}
+            <span className="hidden md:inline text-gray-500 dark:text-gray-400">Art-Net</span>
+          </Link>
 
-          {/* Broadcast address with radio signal icon */}
+          {/* Broadcast address - hidden on mobile */}
           <div
-            className="flex items-center space-x-1"
+            className="hidden md:flex items-center space-x-1"
             title={`Broadcast Address: ${systemInfo.artnetBroadcastAddress}`}
           >
             <svg
@@ -161,10 +175,13 @@ export default function SystemStatusBar() {
             </span>
           </div>
 
-          {/* Now Playing button - only shows when a cue list is playing */}
+          {/* Now Playing button - visible on all screen sizes */}
           <NowPlayingButton />
         </div>
-        <ConnectionStatusIndicator />
+        {/* Connection status - hidden on mobile */}
+        <div className="hidden md:block">
+          <ConnectionStatusIndicator />
+        </div>
       </div>
     </div>
   );

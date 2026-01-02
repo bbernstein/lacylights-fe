@@ -1,22 +1,24 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useEffect, useRef } from 'react';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import {
+  HomeIcon,
   WrenchScrewdriverIcon,
   SparklesIcon,
   Squares2X2Icon,
   QueueListIcon,
   Cog6ToothIcon,
-} from '@heroicons/react/24/outline';
+} from "@heroicons/react/24/outline";
 import {
+  HomeIcon as HomeIconSolid,
   WrenchScrewdriverIcon as WrenchScrewdriverIconSolid,
   SparklesIcon as SparklesIconSolid,
   Squares2X2Icon as Squares2X2IconSolid,
   QueueListIcon as QueueListIconSolid,
   Cog6ToothIcon as Cog6ToothIconSolid,
-} from '@heroicons/react/24/solid';
+} from "@heroicons/react/24/solid";
 
 /**
  * Navigation item configuration
@@ -39,37 +41,44 @@ interface NavItem {
  */
 const navItems: NavItem[] = [
   {
-    name: 'Fixtures',
-    shortName: 'Fixtures',
-    href: '/fixtures',
+    name: "Dashboard",
+    shortName: "Home",
+    href: "/",
+    icon: HomeIcon,
+    activeIcon: HomeIconSolid,
+  },
+  {
+    name: "Fixtures",
+    shortName: "Fixtures",
+    href: "/fixtures",
     icon: WrenchScrewdriverIcon,
     activeIcon: WrenchScrewdriverIconSolid,
   },
   {
-    name: 'Scenes',
-    shortName: 'Scenes',
-    href: '/scenes',
+    name: "Scenes",
+    shortName: "Scenes",
+    href: "/scenes",
     icon: SparklesIcon,
     activeIcon: SparklesIconSolid,
   },
   {
-    name: 'Scene Board',
-    shortName: 'Board',
-    href: '/scene-board',
+    name: "Scene Board",
+    shortName: "Board",
+    href: "/scene-board",
     icon: Squares2X2Icon,
     activeIcon: Squares2X2IconSolid,
   },
   {
-    name: 'Cue Lists',
-    shortName: 'Cues',
-    href: '/cue-lists',
+    name: "Cue Lists",
+    shortName: "Cues",
+    href: "/cue-lists",
     icon: QueueListIcon,
     activeIcon: QueueListIconSolid,
   },
   {
-    name: 'Settings',
-    shortName: 'Settings',
-    href: '/settings',
+    name: "Settings",
+    shortName: "Settings",
+    href: "/settings",
     icon: Cog6ToothIcon,
     activeIcon: Cog6ToothIconSolid,
   },
@@ -102,7 +111,7 @@ interface MobileNavProps {
  * <MobileNav />
  * ```
  */
-export default function MobileNav({ testId = 'mobile-nav' }: MobileNavProps) {
+export default function MobileNav({ testId = "mobile-nav" }: MobileNavProps) {
   const pathname = usePathname();
   const navRef = useRef<HTMLElement>(null);
   const activeItemRef = useRef<HTMLAnchorElement>(null);
@@ -111,9 +120,9 @@ export default function MobileNav({ testId = 'mobile-nav' }: MobileNavProps) {
   useEffect(() => {
     if (activeItemRef.current) {
       activeItemRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'center',
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
       });
     }
   }, [pathname]);
@@ -128,7 +137,9 @@ export default function MobileNav({ testId = 'mobile-nav' }: MobileNavProps) {
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => {
           const isActive =
-            pathname === item.href || pathname.startsWith(`${item.href}/`);
+            item.href === "/"
+              ? pathname === "/"
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = isActive ? item.activeIcon : item.icon;
 
           return (
@@ -143,12 +154,12 @@ export default function MobileNav({ testId = 'mobile-nav' }: MobileNavProps) {
                 touch-manipulation
                 ${
                   isActive
-                    ? 'text-blue-600 dark:text-blue-400'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    ? "text-blue-600 dark:text-blue-400"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 }
               `}
-              data-testid={`${testId}-item-${item.href.replace('/', '')}`}
-              aria-current={isActive ? 'page' : undefined}
+              data-testid={`${testId}-item-${item.href.replace("/", "")}`}
+              aria-current={isActive ? "page" : undefined}
             >
               <Icon className="h-6 w-6" aria-hidden="true" />
               <span className="text-xs mt-1 font-medium truncate max-w-[64px]">
