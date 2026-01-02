@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -137,7 +137,9 @@ export default function MobileNav({ testId = "mobile-nav" }: MobileNavProps) {
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => {
           const isActive =
-            pathname === item.href || pathname.startsWith(`${item.href}/`);
+            item.href === "/"
+              ? pathname === "/"
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = isActive ? item.activeIcon : item.icon;
 
           return (

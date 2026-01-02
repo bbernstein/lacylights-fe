@@ -165,7 +165,17 @@ const mockSystemInfo = {
   fadeUpdateRateHz: 60,
 };
 
-const mockPlaybackStatus = {
+const mockPlaybackStatus: {
+  isPlaying: boolean;
+  isFading: boolean;
+  cueListId: string | null;
+  cueListName: string | null;
+  currentCueIndex: number | null;
+  cueCount: number | null;
+  currentCueName: string | null;
+  fadeProgress: number | null;
+  lastUpdated: string;
+} = {
   isPlaying: false,
   isFading: false,
   cueListId: null,
@@ -505,7 +515,7 @@ describe("DashboardPage", () => {
       expect(cueListsCard).toHaveTextContent("Show 1");
       expect(cueListsCard).toHaveTextContent("(2 cues)");
       expect(cueListsCard).toHaveTextContent("Show 2");
-      expect(cueListsCard).toHaveTextContent("(1 cues)");
+      expect(cueListsCard).toHaveTextContent("(1 cue)");
     });
 
     it("renders links to specific cue lists", async () => {

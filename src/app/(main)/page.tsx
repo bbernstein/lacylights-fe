@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useMemo } from "react";
 import Link from "next/link";
@@ -145,8 +145,14 @@ export default function DashboardPage() {
     () => fixturesData?.project?.fixtures || [],
     [fixturesData?.project?.fixtures],
   );
-  const scenes: Scene[] = scenesData?.project?.scenes || [];
-  const sceneBoards: SceneBoard[] = sceneBoardsData?.sceneBoards || [];
+  const scenes = useMemo<Scene[]>(
+    () => scenesData?.project?.scenes || [],
+    [scenesData?.project?.scenes],
+  );
+  const sceneBoards = useMemo<SceneBoard[]>(
+    () => sceneBoardsData?.sceneBoards || [],
+    [sceneBoardsData?.sceneBoards],
+  );
   const cueLists = useMemo<CueList[]>(
     () => cueListsData?.project?.cueLists || [],
     [cueListsData?.project?.cueLists],
@@ -337,7 +343,8 @@ export default function DashboardPage() {
                     >
                       <span className="font-medium">{board.name}</span>
                       <span className="text-gray-400 dark:text-gray-500 ml-2">
-                        ({board.buttons?.length || 0} buttons)
+                        ({board.buttons?.length || 0}{" "}
+                        {board.buttons?.length === 1 ? "button" : "buttons"})
                       </span>
                     </Link>
                   </li>
@@ -386,7 +393,8 @@ export default function DashboardPage() {
                         )}
                         <span>{cueList.name}</span>
                         <span className="text-gray-400 dark:text-gray-500">
-                          ({cueList.cues?.length || 0} cues)
+                          ({cueList.cues?.length || 0}{" "}
+                          {cueList.cues?.length === 1 ? "cue" : "cues"})
                         </span>
                       </Link>
                     </li>

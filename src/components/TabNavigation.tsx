@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -25,7 +25,9 @@ export default function TabNavigation() {
       <div className="flex space-x-8 px-6" aria-label="Tabs">
         {tabs.map((tab) => {
           const isActive =
-            pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+            tab.href === "/"
+              ? pathname === "/"
+              : pathname === tab.href || pathname.startsWith(`${tab.href}/`);
 
           return (
             <Link
