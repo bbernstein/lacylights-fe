@@ -149,7 +149,8 @@ export default function CueListPlayer({
 
   // Call all hooks unconditionally (required by React)
   const { playbackStatus } = useCueListPlayback(cueListId);
-  const { connectionState, isStale, reconnect, ensureConnection } = useWebSocket();
+  const { connectionState, isStale, reconnect, ensureConnection } =
+    useWebSocket();
 
   const { data: cueListData, loading } = useQuery(GET_CUE_LIST, {
     variables: { id: cueListId },
@@ -484,7 +485,15 @@ export default function CueListPlayer({
         },
       });
     }
-  }, [currentCueIndex, cues, cueList, startCueList, nextCueMutation, nextCue, ensureConnection]);
+  }, [
+    currentCueIndex,
+    cues,
+    cueList,
+    startCueList,
+    nextCueMutation,
+    nextCue,
+    ensureConnection,
+  ]);
 
   const handlePrevious = useCallback(async () => {
     if (!cueList || currentCueIndex <= 0) return;
@@ -844,78 +853,43 @@ export default function CueListPlayer({
 
   return (
     <div className="absolute inset-0 bg-gray-900 text-white flex flex-col">
-      {/* Header */}
-      <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold">{cueList.name}</h1>
-          {/* Connection status indicator with reconnect button */}
+      {/* Connection status indicator - compact bar when disconnected */}
+      {(connectionState !== "connected" || isStale) && (
+        <div className="bg-gray-800 px-4 py-2 border-b border-gray-700 flex items-center justify-center space-x-2">
           <div
-            className="flex items-center space-x-2"
-            role="status"
-            aria-live="polite"
+            className={`w-2.5 h-2.5 rounded-full ${
+              connectionState === "connected" && isStale
+                ? "bg-yellow-500"
+                : connectionState === "reconnecting"
+                  ? "bg-orange-500 animate-pulse"
+                  : "bg-red-500"
+            }`}
+            role="img"
+            aria-label={
+              connectionState === "connected" && isStale
+                ? "Stale - no recent updates"
+                : connectionState === "reconnecting"
+                  ? "Reconnecting..."
+                  : "Disconnected"
+            }
+          />
+          <span className="text-xs text-gray-400">
+            {connectionState === "reconnecting"
+              ? "Reconnecting..."
+              : isStale
+                ? "Connection stale"
+                : "Disconnected"}
+          </span>
+          <button
+            onClick={reconnect}
+            className="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white transition-colors"
+            title="Reconnect to receive real-time updates"
+            aria-label="Reconnect WebSocket"
           >
-            {/* Status dot - slightly larger (w-2.5 h-2.5) for better visibility during shows */}
-            <div
-              className={`w-2.5 h-2.5 rounded-full ${
-                connectionState === "connected" && !isStale
-                  ? "bg-green-500"
-                  : connectionState === "connected" && isStale
-                    ? "bg-yellow-500"
-                    : connectionState === "reconnecting"
-                      ? "bg-orange-500 animate-pulse"
-                      : "bg-red-500"
-              }`}
-              role="img"
-              aria-label={
-                connectionState === "connected" && !isStale
-                  ? "Live - receiving updates"
-                  : connectionState === "connected" && isStale
-                    ? "Stale - no recent updates"
-                    : connectionState === "reconnecting"
-                      ? "Reconnecting..."
-                      : "Disconnected"
-              }
-              title={
-                connectionState === "connected" && !isStale
-                  ? "Live - receiving updates"
-                  : connectionState === "connected" && isStale
-                    ? "Stale - no recent updates"
-                    : connectionState === "reconnecting"
-                      ? "Reconnecting..."
-                      : "Disconnected"
-              }
-            />
-            {/* Show reconnect button when not fully connected */}
-            {(connectionState !== "connected" || isStale) && (
-              <button
-                onClick={reconnect}
-                className="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white transition-colors flex items-center space-x-1"
-                title="Reconnect to receive real-time updates"
-                aria-label="Reconnect WebSocket to receive real-time updates"
-              >
-                <svg
-                  className="w-3 h-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-                <span>Reconnect</span>
-              </button>
-            )}
-          </div>
+            Reconnect
+          </button>
         </div>
-        {cueList.description && (
-          <p className="text-sm text-gray-400 mt-1">{cueList.description}</p>
-        )}
-      </div>
+      )}
 
       {/* Cue Display - shows all cues with auto-scroll to current */}
       <div
@@ -1048,8 +1022,8 @@ export default function CueListPlayer({
         )}
       </div>
 
-      {/* Control Bar */}
-      <div className="bg-gray-800 border-t border-gray-700 p-4">
+      {/* Control Bar - with bottom padding for mobile nav bar clearance */}
+      <div className="bg-gray-800 border-t border-gray-700 p-4 pb-20">
         <div className="flex items-center justify-center space-x-4">
           {/* Loop toggle button */}
           <button
