@@ -12,15 +12,12 @@ export default function ProjectSelector() {
   const [showManagementModal, setShowManagementModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const exportButtonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
-        exportButtonRef.current &&
-        !exportButtonRef.current.contains(event.target as Node)
+        !dropdownRef.current.contains(event.target as Node)
       ) {
         setIsOpen(false);
       }
@@ -69,7 +66,7 @@ export default function ProjectSelector() {
             onClick={() => setIsOpen(!isOpen)}
             className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
           >
-            <span>Project:</span>
+            <span className="hidden md:inline">Project:</span>
             <span className="font-semibold">{currentProject.name}</span>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -99,14 +96,13 @@ export default function ProjectSelector() {
                 ))}
                 <div className="border-t border-gray-200 dark:border-gray-600"></div>
 
-                {/* Import Project Option */}
+                {/* Import/Export Options */}
                 <div className="px-2 py-1">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
-                    Import New Project
-                  </div>
                   <ImportExportButtons
+                    projectId={currentProject?.id}
                     onImportComplete={handleImportComplete}
                     onError={handleError}
+                    inDropdown={true}
                   />
                 </div>
 
@@ -124,15 +120,6 @@ export default function ProjectSelector() {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Export Button for Current Project */}
-        <div ref={exportButtonRef}>
-          <ImportExportButtons
-            projectId={currentProject?.id}
-            onError={handleError}
-            exportOnly={true}
-          />
         </div>
       </div>
 

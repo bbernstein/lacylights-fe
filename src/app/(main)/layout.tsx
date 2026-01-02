@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
+import Image from 'next/image';
 import { Providers } from '../providers';
 import TabNavigation from '@/components/TabNavigation';
 import MobileNav from '@/components/MobileNav';
@@ -18,9 +19,20 @@ function MainLayoutContent({ children }: { children: ReactNode }) {
           <header className="bg-white dark:bg-gray-800 shadow-sm">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between items-center h-16">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  LacyLights
-                </h1>
+                {/* Logo on mobile, text on desktop */}
+                <div className="flex items-center">
+                  <Image
+                    src="/logo.png"
+                    alt="LacyLights"
+                    width={40}
+                    height={40}
+                    className="md:hidden"
+                    priority
+                  />
+                  <h1 className="hidden md:block text-2xl font-bold text-gray-900 dark:text-white">
+                    LacyLights
+                  </h1>
+                </div>
                 <ProjectSelector />
               </div>
             </div>
