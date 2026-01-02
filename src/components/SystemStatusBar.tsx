@@ -54,6 +54,9 @@ function NowPlayingButton() {
   const ariaLabel = ariaLabelParts.join(', ');
 
   // Paused state - amber styling
+  // Note: isPaused and isPlaying are mutually exclusive at the backend level
+  // When paused, isPlaying is always false. We check isPaused first since
+  // the component is only rendered when either isPlaying or isPaused is true.
   if (isPaused) {
     return (
       <button
@@ -62,14 +65,13 @@ function NowPlayingButton() {
         title={`Paused: ${playbackStatus.cueListName || 'Cue List'} - Click to resume`}
         aria-label={ariaLabel}
       >
-        {/* Pause icon */}
+        {/* Pause icon - decorative, button has aria-label */}
         <span className="relative">
           <svg
             className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400"
             fill="currentColor"
             viewBox="0 0 20 20"
-            role="img"
-            aria-label="Paused"
+            aria-hidden="true"
           >
             <path
               fillRule="evenodd"
@@ -98,14 +100,13 @@ function NowPlayingButton() {
       title={`Playing: ${playbackStatus.cueListName || 'Cue List'} - Click to view`}
       aria-label={ariaLabel}
     >
-      {/* Play icon with pulse animation when fading */}
+      {/* Play icon - decorative, button has aria-label */}
       <span className={`relative ${playbackStatus.isFading ? 'animate-pulse' : ''}`}>
         <svg
           className="w-3.5 h-3.5 text-green-600 dark:text-green-400"
           fill="currentColor"
           viewBox="0 0 20 20"
-          role="img"
-          aria-label="Playing"
+          aria-hidden="true"
         >
           <path
             fillRule="evenodd"
