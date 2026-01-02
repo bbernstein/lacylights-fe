@@ -32,8 +32,9 @@ export function useGlobalPlaybackStatus(): UseGlobalPlaybackStatusResult {
         setPlaybackStatus(prevStatus => {
           if (!prevStatus) return newStatus;
 
-          // Prioritize important state changes (playing status, cue index, fading status)
+          // Prioritize important state changes (playing status, paused status, cue index, fading status)
           if (prevStatus.isPlaying !== newStatus.isPlaying ||
+              prevStatus.isPaused !== newStatus.isPaused ||
               prevStatus.cueListId !== newStatus.cueListId ||
               prevStatus.currentCueIndex !== newStatus.currentCueIndex ||
               prevStatus.isFading !== newStatus.isFading) {
@@ -63,8 +64,9 @@ export function useGlobalPlaybackStatus(): UseGlobalPlaybackStatusResult {
       setPlaybackStatus(prevStatus => {
         if (!prevStatus) return newStatus;
 
-        // Prioritize important state changes (playing status, cue index, fading status)
+        // Prioritize important state changes (playing status, paused status, cue index, fading status)
         if (prevStatus.isPlaying !== newStatus.isPlaying ||
+            prevStatus.isPaused !== newStatus.isPaused ||
             prevStatus.cueListId !== newStatus.cueListId ||
             prevStatus.currentCueIndex !== newStatus.currentCueIndex ||
             prevStatus.isFading !== newStatus.isFading) {

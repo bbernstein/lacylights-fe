@@ -12,7 +12,8 @@ const CueListPlaybackStatus = memo(function CueListPlaybackStatus({ cueListId, c
   const { playbackStatus } = useCueListPlayback(cueListId);
 
   const statusData = useMemo(() => {
-    if (!playbackStatus || !playbackStatus.isPlaying) {
+    // Show status for both playing and paused states
+    if (!playbackStatus || (!playbackStatus.isPlaying && !playbackStatus.isPaused)) {
       return null;
     }
 
@@ -23,7 +24,8 @@ const CueListPlaybackStatus = memo(function CueListPlaybackStatus({ cueListId, c
     return {
       currentCueNumber,
       fadeProgress,
-      showProgress: fadeProgress > 0 && fadeProgress < 100
+      showProgress: fadeProgress > 0 && fadeProgress < 100,
+      isPaused: playbackStatus.isPaused
     };
   }, [playbackStatus]);
 
@@ -31,6 +33,22 @@ const CueListPlaybackStatus = memo(function CueListPlaybackStatus({ cueListId, c
     return null;
   }
 
+  // Paused state - amber styling
+  if (statusData.isPaused) {
+    return (
+      <div className="flex items-center space-x-2">
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+          <span className="mr-1">⏸</span>
+          Paused
+        </span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          Cue {statusData.currentCueNumber}/{cueCount}
+        </span>
+      </div>
+    );
+  }
+
+  // Playing state - green styling
   return (
     <div className="flex items-center space-x-2">
       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">

@@ -21,6 +21,7 @@ import {
   CREATE_CUE,
   UPDATE_CUE,
   DELETE_CUE,
+  RESUME_CUE_LIST,
 } from "@/graphql/cueLists";
 import {
   GET_PROJECT_SCENES,
@@ -184,6 +185,7 @@ export default function CueListPlayer({
   const [previousCueMutation] = useMutation(PREVIOUS_CUE, refetchConfig);
   const [goToCue] = useMutation(GO_TO_CUE, refetchConfig);
   const [stopCueList] = useMutation(STOP_CUE_LIST, refetchConfig);
+  const [resumeCueList] = useMutation(RESUME_CUE_LIST, refetchConfig);
   const [fadeToBlack] = useMutation(FADE_TO_BLACK, fadeToBlackRefetchConfig);
   const [createCue] = useMutation(CREATE_CUE);
   const [updateCue] = useMutation(UPDATE_CUE);
@@ -214,6 +216,8 @@ export default function CueListPlayer({
   );
   // isPlaying = scene is active on DMX, isFading = fade transition in progress
   const isPlaying = playbackStatus?.isPlaying || false;
+  // isPaused = cue list paused (scene activated outside cue context), cue index preserved
+  const isPaused = playbackStatus?.isPaused || false;
   const isFading = playbackStatus?.isFading || false;
   const fadeProgress = playbackStatus?.fadeProgress ?? 0;
 
@@ -478,6 +482,16 @@ export default function CueListPlayer({
     // Guard against component unmount during ensureConnection
     if (!isMounted.current) return;
 
+    // If paused, resume the current cue (snap to scene instantly)
+    if (isPaused && currentCueIndex >= 0) {
+      await resumeCueList({
+        variables: {
+          cueListId: cueList.id,
+        },
+      });
+      return;
+    }
+
     if (currentCueIndex === -1 && cues.length > 0) {
       await startCueList({
         variables: {
@@ -499,7 +513,9 @@ export default function CueListPlayer({
     cueList,
     startCueList,
     nextCueMutation,
+    resumeCueList,
     nextCue,
+    isPaused,
     ensureConnection,
   ]);
 
@@ -598,8 +614,9 @@ export default function CueListPlayer({
   const handleTouchStart = useCallback(
     (e: React.TouchEvent, cue: Cue, index: number) => {
       const touch = e.touches[0];
-      // Prevent text selection during long-press detection
-      e.preventDefault();
+      // Note: Don't call e.preventDefault() here - it interferes with iOS Safari's
+      // touch event routing and can cause touches to "pass through" to wrong elements.
+      // Text selection is already prevented via CSS (select-none class on cue items).
       startLongPressDetection(touch.clientX, touch.clientY, cue, index);
     },
     [startLongPressDetection],
@@ -792,6 +809,16 @@ export default function CueListPlayer({
       // Guard against component unmount during ensureConnection
       if (!isMounted.current) return;
 
+      // If clicking on the paused current cue, resume it (snap instantly)
+      if (isPaused && index === currentCueIndex) {
+        await resumeCueList({
+          variables: {
+            cueListId: cueList.id,
+          },
+        });
+        return;
+      }
+
       const cue = cues[index];
       await goToCue({
         variables: {
@@ -801,7 +828,7 @@ export default function CueListPlayer({
         },
       });
     },
-    [goToCue, cueList, cues, ensureConnection],
+    [goToCue, cueList, cues, ensureConnection, isPaused, currentCueIndex, resumeCueList],
   );
 
   const handleKeyPress = useCallback(
@@ -924,13 +951,15 @@ export default function CueListPlayer({
                   className={`relative rounded-lg p-4 border transition-all duration-200 overflow-hidden select-none cursor-pointer ${
                     cue.id === highlightedCueId
                       ? "bg-gray-700 border-yellow-500 border-2 shadow-lg animate-pulse"
-                      : isCurrent
-                        ? "bg-gray-700 border-green-500 border-2 scale-[1.02] shadow-lg"
-                        : isPrevious
-                          ? "bg-gray-800/50 border-gray-600 opacity-60 hover:bg-gray-700/70"
-                          : isNext
-                            ? "bg-gray-800/70 border-gray-600 opacity-80 hover:bg-gray-700/70"
-                            : "bg-gray-800 border-gray-700 hover:bg-gray-700/70"
+                      : isCurrent && isPaused
+                        ? "bg-gray-700 border-amber-500 border-2 scale-[1.02] shadow-lg"
+                        : isCurrent
+                          ? "bg-gray-700 border-green-500 border-2 scale-[1.02] shadow-lg"
+                          : isPrevious
+                            ? "bg-gray-800/50 border-gray-600 opacity-60 hover:bg-gray-700/70"
+                            : isNext
+                              ? "bg-gray-800/70 border-gray-600 opacity-80 hover:bg-gray-700/70"
+                              : "bg-gray-800 border-gray-700 hover:bg-gray-700/70"
                   }`}
                   onClick={() =>
                     isCurrent ? scrollToLiveCue() : handleJumpToCue(index)
@@ -973,7 +1002,7 @@ export default function CueListPlayer({
                   <div className="relative z-10 flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <div
-                        className={`text-2xl font-bold ${isCurrent ? "text-green-400" : "text-gray-300"}`}
+                        className={`text-2xl font-bold ${isCurrent && isPaused ? "text-amber-400" : isCurrent ? "text-green-400" : "text-gray-300"}`}
                       >
                         {cue.cueNumber}
                       </div>
@@ -1069,11 +1098,15 @@ export default function CueListPlayer({
 
           <button
             onClick={handleGo}
-            disabled={isGoDisabled}
-            className="px-8 py-3 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-lg transition-colors"
-            title="GO (Space/Enter)"
+            disabled={isGoDisabled && !isPaused}
+            className={`px-8 py-3 rounded-lg font-bold text-lg transition-colors text-white disabled:opacity-50 disabled:cursor-not-allowed ${
+              isPaused
+                ? "bg-amber-600 hover:bg-amber-700"
+                : "bg-green-600 hover:bg-green-700"
+            }`}
+            title={isPaused ? "RESUME (Space/Enter)" : "GO (Space/Enter)"}
           >
-            {currentCueIndex === -1 ? "START" : "GO"}
+            {isPaused ? "RESUME" : currentCueIndex === -1 ? "START" : "GO"}
           </button>
 
           {/* Next arrow button - provides familiar lighting console navigation alongside main GO button */}
@@ -1136,16 +1169,20 @@ export default function CueListPlayer({
                   isCurrent ? scrollToLiveCue() : handleJumpToCue(index)
                 }
                 className={`w-2 h-2 rounded-full transition-all ${
-                  isCurrent
-                    ? "bg-green-500 w-3 h-3"
-                    : index < currentCueIndex
-                      ? "bg-gray-600"
-                      : "bg-gray-700 hover:bg-gray-600"
+                  isCurrent && isPaused
+                    ? "bg-amber-500 w-3 h-3"
+                    : isCurrent
+                      ? "bg-green-500 w-3 h-3"
+                      : index < currentCueIndex
+                        ? "bg-gray-600"
+                        : "bg-gray-700 hover:bg-gray-600"
                 }`}
                 title={
-                  isCurrent
-                    ? `${cue.cueNumber}: ${cue.name} (scroll to view)`
-                    : `${cue.cueNumber}: ${cue.name}`
+                  isCurrent && isPaused
+                    ? `${cue.cueNumber}: ${cue.name} (PAUSED - click to resume)`
+                    : isCurrent
+                      ? `${cue.cueNumber}: ${cue.name} (scroll to view)`
+                      : `${cue.cueNumber}: ${cue.name}`
                 }
               />
             );
@@ -1153,8 +1190,13 @@ export default function CueListPlayer({
         </div>
 
         <div className="mt-3 text-center text-xs text-gray-500">
-          Space/Enter = GO | ← → = Navigate | Esc = Stop
+          Space/Enter = {isPaused ? "RESUME" : "GO"} | ← → = Navigate | Esc = Stop
         </div>
+        {isPaused && (
+          <div className="mt-2 text-center text-sm text-amber-500 font-medium">
+            ⚠ PAUSED — Click cue or press Space to resume
+          </div>
+        )}
       </div>
 
       {/* Add Cue Dialog */}

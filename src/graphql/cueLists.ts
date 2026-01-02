@@ -189,6 +189,7 @@ export const GET_CUE_LIST_PLAYBACK_STATUS = gql`
       cueListId
       currentCueIndex
       isPlaying
+      isPaused
       isFading
       fadeProgress
       lastUpdated
@@ -232,6 +233,7 @@ export const CUE_LIST_PLAYBACK_SUBSCRIPTION = gql`
       cueListId
       currentCueIndex
       isPlaying
+      isPaused
       isFading
       fadeProgress
       lastUpdated
@@ -243,6 +245,7 @@ export const GET_GLOBAL_PLAYBACK_STATUS = gql`
   query GetGlobalPlaybackStatus {
     globalPlaybackStatus {
       isPlaying
+      isPaused
       isFading
       cueListId
       cueListName
@@ -259,6 +262,7 @@ export const GLOBAL_PLAYBACK_STATUS_SUBSCRIPTION = gql`
   subscription GlobalPlaybackStatusUpdated {
     globalPlaybackStatusUpdated {
       isPlaying
+      isPaused
       isFading
       cueListId
       cueListName
@@ -268,5 +272,11 @@ export const GLOBAL_PLAYBACK_STATUS_SUBSCRIPTION = gql`
       fadeProgress
       lastUpdated
     }
+  }
+`;
+
+export const RESUME_CUE_LIST = gql`
+  mutation ResumeCueList($cueListId: ID!) {
+    resumeCueList(cueListId: $cueListId)
   }
 `;

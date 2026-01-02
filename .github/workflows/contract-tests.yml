@@ -20,10 +20,31 @@ jobs:
       - name: Checkout frontend repo
         uses: actions/checkout@v4
 
+      - name: Determine backend branch
+        id: backend-branch
+        run: |
+          # For PRs, try to match the feature branch; fallback to main
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_BRANCH="${{ github.head_ref }}"
+            echo "PR branch: $PR_BRANCH"
+            # Check if matching branch exists in backend
+            if git ls-remote --exit-code --heads https://github.com/bbernstein/lacylights-go.git "$PR_BRANCH" > /dev/null 2>&1; then
+              echo "Found matching backend branch: $PR_BRANCH"
+              echo "branch=$PR_BRANCH" >> $GITHUB_OUTPUT
+            else
+              echo "No matching backend branch found, using main"
+              echo "branch=main" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Not a PR, using main"
+            echo "branch=main" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout backend repo
         uses: actions/checkout@v4
         with:
           repository: bbernstein/lacylights-go
+          ref: ${{ steps.backend-branch.outputs.branch }}
           path: backend
 
       - name: Setup Go
