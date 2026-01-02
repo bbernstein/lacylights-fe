@@ -614,8 +614,9 @@ export default function CueListPlayer({
   const handleTouchStart = useCallback(
     (e: React.TouchEvent, cue: Cue, index: number) => {
       const touch = e.touches[0];
-      // Prevent text selection during long-press detection
-      e.preventDefault();
+      // Note: Don't call e.preventDefault() here - it interferes with iOS Safari's
+      // touch event routing and can cause touches to "pass through" to wrong elements.
+      // Text selection is already prevented via CSS (select-none class on cue items).
       startLongPressDetection(touch.clientX, touch.clientY, cue, index);
     },
     [startLongPressDetection],
