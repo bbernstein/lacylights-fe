@@ -993,21 +993,6 @@ export default function CueListPlayer({
                         </div>
                       </div>
                     </div>
-
-                    {/* Status indicators */}
-                    <div className="flex flex-col items-end space-y-1">
-                      {isCurrent && (
-                        <span className="text-xs font-medium text-green-400 bg-green-900/50 px-2 py-1 rounded">
-                          LIVE
-                        </span>
-                      )}
-                      {isPrevious && (
-                        <span className="text-xs text-gray-500">PREVIOUS</span>
-                      )}
-                      {isNext && (
-                        <span className="text-xs text-blue-400">NEXT</span>
-                      )}
-                    </div>
                   </div>
                 </div>
               ),

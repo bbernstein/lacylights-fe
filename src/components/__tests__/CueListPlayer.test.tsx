@@ -350,7 +350,8 @@ describe("CueListPlayer", () => {
           openingSceneElements.length - 1
         ].closest('div[class*="bg-gray-700"]');
         expect(currentCue).toHaveClass("border-green-500");
-        expect(screen.getAllByText("LIVE")[0]).toBeInTheDocument();
+        // Current cue has green border and scale effect - no text label needed
+        expect(currentCue).toHaveClass("scale-[1.02]");
       });
     });
 
@@ -367,13 +368,15 @@ describe("CueListPlayer", () => {
       });
     });
 
-    it("marks next cue appropriately", async () => {
+    it("styles next cue with reduced opacity", async () => {
       const mocks = createMocks();
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        const nextLabels = screen.getAllByText("NEXT");
-        expect(nextLabels.length).toBeGreaterThan(0);
+        // Next cue (Mid Scene) should have opacity-80 styling
+        const midSceneElements = screen.getAllByText("Mid Scene");
+        const nextCue = midSceneElements[0].closest('div[class*="opacity-80"]');
+        expect(nextCue).toBeInTheDocument();
       });
     });
 
