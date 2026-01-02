@@ -9,15 +9,19 @@ import ConnectionStatusIndicator from './ConnectionStatusIndicator';
 import { useGlobalPlaybackStatus } from '@/hooks/useGlobalPlaybackStatus';
 
 /**
- * NowPlayingButton - Shows when a cue list is playing and navigates to it
+ * NowPlayingButton - Shows when a cue list is playing or paused and navigates to it
  */
 function NowPlayingButton() {
   const router = useRouter();
   const { playbackStatus } = useGlobalPlaybackStatus();
 
-  if (!playbackStatus?.isPlaying || !playbackStatus.cueListId) {
+  // Show button for both playing and paused states
+  const isActive = playbackStatus?.isPlaying || playbackStatus?.isPaused;
+  if (!isActive || !playbackStatus?.cueListId) {
     return null;
   }
+
+  const isPaused = playbackStatus.isPaused;
 
   const handleClick = () => {
     // Navigate to the cue list page with the current cue highlighted
@@ -31,8 +35,9 @@ function NowPlayingButton() {
     : '';
 
   // Build accessible aria-label
+  const statusText = isPaused ? 'Paused' : 'Now playing';
   const ariaLabelParts = [
-    `Now playing: ${playbackStatus.cueListName || 'Cue List'}`,
+    `${statusText}: ${playbackStatus.cueListName || 'Cue List'}`,
   ];
 
   if (
@@ -48,6 +53,44 @@ function NowPlayingButton() {
 
   const ariaLabel = ariaLabelParts.join(', ');
 
+  // Paused state - amber styling
+  if (isPaused) {
+    return (
+      <button
+        onClick={handleClick}
+        className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
+        title={`Paused: ${playbackStatus.cueListName || 'Cue List'} - Click to resume`}
+        aria-label={ariaLabel}
+      >
+        {/* Pause icon */}
+        <span className="relative">
+          <svg
+            className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+            role="img"
+            aria-label="Paused"
+          >
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </span>
+        <span className="text-amber-700 dark:text-amber-300 font-medium truncate max-w-28">
+          {playbackStatus.cueListName || 'Paused'}
+        </span>
+        {cuePosition && (
+          <span className="text-amber-600 dark:text-amber-400 text-xs">
+            {cuePosition}
+          </span>
+        )}
+      </button>
+    );
+  }
+
+  // Playing state - green styling
   return (
     <button
       onClick={handleClick}

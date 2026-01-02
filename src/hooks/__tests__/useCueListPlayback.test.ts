@@ -10,6 +10,7 @@ const mockPlaybackStatus = {
   cueListId: mockCueListId,
   currentCueIndex: 1,
   isPlaying: true,
+  isPaused: false,
   isFading: true,
   fadeProgress: 0.5,
   lastUpdated: '2023-01-01T12:00:00Z',
@@ -267,6 +268,7 @@ describe('useCueListPlayback', () => {
         cueListId: mockCueListId,
         currentCueIndex: 5,
         isPlaying: false,
+        isPaused: false,
         isFading: false,
         fadeProgress: 0.0,
         lastUpdated: '2023-12-01T10:00:00Z',
@@ -286,6 +288,34 @@ describe('useCueListPlayback', () => {
         expect(result.current.playbackStatus?.currentCueIndex).toBe(5);
         expect(result.current.playbackStatus?.isPlaying).toBe(false);
         expect(result.current.playbackStatus?.fadeProgress).toBe(0.0);
+      });
+    });
+
+    it('handles isPaused state for paused cue lists', async () => {
+      const pausedStatus = {
+        cueListId: mockCueListId,
+        currentCueIndex: 3,
+        isPlaying: false,
+        isPaused: true,
+        isFading: false,
+        fadeProgress: 0.0,
+        lastUpdated: '2023-12-01T10:00:00Z',
+      };
+
+      const mocks = createMocksWithSubscription(mockCueListId, {
+        data: {
+          cueListPlaybackStatus: pausedStatus,
+        },
+      });
+
+      const { result } = renderHook(() => useCueListPlayback(mockCueListId), {
+        wrapper: createMockProvider(mocks),
+      });
+
+      await waitFor(() => {
+        expect(result.current.playbackStatus?.isPaused).toBe(true);
+        expect(result.current.playbackStatus?.isPlaying).toBe(false);
+        expect(result.current.playbackStatus?.currentCueIndex).toBe(3);
       });
     });
   });

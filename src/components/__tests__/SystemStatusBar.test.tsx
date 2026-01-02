@@ -37,6 +37,7 @@ const mockSystemInfoDisabled = {
 
 type GlobalPlaybackMock = {
   isPlaying: boolean;
+  isPaused: boolean;
   isFading: boolean;
   cueListId: string | null;
   cueListName: string | null;
@@ -49,6 +50,7 @@ type GlobalPlaybackMock = {
 
 const mockGlobalPlaybackNotPlaying: GlobalPlaybackMock = {
   isPlaying: false,
+  isPaused: false,
   isFading: false,
   cueListId: null,
   cueListName: null,
@@ -61,6 +63,7 @@ const mockGlobalPlaybackNotPlaying: GlobalPlaybackMock = {
 
 const mockGlobalPlaybackPlaying: GlobalPlaybackMock = {
   isPlaying: true,
+  isPaused: false,
   isFading: false,
   cueListId: 'test-list-123',
   cueListName: 'Main Show',
@@ -68,6 +71,19 @@ const mockGlobalPlaybackPlaying: GlobalPlaybackMock = {
   cueCount: 10,
   currentCueName: 'Scene 3',
   fadeProgress: 100,
+  lastUpdated: '2023-01-01T12:00:00Z',
+};
+
+const mockGlobalPlaybackPaused: GlobalPlaybackMock = {
+  isPlaying: false,
+  isPaused: true,
+  isFading: false,
+  cueListId: 'test-list-123',
+  cueListName: 'Main Show',
+  currentCueIndex: 2,
+  cueCount: 10,
+  currentCueName: 'Scene 3',
+  fadeProgress: 0,
   lastUpdated: '2023-01-01T12:00:00Z',
 };
 
@@ -247,6 +263,41 @@ describe('SystemStatusBar', () => {
 
       // Wait for the button to appear
       const button = await screen.findByLabelText(/Now playing/);
+      expect(button).toBeInTheDocument();
+
+      // Click the button
+      fireEvent.click(button);
+
+      // Verify router.push was called with correct URL
+      expect(mockPush).toHaveBeenCalledWith('/cue-lists/test-list-123?highlightCue=2');
+    });
+
+    it('shows Paused button when a cue list is paused', async () => {
+      const mocks = createMocks(mockSystemInfoEnabled, mockGlobalPlaybackPaused);
+
+      renderWithProviders(<SystemStatusBar />, mocks);
+
+      await screen.findByText('Art-Net');
+      // Wait for global playback status to load - should show cue list name
+      await screen.findByText('Main Show');
+      expect(screen.getByText('Main Show')).toBeInTheDocument();
+      // Should show cue position
+      expect(screen.getByText('3/10')).toBeInTheDocument();
+      // Should have paused aria-label on the button (not the SVG icon inside)
+      const button = screen.getByRole('button', { name: /Paused.*Main Show/ });
+      expect(button).toBeInTheDocument();
+    });
+
+    it('navigates to cue list when Paused button is clicked', async () => {
+      // Clear any previous calls to mockPush
+      mockPush.mockClear();
+
+      const mocks = createMocks(mockSystemInfoEnabled, mockGlobalPlaybackPaused);
+
+      renderWithProviders(<SystemStatusBar />, mocks);
+
+      // Wait for the button to appear (use role to avoid matching the SVG inside)
+      const button = await screen.findByRole('button', { name: /Paused.*Main Show/ });
       expect(button).toBeInTheDocument();
 
       // Click the button

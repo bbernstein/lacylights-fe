@@ -29,12 +29,13 @@ describe('CueListPlaybackStatus', () => {
       expect(container.firstChild).toBeNull();
     });
 
-    it('returns null when not playing', () => {
+    it('returns null when not playing and not paused', () => {
       mockUseCueListPlayback.mockReturnValue({
         playbackStatus: {
           cueListId: 'test-123',
           currentCueIndex: 1,
           isPlaying: false,
+          isPaused: false,
           isFading: false,
           fadeProgress: 0,
           lastUpdated: '2023-01-01T00:00:00Z',
@@ -48,6 +49,27 @@ describe('CueListPlaybackStatus', () => {
       );
 
       expect(container.firstChild).toBeNull();
+    });
+
+    it('renders paused status when paused', () => {
+      mockUseCueListPlayback.mockReturnValue({
+        playbackStatus: {
+          cueListId: 'test-123',
+          currentCueIndex: 2,
+          isPlaying: false,
+          isPaused: true,
+          isFading: false,
+          fadeProgress: 0,
+          lastUpdated: '2023-01-01T00:00:00Z',
+        },
+        isLoading: false,
+        error: undefined,
+      });
+
+      render(<CueListPlaybackStatus cueListId="test-123" cueCount={10} />);
+
+      expect(screen.getByText('Paused')).toBeInTheDocument();
+      expect(screen.getByText('Cue 3/10')).toBeInTheDocument();
     });
 
     it('renders playing status when playing', () => {
@@ -313,6 +335,50 @@ describe('CueListPlaybackStatus', () => {
       expect(badge).toHaveClass('inline-flex', 'items-center', 'px-2', 'py-1', 'rounded-full');
       expect(badge).toHaveClass('bg-green-100', 'text-green-800');
       expect(badge).toHaveClass('dark:bg-green-900', 'dark:text-green-200');
+    });
+
+    it('applies correct classes to paused badge', () => {
+      mockUseCueListPlayback.mockReturnValue({
+        playbackStatus: {
+          cueListId: 'test-123',
+          currentCueIndex: 0,
+          isPlaying: false,
+          isPaused: true,
+          isFading: false,
+          fadeProgress: 0,
+          lastUpdated: '2023-01-01T00:00:00Z',
+        },
+        isLoading: false,
+        error: undefined,
+      });
+
+      render(<CueListPlaybackStatus cueListId="test-123" cueCount={10} />);
+
+      const badge = screen.getByText('Paused').closest('span');
+      expect(badge).toHaveClass('inline-flex', 'items-center', 'px-2', 'py-1', 'rounded-full');
+      expect(badge).toHaveClass('bg-amber-100', 'text-amber-800');
+      expect(badge).toHaveClass('dark:bg-amber-900', 'dark:text-amber-200');
+    });
+
+    it('includes pause icon in paused badge', () => {
+      mockUseCueListPlayback.mockReturnValue({
+        playbackStatus: {
+          cueListId: 'test-123',
+          currentCueIndex: 0,
+          isPlaying: false,
+          isPaused: true,
+          isFading: false,
+          fadeProgress: 0,
+          lastUpdated: '2023-01-01T00:00:00Z',
+        },
+        isLoading: false,
+        error: undefined,
+      });
+
+      render(<CueListPlaybackStatus cueListId="test-123" cueCount={10} />);
+
+      const pauseIcon = screen.getByText('⏸');
+      expect(pauseIcon).toHaveClass('mr-1');
     });
 
     it('includes animated pulse indicator', () => {

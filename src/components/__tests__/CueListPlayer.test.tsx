@@ -147,6 +147,7 @@ describe("CueListPlayer", () => {
     cueListId: mockCueListId,
     currentCueIndex: 0,
     isPlaying: true,
+    isPaused: false,
     isFading: true,
     currentCue: mockCueList.cues[0],
     fadeProgress: 50,
@@ -975,6 +976,107 @@ describe("CueListPlayer", () => {
       await waitFor(() => {
         const goButton = screen.getByTitle("GO (Space/Enter)");
         expect(goButton).toBeDisabled();
+      });
+    });
+  });
+
+  describe("paused state", () => {
+    it("shows amber border for paused current cue", async () => {
+      mockUseCueListPlayback.mockReturnValue({
+        playbackStatus: { ...mockPlaybackStatus, isPlaying: false, isPaused: true, isFading: false },
+      });
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const openingSceneElements = screen.getAllByText("Opening Scene");
+        const currentCue = openingSceneElements[
+          openingSceneElements.length - 1
+        ].closest('div[class*="bg-gray-700"]');
+        expect(currentCue).toHaveClass("border-amber-500");
+      });
+    });
+
+    it("shows RESUME button when paused", async () => {
+      mockUseCueListPlayback.mockReturnValue({
+        playbackStatus: { ...mockPlaybackStatus, isPlaying: false, isPaused: true, isFading: false },
+      });
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getByText("RESUME")).toBeInTheDocument();
+      });
+    });
+
+    it("shows amber-colored RESUME button when paused", async () => {
+      mockUseCueListPlayback.mockReturnValue({
+        playbackStatus: { ...mockPlaybackStatus, isPlaying: false, isPaused: true, isFading: false },
+      });
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const resumeButton = screen.getByText("RESUME");
+        expect(resumeButton).toHaveClass("bg-amber-600");
+      });
+    });
+
+    it("shows amber progress dot when paused", async () => {
+      mockUseCueListPlayback.mockReturnValue({
+        playbackStatus: { ...mockPlaybackStatus, isPlaying: false, isPaused: true, isFading: false },
+      });
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const progressDots = screen.getAllByTitle(/\d+: .+/);
+        const currentDot = progressDots[0];
+        expect(currentDot).toHaveClass("bg-amber-500");
+      });
+    });
+
+    it("shows PAUSED indicator text when paused", async () => {
+      mockUseCueListPlayback.mockReturnValue({
+        playbackStatus: { ...mockPlaybackStatus, isPlaying: false, isPaused: true, isFading: false },
+      });
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getByText(/PAUSED — Click cue or press Space to resume/)).toBeInTheDocument();
+      });
+    });
+
+    it("shows paused progress dot title with resume instruction", async () => {
+      mockUseCueListPlayback.mockReturnValue({
+        playbackStatus: { ...mockPlaybackStatus, isPlaying: false, isPaused: true, isFading: false },
+      });
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const pausedDot = screen.getByTitle("1: Opening Scene (PAUSED - click to resume)");
+        expect(pausedDot).toBeInTheDocument();
+      });
+    });
+
+    it("shows keyboard hint with RESUME when paused", async () => {
+      mockUseCueListPlayback.mockReturnValue({
+        playbackStatus: { ...mockPlaybackStatus, isPlaying: false, isPaused: true, isFading: false },
+      });
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Space\/Enter = RESUME/)).toBeInTheDocument();
       });
     });
   });

@@ -197,6 +197,8 @@ export interface CueListPlaybackStatus {
   currentCueIndex: number | null;
   /** True when scene values are currently active on DMX fixtures (stays true after fade until stopped) */
   isPlaying: boolean;
+  /** True when the cue list is paused (scene activated outside cue context, cue index preserved) */
+  isPaused: boolean;
   /** True when a fade transition is in progress (fade-in, fade-out, or crossfade) */
   isFading: boolean;
   currentCue?: Cue;
@@ -204,10 +206,12 @@ export interface CueListPlaybackStatus {
   lastUpdated: string;
 }
 
-/** Global playback status - which cue list is currently playing (if any) */
+/** Global playback status - which cue list is currently playing or paused (if any) */
 export interface GlobalPlaybackStatus {
   /** True if any cue list is currently playing */
   isPlaying: boolean;
+  /** True if a cue list is paused (scene activated outside cue context) */
+  isPaused: boolean;
   /** True if a fade transition is in progress */
   isFading: boolean;
   /** ID of the currently playing cue list (null if not playing) */
