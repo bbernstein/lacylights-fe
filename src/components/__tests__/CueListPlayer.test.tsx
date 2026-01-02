@@ -639,6 +639,115 @@ describe("CueListPlayer", () => {
     });
   });
 
+  describe("scroll to live cue", () => {
+    it("renders scroll to live cue button", async () => {
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const scrollButton = screen.getByTitle("Scroll to live cue");
+        expect(scrollButton).toBeInTheDocument();
+      });
+    });
+
+    it("disables scroll button when no current cue", async () => {
+      mockUseCueListPlayback.mockReturnValue({
+        playbackStatus: { ...mockPlaybackStatus, currentCueIndex: -1 },
+      });
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const scrollButton = screen.getByTitle("Scroll to live cue");
+        expect(scrollButton).toBeDisabled();
+      });
+    });
+
+    it("enables scroll button when there is a current cue", async () => {
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const scrollButton = screen.getByTitle("Scroll to live cue");
+        expect(scrollButton).not.toBeDisabled();
+      });
+    });
+
+    it("clicking scroll button triggers scrollIntoView", async () => {
+      const mockScrollIntoView = jest.fn();
+      Element.prototype.scrollIntoView = mockScrollIntoView;
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const scrollButton = screen.getByTitle("Scroll to live cue");
+        expect(scrollButton).toBeInTheDocument();
+      });
+
+      const scrollButton = screen.getByTitle("Scroll to live cue");
+      await userEvent.click(scrollButton);
+
+      expect(mockScrollIntoView).toHaveBeenCalledWith({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest",
+      });
+    });
+
+    it("clicking current cue progress dot triggers scrollIntoView", async () => {
+      const mockScrollIntoView = jest.fn();
+      Element.prototype.scrollIntoView = mockScrollIntoView;
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const progressDots = screen.getAllByTitle(/\d+: .+/);
+        expect(progressDots).toHaveLength(3);
+      });
+
+      // Current cue progress dot has "(scroll to view)" in title
+      const currentDot = screen.getByTitle("1: Opening Scene (scroll to view)");
+      await userEvent.click(currentDot);
+
+      expect(mockScrollIntoView).toHaveBeenCalledWith({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest",
+      });
+    });
+
+    it("clicking current cue card triggers scrollIntoView", async () => {
+      const mockScrollIntoView = jest.fn();
+      Element.prototype.scrollIntoView = mockScrollIntoView;
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+      });
+
+      // Find and click the current cue card
+      const openingSceneElements = screen.getAllByText("Opening Scene");
+      const currentCueCard = openingSceneElements[
+        openingSceneElements.length - 1
+      ].closest('div[class*="cursor-pointer"]');
+
+      if (currentCueCard) {
+        await userEvent.click(currentCueCard);
+      }
+
+      expect(mockScrollIntoView).toHaveBeenCalledWith({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest",
+      });
+    });
+  });
+
   describe("keyboard shortcuts", () => {
     it("handles Space key for GO", async () => {
       const mocks = createMocks();

@@ -42,6 +42,8 @@ import { shouldIgnoreKeyboardEvent } from "@/utils/keyboardUtils";
 
 interface CueListPlayerProps {
   cueListId: string;
+  /** Callback invoked when the cue list data is loaded, providing the cue list name for parent components */
+  onCueListLoaded?: (cueListName: string) => void;
 }
 
 /**
@@ -64,6 +66,7 @@ interface CueListPlayerProps {
  */
 export default function CueListPlayer({
   cueListId: cueListIdProp,
+  onCueListLoaded,
 }: CueListPlayerProps) {
   // Helper to extract cueListId from URL if needed
   function extractCueListId(cueListIdProp: string): string {
@@ -196,6 +199,13 @@ export default function CueListPlayer({
 
   const cueList = cueListData?.cueList;
   const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
+
+  // Notify parent component when cue list data is loaded
+  useEffect(() => {
+    if (cueList?.name && onCueListLoaded) {
+      onCueListLoaded(cueList.name);
+    }
+  }, [cueList?.name, onCueListLoaded]);
   const scenes = scenesData?.project?.scenes || [];
 
   // Get current state from subscription data only
@@ -1005,8 +1015,8 @@ export default function CueListPlayer({
         )}
       </div>
 
-      {/* Control Bar - with bottom padding for mobile nav bar clearance */}
-      <div className="bg-gray-800 border-t border-gray-700 p-4 pb-20">
+      {/* Control Bar - with bottom padding for mobile nav bar and safe area clearance */}
+      <div className="bg-gray-800 border-t border-gray-700 p-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))]">
         <div className="flex items-center justify-center space-x-4">
           {/* Scroll to live cue button */}
           <button

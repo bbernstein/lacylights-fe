@@ -1,11 +1,10 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@apollo/client";
 import CueListPlayer from "@/components/CueListPlayer";
 import CueListUnifiedView from "@/components/CueListUnifiedView";
 import { extractCueListId } from "@/utils/routeUtils";
-import { GET_CUE_LIST } from "@/graphql/cueLists";
 
 interface CueListPageClientProps {
   cueListId: string;
@@ -18,11 +17,12 @@ export default function CueListPageClient({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const { data: cueListData } = useQuery(GET_CUE_LIST, {
-    variables: { id: cueListId },
-  });
+  // Cue list name is provided by child components via callback to avoid duplicate queries
+  const [cueListName, setCueListName] = useState("");
 
-  const cueListName = cueListData?.cueList?.name || "";
+  const handleCueListLoaded = useCallback((name: string) => {
+    setCueListName(name);
+  }, []);
 
   const mode = searchParams.get("mode") || "player";
   const isEditMode = mode === "edit";
@@ -84,9 +84,16 @@ export default function CueListPageClient({
       {/* Content */}
       <div className="absolute inset-0 top-14">
         {isEditMode ? (
-          <CueListUnifiedView cueListId={cueListId} onClose={handleClose} />
+          <CueListUnifiedView
+            cueListId={cueListId}
+            onClose={handleClose}
+            onCueListLoaded={handleCueListLoaded}
+          />
         ) : (
-          <CueListPlayer cueListId={cueListId} />
+          <CueListPlayer
+            cueListId={cueListId}
+            onCueListLoaded={handleCueListLoaded}
+          />
         )}
       </div>
     </div>

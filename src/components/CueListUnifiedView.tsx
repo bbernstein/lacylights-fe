@@ -64,6 +64,8 @@ import { PencilIcon } from "@heroicons/react/24/outline";
 interface CueListUnifiedViewProps {
   cueListId: string;
   onClose: () => void;
+  /** Callback invoked when the cue list data is loaded, providing the cue list name for parent components */
+  onCueListLoaded?: (cueListName: string) => void;
 }
 
 interface EditableCellProps {
@@ -1186,6 +1188,7 @@ CueCard.displayName = "CueCard";
 export default function CueListUnifiedView({
   cueListId,
   onClose,
+  onCueListLoaded,
 }: CueListUnifiedViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1256,6 +1259,8 @@ export default function CueListUnifiedView({
         setCueListName(data.cueList.name);
         setCueListDescription(data.cueList.description || "");
         setCueListLoop(data.cueList.loop || false);
+        // Notify parent component of the cue list name
+        onCueListLoaded?.(data.cueList.name);
       }
     },
   });
