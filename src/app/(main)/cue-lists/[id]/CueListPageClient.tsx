@@ -41,8 +41,8 @@ export default function CueListPageClient({
 
   return (
     <div className="fixed inset-0 z-40 bg-gray-900">
-      {/* Mode Toggle Bar */}
-      <div className="absolute top-0 left-0 right-0 bg-gray-800 border-b border-gray-700 px-2 py-2 flex items-center justify-between z-50">
+      {/* Mode Toggle Bar - isolate creates stacking context, z-50 ensures header is above content */}
+      <div className="absolute top-0 left-0 right-0 bg-gray-800 border-b border-gray-700 px-2 py-2 flex items-center justify-between z-50 isolate">
         <button
           onClick={handleClose}
           className="text-gray-400 hover:text-white p-2 rounded hover:bg-gray-700 flex items-center space-x-1 min-w-0 flex-shrink-0"
@@ -81,8 +81,8 @@ export default function CueListPageClient({
         </button>
       </div>
 
-      {/* Content */}
-      <div className="absolute inset-0 top-14">
+      {/* Content - z-10 ensures content is below header (z-50), overflow-hidden clips content for iOS touch events */}
+      <div className="absolute inset-0 top-14 overflow-hidden z-10">
         {isEditMode ? (
           <CueListUnifiedView
             cueListId={cueListId}
