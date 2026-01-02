@@ -44,8 +44,8 @@ function formatFixtureType(type: FixtureType): string {
 interface DashboardCardProps {
   title: string;
   href: string;
-  count: number;
-  countLabel: string;
+  count?: number;
+  countLabel?: string;
   children: React.ReactNode;
   testId?: string;
 }
@@ -70,13 +70,17 @@ function DashboardCard({
         >
           {title}
         </Link>
-        <span className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-          {count}
-        </span>
+        {count !== undefined && (
+          <span className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+            {count}
+          </span>
+        )}
       </div>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        {countLabel}
-      </p>
+      {countLabel && (
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          {countLabel}
+        </p>
+      )}
       <div className="flex-1">{children}</div>
       <Link
         href={href}
@@ -400,8 +404,6 @@ export default function DashboardPage() {
           <DashboardCard
             title="Settings"
             href="/settings"
-            count={0}
-            countLabel="System configuration"
             testId="settings-card"
           >
             <div className="space-y-3">
