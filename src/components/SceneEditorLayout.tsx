@@ -207,6 +207,8 @@ export default function SceneEditorLayout({
   const [initialActiveChannels, setInitialActiveChannels] = useState<
     Map<string, Set<number>>
   >(new Map());
+  // Track whether initial state has been set (handles edge case of scene with zero active channels)
+  const initialActiveChannelsSet = useRef(false);
 
   // Undo/redo stack
   const { pushAction, undo, redo, peekUndo, peekRedo, canUndo, canRedo, clearHistory } =
@@ -311,7 +313,8 @@ export default function SceneEditorLayout({
       setActiveChannels(active);
 
       // Also set initial active channels for dirty tracking (only on first load)
-      if (initialActiveChannels.size === 0) {
+      // Use ref flag to handle edge case of scene with zero active channels
+      if (!initialActiveChannelsSet.current) {
         const initial = new Map<string, Set<number>>();
         scene.fixtureValues.forEach((fv: FixtureValue) => {
           const activeSet = new Set<number>();
@@ -321,6 +324,7 @@ export default function SceneEditorLayout({
           initial.set(fv.fixture.id, activeSet);
         });
         setInitialActiveChannels(initial);
+        initialActiveChannelsSet.current = true;
       }
 
       // Initialize channel values from scene (only if not already set)
@@ -337,7 +341,10 @@ export default function SceneEditorLayout({
         setLocalFixtureValues(values);
       }
     }
-  }, [scene, localFixtureValues.size, initialActiveChannels.size]);
+  // Note: We use a ref (initialActiveChannelsSet) instead of initialActiveChannels.size
+  // to track initialization, since a scene could legitimately have zero active channels.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene, localFixtureValues.size]);
 
   // Build channel values map for layout canvas (merge server + local state)
   const fixtureValues = useMemo(() => {
@@ -948,6 +955,7 @@ export default function SceneEditorLayout({
       setRemovedFixtureIds(new Set());
       // Reset initial active channels so next change tracking starts fresh
       setInitialActiveChannels(new Map());
+      initialActiveChannelsSet.current = false;
 
       // Show saved indicator
       setSaveStatus("saved");
@@ -1300,12 +1308,12 @@ export default function SceneEditorLayout({
               {fromPlayer ? (
                 <>
                   <svg
-                    className="w-4 h-4 mr-1"
+                    className="w-4 h-4 lg:mr-1"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
                     role="img"
-                    aria-label="Player icon"
+                    aria-label="Return to player"
                   >
                     <path
                       strokeLinecap="round"
@@ -1330,7 +1338,7 @@ export default function SceneEditorLayout({
                     stroke="currentColor"
                     viewBox="0 0 24 24"
                     role="img"
-                    aria-label="Back arrow"
+                    aria-label="Return to scenes"
                   >
                     <path
                       strokeLinecap="round"
@@ -1345,7 +1353,7 @@ export default function SceneEditorLayout({
             </button>
 
             {/* Scene name */}
-            <span className="text-sm text-gray-400 truncate max-w-[200px]" title={scene?.name}>
+            <span className="text-sm text-gray-400 truncate max-w-[150px] lg:max-w-[250px]" title={scene?.name}>
               {scene?.name || "Loading..."}
             </span>
           </div>
