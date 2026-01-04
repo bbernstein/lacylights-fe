@@ -86,7 +86,8 @@ export default function CueListPlayer({
     extractCueListId(cueListIdProp),
   );
   const containerRef = useRef<HTMLDivElement>(null);
-  const currentCueRef = useRef<HTMLDivElement>(null);
+  // Use HTMLDivElement | null to make this a MutableRefObject (can be assigned in callback ref)
+  const currentCueRef = useRef<HTMLDivElement | null>(null);
   const isMounted = useRef<boolean>(true);
 
   // Track whether initial auto-scroll has been performed for this cue list
