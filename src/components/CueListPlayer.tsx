@@ -86,8 +86,15 @@ export default function CueListPlayer({
     extractCueListId(cueListIdProp),
   );
   const containerRef = useRef<HTMLDivElement>(null);
-  const currentCueRef = useRef<HTMLDivElement>(null);
+  // Use HTMLDivElement | null to make this a MutableRefObject (can be assigned in callback ref)
+  const currentCueRef = useRef<HTMLDivElement | null>(null);
   const isMounted = useRef<boolean>(true);
+
+  // Track whether initial auto-scroll has been performed for this cue list
+  // Reset when cue list changes to allow scroll on navigation back to player
+  const hasPerformedInitialScroll = useRef<boolean>(false);
+  // RAF ID for cleanup when component unmounts or ref is detached
+  const scrollRafId = useRef<number | null>(null);
 
   // State for the slide-off animation after fade completes
   const [slideOffProgress, setSlideOffProgress] = useState<number>(0);
@@ -146,6 +153,25 @@ export default function CueListPlayer({
   useEffect(() => {
     setActualCueListId(extractCueListId(cueListIdProp));
   }, [cueListIdProp]);
+
+  // Reset initial scroll flag when cue list ID changes (e.g., navigating to different cue list)
+  // Also cancel any pending scroll RAF to prevent stale operations
+  useEffect(() => {
+    hasPerformedInitialScroll.current = false;
+    if (scrollRafId.current !== null) {
+      cancelAnimationFrame(scrollRafId.current);
+      scrollRafId.current = null;
+    }
+  }, [actualCueListId]);
+
+  // Cleanup scroll RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollRafId.current !== null) {
+        cancelAnimationFrame(scrollRafId.current);
+      }
+    };
+  }, []);
 
   const cueListId = actualCueListId;
   const isDynamicPlaceholder = cueListId === "__dynamic__";
@@ -278,40 +304,41 @@ export default function CueListPlayer({
     });
   }, [currentCueIndex, cues, cueList?.loop]);
 
-  // Auto-scroll to current cue when it changes or when cues load
-  // Uses instant scroll (no animation) - animation is reserved for user-initiated scroll button
-  useEffect(() => {
-    if (currentCueIndex < 0 || cues.length === 0) return;
-
-    // Delay to ensure DOM is fully rendered after cues load
-    const DOM_READY_DELAY_MS = 100;
-    let rafId: number | null = null;
-
-    // Use requestAnimationFrame + setTimeout to ensure DOM is ready
-    // This handles the race condition where cues load after currentCueIndex is set
-    const scrollTimer = setTimeout(() => {
-      rafId = requestAnimationFrame(() => {
-        if (
-          currentCueRef.current &&
-          currentCueRef.current.isConnected &&
-          currentCueRef.current.offsetParent !== null
-        ) {
-          currentCueRef.current.scrollIntoView({
-            behavior: "instant",
-            block: "center",
-            inline: "nearest",
-          });
-        }
-      });
-    }, DOM_READY_DELAY_MS);
-
-    return () => {
-      clearTimeout(scrollTimer);
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
+  // Callback ref for auto-scrolling to current cue when it's rendered in the DOM
+  // This reactive approach eliminates timing issues from hardcoded delays -
+  // the scroll triggers immediately when React attaches the element to the DOM
+  const currentCueCallbackRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      // Cancel any pending RAF when ref is detached to prevent stale operations
+      if (scrollRafId.current !== null) {
+        cancelAnimationFrame(scrollRafId.current);
+        scrollRafId.current = null;
       }
-    };
-  }, [currentCueIndex, cues.length]);
+
+      // Store the ref for use by scrollToLiveCue button
+      currentCueRef.current = node;
+
+      // Only perform initial auto-scroll once per cue list visit
+      // Subsequent cue changes during playback don't need auto-scroll (user is watching)
+      // Note: cues.length > 0 check ensures cues are loaded before scrolling
+      if (node && !hasPerformedInitialScroll.current && cues.length > 0) {
+        hasPerformedInitialScroll.current = true;
+
+        // Use requestAnimationFrame to ensure layout is complete before scrolling
+        scrollRafId.current = requestAnimationFrame(() => {
+          scrollRafId.current = null;
+          if (node.isConnected && node.offsetParent !== null) {
+            node.scrollIntoView({
+              behavior: "instant",
+              block: "center",
+              inline: "nearest",
+            });
+          }
+        });
+      }
+    },
+    [cues.length],
+  );
 
   // Track cue changes and fade-out visualization for previous cue
   useEffect(() => {
@@ -971,7 +998,7 @@ export default function CueListPlayer({
               }) => (
                 <div
                   key={cue.id}
-                  ref={isCurrent ? currentCueRef : null}
+                  ref={isCurrent ? currentCueCallbackRef : null}
                   className={`relative rounded-lg p-4 border transition-all duration-200 overflow-hidden select-none cursor-pointer ${
                     cue.id === highlightedCueId
                       ? "bg-gray-700 border-yellow-500 border-2 shadow-lg animate-pulse"
