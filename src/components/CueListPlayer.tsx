@@ -279,7 +279,7 @@ export default function CueListPlayer({
   }, [currentCueIndex, cues, cueList?.loop]);
 
   // Auto-scroll to current cue when it changes or when cues load
-  // Uses a small delay to ensure DOM has rendered after cues load
+  // Uses instant scroll (no animation) - animation is reserved for user-initiated scroll button
   useEffect(() => {
     if (currentCueIndex < 0 || cues.length === 0) return;
 
@@ -293,7 +293,7 @@ export default function CueListPlayer({
           currentCueRef.current.offsetParent !== null
         ) {
           currentCueRef.current.scrollIntoView({
-            behavior: "smooth",
+            behavior: "instant",
             block: "center",
             inline: "nearest",
           });
