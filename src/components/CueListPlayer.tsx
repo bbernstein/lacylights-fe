@@ -278,16 +278,31 @@ export default function CueListPlayer({
     });
   }, [currentCueIndex, cues, cueList?.loop]);
 
-  // Auto-scroll to current cue when it changes
+  // Auto-scroll to current cue when it changes or when cues load
+  // Uses a small delay to ensure DOM has rendered after cues load
   useEffect(() => {
-    if (currentCueRef.current && currentCueIndex >= 0) {
-      currentCueRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-        inline: "nearest",
+    if (currentCueIndex < 0 || cues.length === 0) return;
+
+    // Use requestAnimationFrame + setTimeout to ensure DOM is ready
+    // This handles the race condition where cues load after currentCueIndex is set
+    const scrollTimer = setTimeout(() => {
+      requestAnimationFrame(() => {
+        if (
+          currentCueRef.current &&
+          currentCueRef.current.isConnected &&
+          currentCueRef.current.offsetParent !== null
+        ) {
+          currentCueRef.current.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+            inline: "nearest",
+          });
+        }
       });
-    }
-  }, [currentCueIndex]);
+    }, 100); // Small delay to ensure DOM is fully rendered
+
+    return () => clearTimeout(scrollTimer);
+  }, [currentCueIndex, cues.length]);
 
   // Track cue changes and fade-out visualization for previous cue
   useEffect(() => {
