@@ -747,6 +747,82 @@ describe("CueListPlayer", () => {
         inline: "nearest",
       });
     });
+
+    it("auto-scrolls to current cue on mount with instant behavior", async () => {
+      const mockScrollIntoView = jest.fn();
+      Element.prototype.scrollIntoView = mockScrollIntoView;
+
+      // Mock isConnected and offsetParent for JSDOM compatibility
+      Object.defineProperty(Element.prototype, "isConnected", {
+        get: () => true,
+        configurable: true,
+      });
+      const originalOffsetParent = Object.getOwnPropertyDescriptor(
+        HTMLElement.prototype,
+        "offsetParent"
+      );
+      Object.defineProperty(HTMLElement.prototype, "offsetParent", {
+        get: function () {
+          return this.parentElement || document.body;
+        },
+        configurable: true,
+      });
+
+      try {
+        const mocks = createMocks();
+        renderWithProvider(mocks);
+
+        // Wait for cues to render
+        await waitFor(() => {
+          expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+        });
+
+        // Wait for auto-scroll effect (100ms delay + RAF)
+        await waitFor(
+          () => {
+            expect(mockScrollIntoView).toHaveBeenCalledWith({
+              behavior: "instant",
+              block: "center",
+              inline: "nearest",
+            });
+          },
+          { timeout: 500 }
+        );
+      } finally {
+        // Restore original offsetParent
+        if (originalOffsetParent) {
+          Object.defineProperty(
+            HTMLElement.prototype,
+            "offsetParent",
+            originalOffsetParent
+          );
+        }
+      }
+    });
+
+    it("does not auto-scroll when no current cue", async () => {
+      const mockScrollIntoView = jest.fn();
+      Element.prototype.scrollIntoView = mockScrollIntoView;
+
+      // Set no current cue
+      mockUseCueListPlayback.mockReturnValue({
+        playbackStatus: { ...mockPlaybackStatus, currentCueIndex: -1 },
+      });
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      // Wait for component to render (cue list name appears in heading)
+      await waitFor(() => {
+        expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+      });
+
+      // Wait a bit to ensure no auto-scroll occurs
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // No auto-scroll should occur when currentCueIndex is -1
+      expect(mockScrollIntoView).not.toHaveBeenCalled();
+    });
   });
 
   describe("keyboard shortcuts", () => {

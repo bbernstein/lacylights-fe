@@ -345,4 +345,63 @@ describe('SceneEditorLayout', () => {
       expect(result.channels).toEqual([]);
     });
   });
+
+  describe('header display', () => {
+    it('displays scene name in header after loading', async () => {
+      render(
+        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
+          <SceneEditorLayout {...defaultProps} mode="layout" />
+        </MockedProvider>
+      );
+
+      // Wait for scene data to load
+      await screen.findByTestId('layout-canvas');
+
+      // Scene name should be displayed in the header (may have multiple instances for mobile/desktop)
+      expect(screen.getAllByText('Test Scene').length).toBeGreaterThan(0);
+    });
+
+    it('shows Loading... before scene name is available', () => {
+      render(
+        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
+          <SceneEditorLayout {...defaultProps} mode="layout" />
+        </MockedProvider>
+      );
+
+      // Initially shows loading placeholder (may have multiple instances for mobile/desktop)
+      expect(screen.getAllByText('Loading...').length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('save button accessibility', () => {
+    it('has aria-live attribute for screen reader announcements', async () => {
+      render(
+        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
+          <SceneEditorLayout {...defaultProps} mode="layout" />
+        </MockedProvider>
+      );
+
+      // Wait for scene data to load
+      await screen.findByTestId('layout-canvas');
+
+      // Find save button by its title
+      const saveButton = screen.getByTitle('Save changes (Cmd+S)');
+      expect(saveButton).toHaveAttribute('aria-live', 'polite');
+    });
+
+    it('has appropriate aria-label for current state', async () => {
+      render(
+        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
+          <SceneEditorLayout {...defaultProps} mode="layout" />
+        </MockedProvider>
+      );
+
+      // Wait for scene data to load
+      await screen.findByTestId('layout-canvas');
+
+      // Find save button - when no changes, should indicate no changes to save
+      const saveButton = screen.getByTitle('Save changes (Cmd+S)');
+      expect(saveButton).toHaveAttribute('aria-label', 'No changes to save');
+    });
+  });
 });

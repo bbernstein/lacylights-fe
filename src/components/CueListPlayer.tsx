@@ -283,10 +283,14 @@ export default function CueListPlayer({
   useEffect(() => {
     if (currentCueIndex < 0 || cues.length === 0) return;
 
+    // Delay to ensure DOM is fully rendered after cues load
+    const DOM_READY_DELAY_MS = 100;
+    let rafId: number | null = null;
+
     // Use requestAnimationFrame + setTimeout to ensure DOM is ready
     // This handles the race condition where cues load after currentCueIndex is set
     const scrollTimer = setTimeout(() => {
-      requestAnimationFrame(() => {
+      rafId = requestAnimationFrame(() => {
         if (
           currentCueRef.current &&
           currentCueRef.current.isConnected &&
@@ -299,9 +303,14 @@ export default function CueListPlayer({
           });
         }
       });
-    }, 100); // Small delay to ensure DOM is fully rendered
+    }, DOM_READY_DELAY_MS);
 
-    return () => clearTimeout(scrollTimer);
+    return () => {
+      clearTimeout(scrollTimer);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+    };
   }, [currentCueIndex, cues.length]);
 
   // Track cue changes and fade-out visualization for previous cue

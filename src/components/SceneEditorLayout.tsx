@@ -1481,6 +1481,13 @@ export default function SceneEditorLayout({
                           : "bg-gray-600 text-gray-400"
                   }`}
                   title="Save changes (Cmd+S)"
+                  aria-live="polite"
+                  aria-label={
+                    saveStatus === "saving" ? "Saving changes" :
+                    saveStatus === "saved" ? "Changes saved" :
+                    saveStatus === "error" ? "Save failed" :
+                    isDirty || hasUnsavedPreviewChanges ? "Save unsaved changes" : "No changes to save"
+                  }
                 >
                   {saveStatus === "saving" ? (
                     <svg
