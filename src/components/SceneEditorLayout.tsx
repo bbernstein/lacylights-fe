@@ -203,6 +203,11 @@ export default function SceneEditorLayout({
     Map<string, Set<number>>
   >(new Map());
 
+  // Track initial active channels state to detect changes for dirty state
+  const [initialActiveChannels, setInitialActiveChannels] = useState<
+    Map<string, Set<number>>
+  >(new Map());
+
   // Undo/redo stack
   const { pushAction, undo, redo, peekUndo, peekRedo, canUndo, canRedo, clearHistory } =
     useUndoStack({
@@ -305,6 +310,19 @@ export default function SceneEditorLayout({
       });
       setActiveChannels(active);
 
+      // Also set initial active channels for dirty tracking (only on first load)
+      if (initialActiveChannels.size === 0) {
+        const initial = new Map<string, Set<number>>();
+        scene.fixtureValues.forEach((fv: FixtureValue) => {
+          const activeSet = new Set<number>();
+          (fv.channels || []).forEach((ch: ChannelValue) => {
+            activeSet.add(ch.offset);
+          });
+          initial.set(fv.fixture.id, activeSet);
+        });
+        setInitialActiveChannels(initial);
+      }
+
       // Initialize channel values from scene (only if not already set)
       // This ensures we don't overwrite values when switching between modes
       if (localFixtureValues.size === 0) {
@@ -319,7 +337,7 @@ export default function SceneEditorLayout({
         setLocalFixtureValues(values);
       }
     }
-  }, [scene, localFixtureValues.size]);
+  }, [scene, localFixtureValues.size, initialActiveChannels.size]);
 
   // Build channel values map for layout canvas (merge server + local state)
   const fixtureValues = useMemo(() => {
@@ -352,21 +370,47 @@ export default function SceneEditorLayout({
     // If fixtures have been removed, we're dirty
     if (removedFixtureIds.size > 0) return true;
 
-    // If no local changes, not dirty
-    if (localFixtureValues.size === 0) return false;
+    // Check for channel value changes
+    if (localFixtureValues.size > 0) {
+      // Compare with server values
+      for (const [fixtureId, localValues] of localFixtureValues) {
+        const serverValues = serverDenseValues.get(fixtureId);
+        if (!serverValues) return true; // New fixture added locally
+        if (localValues.length !== serverValues.length) return true;
+        for (let i = 0; i < localValues.length; i++) {
+          if (localValues[i] !== serverValues[i]) return true;
+        }
+      }
+    }
 
-    // Compare with server values
-    for (const [fixtureId, localValues] of localFixtureValues) {
-      const serverValues = serverDenseValues.get(fixtureId);
-      if (!serverValues) return true; // New fixture added locally
-      if (localValues.length !== serverValues.length) return true;
-      for (let i = 0; i < localValues.length; i++) {
-        if (localValues[i] !== serverValues[i]) return true;
+    // Check for active channel changes
+    if (initialActiveChannels.size > 0) {
+      // Check if any fixture's active channels have changed
+      for (const [fixtureId, currentActiveSet] of activeChannels) {
+        const initialActiveSet = initialActiveChannels.get(fixtureId);
+        if (!initialActiveSet) {
+          // New fixture not in initial state - check if it has any active channels
+          if (currentActiveSet.size > 0) return true;
+          continue;
+        }
+
+        // Compare sets - check if sizes differ
+        if (currentActiveSet.size !== initialActiveSet.size) return true;
+
+        // Check if all elements match
+        for (const channelIndex of currentActiveSet) {
+          if (!initialActiveSet.has(channelIndex)) return true;
+        }
+      }
+
+      // Also check if any initial fixtures are missing from current
+      for (const fixtureId of initialActiveChannels.keys()) {
+        if (!activeChannels.has(fixtureId)) return true;
       }
     }
 
     return false;
-  }, [localFixtureValues, serverDenseValues, removedFixtureIds]);
+  }, [localFixtureValues, serverDenseValues, removedFixtureIds, activeChannels, initialActiveChannels]);
 
   // Clear removedFixtureIds when those fixtures no longer exist in server data (after save)
   // This handles the case where ChannelListEditor saves directly without calling parent's onSave
@@ -902,6 +946,8 @@ export default function SceneEditorLayout({
       // Reset local state - initialization effect will repopulate from fresh server data
       setLocalFixtureValues(new Map());
       setRemovedFixtureIds(new Set());
+      // Reset initial active channels so next change tracking starts fresh
+      setInitialActiveChannels(new Map());
 
       // Show saved indicator
       setSaveStatus("saved");
@@ -1178,71 +1224,6 @@ export default function SceneEditorLayout({
     handleSaveScene,
   ]);
 
-  // Apply preview changes to scene
-  const handleApplyToScene = useCallback(async () => {
-    if (!scene || !previewMode) return;
-
-    setSaveStatus("saving");
-    if (saveStatusTimeoutRef.current) {
-      clearTimeout(saveStatusTimeoutRef.current);
-    }
-
-    try {
-      // Build updated fixture values from current local state
-      // Use a Map to deduplicate fixtures (in case scene data has duplicates)
-      const fixtureValuesMap = new Map<string, FixtureChannelValues>();
-
-      scene.fixtureValues.forEach((fv: FixtureValue) => {
-        const localValues = localFixtureValues.get(fv.fixture.id);
-        const fixtureActiveChannels = activeChannels.get(fv.fixture.id);
-
-        // Convert dense local values or sparse server values to sparse format
-        const allChannels = localValues
-          ? denseToSparse(localValues)
-          : fv.channels || [];
-
-        // Filter to only include active channels
-        const sparseChannels = fixtureActiveChannels
-          ? allChannels.filter((ch) => fixtureActiveChannels.has(ch.offset))
-          : allChannels; // If no active tracking, include all
-
-        fixtureValuesMap.set(fv.fixture.id, {
-          fixtureId: fv.fixture.id,
-          channels: sparseChannels,
-        });
-      });
-
-      const updatedFixtureValues = Array.from(fixtureValuesMap.values());
-
-      await updateScene({
-        variables: {
-          id: sceneId,
-          input: {
-            fixtureValues: updatedFixtureValues,
-          },
-        },
-      });
-
-      setHasUnsavedPreviewChanges(false);
-      setSaveStatus("saved");
-      saveStatusTimeoutRef.current = setTimeout(() => {
-        setSaveStatus("idle");
-      }, 2000);
-    } catch (error) {
-      console.error("Failed to apply preview to scene:", error);
-      setSaveStatus("error");
-      saveStatusTimeoutRef.current = setTimeout(() => {
-        setSaveStatus("idle");
-      }, 3000);
-    }
-  }, [
-    scene,
-    previewMode,
-    localFixtureValues,
-    activeChannels,
-    sceneId,
-    updateScene,
-  ]);
 
   // Handle close with unsaved changes modal
   const handleClose = useCallback(() => {
@@ -1308,82 +1289,69 @@ export default function SceneEditorLayout({
       {/* Desktop top bar with mode switcher and controls */}
       <div className="flex-none bg-gray-800 border-b border-gray-700 px-4 py-3 hidden md:block">
         <div className="flex items-center justify-between">
-          {/* Back button - context-aware */}
-          <button
-            onClick={handleClose}
-            className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 rounded-md transition-colors"
-          >
-            {fromPlayer ? (
-              <>
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                Back to Player
-              </>
-            ) : (
-              <>
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
-                </svg>
-                Back to Scenes
-              </>
-            )}
-          </button>
+          {/* Left section: Back button and scene name */}
+          <div className="flex items-center space-x-3 min-w-0">
+            {/* Back button - context-aware, compact for narrow screens */}
+            <button
+              onClick={handleClose}
+              className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 rounded-md transition-colors flex-shrink-0"
+              title={fromPlayer ? "Back to Player" : "Back to Scenes"}
+            >
+              {fromPlayer ? (
+                <>
+                  <svg
+                    className="w-4 h-4 mr-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    role="img"
+                    aria-label="Player icon"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span className="hidden lg:inline">Player</span>
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="w-4 h-4 lg:mr-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    role="img"
+                    aria-label="Back arrow"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                    />
+                  </svg>
+                  <span className="hidden lg:inline">Scenes</span>
+                </>
+              )}
+            </button>
+
+            {/* Scene name */}
+            <span className="text-sm text-gray-400 truncate max-w-[200px]" title={scene?.name}>
+              {scene?.name || "Loading..."}
+            </span>
+          </div>
 
           {/* Mode switcher tabs */}
-          <div className="flex items-center space-x-4">
-            {/* Player Mode badge */}
-            {fromPlayer && (
-              <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-blue-600 text-white rounded">
-                <svg
-                  className="w-3 h-3 mr-1"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                Editing from Player Mode
-              </span>
-            )}
-
+          <div className="flex items-center space-x-2 lg:space-x-4">
             <div className="flex items-center space-x-1 bg-gray-700 rounded-lg p-1">
               <button
                 onClick={() => {
@@ -1451,97 +1419,6 @@ export default function SceneEditorLayout({
                   </button>
                 </div>
 
-                {/* Apply to Scene button - show when in preview mode with unsaved changes */}
-                {previewMode && hasUnsavedPreviewChanges && (
-                  <button
-                    onClick={handleApplyToScene}
-                    disabled={saveStatus === "saving"}
-                    className="inline-flex items-center px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Save current preview values to the scene"
-                  >
-                    <svg
-                      className="w-4 h-4 mr-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                    Apply to Scene
-                  </button>
-                )}
-
-                {/* Save status indicator */}
-                {saveStatus !== "idle" && (
-                  <div className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-700/50 border border-gray-600">
-                    {saveStatus === "saving" && (
-                      <>
-                        <svg
-                          className="animate-spin h-4 w-4 text-blue-400"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        <span className="text-sm text-gray-300">Saving...</span>
-                      </>
-                    )}
-                    {saveStatus === "saved" && (
-                      <>
-                        <svg
-                          className="h-4 w-4 text-green-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                        <span className="text-sm text-green-400">Saved</span>
-                      </>
-                    )}
-                    {saveStatus === "error" && (
-                      <>
-                        <svg
-                          className="h-4 w-4 text-red-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                        <span className="text-sm text-red-400">Error</span>
-                      </>
-                    )}
-                  </div>
-                )}
-
                 {/* Undo/Redo buttons */}
                 <div className="flex items-center space-x-1">
                   <button
@@ -1555,6 +1432,8 @@ export default function SceneEditorLayout({
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
+                      role="img"
+                      aria-label="Undo"
                     >
                       <path
                         strokeLinecap="round"
@@ -1575,6 +1454,8 @@ export default function SceneEditorLayout({
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
+                      role="img"
+                      aria-label="Redo"
                     >
                       <path
                         strokeLinecap="round"
@@ -1586,26 +1467,87 @@ export default function SceneEditorLayout({
                   </button>
                 </div>
 
-                {/* Dirty indicator and Save button */}
-                {isDirty && (
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 rounded-full bg-yellow-400" />
-                      <span className="text-sm text-yellow-400">
-                        Unsaved changes
-                      </span>
-                    </div>
-                    <button
-                      onClick={handleSaveScene}
-                      disabled={saveStatus === "saving"}
-                      className="inline-flex items-center px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Save changes (Cmd+S)"
+                {/* Save button with dirty/status indicator */}
+                <button
+                  onClick={handleSaveScene}
+                  disabled={saveStatus === "saving" || (!isDirty && !hasUnsavedPreviewChanges && saveStatus !== "saved" && saveStatus !== "error")}
+                  className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    saveStatus === "error"
+                      ? "bg-red-600 hover:bg-red-700 text-white"
+                      : saveStatus === "saved"
+                        ? "bg-green-600 hover:bg-green-700 text-white"
+                        : isDirty || hasUnsavedPreviewChanges
+                          ? "bg-blue-600 hover:bg-blue-700 text-white"
+                          : "bg-gray-600 text-gray-400"
+                  }`}
+                  title="Save changes (Cmd+S)"
+                >
+                  {saveStatus === "saving" ? (
+                    <svg
+                      className="animate-spin h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      role="img"
+                      aria-label="Saving"
                     >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                  ) : saveStatus === "saved" ? (
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      role="img"
+                      aria-label="Saved"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  ) : saveStatus === "error" ? (
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      role="img"
+                      aria-label="Error"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  ) : (
+                    <>
+                      {(isDirty || hasUnsavedPreviewChanges) && (
+                        <div className="w-2 h-2 rounded-full bg-yellow-400 mr-2" title="Unsaved changes" />
+                      )}
                       <svg
-                        className="w-4 h-4 mr-2"
+                        className="w-4 h-4"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        role="img"
+                        aria-label="Save"
                       >
                         <path
                           strokeLinecap="round"
@@ -1614,10 +1556,12 @@ export default function SceneEditorLayout({
                           d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
                         />
                       </svg>
-                      Save Changes
-                    </button>
-                  </div>
-                )}
+                    </>
+                  )}
+                  <span className="hidden lg:inline ml-2">
+                    {saveStatus === "saving" ? "Saving" : saveStatus === "saved" ? "Saved" : saveStatus === "error" ? "Error" : "Save"}
+                  </span>
+                </button>
               </>
             )}
           </div>
