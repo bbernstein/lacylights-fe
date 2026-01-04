@@ -93,6 +93,8 @@ export default function CueListPlayer({
   // Track whether initial auto-scroll has been performed for this cue list
   // Reset when cue list changes to allow scroll on navigation back to player
   const hasPerformedInitialScroll = useRef<boolean>(false);
+  // RAF ID for cleanup when component unmounts or ref is detached
+  const scrollRafId = useRef<number | null>(null);
 
   // State for the slide-off animation after fade completes
   const [slideOffProgress, setSlideOffProgress] = useState<number>(0);
@@ -153,9 +155,23 @@ export default function CueListPlayer({
   }, [cueListIdProp]);
 
   // Reset initial scroll flag when cue list ID changes (e.g., navigating to different cue list)
+  // Also cancel any pending scroll RAF to prevent stale operations
   useEffect(() => {
     hasPerformedInitialScroll.current = false;
+    if (scrollRafId.current !== null) {
+      cancelAnimationFrame(scrollRafId.current);
+      scrollRafId.current = null;
+    }
   }, [actualCueListId]);
+
+  // Cleanup scroll RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollRafId.current !== null) {
+        cancelAnimationFrame(scrollRafId.current);
+      }
+    };
+  }, []);
 
   const cueListId = actualCueListId;
   const isDynamicPlaceholder = cueListId === "__dynamic__";
@@ -293,21 +309,24 @@ export default function CueListPlayer({
   // the scroll triggers immediately when React attaches the element to the DOM
   const currentCueCallbackRef = useCallback(
     (node: HTMLDivElement | null) => {
+      // Cancel any pending RAF when ref is detached to prevent stale operations
+      if (scrollRafId.current !== null) {
+        cancelAnimationFrame(scrollRafId.current);
+        scrollRafId.current = null;
+      }
+
       // Store the ref for use by scrollToLiveCue button
       currentCueRef.current = node;
 
       // Only perform initial auto-scroll once per cue list visit
       // Subsequent cue changes during playback don't need auto-scroll (user is watching)
-      if (
-        node &&
-        !hasPerformedInitialScroll.current &&
-        currentCueIndex >= 0 &&
-        cues.length > 0
-      ) {
+      // Note: cues.length > 0 check ensures cues are loaded before scrolling
+      if (node && !hasPerformedInitialScroll.current && cues.length > 0) {
         hasPerformedInitialScroll.current = true;
 
         // Use requestAnimationFrame to ensure layout is complete before scrolling
-        requestAnimationFrame(() => {
+        scrollRafId.current = requestAnimationFrame(() => {
+          scrollRafId.current = null;
           if (node.isConnected && node.offsetParent !== null) {
             node.scrollIntoView({
               behavior: "instant",
@@ -318,7 +337,7 @@ export default function CueListPlayer({
         });
       }
     },
-    [currentCueIndex, cues.length],
+    [cues.length],
   );
 
   // Track cue changes and fade-out visualization for previous cue

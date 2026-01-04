@@ -823,6 +823,64 @@ describe("CueListPlayer", () => {
       // No auto-scroll should occur when currentCueIndex is -1
       expect(mockScrollIntoView).not.toHaveBeenCalled();
     });
+
+    it("does not auto-scroll on re-render after initial scroll", async () => {
+      const mockScrollIntoView = jest.fn();
+      Element.prototype.scrollIntoView = mockScrollIntoView;
+
+      // Mock isConnected and offsetParent for JSDOM compatibility
+      Object.defineProperty(Element.prototype, "isConnected", {
+        get: () => true,
+        configurable: true,
+      });
+      const originalOffsetParent = Object.getOwnPropertyDescriptor(
+        HTMLElement.prototype,
+        "offsetParent"
+      );
+      Object.defineProperty(HTMLElement.prototype, "offsetParent", {
+        get: function () {
+          return this.parentElement || document.body;
+        },
+        configurable: true,
+      });
+
+      try {
+        const mocks = createMocks();
+        const { rerender } = renderWithProvider(mocks);
+
+        // Wait for initial auto-scroll
+        await waitFor(
+          () => {
+            expect(mockScrollIntoView).toHaveBeenCalledTimes(1);
+          },
+          { timeout: 500 }
+        );
+
+        mockScrollIntoView.mockClear();
+
+        // Re-render the component (simulating a state update during playback)
+        rerender(
+          <MockedProvider mocks={mocks} addTypename={false}>
+            <CueListPlayer cueListId={mockCueListId} />
+          </MockedProvider>
+        );
+
+        // Wait to ensure no additional scroll occurs
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        // Should not scroll again after initial scroll
+        expect(mockScrollIntoView).not.toHaveBeenCalled();
+      } finally {
+        // Restore original offsetParent
+        if (originalOffsetParent) {
+          Object.defineProperty(
+            HTMLElement.prototype,
+            "offsetParent",
+            originalOffsetParent
+          );
+        }
+      }
+    });
   });
 
   describe("keyboard shortcuts", () => {
