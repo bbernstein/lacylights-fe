@@ -777,7 +777,7 @@ describe("CueListPlayer", () => {
           expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
         });
 
-        // Wait for auto-scroll effect (100ms delay + RAF)
+        // Wait for auto-scroll via callback ref + RAF (reactive approach, no hardcoded delay)
         await waitFor(
           () => {
             expect(mockScrollIntoView).toHaveBeenCalledWith({
