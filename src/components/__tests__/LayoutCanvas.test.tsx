@@ -58,6 +58,8 @@ const mockProject = {
   scenes: [],
   cueLists: [],
   users: [],
+  layoutCanvasWidth: 2000,
+  layoutCanvasHeight: 2000,
   __typename: "Project",
 };
 

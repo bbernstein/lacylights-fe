@@ -77,10 +77,10 @@ export interface FixtureInstance {
   // Ordering
   projectOrder?: number;
 
-  // 2D Layout Position (normalized 0-1 coordinates)
+  // 2D Layout Position (pixel coordinates in virtual canvas space)
   layoutX?: number;
   layoutY?: number;
-  layoutRotation?: number;
+  layoutRotation?: number; // Degrees
 }
 
 export interface InstanceChannel {

@@ -35,8 +35,8 @@ interface LayoutCanvasProps {
 
 interface FixturePosition {
   fixtureId: string;
-  x: number; // Pixel coordinates (0 to canvasWidth/Height)
-  y: number; // Pixel coordinates (0 to canvasWidth/Height)
+  x: number; // Pixel coordinates in virtual canvas; valid fixture centers are clamped to FIXTURE_SIZE/2 .. canvasWidth - FIXTURE_SIZE/2
+  y: number; // Pixel coordinates in virtual canvas; valid fixture centers are clamped to FIXTURE_SIZE/2 .. canvasHeight - FIXTURE_SIZE/2
   rotation?: number; // Degrees, for beam direction
 }
 
@@ -234,10 +234,25 @@ export default function LayoutCanvas({
           let y = fixture.layoutY;
 
           // Backward compatibility: detect and convert normalized coordinates
-          // The backend should already convert these, but this is a safety net
-          if (isNormalizedCoordinate(x) && isNormalizedCoordinate(y)) {
-            x = x * canvasWidth;
-            y = y * canvasHeight;
+          // The backend should already convert these, but this is a safety net.
+          // Check each axis independently to handle edge cases like (0.5, 0.0) or (1.0, 0.5).
+          // Values in the normalized range [0, 1] are treated as normalized coordinates.
+          const xIsNormalized =
+            isNormalizedCoordinate(x) || x === 0 || x === 1;
+          const yIsNormalized =
+            isNormalizedCoordinate(y) || y === 0 || y === 1;
+
+          if (xIsNormalized || yIsNormalized) {
+            if (xIsNormalized) {
+              x = x * canvasWidth;
+            }
+            if (yIsNormalized) {
+              y = y * canvasHeight;
+            }
+            // Clamp converted coordinates to valid canvas bounds
+            const clamped = clampToCanvas(x, y, canvasWidth, canvasHeight);
+            x = clamped.x;
+            y = clamped.y;
           }
 
           positions.set(fixture.id, {
