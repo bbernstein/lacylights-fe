@@ -9,6 +9,9 @@ export interface Project {
   scenes: Scene[];
   cueLists: CueList[];
   users: ProjectUser[];
+  // 2D Layout canvas dimensions (for fixture positioning)
+  layoutCanvasWidth: number;
+  layoutCanvasHeight: number;
 }
 
 export interface FixtureDefinition {

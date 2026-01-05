@@ -5,6 +5,17 @@ import { useMutation } from "@apollo/client";
 import { FixtureInstance } from "@/types";
 import { UPDATE_FIXTURE_POSITIONS } from "@/graphql/fixtures";
 import { channelValuesToRgb, applyIntensityToRgb, type InstanceChannelWithValue } from "@/utils/colorConversion";
+import {
+  FIXTURE_SIZE,
+  DEFAULT_CANVAS_WIDTH,
+  DEFAULT_CANVAS_HEIGHT,
+  ViewportTransform,
+  screenToPixel,
+  pixelToScreen,
+  isNormalizedCoordinate,
+  clampToCanvas,
+  calculateAutoLayoutPositions,
+} from "@/lib/layoutCanvasUtils";
 
 interface LayoutCanvasProps {
   fixtures: FixtureInstance[];
@@ -17,22 +28,19 @@ interface LayoutCanvasProps {
   onPaste?: () => void;
   canPaste?: boolean; // Whether there's data available to paste
   showCopiedFeedback?: boolean; // Show visual feedback after copy
+  // Virtual canvas dimensions (default 2000x2000)
+  canvasWidth?: number;
+  canvasHeight?: number;
 }
 
 interface FixturePosition {
   fixtureId: string;
-  x: number; // Normalized 0-1
-  y: number; // Normalized 0-1
+  x: number; // Pixel coordinates (0 to canvasWidth/Height)
+  y: number; // Pixel coordinates (0 to canvasWidth/Height)
   rotation?: number; // Degrees, for beam direction
 }
 
-interface ViewportTransform {
-  x: number; // Pan offset X
-  y: number; // Pan offset Y
-  scale: number; // Zoom scale
-}
-
-const FIXTURE_SIZE = 60; // Base size in canvas pixels
+// FIXTURE_SIZE is imported from layoutCanvasUtils (80px fixed)
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 5;
 const ZOOM_SPEED = 0.1;
@@ -77,6 +85,8 @@ export default function LayoutCanvas({
   onPaste,
   canPaste = false,
   showCopiedFeedback = false,
+  canvasWidth = DEFAULT_CANVAS_WIDTH,
+  canvasHeight = DEFAULT_CANVAS_HEIGHT,
 }: LayoutCanvasProps) {
   // Internal selection state (used if not controlled by parent)
   const [internalSelection, setInternalSelection] = useState<Set<string>>(
@@ -95,7 +105,7 @@ export default function LayoutCanvas({
     scale: 1,
   });
 
-  // Fixture positions (normalized 0-1 coordinates)
+  // Fixture positions (pixel coordinates in virtual canvas)
   const [fixturePositions, setFixturePositions] = useState<
     Map<string, FixturePosition>
   >(new Map());
@@ -174,6 +184,7 @@ export default function LayoutCanvas({
 
   // Initialize fixture positions (load from database or use auto-layout)
   // Only initializes NEW fixtures; preserves existing positions in component state (including unsaved changes), not just database positions
+  // Coordinates are in pixel space (0 to canvasWidth/Height)
   useEffect(() => {
     if (fixtures.length === 0) {
       setFixturePositions(new Map());
@@ -193,7 +204,17 @@ export default function LayoutCanvas({
         }
       }
 
-      const gridCols = Math.ceil(Math.sqrt(fixtures.length));
+      // Pre-calculate auto-layout positions for fixtures without saved positions
+      const fixturesNeedingAutoLayout = fixtures.filter(
+        (f) =>
+          !initializedFixtureIds.current.has(f.id) &&
+          (f.layoutX === null || f.layoutX === undefined || f.layoutY === null || f.layoutY === undefined)
+      );
+      const autoLayoutPositions = calculateAutoLayoutPositions(
+        fixturesNeedingAutoLayout.length,
+        canvasWidth,
+        canvasHeight
+      );
       let autoLayoutIndex = 0;
 
       fixtures.forEach((fixture) => {
@@ -209,22 +230,29 @@ export default function LayoutCanvas({
           fixture.layoutY !== null &&
           fixture.layoutY !== undefined
         ) {
-          // Use saved position from database
-          positions.set(fixture.id, {
-            fixtureId: fixture.id,
-            x: fixture.layoutX,
-            y: fixture.layoutY,
-            rotation: fixture.layoutRotation ?? 0,
-          });
-        } else {
-          // Use auto-layout for new fixtures without saved positions
-          const col = autoLayoutIndex % gridCols;
-          const row = Math.floor(autoLayoutIndex / gridCols);
+          let x = fixture.layoutX;
+          let y = fixture.layoutY;
+
+          // Backward compatibility: detect and convert normalized coordinates
+          // The backend should already convert these, but this is a safety net
+          if (isNormalizedCoordinate(x) && isNormalizedCoordinate(y)) {
+            x = x * canvasWidth;
+            y = y * canvasHeight;
+          }
 
           positions.set(fixture.id, {
             fixtureId: fixture.id,
-            x: (col + 0.5) / gridCols, // Center in cell
-            y: (row + 0.5) / Math.ceil(fixtures.length / gridCols),
+            x,
+            y,
+            rotation: fixture.layoutRotation ?? 0,
+          });
+        } else {
+          // Use auto-layout for new fixtures without saved positions (pixel coordinates)
+          const autoPos = autoLayoutPositions[autoLayoutIndex] || { x: canvasWidth / 2, y: canvasHeight / 2 };
+          positions.set(fixture.id, {
+            fixtureId: fixture.id,
+            x: autoPos.x,
+            y: autoPos.y,
             rotation: 0,
           });
 
@@ -237,7 +265,7 @@ export default function LayoutCanvas({
 
       return positions;
     });
-  }, [fixtures]); // Re-run when fixtures change to handle added/removed fixtures
+  }, [fixtures, canvasWidth, canvasHeight]); // Re-run when fixtures or canvas size changes
 
   // Helper to update selection (internal or external)
   const updateSelection = useCallback(
@@ -251,56 +279,47 @@ export default function LayoutCanvas({
     [onSelectionChange],
   );
 
-  // Convert normalized position to canvas coordinates
-  const normalizedToCanvas = useCallback(
-    (nx: number, ny: number): { x: number; y: number } => {
-      if (!canvasRef.current) return { x: 0, y: 0 };
-      const canvas = canvasRef.current;
-
-      return {
-        x: nx * canvas.width * viewport.scale + viewport.x,
-        y: ny * canvas.height * viewport.scale + viewport.y,
-      };
+  // Convert pixel position (virtual canvas) to screen coordinates
+  // Positions are in virtual canvas pixels (0 to canvasWidth/Height)
+  const positionToScreen = useCallback(
+    (px: number, py: number): { x: number; y: number } => {
+      return pixelToScreen(px, py, viewport);
     },
     [viewport],
   );
 
-  // Convert canvas coordinates to normalized position
-  const canvasToNormalized = useCallback(
-    (cx: number, cy: number): { x: number; y: number } => {
-      if (!canvasRef.current) return { x: 0, y: 0 };
-      const canvas = canvasRef.current;
-
-      return {
-        x: (cx - viewport.x) / (canvas.width * viewport.scale),
-        y: (cy - viewport.y) / (canvas.height * viewport.scale),
-      };
+  // Convert screen coordinates to pixel position (virtual canvas)
+  const screenToPosition = useCallback(
+    (sx: number, sy: number): { x: number; y: number } => {
+      return screenToPixel(sx, sy, viewport);
     },
     [viewport],
   );
 
   // Find fixture under mouse cursor
+  // Fixtures have FIXED screen size (not scaled with zoom)
   const getFixtureAtPosition = useCallback(
     (x: number, y: number): string | null => {
       for (const fixture of fixtures) {
         const position = fixturePositions.get(fixture.id);
         if (!position) continue;
 
-        const canvasPos = normalizedToCanvas(position.x, position.y);
-        const size = FIXTURE_SIZE * viewport.scale;
+        const screenPos = positionToScreen(position.x, position.y);
+        // Fixture size is FIXED on screen (80px), regardless of zoom
+        const halfSize = FIXTURE_SIZE / 2;
 
         if (
-          x >= canvasPos.x - size / 2 &&
-          x <= canvasPos.x + size / 2 &&
-          y >= canvasPos.y - size / 2 &&
-          y <= canvasPos.y + size / 2
+          x >= screenPos.x - halfSize &&
+          x <= screenPos.x + halfSize &&
+          y >= screenPos.y - halfSize &&
+          y <= screenPos.y + halfSize
         ) {
           return fixture.id;
         }
       }
       return null;
     },
-    [fixtures, fixturePositions, normalizedToCanvas, viewport.scale],
+    [fixtures, fixturePositions, positionToScreen],
   );
 
   // Get fixture color from channel values using intelligent color mapping
@@ -395,8 +414,9 @@ export default function LayoutCanvas({
       const position = fixturePositions.get(fixture.id);
       if (!position) return;
 
-      const canvasPos = normalizedToCanvas(position.x, position.y);
-      const size = FIXTURE_SIZE * viewport.scale;
+      const canvasPos = positionToScreen(position.x, position.y);
+      // Fixtures have FIXED screen size (80px) regardless of zoom
+      const size = FIXTURE_SIZE;
 
       // Get fixture color and RGB components
       const { color, r, g, b } = getFixtureColor(fixture);
@@ -496,7 +516,7 @@ export default function LayoutCanvas({
     isTouchMarquee,
     touchMarqueeStart,
     touchMarqueeCurrent,
-    normalizedToCanvas,
+    positionToScreen,
     getFixtureColor,
     getTextColor,
     showLabels,
@@ -555,7 +575,7 @@ export default function LayoutCanvas({
       fixturesToDrag.forEach((fixtureId) => {
         const position = fixturePositions.get(fixtureId);
         if (position) {
-          const canvasPos = normalizedToCanvas(position.x, position.y);
+          const canvasPos = positionToScreen(position.x, position.y);
           offsets.set(fixtureId, {
             x: canvasPos.x - x,
             y: canvasPos.y - y,
@@ -609,19 +629,18 @@ export default function LayoutCanvas({
         const newCanvasX = x + offset.x;
         const newCanvasY = y + offset.y;
 
-        // Convert to normalized coordinates
-        const normalized = canvasToNormalized(newCanvasX, newCanvasY);
+        // Convert to pixel coordinates (virtual canvas)
+        const pixelPos = screenToPosition(newCanvasX, newCanvasY);
 
-        // Clamp to 0-1 range
-        const clampedX = Math.max(0, Math.min(1, normalized.x));
-        const clampedY = Math.max(0, Math.min(1, normalized.y));
+        // Clamp to canvas bounds (pixel coordinates)
+        const clamped = clampToCanvas(pixelPos.x, pixelPos.y, canvasWidth, canvasHeight);
 
         const existingPos = newPositions.get(fixtureId);
         if (existingPos) {
           newPositions.set(fixtureId, {
             ...existingPos,
-            x: clampedX,
-            y: clampedY,
+            x: clamped.x,
+            y: clamped.y,
           });
         }
       });
@@ -657,7 +676,7 @@ export default function LayoutCanvas({
         const position = fixturePositions.get(fixture.id);
         if (!position) return;
 
-        const canvasPos = normalizedToCanvas(position.x, position.y);
+        const canvasPos = positionToScreen(position.x, position.y);
 
         // Check if fixture center is within marquee
         if (
@@ -941,7 +960,7 @@ export default function LayoutCanvas({
           fixturesToDrag.forEach((fixtureId) => {
             const position = fixturePositions.get(fixtureId);
             if (position) {
-              const canvasPos = normalizedToCanvas(position.x, position.y);
+              const canvasPos = positionToScreen(position.x, position.y);
               offsets.set(fixtureId, {
                 x: canvasPos.x - singleTouchStart.canvasX,
                 y: canvasPos.y - singleTouchStart.canvasY,
@@ -974,19 +993,18 @@ export default function LayoutCanvas({
           const newCanvasX = x + offset.x;
           const newCanvasY = y + offset.y;
 
-          // Convert to normalized coordinates
-          const normalized = canvasToNormalized(newCanvasX, newCanvasY);
+          // Convert to pixel coordinates (virtual canvas)
+          const pixelPos = screenToPosition(newCanvasX, newCanvasY);
 
-          // Clamp to 0-1 range
-          const clampedX = Math.max(0, Math.min(1, normalized.x));
-          const clampedY = Math.max(0, Math.min(1, normalized.y));
+          // Clamp to canvas bounds (pixel coordinates)
+          const clamped = clampToCanvas(pixelPos.x, pixelPos.y, canvasWidth, canvasHeight);
 
           const existingPos = newPositions.get(fixtureId);
           if (existingPos) {
             newPositions.set(fixtureId, {
               ...existingPos,
-              x: clampedX,
-              y: clampedY,
+              x: clamped.x,
+              y: clamped.y,
             });
           }
         });
@@ -1018,7 +1036,7 @@ export default function LayoutCanvas({
         const position = fixturePositions.get(fixture.id);
         if (!position) return;
 
-        const canvasPos = normalizedToCanvas(position.x, position.y);
+        const canvasPos = positionToScreen(position.x, position.y);
 
         // Check if fixture center is within marquee
         if (

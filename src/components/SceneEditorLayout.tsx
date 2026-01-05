@@ -1641,6 +1641,8 @@ export default function SceneEditorLayout({
               onPaste={handlePasteFixtureValues}
               canPaste={copiedChannelValues !== null}
               showCopiedFeedback={showCopiedFeedback}
+              canvasWidth={scene.project?.layoutCanvasWidth}
+              canvasHeight={scene.project?.layoutCanvasHeight}
             />
             {selectedFixtures.length > 0 && (
               <MultiSelectControls
