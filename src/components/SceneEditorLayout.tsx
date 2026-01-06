@@ -19,7 +19,6 @@ import MultiSelectControls from "./MultiSelectControls";
 import UnsavedChangesModal from "./UnsavedChangesModal";
 import SceneEditorMobileToolbar from "./SceneEditorMobileToolbar";
 import SceneEditorBottomActions from "./SceneEditorBottomActions";
-import { useIsMobile } from "@/hooks/useMediaQuery";
 import { sparseToDense, denseToSparse } from "@/utils/channelConversion";
 import { useUndoStack, UndoDelta, UndoAction } from "@/hooks/useUndoStack";
 import {
@@ -158,7 +157,6 @@ export default function SceneEditorLayout({
   returnCueNumber,
 }: SceneEditorLayoutProps) {
   const router = useRouter();
-  const isMobile = useIsMobile();
 
   // Track mounted state to prevent state updates after unmount
   const isMounted = useRef<boolean>(true);
@@ -1591,7 +1589,7 @@ export default function SceneEditorLayout({
       </div>
 
       {/* Editor content area */}
-      <div className={`flex-1 overflow-hidden relative ${isMobile ? 'pb-36' : ''}`}>
+      <div className="flex-1 overflow-hidden relative pb-36 md:pb-0">
         {sceneLoading ? (
           <div className="h-full flex items-center justify-center text-gray-400">
             Loading scene...
