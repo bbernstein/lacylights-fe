@@ -15,8 +15,11 @@ import { ReconnectCountdown } from '@/components/system-update/ReconnectCountdow
 import { useReconnectPoller } from '@/hooks/useReconnectPoller';
 import { isPrerelease, compareVersions, normalizeVersion } from './utils';
 
-/** Backend repository names that trigger server restart on update */
-const BACKEND_REPOS = ['lacylights-go', 'lacylights-mcp'] as const;
+/**
+ * Backend repository names that trigger server restart on update.
+ * Note: MCP is managed independently by the Mac app and is not part of RPi distribution.
+ */
+const BACKEND_REPOS = ['lacylights-go'] as const;
 const GO_BACKEND_REPO = 'lacylights-go';
 
 /** Seconds to wait before auto-refreshing after update completes */
