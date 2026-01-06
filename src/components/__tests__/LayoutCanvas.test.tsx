@@ -36,6 +36,7 @@ const mockContext = {
   fillText: jest.fn(),
   clearRect: jest.fn(),
   setLineDash: jest.fn(),
+  measureText: jest.fn(() => ({ width: 50 })),
 };
 
 beforeAll(() => {

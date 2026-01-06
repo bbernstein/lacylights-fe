@@ -402,6 +402,142 @@ export default function LayoutCanvas({
     [],
   );
 
+  /**
+   * Abbreviate a long fixture name to fit in limited space.
+   * Tries to preserve meaningful parts of the name.
+   * Examples:
+   *   "spot01" -> "spot01" (short enough)
+   *   "Chauvet DJ SlimPar Pro RGBA 4-chan mode #41" -> "Ch…#41"
+   *   "Front Wash Left" -> "F…Left"
+   */
+  const abbreviateName = useCallback(
+    (name: string, maxChars: number): string => {
+      if (name.length <= maxChars) return name;
+
+      // For very short max, just use first char + ellipsis
+      if (maxChars <= 4) {
+        return name.slice(0, maxChars - 1) + "…";
+      }
+
+      // Try to find a number at the end (common for fixtures like "spot01", "#41")
+      const numberMatch = name.match(/[#]?\d+$/);
+      if (numberMatch) {
+        const suffix = numberMatch[0];
+        const prefix = name.slice(0, name.length - suffix.length).trim();
+        const availableForPrefix = maxChars - suffix.length - 1; // -1 for ellipsis
+
+        if (availableForPrefix >= 2) {
+          // Take first few chars of prefix + ellipsis + suffix
+          return prefix.slice(0, availableForPrefix) + "…" + suffix;
+        }
+      }
+
+      // Try to preserve first and last parts
+      const halfChars = Math.floor((maxChars - 1) / 2); // -1 for ellipsis
+      if (halfChars >= 2) {
+        return name.slice(0, halfChars) + "…" + name.slice(-halfChars);
+      }
+
+      // Fallback: just truncate with ellipsis
+      return name.slice(0, maxChars - 1) + "…";
+    },
+    [],
+  );
+
+  /**
+   * Calculate the optimal font size and text to display for a fixture label.
+   * Returns the font size to use and the (possibly abbreviated) text.
+   */
+  const calculateFittedText = useCallback(
+    (
+      ctx: CanvasRenderingContext2D,
+      name: string,
+      boxSize: number,
+      minFontSize: number,
+      maxFontSize: number,
+    ): { fontSize: number; text: string; lines: string[] } => {
+      const padding = 8; // Padding inside the box
+      const maxWidth = boxSize - padding * 2;
+      const maxHeight = boxSize - padding * 2;
+
+      // Try to fit the full name first, then progressively abbreviate
+      let text = name;
+      let fontSize = maxFontSize;
+
+      // Binary search for the best font size
+      const tryFit = (testText: string, testSize: number): { fits: boolean; lines: string[] } => {
+        ctx.font = `bold ${testSize}px sans-serif`;
+        const metrics = ctx.measureText(testText);
+        const textWidth = metrics.width;
+
+        // Single line fits?
+        if (textWidth <= maxWidth) {
+          return { fits: true, lines: [testText] };
+        }
+
+        // Try word wrapping for 2 lines
+        const words = testText.split(/\s+/);
+        if (words.length >= 2) {
+          // Try to split into 2 roughly equal lines
+          let bestSplit = -1;
+          let bestDiff = Infinity;
+
+          for (let i = 1; i < words.length; i++) {
+            const line1 = words.slice(0, i).join(" ");
+            const line2 = words.slice(i).join(" ");
+            const width1 = ctx.measureText(line1).width;
+            const width2 = ctx.measureText(line2).width;
+            const maxLineWidth = Math.max(width1, width2);
+            const diff = Math.abs(width1 - width2);
+
+            if (maxLineWidth <= maxWidth && diff < bestDiff) {
+              bestDiff = diff;
+              bestSplit = i;
+            }
+          }
+
+          if (bestSplit > 0) {
+            const lineHeight = testSize * 1.2;
+            if (lineHeight * 2 <= maxHeight) {
+              return {
+                fits: true,
+                lines: [
+                  words.slice(0, bestSplit).join(" "),
+                  words.slice(bestSplit).join(" "),
+                ],
+              };
+            }
+          }
+        }
+
+        return { fits: false, lines: [] };
+      };
+
+      // First try with full name at max font size, decreasing until it fits or hits min
+      for (fontSize = maxFontSize; fontSize >= minFontSize; fontSize -= 1) {
+        const result = tryFit(text, fontSize);
+        if (result.fits) {
+          return { fontSize, text, lines: result.lines };
+        }
+      }
+
+      // At minimum font size, try abbreviating the name
+      fontSize = minFontSize;
+      for (let maxChars = name.length - 1; maxChars >= 4; maxChars--) {
+        text = abbreviateName(name, maxChars);
+        const result = tryFit(text, fontSize);
+        if (result.fits) {
+          return { fontSize, text, lines: result.lines };
+        }
+      }
+
+      // Final fallback: just use abbreviated text, even if it overflows slightly
+      text = abbreviateName(name, 6);
+      return { fontSize: minFontSize, text, lines: [text] };
+    },
+    [abbreviateName],
+  );
+
   // Render the canvas
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -489,14 +625,39 @@ export default function LayoutCanvas({
 
       ctx.restore();
 
-      // Draw label with contrast-aware text color
-      if (showLabels && viewport.scale > 0.5) {
+      // Draw label with contrast-aware text color and smart text fitting
+      if (showLabels && viewport.scale > 0.3) {
         const textColor = getTextColor(r, g, b);
         ctx.fillStyle = textColor;
-        ctx.font = `${Math.max(10, 12 * viewport.scale)}px sans-serif`;
+
+        // Calculate font size based on box size (which scales with zoom)
+        // Min font size scales down but has a floor for readability
+        const minFontSize = Math.max(8, 10 * viewport.scale);
+        const maxFontSize = Math.max(12, size * 0.25); // Max 25% of box size
+
+        // Get fitted text and font size
+        const { fontSize, lines } = calculateFittedText(
+          ctx,
+          fixture.name,
+          size,
+          minFontSize,
+          maxFontSize,
+        );
+
+        ctx.font = `bold ${fontSize}px sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(fixture.name, canvasPos.x, canvasPos.y);
+
+        // Draw text (single line or multi-line)
+        if (lines.length === 1) {
+          ctx.fillText(lines[0], canvasPos.x, canvasPos.y);
+        } else if (lines.length === 2) {
+          const lineHeight = fontSize * 1.2;
+          const totalHeight = lineHeight * 2;
+          const startY = canvasPos.y - totalHeight / 2 + lineHeight / 2;
+          ctx.fillText(lines[0], canvasPos.x, startY);
+          ctx.fillText(lines[1], canvasPos.x, startY + lineHeight);
+        }
       }
     });
 
@@ -549,6 +710,7 @@ export default function LayoutCanvas({
     positionToScreen,
     getFixtureColor,
     getTextColor,
+    calculateFittedText,
     showLabels,
   ]);
 
