@@ -176,6 +176,9 @@ export default function LayoutCanvas({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Track whether we've done the initial fit-to-view
+  const hasInitialFit = useRef(false);
+
   // Canvas settings
   const [showLabels, setShowLabels] = useState(true);
 
@@ -1150,18 +1153,29 @@ export default function LayoutCanvas({
     }));
   };
 
-  const handleFitToView = () => {
-    if (!canvasRef.current) return;
-    const canvas = canvasRef.current;
+  const handleFitToView = useCallback(() => {
+    if (!canvasRef.current || !containerRef.current) return;
+    const container = containerRef.current;
+    const rect = container.getBoundingClientRect();
 
     // Guard against division by zero during initial render
-    if (canvas.width <= 0 || canvas.height <= 0) return;
+    if (rect.width <= 0 || rect.height <= 0) return;
 
-    // Calculate bounds of all fixtures
-    let minX = 1,
-      minY = 1,
-      maxX = 0,
-      maxY = 0;
+    // If no fixtures, just center the canvas at 1x zoom
+    if (fixturePositions.size === 0) {
+      setViewport({
+        x: rect.width / 2 - canvasWidth / 2,
+        y: rect.height / 2 - canvasHeight / 2,
+        scale: 1,
+      });
+      return;
+    }
+
+    // Calculate bounds of all fixtures (in pixel coordinates)
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
 
     fixturePositions.forEach((pos) => {
       minX = Math.min(minX, pos.x);
@@ -1170,26 +1184,62 @@ export default function LayoutCanvas({
       maxY = Math.max(maxY, pos.y);
     });
 
-    const width = maxX - minX;
-    const height = maxY - minY;
-    const centerX = minX + width / 2;
-    const centerY = minY + height / 2;
+    // Add padding for fixture size (half size on each side)
+    const padding = FIXTURE_SIZE;
+    minX -= padding;
+    minY -= padding;
+    maxX += padding;
+    maxY += padding;
 
-    // Guard against division by zero if fixture bounds width or height are zero
-    if (width <= 0 || height <= 0) return;
+    const fixturesWidth = maxX - minX;
+    const fixturesHeight = maxY - minY;
+    const centerX = minX + fixturesWidth / 2;
+    const centerY = minY + fixturesHeight / 2;
 
-    // Calculate scale to fit
-    // Convert fixture size padding from pixels to normalized coordinates, then calculate scale
-    const scaleX = 1 / (width + (FIXTURE_SIZE * 2) / canvas.width);
-    const scaleY = 1 / (height + (FIXTURE_SIZE * 2) / canvas.height);
+    // Guard against division by zero if fixture bounds are too small
+    if (fixturesWidth <= 0 || fixturesHeight <= 0) {
+      setViewport({
+        x: rect.width / 2 - centerX,
+        y: rect.height / 2 - centerY,
+        scale: 1,
+      });
+      return;
+    }
+
+    // Calculate scale to fit all fixtures within the viewport
+    // Leave some margin (10%) around the edges
+    const margin = 0.9;
+    const scaleX = (rect.width * margin) / fixturesWidth;
+    const scaleY = (rect.height * margin) / fixturesHeight;
     const scale = Math.min(scaleX, scaleY, MAX_ZOOM);
 
+    // Calculate viewport position to center the fixtures
+    // The viewport x,y is the screen position of the canvas origin (0,0)
+    // To center fixtures: screen_center = canvas_center * scale + viewport_offset
+    // So: viewport_offset = screen_center - canvas_center * scale
     setViewport({
-      x: canvas.width / 2 - centerX * canvas.width * scale,
-      y: canvas.height / 2 - centerY * canvas.height * scale,
-      scale,
+      x: rect.width / 2 - centerX * scale,
+      y: rect.height / 2 - centerY * scale,
+      scale: Math.max(MIN_ZOOM, scale),
     });
-  };
+  }, [fixturePositions, canvasWidth, canvasHeight]);
+
+  // Auto-fit view on initial load when fixtures are ready
+  useEffect(() => {
+    // Only fit once, when we have fixtures and container is ready
+    if (
+      !hasInitialFit.current &&
+      fixturePositions.size > 0 &&
+      containerRef.current
+    ) {
+      // Small delay to ensure container has its final dimensions
+      const timeoutId = setTimeout(() => {
+        handleFitToView();
+        hasInitialFit.current = true;
+      }, 50);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [fixturePositions.size, handleFitToView]);
 
   // Save layout positions to database
   const handleSaveLayout = async () => {
