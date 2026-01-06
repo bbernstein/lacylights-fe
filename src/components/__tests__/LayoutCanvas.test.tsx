@@ -36,7 +36,7 @@ const mockContext = {
   fillText: jest.fn(),
   clearRect: jest.fn(),
   setLineDash: jest.fn(),
-  measureText: jest.fn(() => ({ width: 50 })),
+  measureText: jest.fn((text: string) => ({ width: text.length * 8 })), // ~8px per char
 };
 
 beforeAll(() => {
@@ -1343,6 +1343,134 @@ describe("LayoutCanvas", () => {
         writable: true,
       });
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe("text fitting and abbreviation", () => {
+    it("renders fixture with short name without abbreviation", async () => {
+      const shortNameFixture: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "short-name-fixture",
+        name: "Spot01",
+      };
+
+      render(
+        <MockedProvider mocks={[]} addTypename={false}>
+          <LayoutCanvas
+            fixtures={[shortNameFixture]}
+            fixtureValues={new Map([[shortNameFixture.id, [255, 0, 0, 128]]])}
+            canvasWidth={2000}
+            canvasHeight={2000}
+          />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        // Verify fillText was called (rendering occurred)
+        expect(mockContext.fillText).toHaveBeenCalled();
+      });
+    });
+
+    it("renders fixture with long name (triggers abbreviation logic)", async () => {
+      const longNameFixture: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "long-name-fixture",
+        name: "Chauvet DJ SlimPar Pro RGBA 4-channel mode #41",
+      };
+
+      render(
+        <MockedProvider mocks={[]} addTypename={false}>
+          <LayoutCanvas
+            fixtures={[longNameFixture]}
+            fixtureValues={new Map([[longNameFixture.id, [255, 128, 0, 200]]])}
+            canvasWidth={2000}
+            canvasHeight={2000}
+          />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        // The text fitting logic should have been triggered
+        expect(mockContext.fillText).toHaveBeenCalled();
+        expect(mockContext.measureText).toHaveBeenCalled();
+      });
+    });
+
+    it("renders fixture with name containing number suffix", async () => {
+      const numberedFixture: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "numbered-fixture",
+        name: "Front Wash #15",
+      };
+
+      render(
+        <MockedProvider mocks={[]} addTypename={false}>
+          <LayoutCanvas
+            fixtures={[numberedFixture]}
+            fixtureValues={new Map([[numberedFixture.id, [0, 255, 0, 150]]])}
+            canvasWidth={2000}
+            canvasHeight={2000}
+          />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        expect(mockContext.fillText).toHaveBeenCalled();
+      });
+    });
+
+    it("renders multiple fixtures with varying name lengths", async () => {
+      const fixturesWithNames: FixtureInstance[] = [
+        { ...mockFixtures[0], id: "f1", name: "A" },
+        { ...mockFixtures[0], id: "f2", name: "Medium Length Name" },
+        { ...mockFixtures[0], id: "f3", name: "Very Long Fixture Name That Will Definitely Need Abbreviation #123" },
+      ];
+
+      const fixtureValues = new Map([
+        ["f1", [255, 0, 0, 255]],
+        ["f2", [0, 255, 0, 255]],
+        ["f3", [0, 0, 255, 255]],
+      ]);
+
+      render(
+        <MockedProvider mocks={[]} addTypename={false}>
+          <LayoutCanvas
+            fixtures={fixturesWithNames}
+            fixtureValues={fixtureValues}
+            canvasWidth={2000}
+            canvasHeight={2000}
+          />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        // Each fixture should have triggered text rendering
+        expect(mockContext.fillText.mock.calls.length).toBeGreaterThanOrEqual(3);
+      });
+    });
+
+    it("handles fixture with no active channels (uses default color)", async () => {
+      const fixture: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "no-color-fixture",
+        name: "Inactive Light",
+      };
+
+      // All zeros means no active channels
+      render(
+        <MockedProvider mocks={[]} addTypename={false}>
+          <LayoutCanvas
+            fixtures={[fixture]}
+            fixtureValues={new Map([[fixture.id, [0, 0, 0, 0]]])}
+            canvasWidth={2000}
+            canvasHeight={2000}
+          />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        expect(mockContext.fillText).toHaveBeenCalled();
+      });
     });
   });
 });
