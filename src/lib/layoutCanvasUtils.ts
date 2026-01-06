@@ -9,12 +9,12 @@
  * - Screen Space: The actual visible area in the browser window
  * - Viewport: Transforms virtual canvas coordinates to screen coordinates (pan + zoom)
  *
- * Unlike the Scene Board, fixtures in the 2D Layout maintain a FIXED screen size
- * (FIXTURE_SIZE = 80px) regardless of zoom level. Only their positions scale with zoom.
+ * Fixtures scale with zoom level (80px at 1x zoom), matching Scene Board behavior.
+ * Both fixture positions AND sizes scale together, keeping proportions consistent.
  */
 
 /**
- * Fixed fixture size in screen pixels (does not scale with zoom)
+ * Base fixture size in pixels (scales with zoom: 80px at 1x zoom)
  */
 export const FIXTURE_SIZE = 80;
 
