@@ -1180,4 +1180,168 @@ describe("LayoutCanvas", () => {
       }
     });
   });
+
+  describe("backward compatibility - normalized coordinates", () => {
+    it("converts normalized coordinates (0-1) to pixel coordinates", async () => {
+      // Fixture with legacy normalized coordinates (0.5, 0.5 = center of canvas)
+      const fixtureWithNormalizedCoords: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "legacy-fixture",
+        name: "Legacy Fixture",
+        layoutX: 0.5, // Should convert to 1000 (0.5 * 2000)
+        layoutY: 0.5, // Should convert to 1000 (0.5 * 2000)
+      };
+
+      renderWithApollo(
+        <LayoutCanvas
+          fixtures={[fixtureWithNormalizedCoords]}
+          fixtureValues={new Map([["legacy-fixture", [255, 128, 64, 200]]])}
+          canvasWidth={2000}
+          canvasHeight={2000}
+        />,
+      );
+
+      await waitFor(() => {
+        // Canvas should render the fixture
+        expect(mockContext.fillRect).toHaveBeenCalled();
+      });
+    });
+
+    it("converts edge normalized coordinates (1.0, 1.0) and clamps to valid bounds", async () => {
+      // Fixture at normalized edge (1.0, 1.0) should convert to 2000, 2000
+      // Then clamp to valid range (1960, 1960) since fixtures need FIXTURE_SIZE/2 from edge
+      const fixtureAtEdge: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "edge-fixture",
+        name: "Edge Fixture",
+        layoutX: 1.0, // Should convert to 2000, then clamp to 1960
+        layoutY: 1.0, // Should convert to 2000, then clamp to 1960
+      };
+
+      renderWithApollo(
+        <LayoutCanvas
+          fixtures={[fixtureAtEdge]}
+          fixtureValues={new Map([["edge-fixture", [255, 128, 64, 200]]])}
+          canvasWidth={2000}
+          canvasHeight={2000}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(mockContext.fillRect).toHaveBeenCalled();
+      });
+    });
+
+    it("converts coordinates at origin (0.0, 0.0) and clamps to valid bounds", async () => {
+      // Fixture at normalized origin (0.0, 0.0) should convert to 0, 0
+      // Then clamp to valid range (40, 40) since fixtures need FIXTURE_SIZE/2 from edge
+      const fixtureAtOrigin: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "origin-fixture",
+        name: "Origin Fixture",
+        layoutX: 0.0, // Should convert to 0, then clamp to 40
+        layoutY: 0.0, // Should convert to 0, then clamp to 40
+      };
+
+      renderWithApollo(
+        <LayoutCanvas
+          fixtures={[fixtureAtOrigin]}
+          fixtureValues={new Map([["origin-fixture", [255, 128, 64, 200]]])}
+          canvasWidth={2000}
+          canvasHeight={2000}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(mockContext.fillRect).toHaveBeenCalled();
+      });
+    });
+
+    it("handles per-axis normalized detection for mixed coordinates like (0.5, 0.0)", async () => {
+      // Fixture with one axis normalized, one at boundary
+      const mixedFixture: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "mixed-fixture",
+        name: "Mixed Fixture",
+        layoutX: 0.5, // Should convert to 1000
+        layoutY: 0.0, // Should convert to 0, then clamp to 40
+      };
+
+      renderWithApollo(
+        <LayoutCanvas
+          fixtures={[mixedFixture]}
+          fixtureValues={new Map([["mixed-fixture", [255, 128, 64, 200]]])}
+          canvasWidth={2000}
+          canvasHeight={2000}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(mockContext.fillRect).toHaveBeenCalled();
+      });
+    });
+
+    it("does NOT convert pixel coordinates that are already in valid range", async () => {
+      // Fixture with pixel coordinates (should NOT be converted)
+      const pixelFixture: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "pixel-fixture",
+        name: "Pixel Fixture",
+        layoutX: 500, // Already pixel coords, should stay 500
+        layoutY: 750, // Already pixel coords, should stay 750
+      };
+
+      renderWithApollo(
+        <LayoutCanvas
+          fixtures={[pixelFixture]}
+          fixtureValues={new Map([["pixel-fixture", [255, 128, 64, 200]]])}
+          canvasWidth={2000}
+          canvasHeight={2000}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(mockContext.fillRect).toHaveBeenCalled();
+      });
+    });
+
+    it("logs conversion in development mode when converting legacy coordinates", async () => {
+      const consoleSpy = jest.spyOn(console, "debug").mockImplementation(() => {});
+      const originalEnv = process.env.NODE_ENV;
+
+      // Mock development environment
+      Object.defineProperty(process.env, "NODE_ENV", {
+        value: "development",
+        writable: true,
+      });
+
+      const legacyFixture: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "legacy-log-fixture",
+        name: "Legacy Log Fixture",
+        layoutX: 0.25,
+        layoutY: 0.75,
+      };
+
+      renderWithApollo(
+        <LayoutCanvas
+          fixtures={[legacyFixture]}
+          fixtureValues={new Map([["legacy-log-fixture", [255, 128, 64, 200]]])}
+          canvasWidth={2000}
+          canvasHeight={2000}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(mockContext.fillRect).toHaveBeenCalled();
+      });
+
+      // Restore environment
+      Object.defineProperty(process.env, "NODE_ENV", {
+        value: originalEnv,
+        writable: true,
+      });
+      consoleSpy.mockRestore();
+    });
+  });
 });

@@ -237,12 +237,24 @@ export default function LayoutCanvas({
           // The backend should already convert these, but this is a safety net.
           // Check each axis independently to handle edge cases like (0.5, 0.0) or (1.0, 0.5).
           // Values in the normalized range [0, 1] are treated as normalized coordinates.
+          //
+          // KNOWN LIMITATION: Pixel positions 0 or 1 would be incorrectly treated as normalized.
+          // In practice this is very unlikely since:
+          // 1. Fixtures are clamped to FIXTURE_SIZE/2 (40px) minimum
+          // 2. After migration, all coordinates should be in pixel range
+          // 3. The backend migration script handles the authoritative conversion
           const xIsNormalized =
             isNormalizedCoordinate(x) || x === 0 || x === 1;
           const yIsNormalized =
             isNormalizedCoordinate(y) || y === 0 || y === 1;
 
           if (xIsNormalized || yIsNormalized) {
+            // Log when conversion is applied to help identify migration issues
+            if (process.env.NODE_ENV === "development") {
+              console.debug(
+                `[LayoutCanvas] Converting legacy coordinates for fixture ${fixture.id}: (${fixture.layoutX}, ${fixture.layoutY}) → pixel space`
+              );
+            }
             if (xIsNormalized) {
               x = x * canvasWidth;
             }

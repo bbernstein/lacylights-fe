@@ -154,9 +154,14 @@ export function clampToCanvas(
 /**
  * Calculate fixture bounds in canvas coordinates.
  *
+ * This utility is provided for:
+ * - Collision detection between fixtures
+ * - Marquee selection bounds checking
+ * - Future features like fixture overlap warnings
+ *
  * @param x - Fixture center X in pixel coordinates
  * @param y - Fixture center Y in pixel coordinates
- * @returns Bounds object with left, top, right, bottom
+ * @returns Bounds object with left, top, right, bottom in pixel coordinates
  */
 export function getFixtureBounds(
   x: number,

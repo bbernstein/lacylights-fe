@@ -22,6 +22,10 @@ import SceneEditorBottomActions from "./SceneEditorBottomActions";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { sparseToDense, denseToSparse } from "@/utils/channelConversion";
 import { useUndoStack, UndoDelta, UndoAction } from "@/hooks/useUndoStack";
+import {
+  DEFAULT_CANVAS_WIDTH,
+  DEFAULT_CANVAS_HEIGHT,
+} from "@/lib/layoutCanvasUtils";
 
 interface SceneEditorLayoutProps {
   sceneId: string;
@@ -1641,8 +1645,8 @@ export default function SceneEditorLayout({
               onPaste={handlePasteFixtureValues}
               canPaste={copiedChannelValues !== null}
               showCopiedFeedback={showCopiedFeedback}
-              canvasWidth={scene.project?.layoutCanvasWidth}
-              canvasHeight={scene.project?.layoutCanvasHeight}
+              canvasWidth={scene.project?.layoutCanvasWidth ?? DEFAULT_CANVAS_WIDTH}
+              canvasHeight={scene.project?.layoutCanvasHeight ?? DEFAULT_CANVAS_HEIGHT}
             />
             {selectedFixtures.length > 0 && (
               <MultiSelectControls
