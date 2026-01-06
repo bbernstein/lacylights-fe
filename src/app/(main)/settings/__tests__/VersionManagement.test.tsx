@@ -20,12 +20,6 @@ const mockSystemVersionsSupported = {
       latest: "v2.0.0",
       updateAvailable: false,
     },
-    {
-      repository: "lacylights-mcp",
-      installed: "v0.5.0",
-      latest: "v0.6.0",
-      updateAvailable: true,
-    },
   ],
 };
 
@@ -157,7 +151,6 @@ describe("VersionManagement (read-only)", () => {
 
       expect(screen.getByText("lacylights-fe")).toBeInTheDocument();
       expect(screen.getByText("lacylights-go")).toBeInTheDocument();
-      expect(screen.getByText("lacylights-mcp")).toBeInTheDocument();
     });
 
     it("shows update available badges for outdated repositories", async () => {
@@ -174,7 +167,7 @@ describe("VersionManagement (read-only)", () => {
       });
 
       const updateBadges = screen.getAllByText("Update Available");
-      expect(updateBadges).toHaveLength(2); // lacylights-fe and lacylights-mcp
+      expect(updateBadges).toHaveLength(1); // lacylights-fe only (lacylights-go is up to date)
     });
 
     it("displays installed and latest versions", async () => {
