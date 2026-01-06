@@ -56,6 +56,8 @@ export const GET_SCENE = gql`
       project {
         id
         name
+        layoutCanvasWidth
+        layoutCanvasHeight
       }
       fixtureValues {
         id

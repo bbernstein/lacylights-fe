@@ -29,6 +29,8 @@ const mockProjects = [
     scenes: [],
     cueLists: [],
     users: [],
+    layoutCanvasWidth: 2000,
+    layoutCanvasHeight: 2000,
   },
   {
     id: '2',
@@ -40,6 +42,8 @@ const mockProjects = [
     scenes: [],
     cueLists: [],
     users: [],
+    layoutCanvasWidth: 2000,
+    layoutCanvasHeight: 2000,
   },
 ];
 
@@ -53,6 +57,8 @@ const newProject = {
   scenes: [],
   cueLists: [],
   users: [],
+  layoutCanvasWidth: 2000,
+  layoutCanvasHeight: 2000,
 };
 
 const createMockProvider = (mocks: any[]) => { // eslint-disable-line @typescript-eslint/no-explicit-any

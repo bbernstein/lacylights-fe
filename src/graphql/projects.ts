@@ -8,6 +8,8 @@ export const GET_PROJECTS = gql`
       description
       createdAt
       updatedAt
+      layoutCanvasWidth
+      layoutCanvasHeight
     }
   }
 `;
@@ -20,6 +22,8 @@ export const GET_PROJECT = gql`
       description
       createdAt
       updatedAt
+      layoutCanvasWidth
+      layoutCanvasHeight
       fixtures {
         id
         name

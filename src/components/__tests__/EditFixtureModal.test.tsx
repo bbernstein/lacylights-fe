@@ -73,6 +73,8 @@ const mockFixture = {
     scenes: [],
     cueLists: [],
     users: [],
+    layoutCanvasWidth: 2000,
+    layoutCanvasHeight: 2000,
   },
   channels: [
     { id: 'ch-1', offset: 0, name: 'Red', type: ChannelType.RED, minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },

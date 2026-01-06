@@ -129,6 +129,8 @@ const mockFixture = {
     scenes: [],
     cueLists: [],
     users: [],
+    layoutCanvasWidth: 2000,
+    layoutCanvasHeight: 2000,
   },
   tags: [],
   createdAt: '2023-01-01T00:00:00Z',
