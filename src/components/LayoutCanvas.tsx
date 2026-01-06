@@ -324,7 +324,7 @@ export default function LayoutCanvas({
   );
 
   // Find fixture under mouse cursor
-  // Fixtures have FIXED screen size (not scaled with zoom)
+  // Fixtures scale with zoom (80px at 1x zoom)
   const getFixtureAtPosition = useCallback(
     (x: number, y: number): string | null => {
       for (const fixture of fixtures) {
@@ -332,8 +332,8 @@ export default function LayoutCanvas({
         if (!position) continue;
 
         const screenPos = positionToScreen(position.x, position.y);
-        // Fixture size is FIXED on screen (80px), regardless of zoom
-        const halfSize = FIXTURE_SIZE / 2;
+        // Fixture size scales with zoom (80px at 1x zoom)
+        const halfSize = (FIXTURE_SIZE * viewport.scale) / 2;
 
         if (
           x >= screenPos.x - halfSize &&
@@ -346,7 +346,7 @@ export default function LayoutCanvas({
       }
       return null;
     },
-    [fixtures, fixturePositions, positionToScreen],
+    [fixtures, fixturePositions, positionToScreen, viewport.scale],
   );
 
   // Get fixture color from channel values using intelligent color mapping
@@ -442,8 +442,8 @@ export default function LayoutCanvas({
       if (!position) return;
 
       const canvasPos = positionToScreen(position.x, position.y);
-      // Fixtures have FIXED screen size (80px) regardless of zoom
-      const size = FIXTURE_SIZE;
+      // Fixtures scale with zoom (80px at 1x zoom)
+      const size = FIXTURE_SIZE * viewport.scale;
 
       // Get fixture color and RGB components
       const { color, r, g, b } = getFixtureColor(fixture);

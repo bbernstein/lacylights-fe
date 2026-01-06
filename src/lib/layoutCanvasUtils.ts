@@ -179,8 +179,8 @@ export function getFixtureBounds(
 /**
  * Check if a screen point is within a fixture's bounds.
  *
- * Since fixtures have FIXED screen size (not scaled with zoom), hit detection
- * uses the inverse of the zoom scale for the hit radius.
+ * Fixtures scale with zoom (80px at 1x zoom), so hit detection
+ * uses the scaled fixture size.
  *
  * @param screenX - Screen X coordinate
  * @param screenY - Screen Y coordinate
@@ -199,8 +199,8 @@ export function isPointInFixture(
   // Convert fixture position to screen coordinates
   const fixtureScreen = pixelToScreen(fixtureX, fixtureY, viewport);
 
-  // Fixtures have fixed screen size (not scaled with zoom)
-  const halfSize = FIXTURE_SIZE / 2;
+  // Fixtures scale with zoom (80px at 1x zoom)
+  const halfSize = (FIXTURE_SIZE * viewport.scale) / 2;
 
   return (
     screenX >= fixtureScreen.x - halfSize &&

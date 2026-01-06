@@ -213,10 +213,11 @@ describe('layoutCanvasUtils', () => {
     it('handles zoomed viewport correctly', () => {
       const zoomedViewport: ViewportTransform = { x: 0, y: 0, scale: 2 };
       // At 2x zoom, fixture at 500,500 pixel coords appears at 1000,1000 screen coords
-      // Fixture screen size is still 80px (fixed), so clicks 500-540 on screen should hit
-      // But the fixture position on screen is 1000, so clicks 960-1040 should hit
+      // Fixture screen size is 160px (80 * 2), so halfSize is 80px
+      // Clicks from 920-1080 should hit (1000 ± 80)
       expect(isPointInFixture(1000, 1000, fixtureX, fixtureY, zoomedViewport)).toBe(true);
-      expect(isPointInFixture(1030, 1030, fixtureX, fixtureY, zoomedViewport)).toBe(true);
+      expect(isPointInFixture(1070, 1070, fixtureX, fixtureY, zoomedViewport)).toBe(true); // Within 80px of center
+      expect(isPointInFixture(1081, 1000, fixtureX, fixtureY, zoomedViewport)).toBe(false); // Just outside (> 80px from center)
       expect(isPointInFixture(500, 500, fixtureX, fixtureY, zoomedViewport)).toBe(false); // Too far from 1000,1000
     });
   });
