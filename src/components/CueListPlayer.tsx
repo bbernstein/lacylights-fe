@@ -103,6 +103,10 @@ export default function CueListPlayer({
   // Track previous cue index for auto-scroll to distinguish initial load from cue changes
   // undefined = first render (no scroll from this effect), number = subsequent renders
   const prevCueIndexForAutoScroll = useRef<number | undefined>(undefined);
+  // Timeout ID for visibility change scroll
+  const visibilityScrollTimeoutId = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // State for the slide-off animation after fade completes
   const [slideOffProgress, setSlideOffProgress] = useState<number>(0);
@@ -163,12 +167,16 @@ export default function CueListPlayer({
   }, [cueListIdProp]);
 
   // Reset initial scroll flag when cue list ID changes (e.g., navigating to different cue list)
-  // Also cancel any pending scroll RAF to prevent stale operations
+  // Also cancel any pending scroll operations to prevent stale operations
   useEffect(() => {
     hasPerformedInitialScroll.current = false;
     if (scrollRafId.current !== null) {
       cancelAnimationFrame(scrollRafId.current);
       scrollRafId.current = null;
+    }
+    if (cueChangeScrollTimeoutId.current !== null) {
+      clearTimeout(cueChangeScrollTimeoutId.current);
+      cueChangeScrollTimeoutId.current = null;
     }
   }, [actualCueListId]);
 
@@ -187,21 +195,10 @@ export default function CueListPlayer({
     }
   }, [pathname]);
 
-  // Track the last pathname we saw - used to detect navigation changes
-  const lastSeenPathname = useRef<string>(pathname);
-
-  // Check if we should reset scroll state (navigation detected)
-  useEffect(() => {
-    if (pathname !== lastSeenPathname.current) {
-      lastSeenPathname.current = pathname;
-      hasPerformedInitialScroll.current = false;
-      prevCueIndexForAutoScroll.current = undefined;
-    }
-  }); // No dependencies - runs on every render to catch any pathname changes
-
   // Handle tab visibility changes - scroll to current cue when returning to tab
   useEffect(() => {
     const scrollToCurrentCue = () => {
+      visibilityScrollTimeoutId.current = null;
       if (
         currentCueRef.current &&
         currentCueRef.current.isConnected &&
@@ -217,8 +214,12 @@ export default function CueListPlayer({
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
+        // Clear any pending visibility scroll timeout
+        if (visibilityScrollTimeoutId.current !== null) {
+          clearTimeout(visibilityScrollTimeoutId.current);
+        }
         // Small delay to ensure DOM is ready
-        setTimeout(scrollToCurrentCue, 50);
+        visibilityScrollTimeoutId.current = setTimeout(scrollToCurrentCue, 50);
       }
     };
 
@@ -226,14 +227,21 @@ export default function CueListPlayer({
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (visibilityScrollTimeoutId.current !== null) {
+        clearTimeout(visibilityScrollTimeoutId.current);
+        visibilityScrollTimeoutId.current = null;
+      }
     };
   }, []);
 
-  // Cleanup scroll RAF on unmount
+  // Cleanup scroll operations on unmount
   useEffect(() => {
     return () => {
       if (scrollRafId.current !== null) {
         cancelAnimationFrame(scrollRafId.current);
+      }
+      if (cueChangeScrollTimeoutId.current !== null) {
+        clearTimeout(cueChangeScrollTimeoutId.current);
       }
     };
   }, []);
