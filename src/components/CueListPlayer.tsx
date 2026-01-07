@@ -208,6 +208,42 @@ export default function CueListPlayer({
     }
   }); // No dependencies - runs on every render to catch any pathname changes
 
+  // Handle tab visibility changes - scroll to current cue when returning to tab
+  useEffect(() => {
+    const scrollToCurrentCue = () => {
+      if (
+        currentCueRef.current &&
+        currentCueRef.current.isConnected &&
+        currentCueRef.current.offsetParent !== null
+      ) {
+        if (process.env.NODE_ENV === "development") {
+          console.log("[SCROLL] Executing scroll on visibility change");
+        }
+        currentCueRef.current.scrollIntoView({
+          behavior: "instant",
+          block: "center",
+          inline: "nearest",
+        });
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        if (process.env.NODE_ENV === "development") {
+          console.log("[SCROLL] Tab became visible, scrolling to current cue");
+        }
+        // Small delay to ensure DOM is ready
+        setTimeout(scrollToCurrentCue, 50);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
   // Cleanup scroll RAF on unmount
   useEffect(() => {
     return () => {
