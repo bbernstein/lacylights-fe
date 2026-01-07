@@ -95,6 +95,10 @@ export default function CueListPlayer({
   const hasPerformedInitialScroll = useRef<boolean>(false);
   // RAF ID for cleanup when component unmounts or ref is detached
   const scrollRafId = useRef<number | null>(null);
+  // Timeout ID for cue change auto-scroll
+  const cueChangeScrollTimeoutId = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // State for the slide-off animation after fade completes
   const [slideOffProgress, setSlideOffProgress] = useState<number>(0);
@@ -318,8 +322,8 @@ export default function CueListPlayer({
       // Store the ref for use by scrollToLiveCue button
       currentCueRef.current = node;
 
-      // Only perform initial auto-scroll once per cue list visit
-      // Subsequent cue changes during playback don't need auto-scroll (user is watching)
+      // Perform instant scroll on initial load (once per cue list visit)
+      // Subsequent cue changes use smooth scrolling via separate useEffect
       // Note: cues.length > 0 check ensures cues are loaded before scrolling
       if (node && !hasPerformedInitialScroll.current && cues.length > 0) {
         hasPerformedInitialScroll.current = true;
@@ -361,6 +365,44 @@ export default function CueListPlayer({
       setFadingOutCueIndex(null);
     }
   }, [currentCueIndex, isFading, fadingOutCueIndex]);
+
+  // Auto-scroll to keep current cue visible when it changes during playback
+  // This ensures users don't need to manually scroll or click "scroll to live cue"
+  useEffect(() => {
+    // Cleanup any pending scroll timeout
+    if (cueChangeScrollTimeoutId.current !== null) {
+      clearTimeout(cueChangeScrollTimeoutId.current);
+      cueChangeScrollTimeoutId.current = null;
+    }
+
+    // Only auto-scroll if there's a valid current cue
+    if (currentCueIndex >= 0) {
+      // Small delay to ensure the DOM has updated with the new current cue ref
+      cueChangeScrollTimeoutId.current = setTimeout(() => {
+        cueChangeScrollTimeoutId.current = null;
+        if (
+          currentCueRef.current &&
+          currentCueRef.current.isConnected &&
+          currentCueRef.current.offsetParent !== null
+        ) {
+          requestAnimationFrame(() => {
+            currentCueRef.current?.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+              inline: "nearest",
+            });
+          });
+        }
+      }, 100);
+    }
+
+    return () => {
+      if (cueChangeScrollTimeoutId.current !== null) {
+        clearTimeout(cueChangeScrollTimeoutId.current);
+        cueChangeScrollTimeoutId.current = null;
+      }
+    };
+  }, [currentCueIndex]);
 
   // Slide-off animation: after fade completes, animate the curve sliding off to the left
   useEffect(() => {
