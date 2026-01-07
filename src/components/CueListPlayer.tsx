@@ -385,7 +385,7 @@ export default function CueListPlayer({
   }, [currentCueIndex, cues, cueList?.loop]);
 
   // Callback ref for storing reference to current cue element
-  // The actual scrolling is handled by a separate useEffect for better reliability
+  // Also handles initial scroll when node is attached and we haven't scrolled yet
   const currentCueCallbackRef = useCallback(
     (node: HTMLDivElement | null) => {
       // Store the ref for use by scrolling logic and scrollToLiveCue button
@@ -398,6 +398,35 @@ export default function CueListPlayer({
           hasPerformedInitialScroll: hasPerformedInitialScroll.current,
           cuesLength: cues.length,
           currentCueIndex,
+        });
+      }
+
+      // Perform initial scroll when we get a node and haven't scrolled yet
+      // This handles the case where the useEffect timeout fires before the ref is set
+      if (
+        node &&
+        !hasPerformedInitialScroll.current &&
+        node.isConnected &&
+        node.offsetParent !== null
+      ) {
+        hasPerformedInitialScroll.current = true;
+
+        if (process.env.NODE_ENV === "development") {
+          console.log("[SCROLL] Executing initial scroll from callback ref");
+        }
+
+        // Cancel any pending RAF from the useEffect
+        if (scrollRafId.current !== null) {
+          cancelAnimationFrame(scrollRafId.current);
+        }
+
+        scrollRafId.current = requestAnimationFrame(() => {
+          scrollRafId.current = null;
+          node.scrollIntoView({
+            behavior: "instant",
+            block: "center",
+            inline: "nearest",
+          });
         });
       }
     },
