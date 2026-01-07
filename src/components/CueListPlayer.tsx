@@ -1095,8 +1095,8 @@ export default function CueListPlayer({
         )}
       </div>
 
-      {/* Control Bar - with bottom padding for mobile nav bar and safe area clearance */}
-      <div className="bg-gray-800 border-t border-gray-700 p-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))]">
+      {/* Control Bar - with bottom padding for mobile nav bar and safe area clearance (only on mobile) */}
+      <div className="bg-gray-800 border-t border-gray-700 p-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-4">
         <div className="flex items-center justify-center space-x-4">
           {/* Scroll to live cue button */}
           <button
