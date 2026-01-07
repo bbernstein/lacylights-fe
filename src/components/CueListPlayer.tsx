@@ -107,6 +107,8 @@ export default function CueListPlayer({
   const visibilityScrollTimeoutId = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  // RAF ID for cue change smooth scroll
+  const cueChangeScrollRafId = useRef<number | null>(null);
 
   // State for the slide-off animation after fade completes
   const [slideOffProgress, setSlideOffProgress] = useState<number>(0);
@@ -242,6 +244,9 @@ export default function CueListPlayer({
       }
       if (cueChangeScrollTimeoutId.current !== null) {
         clearTimeout(cueChangeScrollTimeoutId.current);
+      }
+      if (cueChangeScrollRafId.current !== null) {
+        cancelAnimationFrame(cueChangeScrollRafId.current);
       }
     };
   }, []);
@@ -509,7 +514,12 @@ export default function CueListPlayer({
           currentCueRef.current.isConnected &&
           currentCueRef.current.offsetParent !== null
         ) {
-          requestAnimationFrame(() => {
+          // Cancel any pending RAF before scheduling new one
+          if (cueChangeScrollRafId.current !== null) {
+            cancelAnimationFrame(cueChangeScrollRafId.current);
+          }
+          cueChangeScrollRafId.current = requestAnimationFrame(() => {
+            cueChangeScrollRafId.current = null;
             currentCueRef.current?.scrollIntoView({
               behavior: "smooth",
               block: "center",
@@ -524,6 +534,10 @@ export default function CueListPlayer({
       if (cueChangeScrollTimeoutId.current !== null) {
         clearTimeout(cueChangeScrollTimeoutId.current);
         cueChangeScrollTimeoutId.current = null;
+      }
+      if (cueChangeScrollRafId.current !== null) {
+        cancelAnimationFrame(cueChangeScrollRafId.current);
+        cueChangeScrollRafId.current = null;
       }
     };
   }, [currentCueIndex]);

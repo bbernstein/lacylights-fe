@@ -854,7 +854,7 @@ describe("CueListPlayer", () => {
           expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
         });
 
-        // Run all timers to complete initial auto-scroll (instant) plus cue change scroll (smooth)
+        // Run all timers to complete any pending scroll operations
         jest.runAllTimers();
 
         mockScrollIntoView.mockClear();
