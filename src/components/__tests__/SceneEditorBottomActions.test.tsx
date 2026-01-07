@@ -170,11 +170,11 @@ describe('SceneEditorBottomActions', () => {
   });
 
   describe('Layout and styling', () => {
-    it('is fixed to the bottom of the viewport', () => {
+    it('is fixed above the mobile navigation bar', () => {
       render(<SceneEditorBottomActions {...defaultProps} />);
 
       const actions = screen.getByTestId('scene-editor-bottom-actions');
-      expect(actions).toHaveClass('fixed', 'bottom-0', 'left-0', 'right-0');
+      expect(actions).toHaveClass('fixed', 'bottom-16', 'left-0', 'right-0');
     });
 
     it('has high z-index', () => {
@@ -189,13 +189,6 @@ describe('SceneEditorBottomActions', () => {
 
       const actions = screen.getByTestId('scene-editor-bottom-actions');
       expect(actions).toHaveClass('md:hidden');
-    });
-
-    it('has safe area padding', () => {
-      render(<SceneEditorBottomActions {...defaultProps} />);
-
-      const actions = screen.getByTestId('scene-editor-bottom-actions');
-      expect(actions).toHaveClass('pb-safe');
     });
 
     it('has touch-manipulation class on all buttons', () => {

@@ -80,10 +80,10 @@ describe('MobileFixtureToolbar', () => {
   });
 
   describe('Styling', () => {
-    it('is positioned fixed at bottom-20', () => {
+    it('is positioned fixed at bottom-32 (above SceneEditorBottomActions)', () => {
       render(<MobileFixtureToolbar {...defaultProps} />);
       const toolbar = screen.getByTestId('mobile-fixture-toolbar');
-      expect(toolbar).toHaveClass('fixed', 'bottom-20', 'z-40');
+      expect(toolbar).toHaveClass('fixed', 'bottom-32', 'z-40');
     });
 
     it('is hidden on desktop (md:hidden)', () => {

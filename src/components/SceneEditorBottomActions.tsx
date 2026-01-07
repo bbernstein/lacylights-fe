@@ -73,7 +73,7 @@ export default function SceneEditorBottomActions({
 }: SceneEditorBottomActionsProps) {
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 px-4 py-3 md:hidden z-40 pb-safe"
+      className="fixed bottom-16 left-0 right-0 bg-gray-800 border-t border-gray-700 px-4 py-3 md:hidden z-40"
       data-testid={testId}
     >
       <div className="flex items-center justify-between max-w-lg mx-auto">

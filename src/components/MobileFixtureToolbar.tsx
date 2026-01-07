@@ -52,7 +52,7 @@ export default function MobileFixtureToolbar({
 }: MobileFixtureToolbarProps) {
   return (
     <div
-      className="fixed left-0 right-0 bottom-20 z-40 px-2 md:hidden"
+      className="fixed left-0 right-0 bottom-32 z-40 px-2 md:hidden"
       data-testid={testId}
     >
       <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-2 flex items-center gap-2">
