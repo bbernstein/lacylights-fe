@@ -175,6 +175,9 @@ export default function CueListPlayer({
   // Reset scroll state when pathname changes (e.g., navigating away and returning to same cue list)
   // This handles the case where Next.js preserves component state during client-side navigation
   useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      console.log("[SCROLL] Pathname changed, resetting scroll state:", pathname);
+    }
     hasPerformedInitialScroll.current = false;
     prevCueIndexForAutoScroll.current = undefined;
     if (scrollRafId.current !== null) {
@@ -186,6 +189,24 @@ export default function CueListPlayer({
       cueChangeScrollTimeoutId.current = null;
     }
   }, [pathname]);
+
+  // Track the last pathname we saw - used to detect navigation changes
+  const lastSeenPathname = useRef<string>(pathname);
+
+  // Check if we should reset scroll state (navigation detected)
+  useEffect(() => {
+    if (pathname !== lastSeenPathname.current) {
+      if (process.env.NODE_ENV === "development") {
+        console.log("[SCROLL] Navigation detected, resetting scroll state:", {
+          from: lastSeenPathname.current,
+          to: pathname,
+        });
+      }
+      lastSeenPathname.current = pathname;
+      hasPerformedInitialScroll.current = false;
+      prevCueIndexForAutoScroll.current = undefined;
+    }
+  }); // No dependencies - runs on every render to catch any pathname changes
 
   // Cleanup scroll RAF on unmount
   useEffect(() => {
@@ -327,41 +348,75 @@ export default function CueListPlayer({
     });
   }, [currentCueIndex, cues, cueList?.loop]);
 
-  // Callback ref for auto-scrolling to current cue when it's rendered in the DOM
-  // This reactive approach eliminates timing issues from hardcoded delays -
-  // the scroll triggers immediately when React attaches the element to the DOM
+  // Callback ref for storing reference to current cue element
+  // The actual scrolling is handled by a separate useEffect for better reliability
   const currentCueCallbackRef = useCallback(
     (node: HTMLDivElement | null) => {
-      // Cancel any pending RAF when ref is detached to prevent stale operations
-      if (scrollRafId.current !== null) {
-        cancelAnimationFrame(scrollRafId.current);
-        scrollRafId.current = null;
-      }
-
-      // Store the ref for use by scrollToLiveCue button
+      // Store the ref for use by scrolling logic and scrollToLiveCue button
       currentCueRef.current = node;
 
-      // Perform instant scroll on initial load (once per cue list visit)
-      // Subsequent cue changes use smooth scrolling via separate useEffect
-      // Note: cues.length > 0 check ensures cues are loaded before scrolling
-      if (node && !hasPerformedInitialScroll.current && cues.length > 0) {
-        hasPerformedInitialScroll.current = true;
-
-        // Use requestAnimationFrame to ensure layout is complete before scrolling
-        scrollRafId.current = requestAnimationFrame(() => {
-          scrollRafId.current = null;
-          if (node.isConnected && node.offsetParent !== null) {
-            node.scrollIntoView({
-              behavior: "instant",
-              block: "center",
-              inline: "nearest",
-            });
-          }
+      // Debug logging
+      if (process.env.NODE_ENV === "development") {
+        console.log("[SCROLL] Callback ref called:", {
+          hasNode: !!node,
+          hasPerformedInitialScroll: hasPerformedInitialScroll.current,
+          cuesLength: cues.length,
+          currentCueIndex,
         });
       }
     },
-    [cues.length],
+    [cues.length, currentCueIndex],
   );
+
+  // Effect to handle initial scroll when returning to the page or on first load
+  // This runs after render and handles the scroll logic separately from the ref callback
+  useEffect(() => {
+    // Skip if we've already scrolled or no valid cue
+    if (hasPerformedInitialScroll.current || currentCueIndex < 0 || cues.length === 0) {
+      return;
+    }
+
+    // Small delay to ensure the DOM is updated and ref is set
+    const scrollTimer = setTimeout(() => {
+      if (
+        currentCueRef.current &&
+        currentCueRef.current.isConnected &&
+        currentCueRef.current.offsetParent !== null &&
+        !hasPerformedInitialScroll.current
+      ) {
+        hasPerformedInitialScroll.current = true;
+
+        if (process.env.NODE_ENV === "development") {
+          console.log("[SCROLL] Executing initial instant scroll via effect");
+        }
+
+        // Cancel any pending RAF
+        if (scrollRafId.current !== null) {
+          cancelAnimationFrame(scrollRafId.current);
+        }
+
+        scrollRafId.current = requestAnimationFrame(() => {
+          scrollRafId.current = null;
+          currentCueRef.current?.scrollIntoView({
+            behavior: "instant",
+            block: "center",
+            inline: "nearest",
+          });
+        });
+      } else if (process.env.NODE_ENV === "development") {
+        console.log("[SCROLL] Skipped initial scroll:", {
+          hasRef: !!currentCueRef.current,
+          isConnected: currentCueRef.current?.isConnected,
+          hasOffsetParent: currentCueRef.current?.offsetParent !== null,
+          hasPerformedInitialScroll: hasPerformedInitialScroll.current,
+        });
+      }
+    }, 50);
+
+    return () => {
+      clearTimeout(scrollTimer);
+    };
+  }, [currentCueIndex, cues.length]);
 
   // Track cue changes and fade-out visualization for previous cue
   useEffect(() => {
