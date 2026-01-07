@@ -824,7 +824,8 @@ describe("CueListPlayer", () => {
       expect(mockScrollIntoView).not.toHaveBeenCalled();
     });
 
-    it("does not auto-scroll on re-render after initial scroll", async () => {
+    it("does not auto-scroll on re-render when cue index does not change", async () => {
+      jest.useFakeTimers();
       const mockScrollIntoView = jest.fn();
       Element.prototype.scrollIntoView = mockScrollIntoView;
 
@@ -848,30 +849,193 @@ describe("CueListPlayer", () => {
         const mocks = createMocks();
         const { rerender } = renderWithProvider(mocks);
 
-        // Wait for initial auto-scroll
-        await waitFor(
-          () => {
-            expect(mockScrollIntoView).toHaveBeenCalledTimes(1);
-          },
-          { timeout: 500 }
-        );
+        // Wait for component to render
+        await waitFor(() => {
+          expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+        });
+
+        // Run all timers to complete any pending scroll operations
+        jest.runAllTimers();
 
         mockScrollIntoView.mockClear();
 
-        // Re-render the component (simulating a state update during playback)
+        // Re-render the component without changing cue index
         rerender(
           <MockedProvider mocks={mocks} addTypename={false}>
             <CueListPlayer cueListId={mockCueListId} />
           </MockedProvider>
         );
 
-        // Wait to ensure no additional scroll occurs
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        // Run all timers to ensure any pending scrolls would complete
+        jest.runAllTimers();
 
-        // Should not scroll again after initial scroll
+        // Should not scroll again when cue index hasn't changed
         expect(mockScrollIntoView).not.toHaveBeenCalled();
       } finally {
+        jest.useRealTimers();
         // Restore original offsetParent
+        if (originalOffsetParent) {
+          Object.defineProperty(
+            HTMLElement.prototype,
+            "offsetParent",
+            originalOffsetParent
+          );
+        }
+      }
+    });
+
+    it("auto-scrolls with smooth behavior when cue index changes during playback", async () => {
+      jest.useFakeTimers();
+      const mockScrollIntoView = jest.fn();
+      Element.prototype.scrollIntoView = mockScrollIntoView;
+
+      // Mock isConnected and offsetParent for JSDOM compatibility
+      Object.defineProperty(Element.prototype, "isConnected", {
+        get: () => true,
+        configurable: true,
+      });
+      const originalOffsetParent = Object.getOwnPropertyDescriptor(
+        HTMLElement.prototype,
+        "offsetParent"
+      );
+      Object.defineProperty(HTMLElement.prototype, "offsetParent", {
+        get: function () {
+          return this.parentElement || document.body;
+        },
+        configurable: true,
+      });
+
+      try {
+        // Start with cue index 0
+        mockUseCueListPlayback.mockReturnValue({
+          playbackStatus: { ...mockPlaybackStatus, currentCueIndex: 0 },
+        });
+
+        const mocks = createMocks();
+        const { rerender } = renderWithProvider(mocks);
+
+        // Wait for initial render and initial scrolls
+        await waitFor(() => {
+          expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+        });
+
+        // Run timers to complete initial scroll
+        jest.runAllTimers();
+        mockScrollIntoView.mockClear();
+
+        // Simulate cue change to index 1
+        mockUseCueListPlayback.mockReturnValue({
+          playbackStatus: { ...mockPlaybackStatus, currentCueIndex: 1 },
+        });
+
+        rerender(
+          <MockedProvider mocks={mocks} addTypename={false}>
+            <CueListPlayer cueListId={mockCueListId} />
+          </MockedProvider>
+        );
+
+        // Run the timeout (100ms) for cue change scroll
+        jest.advanceTimersByTime(100);
+
+        // Run RAF
+        jest.runAllTimers();
+
+        // Should scroll with smooth behavior when cue changes
+        expect(mockScrollIntoView).toHaveBeenCalledWith({
+          behavior: "smooth",
+          block: "center",
+          inline: "nearest",
+        });
+      } finally {
+        jest.useRealTimers();
+        // Restore original offsetParent
+        if (originalOffsetParent) {
+          Object.defineProperty(
+            HTMLElement.prototype,
+            "offsetParent",
+            originalOffsetParent
+          );
+        }
+      }
+    });
+
+    it("auto-scrolls when advancing through multiple cues", async () => {
+      jest.useFakeTimers();
+      const mockScrollIntoView = jest.fn();
+      Element.prototype.scrollIntoView = mockScrollIntoView;
+
+      // Mock isConnected and offsetParent for JSDOM compatibility
+      Object.defineProperty(Element.prototype, "isConnected", {
+        get: () => true,
+        configurable: true,
+      });
+      const originalOffsetParent = Object.getOwnPropertyDescriptor(
+        HTMLElement.prototype,
+        "offsetParent"
+      );
+      Object.defineProperty(HTMLElement.prototype, "offsetParent", {
+        get: function () {
+          return this.parentElement || document.body;
+        },
+        configurable: true,
+      });
+
+      try {
+        // Start with cue index 0
+        mockUseCueListPlayback.mockReturnValue({
+          playbackStatus: { ...mockPlaybackStatus, currentCueIndex: 0 },
+        });
+
+        const mocks = createMocks();
+        const { rerender } = renderWithProvider(mocks);
+
+        await waitFor(() => {
+          expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+        });
+
+        jest.runAllTimers();
+        mockScrollIntoView.mockClear();
+
+        // Advance to cue 1
+        mockUseCueListPlayback.mockReturnValue({
+          playbackStatus: { ...mockPlaybackStatus, currentCueIndex: 1 },
+        });
+
+        rerender(
+          <MockedProvider mocks={mocks} addTypename={false}>
+            <CueListPlayer cueListId={mockCueListId} />
+          </MockedProvider>
+        );
+
+        jest.advanceTimersByTime(100);
+        jest.runAllTimers();
+
+        expect(mockScrollIntoView).toHaveBeenCalledTimes(1);
+        mockScrollIntoView.mockClear();
+
+        // Advance to cue 2
+        mockUseCueListPlayback.mockReturnValue({
+          playbackStatus: { ...mockPlaybackStatus, currentCueIndex: 2 },
+        });
+
+        rerender(
+          <MockedProvider mocks={mocks} addTypename={false}>
+            <CueListPlayer cueListId={mockCueListId} />
+          </MockedProvider>
+        );
+
+        jest.advanceTimersByTime(100);
+        jest.runAllTimers();
+
+        // Should scroll again for the new cue
+        expect(mockScrollIntoView).toHaveBeenCalledTimes(1);
+        expect(mockScrollIntoView).toHaveBeenCalledWith({
+          behavior: "smooth",
+          block: "center",
+          inline: "nearest",
+        });
+      } finally {
+        jest.useRealTimers();
         if (originalOffsetParent) {
           Object.defineProperty(
             HTMLElement.prototype,
