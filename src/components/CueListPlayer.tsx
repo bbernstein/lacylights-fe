@@ -99,6 +99,9 @@ export default function CueListPlayer({
   const cueChangeScrollTimeoutId = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  // Track previous cue index for auto-scroll to distinguish initial load from cue changes
+  // undefined = first render (no scroll from this effect), number = subsequent renders
+  const prevCueIndexForAutoScroll = useRef<number | undefined>(undefined);
 
   // State for the slide-off animation after fade completes
   const [slideOffProgress, setSlideOffProgress] = useState<number>(0);
@@ -368,6 +371,7 @@ export default function CueListPlayer({
 
   // Auto-scroll to keep current cue visible when it changes during playback
   // This ensures users don't need to manually scroll or click "scroll to live cue"
+  // Note: Initial scroll is handled by the callback ref (instant), this handles subsequent changes (smooth)
   useEffect(() => {
     // Cleanup any pending scroll timeout
     if (cueChangeScrollTimeoutId.current !== null) {
@@ -375,8 +379,24 @@ export default function CueListPlayer({
       cueChangeScrollTimeoutId.current = null;
     }
 
-    // Only auto-scroll if there's a valid current cue
-    if (currentCueIndex >= 0) {
+    // On first render, just record the value - don't scroll (callback ref handles initial scroll)
+    if (prevCueIndexForAutoScroll.current === undefined) {
+      prevCueIndexForAutoScroll.current = currentCueIndex;
+      return;
+    }
+
+    // If cue index hasn't actually changed, don't scroll
+    if (currentCueIndex === prevCueIndexForAutoScroll.current) {
+      return;
+    }
+
+    // Update tracked value
+    const previousValue = prevCueIndexForAutoScroll.current;
+    prevCueIndexForAutoScroll.current = currentCueIndex;
+
+    // Only auto-scroll if there's a valid current cue and we had a valid previous cue
+    // This ensures we only scroll on actual cue changes during playback
+    if (currentCueIndex >= 0 && previousValue >= 0) {
       // Small delay to ensure the DOM has updated with the new current cue ref
       cueChangeScrollTimeoutId.current = setTimeout(() => {
         cueChangeScrollTimeoutId.current = null;
