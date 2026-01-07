@@ -8,7 +8,7 @@ import React, {
   useRef,
 } from "react";
 import { useQuery, useMutation } from "@apollo/client";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   GET_CUE_LIST,
   GET_CUE_LIST_PLAYBACK_STATUS,
@@ -81,6 +81,7 @@ export default function CueListPlayer({
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
 
   const [actualCueListId, setActualCueListId] = useState<string>(() =>
     extractCueListId(cueListIdProp),
@@ -170,6 +171,21 @@ export default function CueListPlayer({
       scrollRafId.current = null;
     }
   }, [actualCueListId]);
+
+  // Reset scroll state when pathname changes (e.g., navigating away and returning to same cue list)
+  // This handles the case where Next.js preserves component state during client-side navigation
+  useEffect(() => {
+    hasPerformedInitialScroll.current = false;
+    prevCueIndexForAutoScroll.current = undefined;
+    if (scrollRafId.current !== null) {
+      cancelAnimationFrame(scrollRafId.current);
+      scrollRafId.current = null;
+    }
+    if (cueChangeScrollTimeoutId.current !== null) {
+      clearTimeout(cueChangeScrollTimeoutId.current);
+      cueChangeScrollTimeoutId.current = null;
+    }
+  }, [pathname]);
 
   // Cleanup scroll RAF on unmount
   useEffect(() => {
