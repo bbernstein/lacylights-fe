@@ -175,9 +175,6 @@ export default function CueListPlayer({
   // Reset scroll state when pathname changes (e.g., navigating away and returning to same cue list)
   // This handles the case where Next.js preserves component state during client-side navigation
   useEffect(() => {
-    if (process.env.NODE_ENV === "development") {
-      console.log("[SCROLL] Pathname changed, resetting scroll state:", pathname);
-    }
     hasPerformedInitialScroll.current = false;
     prevCueIndexForAutoScroll.current = undefined;
     if (scrollRafId.current !== null) {
@@ -196,12 +193,6 @@ export default function CueListPlayer({
   // Check if we should reset scroll state (navigation detected)
   useEffect(() => {
     if (pathname !== lastSeenPathname.current) {
-      if (process.env.NODE_ENV === "development") {
-        console.log("[SCROLL] Navigation detected, resetting scroll state:", {
-          from: lastSeenPathname.current,
-          to: pathname,
-        });
-      }
       lastSeenPathname.current = pathname;
       hasPerformedInitialScroll.current = false;
       prevCueIndexForAutoScroll.current = undefined;
@@ -216,9 +207,6 @@ export default function CueListPlayer({
         currentCueRef.current.isConnected &&
         currentCueRef.current.offsetParent !== null
       ) {
-        if (process.env.NODE_ENV === "development") {
-          console.log("[SCROLL] Executing scroll on visibility change");
-        }
         currentCueRef.current.scrollIntoView({
           behavior: "instant",
           block: "center",
@@ -229,9 +217,6 @@ export default function CueListPlayer({
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        if (process.env.NODE_ENV === "development") {
-          console.log("[SCROLL] Tab became visible, scrolling to current cue");
-        }
         // Small delay to ensure DOM is ready
         setTimeout(scrollToCurrentCue, 50);
       }
@@ -391,16 +376,6 @@ export default function CueListPlayer({
       // Store the ref for use by scrolling logic and scrollToLiveCue button
       currentCueRef.current = node;
 
-      // Debug logging
-      if (process.env.NODE_ENV === "development") {
-        console.log("[SCROLL] Callback ref called:", {
-          hasNode: !!node,
-          hasPerformedInitialScroll: hasPerformedInitialScroll.current,
-          cuesLength: cues.length,
-          currentCueIndex,
-        });
-      }
-
       // Perform initial scroll when we get a node and haven't scrolled yet
       // This handles the case where the useEffect timeout fires before the ref is set
       if (
@@ -410,10 +385,6 @@ export default function CueListPlayer({
         node.offsetParent !== null
       ) {
         hasPerformedInitialScroll.current = true;
-
-        if (process.env.NODE_ENV === "development") {
-          console.log("[SCROLL] Executing initial scroll from callback ref");
-        }
 
         // Cancel any pending RAF from the useEffect
         if (scrollRafId.current !== null) {
@@ -430,7 +401,7 @@ export default function CueListPlayer({
         });
       }
     },
-    [cues.length, currentCueIndex],
+    [],
   );
 
   // Effect to handle initial scroll when returning to the page or on first load
@@ -451,10 +422,6 @@ export default function CueListPlayer({
       ) {
         hasPerformedInitialScroll.current = true;
 
-        if (process.env.NODE_ENV === "development") {
-          console.log("[SCROLL] Executing initial instant scroll via effect");
-        }
-
         // Cancel any pending RAF
         if (scrollRafId.current !== null) {
           cancelAnimationFrame(scrollRafId.current);
@@ -467,13 +434,6 @@ export default function CueListPlayer({
             block: "center",
             inline: "nearest",
           });
-        });
-      } else if (process.env.NODE_ENV === "development") {
-        console.log("[SCROLL] Skipped initial scroll:", {
-          hasRef: !!currentCueRef.current,
-          isConnected: currentCueRef.current?.isConnected,
-          hasOffsetParent: currentCueRef.current?.offsetParent !== null,
-          hasPerformedInitialScroll: hasPerformedInitialScroll.current,
         });
       }
     }, 50);
