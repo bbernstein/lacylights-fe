@@ -113,7 +113,7 @@ export default function BottomSheet({
   footer,
   fullHeightMobile = false,
   testId = 'bottom-sheet',
-  safeAreaFooter = true,
+  safeAreaFooter = false,
   usePortal = true,
 }: BottomSheetProps) {
   const isMobile = useIsMobile();
@@ -354,13 +354,13 @@ export default function BottomSheet({
             {children}
           </div>
 
-          {/* Footer - with safe area padding for mobile nav */}
+          {/* Footer - optionally with safe area padding (disabled by default for overlays) */}
           {footer && (
             <div className={`px-4 py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${safeAreaFooter ? 'pb-24' : ''}`}>
               {footer}
             </div>
           )}
-          {/* Safe area spacer when no footer but safe area is needed */}
+          {/* Safe area spacer when no footer but safe area is explicitly requested */}
           {!footer && safeAreaFooter && (
             <div className="pb-20" />
           )}

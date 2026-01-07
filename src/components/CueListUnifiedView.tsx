@@ -2426,8 +2426,8 @@ export default function CueListUnifiedView({
         </div>
       </div>
 
-      {/* Control Panel */}
-      <div className="bg-gray-800 border-t border-gray-700 p-4">
+      {/* Control Panel - with bottom padding for mobile nav bar */}
+      <div className="bg-gray-800 border-t border-gray-700 p-4 pb-20 md:pb-4">
         {/* Mobile/Compact Controls (always shown) */}
         <div className="flex items-center justify-center space-x-4">
           {/* Loop toggle button */}
