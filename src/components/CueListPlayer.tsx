@@ -901,7 +901,7 @@ export default function CueListPlayer({
         },
       });
     },
-    [goToCue, cueList, cues, ensureConnection],
+    [goToCue, cueList, cues.length, ensureConnection],
   );
 
   // Touch handlers
@@ -1286,21 +1286,21 @@ export default function CueListPlayer({
                       doubleTapHandled.current = false;
                       return;
                     }
-                    // Capture isCurrent at click time to avoid race conditions
-                    // (cue might become current during the delay)
+                    // Capture values at click time to avoid race conditions
                     const isCurrentAtClick = isCurrent;
+                    const indexAtClick = index;
                     // Delay single-click action to allow double-click detection
                     // This prevents race condition where click fires before dblclick
                     if (clickTimer.current) {
                       clearTimeout(clickTimer.current);
                     }
-                    pendingClickIndex.current = index;
+                    pendingClickIndex.current = indexAtClick;
                     clickTimer.current = setTimeout(() => {
                       clickTimer.current = null;
                       if (isCurrentAtClick) {
                         scrollToLiveCue();
                       } else {
-                        handleJumpToCue(pendingClickIndex.current);
+                        handleJumpToCue(indexAtClick);
                       }
                     }, DOUBLE_TAP_DELAY);
                   }}
@@ -1516,19 +1516,20 @@ export default function CueListPlayer({
               <button
                 key={cue.id}
                 onClick={() => {
-                  // Capture isCurrent at click time to avoid race conditions
+                  // Capture values at click time to avoid race conditions
                   const isCurrentAtClick = isCurrent;
+                  const indexAtClick = index;
                   // Delay single-click to allow double-click detection
                   if (clickTimer.current) {
                     clearTimeout(clickTimer.current);
                   }
-                  pendingClickIndex.current = index;
+                  pendingClickIndex.current = indexAtClick;
                   clickTimer.current = setTimeout(() => {
                     clickTimer.current = null;
                     if (isCurrentAtClick) {
                       scrollToLiveCue();
                     } else {
-                      handleJumpToCue(pendingClickIndex.current);
+                      handleJumpToCue(indexAtClick);
                     }
                   }, DOUBLE_TAP_DELAY);
                 }}
