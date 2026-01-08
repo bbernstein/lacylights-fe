@@ -934,6 +934,7 @@ export default function CueListPlayer({
       // Reset tracking
       lastTapTime.current = 0;
       lastTapIndex.current = -1;
+      touchedCueIndex.current = -1;
     } else {
       // First tap or different cue - record for potential double-tap
       lastTapTime.current = now;
@@ -1290,6 +1291,8 @@ export default function CueListPlayer({
                       clearTimeout(clickTimer.current);
                       clickTimer.current = null;
                     }
+                    // Set flag for defense-in-depth (timer cancellation is primary mechanism)
+                    doubleTapHandled.current = true;
                     handleSnapToCue(index);
                   }}
                   onContextMenu={(e) => handleCueContextMenu(e, cue, index)}
@@ -1514,6 +1517,7 @@ export default function CueListPlayer({
                     clearTimeout(clickTimer.current);
                     clickTimer.current = null;
                   }
+                  doubleTapHandled.current = true;
                   handleSnapToCue(index);
                 }}
                 className={`w-2 h-2 rounded-full transition-all ${
