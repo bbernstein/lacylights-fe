@@ -875,7 +875,7 @@ export default function CueListPlayer({
    * Only active when a cue is currently fading in.
    */
   const handleHurryUp = useCallback(async () => {
-    if (!cueList || !isFading || currentCueIndex < 0) return;
+    if (!cueList || !isFading || currentCueIndex < 0 || currentCueIndex >= cues.length) return;
 
     // Wait for WebSocket to be connected before mutation
     await ensureConnection();
@@ -890,7 +890,7 @@ export default function CueListPlayer({
         fadeInTime: 0, // Complete instantly
       },
     });
-  }, [goToCue, cueList, isFading, currentCueIndex, ensureConnection]);
+  }, [goToCue, cueList, isFading, currentCueIndex, cues.length, ensureConnection]);
 
   // Context menu option handlers
   const handleEditCue = useCallback(() => {
