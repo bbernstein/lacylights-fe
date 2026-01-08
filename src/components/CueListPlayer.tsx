@@ -150,13 +150,29 @@ export default function CueListPlayer({
   const longPressTimer = useRef<number | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
-  // Double-tap/double-click detection for snap-to-cue
+  /**
+   * Double-tap/double-click detection for snap-to-cue feature.
+   * These refs enable instant cue transitions without fade for rehearsal purposes.
+   *
+   * Why we use a click delay pattern:
+   * Browser double-click fires: click -> click -> dblclick, meaning onClick executes
+   * BEFORE onDoubleClick. Without the delay, single-click would send a mutation with
+   * normal fade, then double-click would send another with fadeInTime: 0, causing
+   * visual glitches as a fade starts and immediately stops. The 300ms delay allows
+   * us to detect double-click and cancel the single-click action before any mutation fires.
+   */
+
+  /** @description Timestamp of the last tap event for mobile double-tap detection */
   const lastTapTime = useRef<number>(0);
+  /** @description Index of the last tapped cue for verifying double-tap on same cue */
   const lastTapIndex = useRef<number>(-1);
+  /** @description Currently touched cue index, set on touchStart for touchEnd handler */
   const touchedCueIndex = useRef<number>(-1);
+  /** @description Flag to skip onClick handler when double-tap/click was just processed */
   const doubleTapHandled = useRef<boolean>(false);
-  // Timer for delaying single-click to detect double-click on desktop
+  /** @description Timer ID for delayed single-click, cancelled if double-click detected */
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** @description Cue index for pending single-click action */
   const pendingClickIndex = useRef<number>(-1);
 
   // Track mounted state to prevent state updates after unmount
