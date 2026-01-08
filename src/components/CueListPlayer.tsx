@@ -50,6 +50,12 @@ interface CueListPlayerProps {
 /** Delay in ms for detecting double-tap/double-click (module-level constant) */
 const DOUBLE_TAP_DELAY = 300;
 
+/** Playback mode determines whether snap-to-cue (double-click/tap) is enabled */
+type PlaybackMode = "show" | "rehearsal";
+
+/** localStorage key for persisting playback mode preference */
+const PLAYBACK_MODE_STORAGE_KEY = "lacylights_playback_mode";
+
 /**
  * CueListPlayer component provides a streamlined player interface for executing cues in a cue list.
  *
@@ -151,6 +157,16 @@ export default function CueListPlayer({
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   /**
+   * Playback mode: "show" disables double-click/tap snap to prevent accidental scene jumps,
+   * "rehearsal" enables quick scene jumping for designers.
+   */
+  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>(() => {
+    if (typeof window === "undefined") return "rehearsal";
+    const stored = localStorage.getItem(PLAYBACK_MODE_STORAGE_KEY);
+    return stored === "show" || stored === "rehearsal" ? stored : "rehearsal";
+  });
+
+  /**
    * Double-tap/double-click detection for snap-to-cue feature.
    * These refs enable instant cue transitions without fade for rehearsal purposes.
    *
@@ -198,6 +214,11 @@ export default function CueListPlayer({
       }
     };
   }, []);
+
+  // Persist playback mode to localStorage
+  useEffect(() => {
+    localStorage.setItem(PLAYBACK_MODE_STORAGE_KEY, playbackMode);
+  }, [playbackMode]);
 
   useEffect(() => {
     setActualCueListId(extractCueListId(cueListIdProp));
@@ -879,10 +900,14 @@ export default function CueListPlayer({
   /**
    * Snap to a cue instantly without fade (for rehearsal use).
    * Triggered by double-click (desktop) or double-tap (mobile).
+   * Disabled in "show" mode to prevent accidental scene jumps.
    * @param index - The index of the cue to snap to
    */
   const handleSnapToCue = useCallback(
     async (index: number) => {
+      // In show mode, snap-to-cue is disabled to prevent accidental scene jumps
+      if (playbackMode === "show") return;
+
       if (!cueList || index < 0 || index >= cues.length) return;
 
       // Wait for WebSocket to be connected before mutation
@@ -899,7 +924,7 @@ export default function CueListPlayer({
         },
       });
     },
-    [goToCue, cueList, cues.length, ensureConnection],
+    [goToCue, cueList, cues.length, ensureConnection, playbackMode],
   );
 
   // Touch handlers
@@ -1508,6 +1533,58 @@ export default function CueListPlayer({
               />
             </svg>
           </button>
+
+          {/* Show/Rehearsal mode toggle */}
+          <button
+            onClick={() =>
+              setPlaybackMode((mode) =>
+                mode === "show" ? "rehearsal" : "show",
+              )
+            }
+            className={`p-3 rounded-lg transition-colors ${
+              playbackMode === "show"
+                ? "bg-amber-600 hover:bg-amber-700 text-white"
+                : "bg-blue-600 hover:bg-blue-700 text-white"
+            }`}
+            title={
+              playbackMode === "show"
+                ? "SHOW mode - Double-click snap disabled (click to enable)"
+                : "REHEARSAL mode - Double-click to snap to cue (click to disable)"
+            }
+            aria-label={`${playbackMode === "show" ? "Show" : "Rehearsal"} mode`}
+          >
+            {playbackMode === "show" ? (
+              // Shield icon for Show mode (protected)
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                />
+              </svg>
+            ) : (
+              // Lightning bolt icon for Rehearsal mode (quick)
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
+              </svg>
+            )}
+          </button>
         </div>
 
         {/* Cue List Progress */}
@@ -1565,11 +1642,24 @@ export default function CueListPlayer({
         </div>
 
         <div className="mt-3 text-center text-xs text-gray-500">
-          Space/Enter = {isPaused ? "RESUME" : "GO"} | ← → = Navigate | Esc = Stop
+          Space/Enter = {isPaused ? "RESUME" : "GO"} | ← → = Navigate | Esc =
+          Stop |{" "}
+          <span
+            className={
+              playbackMode === "show" ? "text-amber-500" : "text-blue-400"
+            }
+          >
+            {playbackMode === "show" ? "SHOW" : "REHEARSAL"}
+          </span>
         </div>
         {isPaused && (
           <div className="mt-2 text-center text-sm text-amber-500 font-medium">
             ⚠ PAUSED — Click cue or press Space to resume
+          </div>
+        )}
+        {playbackMode === "rehearsal" && (
+          <div className="mt-1 text-center text-xs text-blue-400">
+            Double-click/tap any cue to snap instantly
           </div>
         )}
       </div>

@@ -23,6 +23,22 @@ jest.mock("../../constants/playback", () => ({
   DEFAULT_FADEOUT_TIME: 3.0,
 }));
 
+// Mock localStorage for playback mode persistence
+let localStorageStore: Record<string, string> = {};
+const localStorageMock = {
+  getItem: jest.fn((key: string) => localStorageStore[key] ?? null),
+  setItem: jest.fn((key: string, value: string) => {
+    localStorageStore[key] = value;
+  }),
+  removeItem: jest.fn((key: string) => {
+    delete localStorageStore[key];
+  }),
+  clear: jest.fn(() => {
+    localStorageStore = {};
+  }),
+};
+Object.defineProperty(window, "localStorage", { value: localStorageMock });
+
 // Mock useIsMobile hook for dialogs that use BottomSheet
 jest.mock("@/hooks/useMediaQuery", () => ({
   useIsMobile: jest.fn(() => false),
@@ -234,6 +250,12 @@ describe("CueListPlayer", () => {
     // Mock window.addEventListener and removeEventListener
     jest.spyOn(window, "addEventListener").mockImplementation();
     jest.spyOn(window, "removeEventListener").mockImplementation();
+
+    // Clear localStorage before each test
+    localStorageStore = {};
+    localStorageMock.getItem.mockImplementation(
+      (key: string) => localStorageStore[key] ?? null,
+    );
   });
 
   afterEach(() => {
@@ -297,14 +319,17 @@ describe("CueListPlayer", () => {
       });
     });
 
-    it("renders keyboard shortcuts help text", async () => {
+    it("renders keyboard shortcuts help text with mode indicator", async () => {
       const mocks = createMocks();
       renderWithProvider(mocks);
 
       await waitFor(() => {
+        // The keyboard shortcuts text now includes the mode indicator
         expect(
-          screen.getByText("Space/Enter = GO | ← → = Navigate | Esc = Stop"),
+          screen.getByText(/Space\/Enter = GO \| ← → = Navigate \| Esc =/),
         ).toBeInTheDocument();
+        // Default mode is rehearsal
+        expect(screen.getByText("REHEARSAL")).toBeInTheDocument();
       });
     });
 
@@ -1861,6 +1886,356 @@ describe("CueListPlayer", () => {
         name: /reconnect/i,
       });
       expect(reconnectButton).not.toBeInTheDocument();
+    });
+  });
+
+  describe("show/rehearsal mode", () => {
+    it("renders mode toggle button", async () => {
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const modeButton = screen.getByRole("button", {
+          name: /mode/i,
+        });
+        expect(modeButton).toBeInTheDocument();
+      });
+    });
+
+    it("defaults to rehearsal mode", async () => {
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        // Rehearsal mode indicator should be visible
+        expect(screen.getByText("REHEARSAL")).toBeInTheDocument();
+        // Mode button should show rehearsal state (blue)
+        const modeButton = screen.getByRole("button", {
+          name: /rehearsal mode/i,
+        });
+        expect(modeButton).toHaveClass("bg-blue-600");
+      });
+    });
+
+    it("toggles to show mode when clicked", async () => {
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getByText("REHEARSAL")).toBeInTheDocument();
+      });
+
+      const modeButton = screen.getByRole("button", {
+        name: /rehearsal mode/i,
+      });
+      await userEvent.click(modeButton);
+
+      await waitFor(() => {
+        // Should now show SHOW mode
+        expect(screen.getByText("SHOW")).toBeInTheDocument();
+        // Button should have amber color
+        const showModeButton = screen.getByRole("button", {
+          name: /show mode/i,
+        });
+        expect(showModeButton).toHaveClass("bg-amber-600");
+      });
+    });
+
+    it("toggles back to rehearsal mode when clicked again", async () => {
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getByText("REHEARSAL")).toBeInTheDocument();
+      });
+
+      // Click to switch to show mode
+      const modeButton = screen.getByRole("button", {
+        name: /rehearsal mode/i,
+      });
+      await userEvent.click(modeButton);
+
+      await waitFor(() => {
+        expect(screen.getByText("SHOW")).toBeInTheDocument();
+      });
+
+      // Click again to switch back to rehearsal
+      const showModeButton = screen.getByRole("button", {
+        name: /show mode/i,
+      });
+      await userEvent.click(showModeButton);
+
+      await waitFor(() => {
+        expect(screen.getByText("REHEARSAL")).toBeInTheDocument();
+      });
+    });
+
+    it("persists mode to localStorage", async () => {
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getByText("REHEARSAL")).toBeInTheDocument();
+      });
+
+      const modeButton = screen.getByRole("button", {
+        name: /rehearsal mode/i,
+      });
+      await userEvent.click(modeButton);
+
+      await waitFor(() => {
+        expect(localStorageMock.setItem).toHaveBeenCalledWith(
+          "lacylights_playback_mode",
+          "show",
+        );
+      });
+    });
+
+    it("loads mode from localStorage on mount", async () => {
+      // Pre-set localStorage to show mode
+      localStorageMock.getItem.mockReturnValue("show");
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        // Should show SHOW mode from localStorage
+        expect(screen.getByText("SHOW")).toBeInTheDocument();
+      });
+    });
+
+    it("shows double-tap hint in rehearsal mode", async () => {
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText("Double-click/tap any cue to snap instantly"),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("hides double-tap hint in show mode", async () => {
+      // Pre-set localStorage to show mode
+      localStorageMock.getItem.mockReturnValue("show");
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getByText("SHOW")).toBeInTheDocument();
+      });
+
+      expect(
+        screen.queryByText("Double-click/tap any cue to snap instantly"),
+      ).not.toBeInTheDocument();
+    });
+
+    describe("snap-to-cue behavior", () => {
+      beforeEach(() => {
+        jest.useFakeTimers();
+      });
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it("disables double-click snap in show mode", async () => {
+        // Pre-set localStorage to show mode
+        localStorageMock.getItem.mockReturnValue("show");
+
+        // Track if snap mutation was called (should NOT be called)
+        let snapCalled = false;
+        const mocks = [
+          ...createMocks(),
+          {
+            request: {
+              query: GO_TO_CUE,
+              variables: {
+                cueListId: mockCueListId,
+                cueIndex: 1,
+                fadeInTime: 0, // Instant snap from double-click
+              },
+            },
+            result: () => {
+              snapCalled = true;
+              return { data: {} };
+            },
+          },
+        ];
+
+        renderWithProvider(mocks);
+
+        await waitFor(() => {
+          expect(screen.getByText("SHOW")).toBeInTheDocument();
+        });
+
+        // Find a non-current cue and double-click it
+        const midSceneElements = screen.getAllByText("Mid Scene");
+        const midSceneCue = midSceneElements[0].closest(
+          'div[class*="cursor-pointer"]',
+        );
+        expect(midSceneCue).toBeInTheDocument();
+        if (midSceneCue) {
+          fireEvent.doubleClick(midSceneCue);
+        }
+
+        // Advance timers and wait
+        jest.advanceTimersByTime(350);
+
+        // Snap should NOT be called in show mode
+        expect(snapCalled).toBe(false);
+      });
+
+      it("allows double-click snap in rehearsal mode", async () => {
+        // Track if mutation was called
+        let mutationCalled = false;
+        const mocks = [
+          ...createMocks(),
+          {
+            request: {
+              query: GO_TO_CUE,
+              variables: {
+                cueListId: mockCueListId,
+                cueIndex: 1,
+                fadeInTime: 0, // Instant snap from double-click
+              },
+            },
+            result: () => {
+              mutationCalled = true;
+              return { data: {} };
+            },
+          },
+        ];
+
+        renderWithProvider(mocks);
+
+        await waitFor(() => {
+          expect(screen.getByText("REHEARSAL")).toBeInTheDocument();
+        });
+
+        // Find a non-current cue and double-click it
+        const midSceneElements = screen.getAllByText("Mid Scene");
+        const midSceneCue = midSceneElements[0].closest(
+          'div[class*="cursor-pointer"]',
+        );
+        expect(midSceneCue).toBeInTheDocument();
+        if (midSceneCue) {
+          fireEvent.doubleClick(midSceneCue);
+        }
+
+        // Verify mutation was called with fadeInTime: 0
+        await waitFor(() => {
+          expect(mutationCalled).toBe(true);
+        });
+      });
+
+      it("disables double-tap snap on mobile in show mode", async () => {
+        // Pre-set localStorage to show mode
+        localStorageMock.getItem.mockReturnValue("show");
+
+        // Track if snap mutation was called (should NOT be called)
+        let snapCalled = false;
+        const mocks = [
+          ...createMocks(),
+          {
+            request: {
+              query: GO_TO_CUE,
+              variables: {
+                cueListId: mockCueListId,
+                cueIndex: 1,
+                fadeInTime: 0, // Instant snap
+              },
+            },
+            result: () => {
+              snapCalled = true;
+              return { data: {} };
+            },
+          },
+        ];
+
+        renderWithProvider(mocks);
+
+        await waitFor(() => {
+          expect(screen.getByText("SHOW")).toBeInTheDocument();
+        });
+
+        // Find a non-current cue
+        const midSceneElements = screen.getAllByText("Mid Scene");
+        const midSceneCue = midSceneElements[0].closest(
+          'div[class*="cursor-pointer"]',
+        );
+        expect(midSceneCue).toBeInTheDocument();
+        if (midSceneCue) {
+          // Simulate double-tap with two quick touch events
+          fireEvent.touchStart(midSceneCue, {
+            touches: [{ clientX: 100, clientY: 100 }],
+          });
+          fireEvent.touchEnd(midSceneCue);
+
+          jest.advanceTimersByTime(100);
+
+          fireEvent.touchStart(midSceneCue, {
+            touches: [{ clientX: 100, clientY: 100 }],
+          });
+          fireEvent.touchEnd(midSceneCue);
+        }
+
+        // Advance timers and wait
+        jest.advanceTimersByTime(350);
+
+        // Snap should NOT be called in show mode
+        expect(snapCalled).toBe(false);
+      });
+
+      it("allows single-click jump in show mode (normal fade)", async () => {
+        // Pre-set localStorage to show mode
+        localStorageMock.getItem.mockReturnValue("show");
+
+        // Track if single-click mutation was called
+        let jumpCalled = false;
+        const mocks = [
+          ...createMocks(),
+          {
+            request: {
+              query: GO_TO_CUE,
+              variables: {
+                cueListId: mockCueListId,
+                cueIndex: 1,
+                fadeInTime: 1.5, // Normal fade time for single-click
+              },
+            },
+            result: () => {
+              jumpCalled = true;
+              return { data: {} };
+            },
+          },
+        ];
+
+        renderWithProvider(mocks);
+
+        await waitFor(() => {
+          expect(screen.getByText("SHOW")).toBeInTheDocument();
+        });
+
+        // Find a non-current cue and single-click it
+        const midSceneElements = screen.getAllByText("Mid Scene");
+        const midSceneCue = midSceneElements[0].closest(
+          'div[class*="cursor-pointer"]',
+        );
+        expect(midSceneCue).toBeInTheDocument();
+        if (midSceneCue) {
+          fireEvent.click(midSceneCue);
+        }
+
+        // Advance past the DOUBLE_TAP_DELAY (300ms)
+        jest.advanceTimersByTime(350);
+
+        // Single-click jump should still work in show mode
+        await waitFor(() => {
+          expect(jumpCalled).toBe(true);
+        });
+      });
     });
   });
 });
