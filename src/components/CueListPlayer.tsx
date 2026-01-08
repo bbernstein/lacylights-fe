@@ -47,6 +47,9 @@ interface CueListPlayerProps {
   onCueListLoaded?: (cueListName: string) => void;
 }
 
+/** Delay in ms for detecting double-tap/double-click (module-level constant) */
+const DOUBLE_TAP_DELAY = 300;
+
 /**
  * CueListPlayer component provides a streamlined player interface for executing cues in a cue list.
  *
@@ -147,12 +150,14 @@ export default function CueListPlayer({
   const longPressTimer = useRef<number | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
-  // Double-tap detection for mobile snap-to-cue
+  // Double-tap/double-click detection for snap-to-cue
   const lastTapTime = useRef<number>(0);
   const lastTapIndex = useRef<number>(-1);
   const touchedCueIndex = useRef<number>(-1);
   const doubleTapHandled = useRef<boolean>(false);
-  const DOUBLE_TAP_DELAY = 300; // milliseconds
+  // Timer for delaying single-click to detect double-click on desktop
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingClickIndex = useRef<number>(-1);
 
   // Track mounted state to prevent state updates after unmount
   useEffect(() => {
@@ -167,6 +172,15 @@ export default function CueListPlayer({
     return () => {
       if (longPressTimer.current) {
         clearTimeout(longPressTimer.current);
+      }
+    };
+  }, []);
+
+  // Cleanup clickTimer on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (clickTimer.current) {
+        clearTimeout(clickTimer.current);
       }
     };
   }, []);
@@ -925,7 +939,7 @@ export default function CueListPlayer({
       lastTapTime.current = now;
       lastTapIndex.current = index;
     }
-  }, [cancelLongPress, handleSnapToCue, DOUBLE_TAP_DELAY]);
+  }, [cancelLongPress, handleSnapToCue]);
 
   // Context menu option handlers
   const handleEditCue = useCallback(() => {
@@ -1255,13 +1269,29 @@ export default function CueListPlayer({
                       doubleTapHandled.current = false;
                       return;
                     }
-                    if (isCurrent) {
-                      scrollToLiveCue();
-                    } else {
-                      handleJumpToCue(index);
+                    // Delay single-click action to allow double-click detection
+                    // This prevents race condition where click fires before dblclick
+                    if (clickTimer.current) {
+                      clearTimeout(clickTimer.current);
                     }
+                    pendingClickIndex.current = index;
+                    clickTimer.current = setTimeout(() => {
+                      clickTimer.current = null;
+                      if (isCurrent) {
+                        scrollToLiveCue();
+                      } else {
+                        handleJumpToCue(pendingClickIndex.current);
+                      }
+                    }, DOUBLE_TAP_DELAY);
                   }}
-                  onDoubleClick={() => handleSnapToCue(index)}
+                  onDoubleClick={() => {
+                    // Cancel pending single-click action
+                    if (clickTimer.current) {
+                      clearTimeout(clickTimer.current);
+                      clickTimer.current = null;
+                    }
+                    handleSnapToCue(index);
+                  }}
                   onContextMenu={(e) => handleCueContextMenu(e, cue, index)}
                   onTouchStart={(e) => handleTouchStart(e, cue, index)}
                   onTouchMove={handleTouchMove}
@@ -1463,9 +1493,29 @@ export default function CueListPlayer({
             return (
               <button
                 key={cue.id}
-                onClick={() =>
-                  isCurrent ? scrollToLiveCue() : handleJumpToCue(index)
-                }
+                onClick={() => {
+                  // Delay single-click to allow double-click detection
+                  if (clickTimer.current) {
+                    clearTimeout(clickTimer.current);
+                  }
+                  pendingClickIndex.current = index;
+                  clickTimer.current = setTimeout(() => {
+                    clickTimer.current = null;
+                    if (isCurrent) {
+                      scrollToLiveCue();
+                    } else {
+                      handleJumpToCue(pendingClickIndex.current);
+                    }
+                  }, DOUBLE_TAP_DELAY);
+                }}
+                onDoubleClick={() => {
+                  // Cancel pending single-click and snap instantly
+                  if (clickTimer.current) {
+                    clearTimeout(clickTimer.current);
+                    clickTimer.current = null;
+                  }
+                  handleSnapToCue(index);
+                }}
                 className={`w-2 h-2 rounded-full transition-all ${
                   isCurrent && isPaused
                     ? "bg-amber-500 w-3 h-3"

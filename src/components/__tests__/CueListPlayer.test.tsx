@@ -641,8 +641,17 @@ describe("CueListPlayer", () => {
   });
 
   describe("snap to cue (double-click/double-tap)", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it("double-clicking a cue snaps to it instantly (fadeInTime: 0)", async () => {
-      // Use fireEvent.doubleClick which only fires the dblclick event (not click+click+dblclick)
+      // Track if mutation was called
+      let mutationCalled = false;
       const mocks = [
         ...createMocks(),
         {
@@ -654,7 +663,10 @@ describe("CueListPlayer", () => {
               fadeInTime: 0, // Instant snap from double-click
             },
           },
-          result: { data: {} },
+          result: () => {
+            mutationCalled = true;
+            return { data: {} };
+          },
         },
       ];
 
@@ -669,14 +681,21 @@ describe("CueListPlayer", () => {
       const midSceneCue = midSceneElements[0].closest(
         'div[class*="cursor-pointer"]',
       );
+      expect(midSceneCue).toBeInTheDocument();
       if (midSceneCue) {
         // Use fireEvent.doubleClick for direct double-click simulation
         fireEvent.doubleClick(midSceneCue);
       }
+
+      // Verify mutation was called with fadeInTime: 0
+      await waitFor(() => {
+        expect(mutationCalled).toBe(true);
+      });
     });
 
     it("double-clicking current cue also snaps to it (rehearsal use case)", async () => {
-      // For current cue, double-click snaps (single click just scrolls)
+      // Track if mutation was called
+      let mutationCalled = false;
       const mocks = [
         ...createMocks(),
         {
@@ -688,7 +707,10 @@ describe("CueListPlayer", () => {
               fadeInTime: 0, // Instant snap from double-click
             },
           },
-          result: { data: {} },
+          result: () => {
+            mutationCalled = true;
+            return { data: {} };
+          },
         },
       ];
 
@@ -703,13 +725,21 @@ describe("CueListPlayer", () => {
       const currentCue = openingSceneElements[
         openingSceneElements.length - 1
       ].closest('div[class*="cursor-pointer"]');
+      expect(currentCue).toBeInTheDocument();
       if (currentCue) {
         // Use fireEvent.doubleClick for direct double-click simulation
         fireEvent.doubleClick(currentCue);
       }
+
+      // Verify mutation was called with fadeInTime: 0
+      await waitFor(() => {
+        expect(mutationCalled).toBe(true);
+      });
     });
 
     it("double-tap on mobile triggers snap to cue", async () => {
+      // Track if mutation was called
+      let mutationCalled = false;
       const mocks = [
         ...createMocks(),
         {
@@ -721,7 +751,10 @@ describe("CueListPlayer", () => {
               fadeInTime: 0, // Instant snap
             },
           },
-          result: { data: {} },
+          result: () => {
+            mutationCalled = true;
+            return { data: {} };
+          },
         },
       ];
 
@@ -736,6 +769,7 @@ describe("CueListPlayer", () => {
       const midSceneCue = midSceneElements[0].closest(
         'div[class*="cursor-pointer"]',
       );
+      expect(midSceneCue).toBeInTheDocument();
       if (midSceneCue) {
         // Simulate double-tap with two quick touch events
         fireEvent.touchStart(midSceneCue, {
@@ -743,17 +777,24 @@ describe("CueListPlayer", () => {
         });
         fireEvent.touchEnd(midSceneCue);
 
-        // Wait a short time (less than DOUBLE_TAP_DELAY of 300ms)
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        // Advance timers slightly (less than DOUBLE_TAP_DELAY of 300ms)
+        jest.advanceTimersByTime(100);
 
         fireEvent.touchStart(midSceneCue, {
           touches: [{ clientX: 100, clientY: 100 }],
         });
         fireEvent.touchEnd(midSceneCue);
       }
+
+      // Verify mutation was called with fadeInTime: 0
+      await waitFor(() => {
+        expect(mutationCalled).toBe(true);
+      });
     });
 
-    it("single tap still jumps with normal fade time", async () => {
+    it("single click triggers jump with normal fade time after delay", async () => {
+      // Track if mutation was called
+      let mutationCalled = false;
       const mocks = [
         ...createMocks(),
         {
@@ -765,7 +806,10 @@ describe("CueListPlayer", () => {
               fadeInTime: 1.5, // Normal fade time for cue-2
             },
           },
-          result: { data: {} },
+          result: () => {
+            mutationCalled = true;
+            return { data: {} };
+          },
         },
       ];
 
@@ -780,9 +824,85 @@ describe("CueListPlayer", () => {
       const midSceneCue = midSceneElements[0].closest(
         'div[class*="cursor-pointer"]',
       );
+      expect(midSceneCue).toBeInTheDocument();
       if (midSceneCue) {
-        await userEvent.click(midSceneCue);
+        fireEvent.click(midSceneCue);
       }
+
+      // Mutation should NOT be called immediately due to click delay
+      expect(mutationCalled).toBe(false);
+
+      // Advance timers past the DOUBLE_TAP_DELAY (300ms)
+      jest.advanceTimersByTime(350);
+
+      // Now mutation should be called with normal fade time
+      await waitFor(() => {
+        expect(mutationCalled).toBe(true);
+      });
+    });
+
+    it("double-click cancels pending single-click action", async () => {
+      // Track if single-click mutation was called (should NOT be called)
+      let singleClickCalled = false;
+      let snapCalled = false;
+      const mocks = [
+        ...createMocks(),
+        {
+          request: {
+            query: GO_TO_CUE,
+            variables: {
+              cueListId: mockCueListId,
+              cueIndex: 1,
+              fadeInTime: 1.5, // Normal fade (single-click)
+            },
+          },
+          result: () => {
+            singleClickCalled = true;
+            return { data: {} };
+          },
+        },
+        {
+          request: {
+            query: GO_TO_CUE,
+            variables: {
+              cueListId: mockCueListId,
+              cueIndex: 1,
+              fadeInTime: 0, // Instant snap (double-click)
+            },
+          },
+          result: () => {
+            snapCalled = true;
+            return { data: {} };
+          },
+        },
+      ];
+
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getAllByText("Mid Scene")[0]).toBeInTheDocument();
+      });
+
+      const midSceneElements = screen.getAllByText("Mid Scene");
+      const midSceneCue = midSceneElements[0].closest(
+        'div[class*="cursor-pointer"]',
+      );
+      expect(midSceneCue).toBeInTheDocument();
+      if (midSceneCue) {
+        // Simulate click followed immediately by double-click
+        // This mimics real browser behavior where click fires first
+        fireEvent.click(midSceneCue);
+        fireEvent.doubleClick(midSceneCue);
+      }
+
+      // Advance past the delay
+      jest.advanceTimersByTime(350);
+
+      // Only snap should be called, not the single-click
+      await waitFor(() => {
+        expect(snapCalled).toBe(true);
+      });
+      expect(singleClickCalled).toBe(false);
     });
   });
 
@@ -844,6 +964,7 @@ describe("CueListPlayer", () => {
     });
 
     it("clicking current cue progress dot triggers scrollIntoView", async () => {
+      jest.useFakeTimers();
       const mockScrollIntoView = jest.fn();
       Element.prototype.scrollIntoView = mockScrollIntoView;
 
@@ -857,16 +978,22 @@ describe("CueListPlayer", () => {
 
       // Current cue progress dot has "(scroll to view)" in title
       const currentDot = screen.getByTitle("1: Opening Scene (scroll to view)");
-      await userEvent.click(currentDot);
+      fireEvent.click(currentDot);
+
+      // Advance past the click delay (300ms)
+      jest.advanceTimersByTime(350);
 
       expect(mockScrollIntoView).toHaveBeenCalledWith({
         behavior: "smooth",
         block: "center",
         inline: "nearest",
       });
+
+      jest.useRealTimers();
     });
 
     it("clicking current cue card triggers scrollIntoView", async () => {
+      jest.useFakeTimers();
       const mockScrollIntoView = jest.fn();
       Element.prototype.scrollIntoView = mockScrollIntoView;
 
@@ -884,14 +1011,19 @@ describe("CueListPlayer", () => {
       ].closest('div[class*="cursor-pointer"]');
 
       if (currentCueCard) {
-        await userEvent.click(currentCueCard);
+        fireEvent.click(currentCueCard);
       }
+
+      // Advance past the click delay (300ms)
+      jest.advanceTimersByTime(350);
 
       expect(mockScrollIntoView).toHaveBeenCalledWith({
         behavior: "smooth",
         block: "center",
         inline: "nearest",
       });
+
+      jest.useRealTimers();
     });
 
     it("auto-scrolls to current cue on mount with instant behavior", async () => {
