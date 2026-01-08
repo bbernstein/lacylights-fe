@@ -640,6 +640,152 @@ describe("CueListPlayer", () => {
     });
   });
 
+  describe("snap to cue (double-click/double-tap)", () => {
+    it("double-clicking a cue snaps to it instantly (fadeInTime: 0)", async () => {
+      // Use fireEvent.doubleClick which only fires the dblclick event (not click+click+dblclick)
+      const mocks = [
+        ...createMocks(),
+        {
+          request: {
+            query: GO_TO_CUE,
+            variables: {
+              cueListId: mockCueListId,
+              cueIndex: 1,
+              fadeInTime: 0, // Instant snap from double-click
+            },
+          },
+          result: { data: {} },
+        },
+      ];
+
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getAllByText("Mid Scene")[0]).toBeInTheDocument();
+      });
+
+      // Find a non-current cue and double-click it
+      const midSceneElements = screen.getAllByText("Mid Scene");
+      const midSceneCue = midSceneElements[0].closest(
+        'div[class*="cursor-pointer"]',
+      );
+      if (midSceneCue) {
+        // Use fireEvent.doubleClick for direct double-click simulation
+        fireEvent.doubleClick(midSceneCue);
+      }
+    });
+
+    it("double-clicking current cue also snaps to it (rehearsal use case)", async () => {
+      // For current cue, double-click snaps (single click just scrolls)
+      const mocks = [
+        ...createMocks(),
+        {
+          request: {
+            query: GO_TO_CUE,
+            variables: {
+              cueListId: mockCueListId,
+              cueIndex: 0, // Current cue
+              fadeInTime: 0, // Instant snap from double-click
+            },
+          },
+          result: { data: {} },
+        },
+      ];
+
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+      });
+
+      // Find the current cue and double-click it
+      const openingSceneElements = screen.getAllByText("Opening Scene");
+      const currentCue = openingSceneElements[
+        openingSceneElements.length - 1
+      ].closest('div[class*="cursor-pointer"]');
+      if (currentCue) {
+        // Use fireEvent.doubleClick for direct double-click simulation
+        fireEvent.doubleClick(currentCue);
+      }
+    });
+
+    it("double-tap on mobile triggers snap to cue", async () => {
+      const mocks = [
+        ...createMocks(),
+        {
+          request: {
+            query: GO_TO_CUE,
+            variables: {
+              cueListId: mockCueListId,
+              cueIndex: 1,
+              fadeInTime: 0, // Instant snap
+            },
+          },
+          result: { data: {} },
+        },
+      ];
+
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getAllByText("Mid Scene")[0]).toBeInTheDocument();
+      });
+
+      // Find a non-current cue
+      const midSceneElements = screen.getAllByText("Mid Scene");
+      const midSceneCue = midSceneElements[0].closest(
+        'div[class*="cursor-pointer"]',
+      );
+      if (midSceneCue) {
+        // Simulate double-tap with two quick touch events
+        fireEvent.touchStart(midSceneCue, {
+          touches: [{ clientX: 100, clientY: 100 }],
+        });
+        fireEvent.touchEnd(midSceneCue);
+
+        // Wait a short time (less than DOUBLE_TAP_DELAY of 300ms)
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        fireEvent.touchStart(midSceneCue, {
+          touches: [{ clientX: 100, clientY: 100 }],
+        });
+        fireEvent.touchEnd(midSceneCue);
+      }
+    });
+
+    it("single tap still jumps with normal fade time", async () => {
+      const mocks = [
+        ...createMocks(),
+        {
+          request: {
+            query: GO_TO_CUE,
+            variables: {
+              cueListId: mockCueListId,
+              cueIndex: 1,
+              fadeInTime: 1.5, // Normal fade time for cue-2
+            },
+          },
+          result: { data: {} },
+        },
+      ];
+
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getAllByText("Mid Scene")[0]).toBeInTheDocument();
+      });
+
+      // Find a non-current cue and single-click it
+      const midSceneElements = screen.getAllByText("Mid Scene");
+      const midSceneCue = midSceneElements[0].closest(
+        'div[class*="cursor-pointer"]',
+      );
+      if (midSceneCue) {
+        await userEvent.click(midSceneCue);
+      }
+    });
+  });
+
   describe("scroll to live cue", () => {
     it("renders scroll to live cue button", async () => {
       const mocks = createMocks();

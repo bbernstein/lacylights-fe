@@ -147,6 +147,13 @@ export default function CueListPlayer({
   const longPressTimer = useRef<number | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
+  // Double-tap detection for mobile snap-to-cue
+  const lastTapTime = useRef<number>(0);
+  const lastTapIndex = useRef<number>(-1);
+  const touchedCueIndex = useRef<number>(-1);
+  const doubleTapHandled = useRef<boolean>(false);
+  const DOUBLE_TAP_DELAY = 300; // milliseconds
+
   // Track mounted state to prevent state updates after unmount
   useEffect(() => {
     isMounted.current = true;
@@ -841,6 +848,32 @@ export default function CueListPlayer({
     touchStart.current = null;
   }, []);
 
+  /**
+   * Snap to a cue instantly without fade (for rehearsal use).
+   * Triggered by double-click (desktop) or double-tap (mobile).
+   * @param index - The index of the cue to snap to
+   */
+  const handleSnapToCue = useCallback(
+    async (index: number) => {
+      if (!cueList || index < 0 || index >= cues.length) return;
+
+      // Wait for WebSocket to be connected before mutation
+      await ensureConnection();
+
+      // Guard against component unmount during ensureConnection
+      if (!isMounted.current) return;
+
+      await goToCue({
+        variables: {
+          cueListId: cueList.id,
+          cueIndex: index,
+          fadeInTime: 0, // Instant snap - no fade
+        },
+      });
+    },
+    [goToCue, cueList, cues, ensureConnection],
+  );
+
   // Touch handlers
   const handleTouchStart = useCallback(
     (e: React.TouchEvent, cue: Cue, index: number) => {
@@ -849,6 +882,8 @@ export default function CueListPlayer({
       // touch event routing and can cause touches to "pass through" to wrong elements.
       // Text selection is already prevented via CSS (select-none class on cue items).
       startLongPressDetection(touch.clientX, touch.clientY, cue, index);
+      // Store the touched cue index for double-tap detection
+      touchedCueIndex.current = index;
     },
     [startLongPressDetection],
   );
@@ -868,7 +903,29 @@ export default function CueListPlayer({
 
   const handleTouchEnd = useCallback(() => {
     cancelLongPress();
-  }, [cancelLongPress]);
+
+    // Double-tap detection for snap-to-cue
+    const now = Date.now();
+    const index = touchedCueIndex.current;
+    const timeSinceLastTap = now - lastTapTime.current;
+
+    if (
+      timeSinceLastTap < DOUBLE_TAP_DELAY &&
+      index === lastTapIndex.current &&
+      index >= 0
+    ) {
+      // Double-tap detected - snap to cue instantly
+      doubleTapHandled.current = true;
+      handleSnapToCue(index);
+      // Reset tracking
+      lastTapTime.current = 0;
+      lastTapIndex.current = -1;
+    } else {
+      // First tap or different cue - record for potential double-tap
+      lastTapTime.current = now;
+      lastTapIndex.current = index;
+    }
+  }, [cancelLongPress, handleSnapToCue, DOUBLE_TAP_DELAY]);
 
   // Context menu option handlers
   const handleEditCue = useCallback(() => {
@@ -1192,9 +1249,19 @@ export default function CueListPlayer({
                               ? "bg-gray-800/70 border-gray-600 opacity-80 hover:bg-gray-700/70"
                               : "bg-gray-800 border-gray-700 hover:bg-gray-700/70"
                   }`}
-                  onClick={() =>
-                    isCurrent ? scrollToLiveCue() : handleJumpToCue(index)
-                  }
+                  onClick={() => {
+                    // Skip if a double-tap was just handled on mobile
+                    if (doubleTapHandled.current) {
+                      doubleTapHandled.current = false;
+                      return;
+                    }
+                    if (isCurrent) {
+                      scrollToLiveCue();
+                    } else {
+                      handleJumpToCue(index);
+                    }
+                  }}
+                  onDoubleClick={() => handleSnapToCue(index)}
                   onContextMenu={(e) => handleCueContextMenu(e, cue, index)}
                   onTouchStart={(e) => handleTouchStart(e, cue, index)}
                   onTouchMove={handleTouchMove}
