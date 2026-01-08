@@ -172,8 +172,6 @@ export default function CueListPlayer({
   const doubleTapHandled = useRef<boolean>(false);
   /** @description Timer ID for delayed single-click, cancelled if double-click detected */
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** @description Cue index for pending single-click action */
-  const pendingClickIndex = useRef<number>(-1);
 
   // Track mounted state to prevent state updates after unmount
   useEffect(() => {
@@ -944,6 +942,11 @@ export default function CueListPlayer({
       index === lastTapIndex.current &&
       index >= 0
     ) {
+      // Cancel pending single-click from first tap (if onClick already fired)
+      if (clickTimer.current) {
+        clearTimeout(clickTimer.current);
+        clickTimer.current = null;
+      }
       // Double-tap detected - snap to cue instantly
       doubleTapHandled.current = true;
       handleSnapToCue(index);
@@ -1294,7 +1297,6 @@ export default function CueListPlayer({
                     if (clickTimer.current) {
                       clearTimeout(clickTimer.current);
                     }
-                    pendingClickIndex.current = indexAtClick;
                     clickTimer.current = setTimeout(() => {
                       clickTimer.current = null;
                       if (isCurrentAtClick) {
@@ -1523,7 +1525,6 @@ export default function CueListPlayer({
                   if (clickTimer.current) {
                     clearTimeout(clickTimer.current);
                   }
-                  pendingClickIndex.current = indexAtClick;
                   clickTimer.current = setTimeout(() => {
                     clickTimer.current = null;
                     if (isCurrentAtClick) {
