@@ -23,22 +23,6 @@ jest.mock("../../constants/playback", () => ({
   DEFAULT_FADEOUT_TIME: 3.0,
 }));
 
-// Mock localStorage for playback mode persistence
-let localStorageStore: Record<string, string> = {};
-const localStorageMock = {
-  getItem: jest.fn((key: string) => localStorageStore[key] ?? null),
-  setItem: jest.fn((key: string, value: string) => {
-    localStorageStore[key] = value;
-  }),
-  removeItem: jest.fn((key: string) => {
-    delete localStorageStore[key];
-  }),
-  clear: jest.fn(() => {
-    localStorageStore = {};
-  }),
-};
-Object.defineProperty(window, "localStorage", { value: localStorageMock });
-
 // Mock useIsMobile hook for dialogs that use BottomSheet
 jest.mock("@/hooks/useMediaQuery", () => ({
   useIsMobile: jest.fn(() => false),
@@ -250,12 +234,6 @@ describe("CueListPlayer", () => {
     // Mock window.addEventListener and removeEventListener
     jest.spyOn(window, "addEventListener").mockImplementation();
     jest.spyOn(window, "removeEventListener").mockImplementation();
-
-    // Clear localStorage before each test
-    localStorageStore = {};
-    localStorageMock.getItem.mockImplementation(
-      (key: string) => localStorageStore[key] ?? null,
-    );
   });
 
   afterEach(() => {
@@ -319,17 +297,14 @@ describe("CueListPlayer", () => {
       });
     });
 
-    it("renders keyboard shortcuts help text with mode indicator", async () => {
+    it("renders keyboard shortcuts help text", async () => {
       const mocks = createMocks();
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        // The keyboard shortcuts text now includes the mode indicator
         expect(
           screen.getByText(/Space\/Enter = GO \| ← → = Navigate \| Esc =/),
         ).toBeInTheDocument();
-        // Default mode is rehearsal
-        expect(screen.getByText("REHEARSAL")).toBeInTheDocument();
       });
     });
 
@@ -665,159 +640,8 @@ describe("CueListPlayer", () => {
     });
   });
 
-  describe("snap to cue (double-click/double-tap)", () => {
-    beforeEach(() => {
-      jest.useFakeTimers();
-    });
-
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
-    it("double-clicking a cue snaps to it instantly (fadeInTime: 0)", async () => {
-      // Track if mutation was called
-      let mutationCalled = false;
-      const mocks = [
-        ...createMocks(),
-        {
-          request: {
-            query: GO_TO_CUE,
-            variables: {
-              cueListId: mockCueListId,
-              cueIndex: 1,
-              fadeInTime: 0, // Instant snap from double-click
-            },
-          },
-          result: () => {
-            mutationCalled = true;
-            return { data: {} };
-          },
-        },
-      ];
-
-      renderWithProvider(mocks);
-
-      await waitFor(() => {
-        expect(screen.getAllByText("Mid Scene")[0]).toBeInTheDocument();
-      });
-
-      // Find a non-current cue and double-click it
-      const midSceneElements = screen.getAllByText("Mid Scene");
-      const midSceneCue = midSceneElements[0].closest(
-        'div[class*="cursor-pointer"]',
-      );
-      expect(midSceneCue).toBeInTheDocument();
-      if (midSceneCue) {
-        // Use fireEvent.doubleClick for direct double-click simulation
-        fireEvent.doubleClick(midSceneCue);
-      }
-
-      // Verify mutation was called with fadeInTime: 0
-      await waitFor(() => {
-        expect(mutationCalled).toBe(true);
-      });
-    });
-
-    it("double-clicking current cue also snaps to it (rehearsal use case)", async () => {
-      // Track if mutation was called
-      let mutationCalled = false;
-      const mocks = [
-        ...createMocks(),
-        {
-          request: {
-            query: GO_TO_CUE,
-            variables: {
-              cueListId: mockCueListId,
-              cueIndex: 0, // Current cue
-              fadeInTime: 0, // Instant snap from double-click
-            },
-          },
-          result: () => {
-            mutationCalled = true;
-            return { data: {} };
-          },
-        },
-      ];
-
-      renderWithProvider(mocks);
-
-      await waitFor(() => {
-        expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
-      });
-
-      // Find the current cue and double-click it
-      const openingSceneElements = screen.getAllByText("Opening Scene");
-      const currentCue = openingSceneElements[
-        openingSceneElements.length - 1
-      ].closest('div[class*="cursor-pointer"]');
-      expect(currentCue).toBeInTheDocument();
-      if (currentCue) {
-        // Use fireEvent.doubleClick for direct double-click simulation
-        fireEvent.doubleClick(currentCue);
-      }
-
-      // Verify mutation was called with fadeInTime: 0
-      await waitFor(() => {
-        expect(mutationCalled).toBe(true);
-      });
-    });
-
-    it("double-tap on mobile triggers snap to cue", async () => {
-      // Track if mutation was called
-      let mutationCalled = false;
-      const mocks = [
-        ...createMocks(),
-        {
-          request: {
-            query: GO_TO_CUE,
-            variables: {
-              cueListId: mockCueListId,
-              cueIndex: 1,
-              fadeInTime: 0, // Instant snap
-            },
-          },
-          result: () => {
-            mutationCalled = true;
-            return { data: {} };
-          },
-        },
-      ];
-
-      renderWithProvider(mocks);
-
-      await waitFor(() => {
-        expect(screen.getAllByText("Mid Scene")[0]).toBeInTheDocument();
-      });
-
-      // Find a non-current cue
-      const midSceneElements = screen.getAllByText("Mid Scene");
-      const midSceneCue = midSceneElements[0].closest(
-        'div[class*="cursor-pointer"]',
-      );
-      expect(midSceneCue).toBeInTheDocument();
-      if (midSceneCue) {
-        // Simulate double-tap with two quick touch events
-        fireEvent.touchStart(midSceneCue, {
-          touches: [{ clientX: 100, clientY: 100 }],
-        });
-        fireEvent.touchEnd(midSceneCue);
-
-        // Advance timers slightly (less than DOUBLE_TAP_DELAY of 300ms)
-        jest.advanceTimersByTime(100);
-
-        fireEvent.touchStart(midSceneCue, {
-          touches: [{ clientX: 100, clientY: 100 }],
-        });
-        fireEvent.touchEnd(midSceneCue);
-      }
-
-      // Verify mutation was called with fadeInTime: 0
-      await waitFor(() => {
-        expect(mutationCalled).toBe(true);
-      });
-    });
-
-    it("single click triggers jump with normal fade time after delay", async () => {
+  describe("cue click behavior", () => {
+    it("single click immediately jumps to cue with normal fade time", async () => {
       // Track if mutation was called
       let mutationCalled = false;
       const mocks = [
@@ -854,22 +678,77 @@ describe("CueListPlayer", () => {
         fireEvent.click(midSceneCue);
       }
 
-      // Mutation should NOT be called immediately due to click delay
-      expect(mutationCalled).toBe(false);
-
-      // Advance timers past the DOUBLE_TAP_DELAY (300ms)
-      jest.advanceTimersByTime(350);
-
-      // Now mutation should be called with normal fade time
+      // Mutation should be called immediately (no delay)
       await waitFor(() => {
         expect(mutationCalled).toBe(true);
       });
     });
 
-    it("double-click cancels pending single-click action", async () => {
-      // Track if single-click mutation was called (should NOT be called)
-      let singleClickCalled = false;
-      let snapCalled = false;
+  });
+
+  describe("hurry up button", () => {
+    it("renders hurry up button", async () => {
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const hurryButton = screen.getByRole("button", { name: /hurry up/i });
+        expect(hurryButton).toBeInTheDocument();
+      });
+    });
+
+    it("hurry up button is disabled when not fading", async () => {
+      // Set up playback status without fading
+      mockUseCueListPlayback.mockReturnValue({
+        playbackStatus: {
+          ...mockPlaybackStatus,
+          isFading: false,
+        },
+      });
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const hurryButton = screen.getByRole("button", { name: /hurry up/i });
+        expect(hurryButton).toBeDisabled();
+        expect(hurryButton).toHaveClass("bg-gray-700");
+      });
+    });
+
+    it("hurry up button is enabled when fading", async () => {
+      // Set up playback status with fading
+      mockUseCueListPlayback.mockReturnValue({
+        playbackStatus: {
+          ...mockPlaybackStatus,
+          isFading: true,
+          fadeProgress: 50,
+        },
+      });
+
+      const mocks = createMocks();
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        const hurryButton = screen.getByRole("button", { name: /hurry up/i });
+        expect(hurryButton).not.toBeDisabled();
+        expect(hurryButton).toHaveClass("bg-amber-600");
+      });
+    });
+
+    it("clicking hurry up button during fade completes instantly", async () => {
+      // Set up playback status with fading
+      mockUseCueListPlayback.mockReturnValue({
+        playbackStatus: {
+          ...mockPlaybackStatus,
+          isFading: true,
+          fadeProgress: 50,
+          currentCueIndex: 1,
+        },
+      });
+
+      // Track if mutation was called
+      let mutationCalled = false;
       const mocks = [
         ...createMocks(),
         {
@@ -877,26 +756,12 @@ describe("CueListPlayer", () => {
             query: GO_TO_CUE,
             variables: {
               cueListId: mockCueListId,
-              cueIndex: 1,
-              fadeInTime: 1.5, // Normal fade (single-click)
+              cueIndex: 1, // Current cue
+              fadeInTime: 0, // Instant completion
             },
           },
           result: () => {
-            singleClickCalled = true;
-            return { data: {} };
-          },
-        },
-        {
-          request: {
-            query: GO_TO_CUE,
-            variables: {
-              cueListId: mockCueListId,
-              cueIndex: 1,
-              fadeInTime: 0, // Instant snap (double-click)
-            },
-          },
-          result: () => {
-            snapCalled = true;
+            mutationCalled = true;
             return { data: {} };
           },
         },
@@ -905,29 +770,16 @@ describe("CueListPlayer", () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        expect(screen.getAllByText("Mid Scene")[0]).toBeInTheDocument();
+        const hurryButton = screen.getByRole("button", { name: /hurry up/i });
+        expect(hurryButton).not.toBeDisabled();
       });
 
-      const midSceneElements = screen.getAllByText("Mid Scene");
-      const midSceneCue = midSceneElements[0].closest(
-        'div[class*="cursor-pointer"]',
-      );
-      expect(midSceneCue).toBeInTheDocument();
-      if (midSceneCue) {
-        // Simulate click followed immediately by double-click
-        // This mimics real browser behavior where click fires first
-        fireEvent.click(midSceneCue);
-        fireEvent.doubleClick(midSceneCue);
-      }
+      const hurryButton = screen.getByRole("button", { name: /hurry up/i });
+      await userEvent.click(hurryButton);
 
-      // Advance past the delay
-      jest.advanceTimersByTime(350);
-
-      // Only snap should be called, not the single-click
       await waitFor(() => {
-        expect(snapCalled).toBe(true);
+        expect(mutationCalled).toBe(true);
       });
-      expect(singleClickCalled).toBe(false);
     });
   });
 
@@ -1886,356 +1738,6 @@ describe("CueListPlayer", () => {
         name: /reconnect/i,
       });
       expect(reconnectButton).not.toBeInTheDocument();
-    });
-  });
-
-  describe("show/rehearsal mode", () => {
-    it("renders mode toggle button", async () => {
-      const mocks = createMocks();
-      renderWithProvider(mocks);
-
-      await waitFor(() => {
-        const modeButton = screen.getByRole("button", {
-          name: /mode/i,
-        });
-        expect(modeButton).toBeInTheDocument();
-      });
-    });
-
-    it("defaults to rehearsal mode", async () => {
-      const mocks = createMocks();
-      renderWithProvider(mocks);
-
-      await waitFor(() => {
-        // Rehearsal mode indicator should be visible
-        expect(screen.getByText("REHEARSAL")).toBeInTheDocument();
-        // Mode button should show rehearsal state (blue)
-        const modeButton = screen.getByRole("button", {
-          name: /rehearsal mode/i,
-        });
-        expect(modeButton).toHaveClass("bg-blue-600");
-      });
-    });
-
-    it("toggles to show mode when clicked", async () => {
-      const mocks = createMocks();
-      renderWithProvider(mocks);
-
-      await waitFor(() => {
-        expect(screen.getByText("REHEARSAL")).toBeInTheDocument();
-      });
-
-      const modeButton = screen.getByRole("button", {
-        name: /rehearsal mode/i,
-      });
-      await userEvent.click(modeButton);
-
-      await waitFor(() => {
-        // Should now show SHOW mode
-        expect(screen.getByText("SHOW")).toBeInTheDocument();
-        // Button should have amber color
-        const showModeButton = screen.getByRole("button", {
-          name: /show mode/i,
-        });
-        expect(showModeButton).toHaveClass("bg-amber-600");
-      });
-    });
-
-    it("toggles back to rehearsal mode when clicked again", async () => {
-      const mocks = createMocks();
-      renderWithProvider(mocks);
-
-      await waitFor(() => {
-        expect(screen.getByText("REHEARSAL")).toBeInTheDocument();
-      });
-
-      // Click to switch to show mode
-      const modeButton = screen.getByRole("button", {
-        name: /rehearsal mode/i,
-      });
-      await userEvent.click(modeButton);
-
-      await waitFor(() => {
-        expect(screen.getByText("SHOW")).toBeInTheDocument();
-      });
-
-      // Click again to switch back to rehearsal
-      const showModeButton = screen.getByRole("button", {
-        name: /show mode/i,
-      });
-      await userEvent.click(showModeButton);
-
-      await waitFor(() => {
-        expect(screen.getByText("REHEARSAL")).toBeInTheDocument();
-      });
-    });
-
-    it("persists mode to localStorage", async () => {
-      const mocks = createMocks();
-      renderWithProvider(mocks);
-
-      await waitFor(() => {
-        expect(screen.getByText("REHEARSAL")).toBeInTheDocument();
-      });
-
-      const modeButton = screen.getByRole("button", {
-        name: /rehearsal mode/i,
-      });
-      await userEvent.click(modeButton);
-
-      await waitFor(() => {
-        expect(localStorageMock.setItem).toHaveBeenCalledWith(
-          "lacylights_playback_mode",
-          "show",
-        );
-      });
-    });
-
-    it("loads mode from localStorage on mount", async () => {
-      // Pre-set localStorage to show mode
-      localStorageMock.getItem.mockReturnValue("show");
-
-      const mocks = createMocks();
-      renderWithProvider(mocks);
-
-      await waitFor(() => {
-        // Should show SHOW mode from localStorage
-        expect(screen.getByText("SHOW")).toBeInTheDocument();
-      });
-    });
-
-    it("shows double-tap hint in rehearsal mode", async () => {
-      const mocks = createMocks();
-      renderWithProvider(mocks);
-
-      await waitFor(() => {
-        expect(
-          screen.getByText("Double-click/tap any cue to snap instantly"),
-        ).toBeInTheDocument();
-      });
-    });
-
-    it("hides double-tap hint in show mode", async () => {
-      // Pre-set localStorage to show mode
-      localStorageMock.getItem.mockReturnValue("show");
-
-      const mocks = createMocks();
-      renderWithProvider(mocks);
-
-      await waitFor(() => {
-        expect(screen.getByText("SHOW")).toBeInTheDocument();
-      });
-
-      expect(
-        screen.queryByText("Double-click/tap any cue to snap instantly"),
-      ).not.toBeInTheDocument();
-    });
-
-    describe("snap-to-cue behavior", () => {
-      beforeEach(() => {
-        jest.useFakeTimers();
-      });
-
-      afterEach(() => {
-        jest.useRealTimers();
-      });
-
-      it("disables double-click snap in show mode", async () => {
-        // Pre-set localStorage to show mode
-        localStorageMock.getItem.mockReturnValue("show");
-
-        // Track if snap mutation was called (should NOT be called)
-        let snapCalled = false;
-        const mocks = [
-          ...createMocks(),
-          {
-            request: {
-              query: GO_TO_CUE,
-              variables: {
-                cueListId: mockCueListId,
-                cueIndex: 1,
-                fadeInTime: 0, // Instant snap from double-click
-              },
-            },
-            result: () => {
-              snapCalled = true;
-              return { data: {} };
-            },
-          },
-        ];
-
-        renderWithProvider(mocks);
-
-        await waitFor(() => {
-          expect(screen.getByText("SHOW")).toBeInTheDocument();
-        });
-
-        // Find a non-current cue and double-click it
-        const midSceneElements = screen.getAllByText("Mid Scene");
-        const midSceneCue = midSceneElements[0].closest(
-          'div[class*="cursor-pointer"]',
-        );
-        expect(midSceneCue).toBeInTheDocument();
-        if (midSceneCue) {
-          fireEvent.doubleClick(midSceneCue);
-        }
-
-        // Advance timers and wait
-        jest.advanceTimersByTime(350);
-
-        // Snap should NOT be called in show mode
-        expect(snapCalled).toBe(false);
-      });
-
-      it("allows double-click snap in rehearsal mode", async () => {
-        // Track if mutation was called
-        let mutationCalled = false;
-        const mocks = [
-          ...createMocks(),
-          {
-            request: {
-              query: GO_TO_CUE,
-              variables: {
-                cueListId: mockCueListId,
-                cueIndex: 1,
-                fadeInTime: 0, // Instant snap from double-click
-              },
-            },
-            result: () => {
-              mutationCalled = true;
-              return { data: {} };
-            },
-          },
-        ];
-
-        renderWithProvider(mocks);
-
-        await waitFor(() => {
-          expect(screen.getByText("REHEARSAL")).toBeInTheDocument();
-        });
-
-        // Find a non-current cue and double-click it
-        const midSceneElements = screen.getAllByText("Mid Scene");
-        const midSceneCue = midSceneElements[0].closest(
-          'div[class*="cursor-pointer"]',
-        );
-        expect(midSceneCue).toBeInTheDocument();
-        if (midSceneCue) {
-          fireEvent.doubleClick(midSceneCue);
-        }
-
-        // Verify mutation was called with fadeInTime: 0
-        await waitFor(() => {
-          expect(mutationCalled).toBe(true);
-        });
-      });
-
-      it("disables double-tap snap on mobile in show mode", async () => {
-        // Pre-set localStorage to show mode
-        localStorageMock.getItem.mockReturnValue("show");
-
-        // Track if snap mutation was called (should NOT be called)
-        let snapCalled = false;
-        const mocks = [
-          ...createMocks(),
-          {
-            request: {
-              query: GO_TO_CUE,
-              variables: {
-                cueListId: mockCueListId,
-                cueIndex: 1,
-                fadeInTime: 0, // Instant snap
-              },
-            },
-            result: () => {
-              snapCalled = true;
-              return { data: {} };
-            },
-          },
-        ];
-
-        renderWithProvider(mocks);
-
-        await waitFor(() => {
-          expect(screen.getByText("SHOW")).toBeInTheDocument();
-        });
-
-        // Find a non-current cue
-        const midSceneElements = screen.getAllByText("Mid Scene");
-        const midSceneCue = midSceneElements[0].closest(
-          'div[class*="cursor-pointer"]',
-        );
-        expect(midSceneCue).toBeInTheDocument();
-        if (midSceneCue) {
-          // Simulate double-tap with two quick touch events
-          fireEvent.touchStart(midSceneCue, {
-            touches: [{ clientX: 100, clientY: 100 }],
-          });
-          fireEvent.touchEnd(midSceneCue);
-
-          jest.advanceTimersByTime(100);
-
-          fireEvent.touchStart(midSceneCue, {
-            touches: [{ clientX: 100, clientY: 100 }],
-          });
-          fireEvent.touchEnd(midSceneCue);
-        }
-
-        // Advance timers and wait
-        jest.advanceTimersByTime(350);
-
-        // Snap should NOT be called in show mode
-        expect(snapCalled).toBe(false);
-      });
-
-      it("allows single-click jump in show mode (normal fade)", async () => {
-        // Pre-set localStorage to show mode
-        localStorageMock.getItem.mockReturnValue("show");
-
-        // Track if single-click mutation was called
-        let jumpCalled = false;
-        const mocks = [
-          ...createMocks(),
-          {
-            request: {
-              query: GO_TO_CUE,
-              variables: {
-                cueListId: mockCueListId,
-                cueIndex: 1,
-                fadeInTime: 1.5, // Normal fade time for single-click
-              },
-            },
-            result: () => {
-              jumpCalled = true;
-              return { data: {} };
-            },
-          },
-        ];
-
-        renderWithProvider(mocks);
-
-        await waitFor(() => {
-          expect(screen.getByText("SHOW")).toBeInTheDocument();
-        });
-
-        // Find a non-current cue and single-click it
-        const midSceneElements = screen.getAllByText("Mid Scene");
-        const midSceneCue = midSceneElements[0].closest(
-          'div[class*="cursor-pointer"]',
-        );
-        expect(midSceneCue).toBeInTheDocument();
-        if (midSceneCue) {
-          fireEvent.click(midSceneCue);
-        }
-
-        // Advance past the DOUBLE_TAP_DELAY (300ms)
-        jest.advanceTimersByTime(350);
-
-        // Single-click jump should still work in show mode
-        await waitFor(() => {
-          expect(jumpCalled).toBe(true);
-        });
-      });
     });
   });
 });

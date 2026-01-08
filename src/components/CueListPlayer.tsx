@@ -47,15 +47,6 @@ interface CueListPlayerProps {
   onCueListLoaded?: (cueListName: string) => void;
 }
 
-/** Delay in ms for detecting double-tap/double-click (module-level constant) */
-const DOUBLE_TAP_DELAY = 300;
-
-/** Playback mode determines whether snap-to-cue (double-click/tap) is enabled */
-type PlaybackMode = "show" | "rehearsal";
-
-/** localStorage key for persisting playback mode preference */
-const PLAYBACK_MODE_STORAGE_KEY = "lacylights_playback_mode";
-
 /**
  * CueListPlayer component provides a streamlined player interface for executing cues in a cue list.
  *
@@ -156,39 +147,6 @@ export default function CueListPlayer({
   const longPressTimer = useRef<number | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
-  /**
-   * Playback mode: "show" disables double-click/tap snap to prevent accidental scene jumps,
-   * "rehearsal" enables quick scene jumping for designers.
-   */
-  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>(() => {
-    if (typeof window === "undefined") return "rehearsal";
-    const stored = localStorage.getItem(PLAYBACK_MODE_STORAGE_KEY);
-    return stored === "show" || stored === "rehearsal" ? stored : "rehearsal";
-  });
-
-  /**
-   * Double-tap/double-click detection for snap-to-cue feature.
-   * These refs enable instant cue transitions without fade for rehearsal purposes.
-   *
-   * Why we use a click delay pattern:
-   * Browser double-click fires: click -> click -> dblclick, meaning onClick executes
-   * BEFORE onDoubleClick. Without the delay, single-click would send a mutation with
-   * normal fade, then double-click would send another with fadeInTime: 0, causing
-   * visual glitches as a fade starts and immediately stops. The 300ms delay allows
-   * us to detect double-click and cancel the single-click action before any mutation fires.
-   */
-
-  /** @description Timestamp of the last tap event for mobile double-tap detection */
-  const lastTapTime = useRef<number>(0);
-  /** @description Index of the last tapped cue for verifying double-tap on same cue */
-  const lastTapIndex = useRef<number>(-1);
-  /** @description Currently touched cue index, set on touchStart for touchEnd handler */
-  const touchedCueIndex = useRef<number>(-1);
-  /** @description Flag to skip onClick handler when double-tap/click was just processed */
-  const doubleTapHandled = useRef<boolean>(false);
-  /** @description Timer ID for delayed single-click, cancelled if double-click detected */
-  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   // Track mounted state to prevent state updates after unmount
   useEffect(() => {
     isMounted.current = true;
@@ -205,20 +163,6 @@ export default function CueListPlayer({
       }
     };
   }, []);
-
-  // Cleanup clickTimer on unmount to prevent memory leaks
-  useEffect(() => {
-    return () => {
-      if (clickTimer.current) {
-        clearTimeout(clickTimer.current);
-      }
-    };
-  }, []);
-
-  // Persist playback mode to localStorage
-  useEffect(() => {
-    localStorage.setItem(PLAYBACK_MODE_STORAGE_KEY, playbackMode);
-  }, [playbackMode]);
 
   useEffect(() => {
     setActualCueListId(extractCueListId(cueListIdProp));
@@ -897,36 +841,6 @@ export default function CueListPlayer({
     touchStart.current = null;
   }, []);
 
-  /**
-   * Snap to a cue instantly without fade (for rehearsal use).
-   * Triggered by double-click (desktop) or double-tap (mobile).
-   * Disabled in "show" mode to prevent accidental scene jumps.
-   * @param index - The index of the cue to snap to
-   */
-  const handleSnapToCue = useCallback(
-    async (index: number) => {
-      // In show mode, snap-to-cue is disabled to prevent accidental scene jumps
-      if (playbackMode === "show") return;
-
-      if (!cueList || index < 0 || index >= cues.length) return;
-
-      // Wait for WebSocket to be connected before mutation
-      await ensureConnection();
-
-      // Guard against component unmount during ensureConnection
-      if (!isMounted.current) return;
-
-      await goToCue({
-        variables: {
-          cueListId: cueList.id,
-          cueIndex: index,
-          fadeInTime: 0, // Instant snap - no fade
-        },
-      });
-    },
-    [goToCue, cueList, cues.length, ensureConnection, playbackMode],
-  );
-
   // Touch handlers
   const handleTouchStart = useCallback(
     (e: React.TouchEvent, cue: Cue, index: number) => {
@@ -935,8 +849,6 @@ export default function CueListPlayer({
       // touch event routing and can cause touches to "pass through" to wrong elements.
       // Text selection is already prevented via CSS (select-none class on cue items).
       startLongPressDetection(touch.clientX, touch.clientY, cue, index);
-      // Store the touched cue index for double-tap detection
-      touchedCueIndex.current = index;
     },
     [startLongPressDetection],
   );
@@ -956,35 +868,29 @@ export default function CueListPlayer({
 
   const handleTouchEnd = useCallback(() => {
     cancelLongPress();
+  }, [cancelLongPress]);
 
-    // Double-tap detection for snap-to-cue
-    const now = Date.now();
-    const index = touchedCueIndex.current;
-    const timeSinceLastTap = now - lastTapTime.current;
+  /**
+   * Hurry up: Complete the current fade instantly.
+   * Only active when a cue is currently fading in.
+   */
+  const handleHurryUp = useCallback(async () => {
+    if (!cueList || !isFading || currentCueIndex < 0) return;
 
-    if (
-      timeSinceLastTap < DOUBLE_TAP_DELAY &&
-      index === lastTapIndex.current &&
-      index >= 0
-    ) {
-      // Cancel pending single-click from first tap (if onClick already fired)
-      if (clickTimer.current) {
-        clearTimeout(clickTimer.current);
-        clickTimer.current = null;
-      }
-      // Double-tap detected - snap to cue instantly
-      doubleTapHandled.current = true;
-      handleSnapToCue(index);
-      // Reset tracking
-      lastTapTime.current = 0;
-      lastTapIndex.current = -1;
-      touchedCueIndex.current = -1;
-    } else {
-      // First tap or different cue - record for potential double-tap
-      lastTapTime.current = now;
-      lastTapIndex.current = index;
-    }
-  }, [cancelLongPress, handleSnapToCue]);
+    // Wait for WebSocket to be connected before mutation
+    await ensureConnection();
+
+    // Guard against component unmount during ensureConnection
+    if (!isMounted.current) return;
+
+    await goToCue({
+      variables: {
+        cueListId: cueList.id,
+        cueIndex: currentCueIndex,
+        fadeInTime: 0, // Complete instantly
+      },
+    });
+  }, [goToCue, cueList, isFading, currentCueIndex, ensureConnection]);
 
   // Context menu option handlers
   const handleEditCue = useCallback(() => {
@@ -1309,37 +1215,11 @@ export default function CueListPlayer({
                               : "bg-gray-800 border-gray-700 hover:bg-gray-700/70"
                   }`}
                   onClick={() => {
-                    // Skip if a double-tap was just handled on mobile
-                    if (doubleTapHandled.current) {
-                      doubleTapHandled.current = false;
-                      return;
+                    if (isCurrent) {
+                      scrollToLiveCue();
+                    } else {
+                      handleJumpToCue(index);
                     }
-                    // Capture values at click time to avoid race conditions
-                    const isCurrentAtClick = isCurrent;
-                    const indexAtClick = index;
-                    // Delay single-click action to allow double-click detection
-                    // This prevents race condition where click fires before dblclick
-                    if (clickTimer.current) {
-                      clearTimeout(clickTimer.current);
-                    }
-                    clickTimer.current = setTimeout(() => {
-                      clickTimer.current = null;
-                      if (isCurrentAtClick) {
-                        scrollToLiveCue();
-                      } else {
-                        handleJumpToCue(indexAtClick);
-                      }
-                    }, DOUBLE_TAP_DELAY);
-                  }}
-                  onDoubleClick={() => {
-                    // Cancel pending single-click action
-                    if (clickTimer.current) {
-                      clearTimeout(clickTimer.current);
-                      clickTimer.current = null;
-                    }
-                    // Set flag for defense-in-depth (timer cancellation is primary mechanism)
-                    doubleTapHandled.current = true;
-                    handleSnapToCue(index);
                   }}
                   onContextMenu={(e) => handleCueContextMenu(e, cue, index)}
                   onTouchStart={(e) => handleTouchStart(e, cue, index)}
@@ -1534,56 +1414,36 @@ export default function CueListPlayer({
             </svg>
           </button>
 
-          {/* Show/Rehearsal mode toggle */}
+          {/* Hurry Up button - completes current fade instantly */}
           <button
-            onClick={() =>
-              setPlaybackMode((mode) =>
-                mode === "show" ? "rehearsal" : "show",
-              )
-            }
+            onClick={handleHurryUp}
+            disabled={!isFading}
             className={`p-3 rounded-lg transition-colors ${
-              playbackMode === "show"
+              isFading
                 ? "bg-amber-600 hover:bg-amber-700 text-white"
-                : "bg-blue-600 hover:bg-blue-700 text-white"
+                : "bg-gray-700 text-gray-500 cursor-not-allowed"
             }`}
             title={
-              playbackMode === "show"
-                ? "SHOW mode - Double-click snap disabled (click to enable)"
-                : "REHEARSAL mode - Double-click to snap to cue (click to disable)"
+              isFading
+                ? "Hurry Up - Complete fade instantly"
+                : "Hurry Up - Active during fade"
             }
-            aria-label={`${playbackMode === "show" ? "Show" : "Rehearsal"} mode`}
+            aria-label="Hurry up"
           >
-            {playbackMode === "show" ? (
-              // Shield icon for Show mode (protected)
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                />
-              </svg>
-            ) : (
-              // Lightning bolt icon for Rehearsal mode (quick)
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-            )}
+            {/* Lightning bolt icon */}
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
           </button>
         </div>
 
@@ -1595,30 +1455,11 @@ export default function CueListPlayer({
               <button
                 key={cue.id}
                 onClick={() => {
-                  // Capture values at click time to avoid race conditions
-                  const isCurrentAtClick = isCurrent;
-                  const indexAtClick = index;
-                  // Delay single-click to allow double-click detection
-                  if (clickTimer.current) {
-                    clearTimeout(clickTimer.current);
+                  if (isCurrent) {
+                    scrollToLiveCue();
+                  } else {
+                    handleJumpToCue(index);
                   }
-                  clickTimer.current = setTimeout(() => {
-                    clickTimer.current = null;
-                    if (isCurrentAtClick) {
-                      scrollToLiveCue();
-                    } else {
-                      handleJumpToCue(indexAtClick);
-                    }
-                  }, DOUBLE_TAP_DELAY);
-                }}
-                onDoubleClick={() => {
-                  // Cancel pending single-click and snap instantly
-                  if (clickTimer.current) {
-                    clearTimeout(clickTimer.current);
-                    clickTimer.current = null;
-                  }
-                  doubleTapHandled.current = true;
-                  handleSnapToCue(index);
                 }}
                 className={`w-2 h-2 rounded-full transition-all ${
                   isCurrent && isPaused
@@ -1643,23 +1484,11 @@ export default function CueListPlayer({
 
         <div className="mt-3 text-center text-xs text-gray-500">
           Space/Enter = {isPaused ? "RESUME" : "GO"} | ← → = Navigate | Esc =
-          Stop |{" "}
-          <span
-            className={
-              playbackMode === "show" ? "text-amber-500" : "text-blue-400"
-            }
-          >
-            {playbackMode === "show" ? "SHOW" : "REHEARSAL"}
-          </span>
+          Stop
         </div>
         {isPaused && (
           <div className="mt-2 text-center text-sm text-amber-500 font-medium">
             ⚠ PAUSED — Click cue or press Space to resume
-          </div>
-        )}
-        {playbackMode === "rehearsal" && (
-          <div className="mt-1 text-center text-xs text-blue-400">
-            Double-click/tap any cue to snap instantly
           </div>
         )}
       </div>
