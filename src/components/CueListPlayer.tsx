@@ -1270,6 +1270,9 @@ export default function CueListPlayer({
                       doubleTapHandled.current = false;
                       return;
                     }
+                    // Capture isCurrent at click time to avoid race conditions
+                    // (cue might become current during the delay)
+                    const isCurrentAtClick = isCurrent;
                     // Delay single-click action to allow double-click detection
                     // This prevents race condition where click fires before dblclick
                     if (clickTimer.current) {
@@ -1278,7 +1281,7 @@ export default function CueListPlayer({
                     pendingClickIndex.current = index;
                     clickTimer.current = setTimeout(() => {
                       clickTimer.current = null;
-                      if (isCurrent) {
+                      if (isCurrentAtClick) {
                         scrollToLiveCue();
                       } else {
                         handleJumpToCue(pendingClickIndex.current);
@@ -1497,6 +1500,8 @@ export default function CueListPlayer({
               <button
                 key={cue.id}
                 onClick={() => {
+                  // Capture isCurrent at click time to avoid race conditions
+                  const isCurrentAtClick = isCurrent;
                   // Delay single-click to allow double-click detection
                   if (clickTimer.current) {
                     clearTimeout(clickTimer.current);
@@ -1504,7 +1509,7 @@ export default function CueListPlayer({
                   pendingClickIndex.current = index;
                   clickTimer.current = setTimeout(() => {
                     clickTimer.current = null;
-                    if (isCurrent) {
+                    if (isCurrentAtClick) {
                       scrollToLiveCue();
                     } else {
                       handleJumpToCue(pendingClickIndex.current);
