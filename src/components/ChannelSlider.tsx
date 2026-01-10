@@ -175,7 +175,7 @@ export default function ChannelSlider({
         )}
         <span>{abbreviateChannelName(channel)}</span>
       </label>
-      {/* Range slider with touch scrub support */}
+      {/* Range slider - uses native horizontal drag; wheel scroll captured by container */}
       <input
         type="range"
         min={channel.minValue || DEFAULT_MIN_VALUE}
@@ -193,7 +193,6 @@ export default function ChannelSlider({
                    [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0
                    [&::-moz-range-thumb]:hover:bg-blue-700 [&::-moz-range-thumb]:hover:scale-125 [&::-moz-range-thumb]:transition-all
                    ${isInactive ? 'cursor-not-allowed' : 'cursor-pointer [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:cursor-pointer'}`}
-        {...touchScrubProps}
       />
       {/* Number input with touch scrub support - drag vertically to adjust value */}
       <input

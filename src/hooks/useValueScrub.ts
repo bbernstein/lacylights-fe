@@ -46,7 +46,7 @@ export interface UseValueScrubReturn {
   /** Whether a touch scrub is currently active */
   isScrubbing: boolean;
   /** Ref to attach for capturing wheel events (prevents page scroll) */
-  containerRef: RefObject<HTMLDivElement | null>;
+  containerRef: RefObject<HTMLDivElement>;
 }
 
 // Constants for gesture detection
@@ -109,7 +109,7 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
   const isScrubbing = useRef(false);
   const accumulatedDelta = useRef(0);
   const lastValue = useRef(value);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Keep lastValue in sync
   useEffect(() => {
