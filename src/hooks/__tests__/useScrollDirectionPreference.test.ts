@@ -36,10 +36,12 @@ describe('useScrollDirectionPreference', () => {
   it('should load preference from localStorage on mount', () => {
     mockLocalStorage.getItem.mockReturnValueOnce('traditional');
 
-    renderHook(() => useScrollDirectionPreference());
+    const { result } = renderHook(() => useScrollDirectionPreference());
 
     // Verify getItem was called on mount
     expect(mockLocalStorage.getItem).toHaveBeenCalledWith('lacylights-scroll-direction');
+    // Verify the preference was actually loaded
+    expect(result.current[0]).toBe('traditional');
   });
 
   it('should update preference and save to localStorage', () => {

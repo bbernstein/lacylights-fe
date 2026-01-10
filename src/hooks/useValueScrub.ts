@@ -136,9 +136,9 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
 
   /**
    * Handle wheel events (trackpad two-finger scroll or mouse wheel)
-   * Maps physical gesture direction to value changes based on invertWheelDirection:
-   * - Default (false): Natural scrolling - drag UP = increase value (macOS default)
-   * - Inverted (true): Traditional scrolling - drag UP = decrease value
+   * Maps scroll gesture direction to value changes based on invertWheelDirection:
+   * - Default (false): Natural scrolling - scroll up = increase value (macOS default)
+   * - Inverted (true): Traditional scrolling - scroll up = decrease value
    */
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
