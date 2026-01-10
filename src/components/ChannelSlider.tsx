@@ -3,6 +3,7 @@ import { ChannelType, FadeBehavior } from '@/types';
 import { UV_COLOR_HEX } from '@/utils/colorConversion';
 import { abbreviateChannelName } from '@/utils/channelAbbreviation';
 import FadeBehaviorBadge from './FadeBehaviorBadge';
+import { useValueScrub } from '@/hooks/useValueScrub';
 
 // Default min/max values for DMX channels (standard range: 0-255)
 const DEFAULT_MIN_VALUE = 0;
@@ -50,6 +51,26 @@ export default function ChannelSlider({
   onToggleActive,
 }: ChannelSliderProps) {
   const [localValue, setLocalValue] = useState(value);
+
+  // Show toggle checkbox only when onToggleActive is provided
+  const showToggle = onToggleActive !== undefined;
+  // If isActive is undefined and toggle is shown, default to true
+  const effectiveIsActive = isActive ?? true;
+  // Apply dimmed styling when inactive
+  const isInactive = showToggle && !effectiveIsActive;
+
+  // Set up value scrub gestures (wheel + touch)
+  const { wheelProps, touchScrubProps, containerRef } = useValueScrub({
+    value: localValue,
+    min: channel.minValue || DEFAULT_MIN_VALUE,
+    max: channel.maxValue || DEFAULT_MAX_VALUE,
+    onChange: (newValue) => {
+      setLocalValue(newValue);
+      onChange(newValue);
+    },
+    onChangeComplete,
+    disabled: isInactive,
+  });
 
   // Sync local value with prop value only if it actually changed
   // This prevents infinite loops when parent updates rapidly (e.g., color picker dragging)
@@ -125,15 +146,12 @@ export default function ChannelSlider({
   const channelColor = getChannelColor();
   const displayTooltip = tooltip || `${channel.name} (${channel.type})`;
 
-  // Show toggle checkbox only when onToggleActive is provided
-  const showToggle = onToggleActive !== undefined;
-  // If isActive is undefined and toggle is shown, default to true
-  const effectiveIsActive = isActive ?? true;
-  // Apply dimmed styling when inactive
-  const isInactive = showToggle && !effectiveIsActive;
-
   return (
-    <div className={`flex items-center space-x-2 py-0.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded ${isInactive ? 'opacity-50' : ''}`}>
+    <div
+      ref={containerRef}
+      className={`flex items-center space-x-2 py-0.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded ${isInactive ? 'opacity-50' : ''}`}
+      {...wheelProps}
+    >
       {/* Channel active toggle checkbox */}
       {showToggle && (
         <input
@@ -157,6 +175,7 @@ export default function ChannelSlider({
         )}
         <span>{abbreviateChannelName(channel)}</span>
       </label>
+      {/* Range slider - uses native horizontal drag; wheel scroll captured by container */}
       <input
         type="range"
         min={channel.minValue || DEFAULT_MIN_VALUE}
@@ -175,6 +194,7 @@ export default function ChannelSlider({
                    [&::-moz-range-thumb]:hover:bg-blue-700 [&::-moz-range-thumb]:hover:scale-125 [&::-moz-range-thumb]:transition-all
                    ${isInactive ? 'cursor-not-allowed' : 'cursor-pointer [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:cursor-pointer'}`}
       />
+      {/* Number input with touch scrub support - drag vertically to adjust value */}
       <input
         type="number"
         min={channel.minValue || DEFAULT_MIN_VALUE}
@@ -183,8 +203,9 @@ export default function ChannelSlider({
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
         disabled={isInactive}
-        className={`w-12 text-xs text-center font-mono text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0 focus:outline-none focus:ring-1 focus:ring-blue-500 ${isInactive ? 'cursor-not-allowed' : ''}`}
-        title="Use arrow keys to adjust. Hold Shift for ±10"
+        className={`w-12 text-xs text-center font-mono text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0 focus:outline-none focus:ring-1 focus:ring-blue-500 select-none ${isInactive ? 'cursor-not-allowed' : 'cursor-ns-resize'}`}
+        title="Scroll to adjust, arrow keys for ±1, Shift+arrow for ±10. Touch and drag vertically to scrub."
+        {...touchScrubProps}
       />
       {showFadeBehavior && channel.fadeBehavior && (
         <FadeBehaviorBadge
