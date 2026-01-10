@@ -27,6 +27,12 @@ export interface UseValueScrubOptions {
    * Default: 0.1 (10x slower when Shift held)
    */
   shiftMultiplier?: number;
+  /**
+   * Invert the wheel/scroll direction.
+   * - false (default): Natural scrolling - drag UP = increase value (macOS default)
+   * - true: Traditional scrolling - drag UP = decrease value (Windows/Linux default)
+   */
+  invertWheelDirection?: boolean;
 }
 
 /**
@@ -102,6 +108,7 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
     wheelSensitivity = DEFAULT_WHEEL_SENSITIVITY,
     touchSensitivity = DEFAULT_TOUCH_SENSITIVITY,
     shiftMultiplier = DEFAULT_SHIFT_MULTIPLIER,
+    invertWheelDirection = false,
   } = options;
 
   // Track touch state
@@ -129,7 +136,9 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
 
   /**
    * Handle wheel events (trackpad two-finger scroll or mouse wheel)
-   * Negative deltaY = scroll up = increase value
+   * Maps physical gesture direction to value changes based on invertWheelDirection:
+   * - Default (false): Natural scrolling - drag UP = increase value (macOS default)
+   * - Inverted (true): Traditional scrolling - drag UP = decrease value
    */
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
@@ -140,12 +149,14 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
       e.stopPropagation();
 
       // Calculate value change from wheel delta
-      // Negative deltaY means scrolling up, which should increase value
+      // Default (natural scrolling): positive deltaY = drag up = increase value
+      // Inverted (traditional): negative deltaY = scroll up = increase value
       const sensitivity = e.shiftKey
         ? wheelSensitivity / shiftMultiplier
         : wheelSensitivity;
 
-      const delta = -e.deltaY / sensitivity;
+      const directionMultiplier = invertWheelDirection ? -1 : 1;
+      const delta = (e.deltaY * directionMultiplier) / sensitivity;
 
       // Accumulate sub-unit changes for smooth adjustment
       accumulatedDelta.current += delta;
@@ -165,7 +176,7 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
         }
       }
     },
-    [disabled, wheelSensitivity, shiftMultiplier, clamp, onChange, onChangeComplete]
+    [disabled, wheelSensitivity, shiftMultiplier, invertWheelDirection, clamp, onChange, onChangeComplete]
   );
 
   /**
