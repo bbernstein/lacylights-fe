@@ -3,6 +3,11 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import ChannelSlider, { SliderChannel } from '../ChannelSlider';
 import { ChannelType } from '@/types';
 
+// Mock the scroll direction preference hook
+jest.mock('@/hooks/useScrollDirectionPreference', () => ({
+  useScrollDirectionPreference: () => ['natural', jest.fn(), false],
+}));
+
 const mockRedChannel: SliderChannel = {
   name: 'Red',
   type: ChannelType.RED,
@@ -187,7 +192,7 @@ describe('ChannelSlider', () => {
   });
 
   describe('wheel gesture support', () => {
-    it('adjusts value on wheel scroll up', () => {
+    it('adjusts value on drag up (positive deltaY with natural scrolling)', () => {
       const handleChange = jest.fn();
 
       const { container } = render(
@@ -201,8 +206,8 @@ describe('ChannelSlider', () => {
       // The container div should have the wheel handler
       const containerDiv = container.firstChild as HTMLElement;
 
-      // Simulate wheel scroll up (negative deltaY)
-      fireEvent.wheel(containerDiv, { deltaY: -10 });
+      // Simulate drag up with natural scrolling (positive deltaY = increase)
+      fireEvent.wheel(containerDiv, { deltaY: 10 });
 
       // onChange should be called with a value greater than 128
       expect(handleChange).toHaveBeenCalled();
@@ -210,7 +215,7 @@ describe('ChannelSlider', () => {
       expect(newValue).toBeGreaterThan(128);
     });
 
-    it('adjusts value on wheel scroll down', () => {
+    it('adjusts value on drag down (negative deltaY with natural scrolling)', () => {
       const handleChange = jest.fn();
 
       const { container } = render(
@@ -223,8 +228,8 @@ describe('ChannelSlider', () => {
 
       const containerDiv = container.firstChild as HTMLElement;
 
-      // Simulate wheel scroll down (positive deltaY)
-      fireEvent.wheel(containerDiv, { deltaY: 10 });
+      // Simulate drag down with natural scrolling (negative deltaY = decrease)
+      fireEvent.wheel(containerDiv, { deltaY: -10 });
 
       expect(handleChange).toHaveBeenCalled();
       const newValue = handleChange.mock.calls[0][0];

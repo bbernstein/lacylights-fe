@@ -4,6 +4,7 @@ import { UV_COLOR_HEX } from '@/utils/colorConversion';
 import { abbreviateChannelName } from '@/utils/channelAbbreviation';
 import FadeBehaviorBadge from './FadeBehaviorBadge';
 import { useValueScrub } from '@/hooks/useValueScrub';
+import { useScrollDirectionPreference } from '@/hooks/useScrollDirectionPreference';
 
 // Default min/max values for DMX channels (standard range: 0-255)
 const DEFAULT_MIN_VALUE = 0;
@@ -59,6 +60,9 @@ export default function ChannelSlider({
   // Apply dimmed styling when inactive
   const isInactive = showToggle && !effectiveIsActive;
 
+  // Get scroll direction preference from localStorage
+  const [, , invertWheelDirection] = useScrollDirectionPreference();
+
   // Set up value scrub gestures (wheel + touch)
   const { wheelProps, touchScrubProps, containerRef } = useValueScrub({
     value: localValue,
@@ -70,6 +74,7 @@ export default function ChannelSlider({
     },
     onChangeComplete,
     disabled: isInactive,
+    invertWheelDirection,
   });
 
   // Sync local value with prop value only if it actually changed

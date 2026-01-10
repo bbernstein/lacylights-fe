@@ -29,7 +29,7 @@ describe('useValueScrub', () => {
       expect(typeof result.current.wheelProps.onWheel).toBe('function');
     });
 
-    it('should increase value when scrolling up (negative deltaY)', () => {
+    it('should increase value when dragging up (positive deltaY with natural scrolling)', () => {
       const onChange = jest.fn();
       const onChangeComplete = jest.fn();
       const { result } = renderHook(() =>
@@ -43,7 +43,7 @@ describe('useValueScrub', () => {
       );
 
       const wheelEvent = {
-        deltaY: -10, // Scrolling up
+        deltaY: 10, // Drag up with natural scrolling = positive deltaY
         shiftKey: false,
         preventDefault: jest.fn(),
         stopPropagation: jest.fn(),
@@ -57,11 +57,11 @@ describe('useValueScrub', () => {
       expect(wheelEvent.stopPropagation).toHaveBeenCalled();
       expect(onChange).toHaveBeenCalled();
       expect(onChangeComplete).toHaveBeenCalled();
-      // Value should increase (scroll up = increase)
+      // Value should increase (drag up = increase)
       expect(onChange.mock.calls[0][0]).toBeGreaterThan(128);
     });
 
-    it('should decrease value when scrolling down (positive deltaY)', () => {
+    it('should decrease value when dragging down (negative deltaY with natural scrolling)', () => {
       const onChange = jest.fn();
       const { result } = renderHook(() =>
         useValueScrub({
@@ -73,7 +73,7 @@ describe('useValueScrub', () => {
       );
 
       const wheelEvent = {
-        deltaY: 10, // Scrolling down
+        deltaY: -10, // Drag down with natural scrolling = negative deltaY
         shiftKey: false,
         preventDefault: jest.fn(),
         stopPropagation: jest.fn(),
@@ -84,7 +84,7 @@ describe('useValueScrub', () => {
       });
 
       expect(onChange).toHaveBeenCalled();
-      // Value should decrease (scroll down = decrease)
+      // Value should decrease (drag down = decrease)
       expect(onChange.mock.calls[0][0]).toBeLessThan(128);
     });
 
@@ -100,7 +100,7 @@ describe('useValueScrub', () => {
       );
 
       const wheelEvent = {
-        deltaY: -100, // Large scroll up
+        deltaY: 100, // Large drag up = increase toward max
         shiftKey: false,
         preventDefault: jest.fn(),
         stopPropagation: jest.fn(),
@@ -125,7 +125,7 @@ describe('useValueScrub', () => {
       );
 
       const wheelEvent = {
-        deltaY: 100, // Large scroll down
+        deltaY: -100, // Large drag down = decrease toward min
         shiftKey: false,
         preventDefault: jest.fn(),
         stopPropagation: jest.fn(),
@@ -177,9 +177,9 @@ describe('useValueScrub', () => {
         })
       );
 
-      // First, scroll without shift
+      // First, drag up without shift
       const wheelEventNoShift = {
-        deltaY: -20,
+        deltaY: 20, // Drag up = positive deltaY
         shiftKey: false,
         preventDefault: jest.fn(),
         stopPropagation: jest.fn(),
@@ -194,7 +194,7 @@ describe('useValueScrub', () => {
       // Reset
       onChange.mockClear();
 
-      // Now scroll with shift
+      // Now drag up with shift
       const { result: result2 } = renderHook(() =>
         useValueScrub({
           value: 128,
@@ -207,7 +207,7 @@ describe('useValueScrub', () => {
       );
 
       const wheelEventWithShift = {
-        deltaY: -20,
+        deltaY: 20, // Drag up = positive deltaY
         shiftKey: true,
         preventDefault: jest.fn(),
         stopPropagation: jest.fn(),
@@ -273,6 +273,93 @@ describe('useValueScrub', () => {
       const change2 = onChange2.mock.calls[0][0] - 128;
 
       expect(Math.abs(change1)).toBeGreaterThan(Math.abs(change2));
+    });
+
+    it('should invert direction when invertWheelDirection is true', () => {
+      const onChange = jest.fn();
+      const { result } = renderHook(() =>
+        useValueScrub({
+          value: 128,
+          min: 0,
+          max: 255,
+          onChange,
+          invertWheelDirection: true,
+        })
+      );
+
+      // Positive deltaY with invert = decrease value (traditional scrolling)
+      const wheelEvent = {
+        deltaY: 10,
+        shiftKey: false,
+        preventDefault: jest.fn(),
+        stopPropagation: jest.fn(),
+      } as unknown as React.WheelEvent;
+
+      act(() => {
+        result.current.wheelProps.onWheel(wheelEvent);
+      });
+
+      expect(onChange).toHaveBeenCalled();
+      // With invert, positive deltaY should decrease value
+      expect(onChange.mock.calls[0][0]).toBeLessThan(128);
+    });
+
+    it('should increase value with negative deltaY when invertWheelDirection is true', () => {
+      const onChange = jest.fn();
+      const { result } = renderHook(() =>
+        useValueScrub({
+          value: 128,
+          min: 0,
+          max: 255,
+          onChange,
+          invertWheelDirection: true,
+        })
+      );
+
+      // Negative deltaY with invert = increase value (traditional scrolling: scroll up = increase)
+      const wheelEvent = {
+        deltaY: -10,
+        shiftKey: false,
+        preventDefault: jest.fn(),
+        stopPropagation: jest.fn(),
+      } as unknown as React.WheelEvent;
+
+      act(() => {
+        result.current.wheelProps.onWheel(wheelEvent);
+      });
+
+      expect(onChange).toHaveBeenCalled();
+      // With invert, negative deltaY should increase value
+      expect(onChange.mock.calls[0][0]).toBeGreaterThan(128);
+    });
+
+    it('should default invertWheelDirection to false', () => {
+      const onChange = jest.fn();
+      const { result } = renderHook(() =>
+        useValueScrub({
+          value: 128,
+          min: 0,
+          max: 255,
+          onChange,
+          // Not specifying invertWheelDirection - should default to false
+        })
+      );
+
+      // Positive deltaY without invert = increase value (natural scrolling)
+      const wheelEvent = {
+        deltaY: 10,
+        shiftKey: false,
+        preventDefault: jest.fn(),
+        stopPropagation: jest.fn(),
+      } as unknown as React.WheelEvent;
+
+      act(() => {
+        result.current.wheelProps.onWheel(wheelEvent);
+      });
+
+      expect(onChange).toHaveBeenCalled();
+      // Without invert (default), positive deltaY should increase value
+      expect(onChange.mock.calls[0][0]).toBeGreaterThan(128);
     });
   });
 
@@ -716,9 +803,9 @@ describe('useValueScrub', () => {
         })
       );
 
-      // Try to decrease below min
+      // Try to decrease below min (negative deltaY = decrease in natural scrolling)
       const wheelEvent = {
-        deltaY: 100,
+        deltaY: -100,
         shiftKey: false,
         preventDefault: jest.fn(),
         stopPropagation: jest.fn(),
@@ -743,9 +830,9 @@ describe('useValueScrub', () => {
         })
       );
 
-      // Try to increase above max
+      // Try to increase above max (positive deltaY = increase in natural scrolling)
       const wheelEvent = {
-        deltaY: -100,
+        deltaY: 100,
         shiftKey: false,
         preventDefault: jest.fn(),
         stopPropagation: jest.fn(),
@@ -770,9 +857,9 @@ describe('useValueScrub', () => {
         })
       );
 
-      // Scroll down to decrease
+      // Scroll to decrease (negative deltaY = decrease in natural scrolling)
       const wheelEventDown = {
-        deltaY: 200,
+        deltaY: -200,
         shiftKey: false,
         preventDefault: jest.fn(),
         stopPropagation: jest.fn(),
@@ -797,9 +884,9 @@ describe('useValueScrub', () => {
         })
       );
 
-      // Scroll up to increase
+      // Scroll to increase (positive deltaY = increase in natural scrolling)
       const wheelEventUp = {
-        deltaY: -200,
+        deltaY: 200,
         shiftKey: false,
         preventDefault: jest.fn(),
         stopPropagation: jest.fn(),
