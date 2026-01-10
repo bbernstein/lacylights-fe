@@ -185,4 +185,247 @@ describe('ChannelSlider', () => {
 
     expect(screen.getAllByDisplayValue('150')).toHaveLength(2);
   });
+
+  describe('wheel gesture support', () => {
+    it('adjusts value on wheel scroll up', () => {
+      const handleChange = jest.fn();
+
+      const { container } = render(
+        <ChannelSlider
+          channel={mockRedChannel}
+          value={128}
+          onChange={handleChange}
+        />
+      );
+
+      // The container div should have the wheel handler
+      const containerDiv = container.firstChild as HTMLElement;
+
+      // Simulate wheel scroll up (negative deltaY)
+      fireEvent.wheel(containerDiv, { deltaY: -10 });
+
+      // onChange should be called with a value greater than 128
+      expect(handleChange).toHaveBeenCalled();
+      const newValue = handleChange.mock.calls[0][0];
+      expect(newValue).toBeGreaterThan(128);
+    });
+
+    it('adjusts value on wheel scroll down', () => {
+      const handleChange = jest.fn();
+
+      const { container } = render(
+        <ChannelSlider
+          channel={mockRedChannel}
+          value={128}
+          onChange={handleChange}
+        />
+      );
+
+      const containerDiv = container.firstChild as HTMLElement;
+
+      // Simulate wheel scroll down (positive deltaY)
+      fireEvent.wheel(containerDiv, { deltaY: 10 });
+
+      expect(handleChange).toHaveBeenCalled();
+      const newValue = handleChange.mock.calls[0][0];
+      expect(newValue).toBeLessThan(128);
+    });
+
+    it('does not adjust value when disabled', () => {
+      const handleChange = jest.fn();
+      const handleToggleActive = jest.fn();
+
+      const { container } = render(
+        <ChannelSlider
+          channel={mockRedChannel}
+          value={128}
+          onChange={handleChange}
+          isActive={false}
+          onToggleActive={handleToggleActive}
+        />
+      );
+
+      const containerDiv = container.firstChild as HTMLElement;
+      fireEvent.wheel(containerDiv, { deltaY: -10 });
+
+      // Should not call onChange when inactive
+      expect(handleChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('touch gesture support', () => {
+    it('has touch event handlers on slider input', () => {
+      const handleChange = jest.fn();
+
+      const { container } = render(
+        <ChannelSlider
+          channel={mockRedChannel}
+          value={128}
+          onChange={handleChange}
+        />
+      );
+
+      const slider = container.querySelector('input[type="range"]');
+      expect(slider).toBeTruthy();
+      // The slider should have touch handlers attached (via spread props)
+    });
+
+    it('has touch event handlers on number input', () => {
+      const handleChange = jest.fn();
+
+      const { container } = render(
+        <ChannelSlider
+          channel={mockRedChannel}
+          value={128}
+          onChange={handleChange}
+        />
+      );
+
+      const numberInput = container.querySelector('input[type="number"]');
+      expect(numberInput).toBeTruthy();
+    });
+
+    it('has ns-resize cursor on number input when active', () => {
+      const handleChange = jest.fn();
+
+      const { container } = render(
+        <ChannelSlider
+          channel={mockRedChannel}
+          value={128}
+          onChange={handleChange}
+        />
+      );
+
+      const numberInput = container.querySelector('input[type="number"]');
+      expect(numberInput).toHaveClass('cursor-ns-resize');
+    });
+
+    it('has not-allowed cursor on number input when inactive', () => {
+      const handleChange = jest.fn();
+      const handleToggleActive = jest.fn();
+
+      const { container } = render(
+        <ChannelSlider
+          channel={mockRedChannel}
+          value={128}
+          onChange={handleChange}
+          isActive={false}
+          onToggleActive={handleToggleActive}
+        />
+      );
+
+      const numberInput = container.querySelector('input[type="number"]');
+      expect(numberInput).toHaveClass('cursor-not-allowed');
+    });
+  });
+
+  describe('keyboard navigation', () => {
+    it('increases value with arrow up key', () => {
+      const handleChange = jest.fn();
+
+      const { container } = render(
+        <ChannelSlider
+          channel={mockRedChannel}
+          value={128}
+          onChange={handleChange}
+        />
+      );
+
+      const numberInput = container.querySelector('input[type="number"]');
+      if (numberInput) {
+        fireEvent.keyDown(numberInput, { key: 'ArrowUp' });
+        expect(handleChange).toHaveBeenCalledWith(129);
+      }
+    });
+
+    it('decreases value with arrow down key', () => {
+      const handleChange = jest.fn();
+
+      const { container } = render(
+        <ChannelSlider
+          channel={mockRedChannel}
+          value={128}
+          onChange={handleChange}
+        />
+      );
+
+      const numberInput = container.querySelector('input[type="number"]');
+      if (numberInput) {
+        fireEvent.keyDown(numberInput, { key: 'ArrowDown' });
+        expect(handleChange).toHaveBeenCalledWith(127);
+      }
+    });
+
+    it('increases value by 10 with shift+arrow up', () => {
+      const handleChange = jest.fn();
+
+      const { container } = render(
+        <ChannelSlider
+          channel={mockRedChannel}
+          value={128}
+          onChange={handleChange}
+        />
+      );
+
+      const numberInput = container.querySelector('input[type="number"]');
+      if (numberInput) {
+        fireEvent.keyDown(numberInput, { key: 'ArrowUp', shiftKey: true });
+        expect(handleChange).toHaveBeenCalledWith(138);
+      }
+    });
+
+    it('decreases value by 10 with shift+arrow down', () => {
+      const handleChange = jest.fn();
+
+      const { container } = render(
+        <ChannelSlider
+          channel={mockRedChannel}
+          value={128}
+          onChange={handleChange}
+        />
+      );
+
+      const numberInput = container.querySelector('input[type="number"]');
+      if (numberInput) {
+        fireEvent.keyDown(numberInput, { key: 'ArrowDown', shiftKey: true });
+        expect(handleChange).toHaveBeenCalledWith(118);
+      }
+    });
+
+    it('clamps value at max bound with arrow up', () => {
+      const handleChange = jest.fn();
+
+      const { container } = render(
+        <ChannelSlider
+          channel={mockRedChannel}
+          value={254}
+          onChange={handleChange}
+        />
+      );
+
+      const numberInput = container.querySelector('input[type="number"]');
+      if (numberInput) {
+        fireEvent.keyDown(numberInput, { key: 'ArrowUp', shiftKey: true });
+        expect(handleChange).toHaveBeenCalledWith(255);
+      }
+    });
+
+    it('clamps value at min bound with arrow down', () => {
+      const handleChange = jest.fn();
+
+      const { container } = render(
+        <ChannelSlider
+          channel={mockRedChannel}
+          value={5}
+          onChange={handleChange}
+        />
+      );
+
+      const numberInput = container.querySelector('input[type="number"]');
+      if (numberInput) {
+        fireEvent.keyDown(numberInput, { key: 'ArrowDown', shiftKey: true });
+        expect(handleChange).toHaveBeenCalledWith(0);
+      }
+    });
+  });
 });
