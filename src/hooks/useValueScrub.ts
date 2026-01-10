@@ -12,7 +12,7 @@ export interface UseValueScrubOptions {
   max: number;
   /** Callback when value changes during scrubbing */
   onChange: (value: number) => void;
-  /** Callback when scrubbing completes (mouse/touch release) */
+  /** Callback when scrubbing completes (touch release) or after each wheel change */
   onChangeComplete?: (value: number) => void;
   /** Whether the control is disabled */
   disabled?: boolean;
@@ -42,6 +42,7 @@ export interface UseValueScrubReturn {
     onTouchStart: (e: React.TouchEvent) => void;
     onTouchMove: (e: React.TouchEvent) => void;
     onTouchEnd: (e: React.TouchEvent) => void;
+    onTouchCancel: (e: React.TouchEvent) => void;
   };
   /** Whether a touch scrub is currently active */
   isScrubbing: boolean;
@@ -111,9 +112,11 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
   const lastValue = useRef(value);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Keep lastValue in sync
+  // Keep lastValue in sync and reset accumulated delta on external value changes
   useEffect(() => {
     lastValue.current = value;
+    // Reset accumulation on external value changes to prevent drift
+    accumulatedDelta.current = 0;
   }, [value]);
 
   /**
@@ -226,7 +229,10 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
    */
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
-      if (isScrubbing.current && onChangeComplete) {
+      // Capture scrubbing state before reset
+      const wasScrubbing = isScrubbing.current;
+
+      if (wasScrubbing && onChangeComplete) {
         onChangeComplete(lastValue.current);
       }
 
@@ -236,12 +242,22 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
       accumulatedDelta.current = 0;
 
       // Prevent the touch from triggering click on the input if we were scrubbing
-      if (isScrubbing.current) {
+      if (wasScrubbing) {
         e.preventDefault();
       }
     },
     [onChangeComplete]
   );
+
+  /**
+   * Handle touch cancel - reset state when touch is interrupted
+   */
+  const handleTouchCancel = useCallback(() => {
+    // Reset touch tracking state without triggering onChangeComplete
+    touchStartY.current = null;
+    isScrubbing.current = false;
+    accumulatedDelta.current = 0;
+  }, []);
 
   // Attach passive: false wheel listener to container to allow preventDefault
   useEffect(() => {
@@ -269,6 +285,7 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
       onTouchStart: handleTouchStart,
       onTouchMove: handleTouchMove,
       onTouchEnd: handleTouchEnd,
+      onTouchCancel: handleTouchCancel,
     },
     isScrubbing: isScrubbing.current,
     containerRef,

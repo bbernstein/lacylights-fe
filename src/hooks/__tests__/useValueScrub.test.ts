@@ -571,6 +571,82 @@ describe('useValueScrub', () => {
 
       expect(onChange).not.toHaveBeenCalled();
     });
+
+    it('should handle touch cancel by resetting state', () => {
+      const onChange = jest.fn();
+      const onChangeComplete = jest.fn();
+      const { result } = renderHook(() =>
+        useValueScrub({
+          value: 128,
+          min: 0,
+          max: 255,
+          onChange,
+          onChangeComplete,
+          touchSensitivity: 1,
+        })
+      );
+
+      // Start touch and begin scrubbing
+      act(() => {
+        result.current.touchScrubProps.onTouchStart({
+          touches: [{ clientY: 100 }],
+        } as unknown as React.TouchEvent);
+      });
+
+      act(() => {
+        result.current.touchScrubProps.onTouchMove({
+          touches: [{ clientY: 50 }],
+          preventDefault: jest.fn(),
+        } as unknown as React.TouchEvent);
+      });
+
+      // Cancel the touch (e.g., system interruption)
+      act(() => {
+        result.current.touchScrubProps.onTouchCancel({} as React.TouchEvent);
+      });
+
+      // onChangeComplete should NOT be called on cancel
+      expect(onChangeComplete).not.toHaveBeenCalled();
+    });
+
+    it('should call preventDefault on touchEnd when was scrubbing', () => {
+      const onChange = jest.fn();
+      const { result } = renderHook(() =>
+        useValueScrub({
+          value: 128,
+          min: 0,
+          max: 255,
+          onChange,
+          touchSensitivity: 1,
+        })
+      );
+
+      // Start touch
+      act(() => {
+        result.current.touchScrubProps.onTouchStart({
+          touches: [{ clientY: 100 }],
+        } as unknown as React.TouchEvent);
+      });
+
+      // Move to trigger scrub
+      act(() => {
+        result.current.touchScrubProps.onTouchMove({
+          touches: [{ clientY: 50 }],
+          preventDefault: jest.fn(),
+        } as unknown as React.TouchEvent);
+      });
+
+      // End touch
+      const preventDefaultMock = jest.fn();
+      act(() => {
+        result.current.touchScrubProps.onTouchEnd({
+          preventDefault: preventDefaultMock,
+        } as unknown as React.TouchEvent);
+      });
+
+      // preventDefault should be called because we were scrubbing
+      expect(preventDefaultMock).toHaveBeenCalled();
+    });
   });
 
   describe('container ref', () => {
