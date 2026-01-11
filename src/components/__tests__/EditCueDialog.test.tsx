@@ -330,7 +330,7 @@ describe('EditCueDialog', () => {
         sceneId: 'scene-2',
         fadeInTime: 3,
         fadeOutTime: 3,
-        followTime: undefined,
+        followTime: null,
         action: 'stay',
       });
 
@@ -494,7 +494,7 @@ describe('EditCueDialog', () => {
 
       expect(mockOnUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
-          followTime: undefined,
+          followTime: null,
         })
       );
     });

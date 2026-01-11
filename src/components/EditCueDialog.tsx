@@ -36,7 +36,7 @@ interface EditCueDialogProps {
     sceneId?: string;
     fadeInTime?: number;
     fadeOutTime?: number;
-    followTime?: number;
+    followTime?: number | null;
     action: "edit-scene" | "stay";
   }) => void;
 }
@@ -91,7 +91,7 @@ export default function EditCueDialog({
   const [showAdvancedTiming, setShowAdvancedTiming] = useState(false);
   const [fadeInTime, setFadeInTime] = useState(0);
   const [fadeOutTime, setFadeOutTime] = useState(0);
-  const [followTime, setFollowTime] = useState<number | undefined>(undefined);
+  const [followTime, setFollowTime] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Initialize form when dialog opens
@@ -102,7 +102,7 @@ export default function EditCueDialog({
       setSelectedSceneId(cue.scene.id);
       setFadeInTime(cue.fadeInTime);
       setFadeOutTime(cue.fadeOutTime);
-      setFollowTime(cue.followTime);
+      setFollowTime(cue.followTime ?? null);
       setShowAdvancedTiming(false);
       setError(null);
     }
@@ -125,7 +125,7 @@ export default function EditCueDialog({
     if (fadeOutTime < 0) {
       return "Fade out time must be positive";
     }
-    if (followTime !== undefined && followTime < 0) {
+    if (followTime !== null && followTime < 0) {
       return "Follow time must be positive";
     }
     return null;
@@ -160,7 +160,7 @@ export default function EditCueDialog({
     setSelectedSceneId("");
     setFadeInTime(0);
     setFadeOutTime(0);
-    setFollowTime(undefined);
+    setFollowTime(null);
     setShowAdvancedTiming(false);
     setError(null);
     onClose();
@@ -357,7 +357,7 @@ export default function EditCueDialog({
                 setFollowTime(
                   e.target.value
                     ? parseFloat(e.target.value)
-                    : undefined,
+                    : null,
                 )
               }
               placeholder="0 (no auto-follow)"
