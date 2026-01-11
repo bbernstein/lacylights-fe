@@ -71,6 +71,11 @@ const renderComponent = (mocks: MockedResponse[]) => {
 };
 
 describe('ArtNetControl', () => {
+  // Clear localStorage before each test to ensure consistent fade time default
+  beforeEach(() => {
+    localStorage.removeItem('lacylights-artnet-fade-time');
+  });
+
   it('renders enabled state correctly', async () => {
     renderComponent(createMocks(true));
 
@@ -266,5 +271,39 @@ describe('ArtNetControl', () => {
     await waitFor(() => {
       expect(screen.getByText(/Fade time must be between 0 and 30 seconds/i)).toBeInTheDocument();
     });
+  });
+
+  it('persists fade time to localStorage when changed', async () => {
+    renderComponent(createMocks(true));
+
+    await waitFor(() => {
+      expect(screen.getByText('Show fade options')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Show fade options'));
+
+    const input = screen.getByRole('spinbutton');
+
+    // Change fade time
+    fireEvent.change(input, { target: { value: '7.5' } });
+
+    // Should be saved to localStorage
+    expect(localStorage.getItem('lacylights-artnet-fade-time')).toBe('7.5');
+  });
+
+  it('loads fade time from localStorage on mount', async () => {
+    // Pre-set localStorage value
+    localStorage.setItem('lacylights-artnet-fade-time', '12');
+
+    renderComponent(createMocks(true));
+
+    await waitFor(() => {
+      expect(screen.getByText('Show fade options')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Show fade options'));
+
+    const input = screen.getByRole('spinbutton');
+    expect(input).toHaveValue(12);
   });
 });

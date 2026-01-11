@@ -2740,12 +2740,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                   Default Fade Time (seconds)
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={editedFadeTime}
                   onChange={(e) => setEditedFadeTime(e.target.value)}
                   className="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  min="0"
-                  step="0.1"
                   placeholder="0"
                 />
               </div>
@@ -2754,13 +2753,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                   Canvas Width (pixels)
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={editedCanvasWidth}
                   onChange={(e) => setEditedCanvasWidth(e.target.value)}
                   className="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  min="1000"
-                  max="10000"
-                  step="100"
                   placeholder={DEFAULT_CANVAS_WIDTH.toString()}
                 />
               </div>
@@ -2769,13 +2766,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                   Canvas Height (pixels)
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={editedCanvasHeight}
                   onChange={(e) => setEditedCanvasHeight(e.target.value)}
                   className="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  min="1000"
-                  max="10000"
-                  step="100"
                   placeholder={DEFAULT_CANVAS_HEIGHT.toString()}
                 />
               </div>

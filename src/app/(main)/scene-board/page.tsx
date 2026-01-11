@@ -228,12 +228,11 @@ export default function SceneBoardPage() {
                   Default Fade Time (seconds)
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={newBoardFadeTime}
                   onChange={(e) => setNewBoardFadeTime(e.target.value)}
                   className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-                  min="0"
-                  step="0.1"
                   placeholder="0"
                 />
               </div>

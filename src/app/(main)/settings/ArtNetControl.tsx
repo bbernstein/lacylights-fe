@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useSubscription } from '@apollo/client';
 import {
   GET_SYSTEM_INFO,
@@ -14,6 +14,8 @@ import { SystemInfo } from '@/types';
 const MIN_FADE_TIME = 0;
 /** Maximum fade time in seconds */
 const MAX_FADE_TIME = 30;
+/** LocalStorage key for persisting fade time setting */
+const FADE_TIME_STORAGE_KEY = 'lacylights-artnet-fade-time';
 
 /**
  * ArtNetControl component for enabling/disabling ArtNet output.
@@ -25,6 +27,8 @@ export default function ArtNetControl() {
   const [fadeTime, setFadeTime] = useState(DEFAULT_FADEOUT_TIME.toString());
   /** Whether to show advanced fade options */
   const [showAdvanced, setShowAdvanced] = useState(false);
+  /** Whether fade time has been initialized from localStorage */
+  const [isInitialized, setIsInitialized] = useState(false);
   /** Error message to display to user */
   const [error, setError] = useState<string | null>(null);
   /** Local toggle state to prevent race conditions before mutation loading state updates */
@@ -40,6 +44,22 @@ export default function ArtNetControl() {
   useSubscription(SYSTEM_INFO_UPDATED, {
     onData: () => refetch(),
   });
+
+  // Load fade time from localStorage on mount
+  useEffect(() => {
+    const savedFadeTime = localStorage.getItem(FADE_TIME_STORAGE_KEY);
+    if (savedFadeTime !== null) {
+      setFadeTime(savedFadeTime);
+    }
+    setIsInitialized(true);
+  }, []);
+
+  // Save fade time to localStorage when it changes (after initialization)
+  useEffect(() => {
+    if (isInitialized) {
+      localStorage.setItem(FADE_TIME_STORAGE_KEY, fadeTime);
+    }
+  }, [fadeTime, isInitialized]);
 
   const systemInfo: SystemInfo | undefined = systemInfoData?.systemInfo;
   const isEnabled = systemInfo?.artnetEnabled ?? true;
