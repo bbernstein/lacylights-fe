@@ -12,6 +12,7 @@ import {
   UserMode,
   UserPermissions,
   DEFAULT_USER_MODE,
+  ALL_MODES,
   getPermissionsForMode,
 } from '@/types/userMode';
 
@@ -33,17 +34,13 @@ const UserModeContext = createContext<UserModeContextType | undefined>(
 
 /**
  * Validates that a string is a valid UserMode.
+ * Uses the ALL_MODES constant for type safety and maintainability.
  *
  * @param value - The value to validate
  * @returns True if the value is a valid UserMode
  */
 function isValidUserMode(value: string | null): value is UserMode {
-  return (
-    value === 'admin' ||
-    value === 'editor' ||
-    value === 'player' ||
-    value === 'watcher'
-  );
+  return value !== null && ALL_MODES.includes(value as UserMode);
 }
 
 /**

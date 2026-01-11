@@ -16,7 +16,19 @@ interface UserModeSelectorProps {
 }
 
 /**
- * Mode styling configuration for visual feedback.
+ * Visual styling configuration for each user mode.
+ * Provides consistent theming with Tailwind CSS classes for both light and dark modes.
+ *
+ * Each mode has distinct colors to help users quickly identify their current access level:
+ * - Admin (red): Full access, including user management
+ * - Editor (blue): Content creation and editing access
+ * - Player (green): Show operation access (playback only)
+ * - Watcher (gray): Read-only view access
+ *
+ * @property bg - Background color classes for the mode indicator
+ * @property text - Text color classes for labels and icons
+ * @property border - Border color classes for outlined variants
+ * @property icon - Emoji icon representing the mode
  */
 const MODE_STYLES: Record<
   UserMode,

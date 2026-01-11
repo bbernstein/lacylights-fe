@@ -2192,7 +2192,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                 Play Mode
               </button>
               <button
-                onClick={() => canEditContent && setMode("layout")}
+                onClick={() => setMode("layout")}
                 disabled={!canEditContent}
                 className={`px-4 py-2 rounded-r ${
                   mode === "layout"
@@ -2354,10 +2354,8 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                   </button>
                   <button
                     onClick={() => {
-                      if (canEditContent) {
-                        setMode("layout");
-                        setMobileMenuOpen(false);
-                      }
+                      setMode("layout");
+                      setMobileMenuOpen(false);
                     }}
                     disabled={!canEditContent}
                     className={`flex-1 px-4 py-3 text-sm font-medium ${
