@@ -128,6 +128,7 @@ export default function ContextMenu({
             }
           }}
           disabled={option.disabled}
+          aria-disabled={option.disabled}
           className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
             option.className || "text-gray-700 dark:text-gray-200"
           }`}

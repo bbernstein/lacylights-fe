@@ -40,7 +40,7 @@ const UserModeContext = createContext<UserModeContextType | undefined>(
  * @returns True if the value is a valid UserMode
  */
 function isValidUserMode(value: string | null): value is UserMode {
-  return value !== null && ALL_MODES.includes(value as UserMode);
+  return value !== null && (ALL_MODES as readonly string[]).includes(value);
 }
 
 /**

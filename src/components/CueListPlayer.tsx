@@ -1608,12 +1608,12 @@ export default function CueListPlayer({
       />
 
       {/* Context Menu */}
+      {/* Context menu options: Edit operations require canEditContent permission */}
       {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
           options={[
-            // Edit operations require canEditContent
             ...(canEditContent
               ? [
                   {
