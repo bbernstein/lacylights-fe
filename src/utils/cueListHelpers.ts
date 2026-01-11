@@ -67,6 +67,41 @@ export const calculateNextCueNumber = (
     }
   }
 
-  // Fallback: use midpoint between current and next (very tight space)
-  return roundToPrecision((currentCueNumber + nextCueNumber) / 2, 4);
+  // Helper to check if a value would collide with an existing cue number
+  const isCollision = (value: number): boolean => {
+    const rounded = roundToPrecision(value, 4);
+    return allCueNumbers.some((n) => roundToPrecision(n, 4) === rounded);
+  };
+
+  // Fallback: try midpoint between current and next (very tight space)
+  const midpoint = (currentCueNumber + nextCueNumber) / 2;
+  const midpointRounded = roundToPrecision(midpoint, 4);
+
+  if (!isCollision(midpointRounded)) {
+    return midpointRounded;
+  }
+
+  // If midpoint collides, search for the smallest available gap at 4-decimal precision
+  const step = 0.0001;
+  let candidate = currentCueNumber + step;
+
+  while (candidate < nextCueNumber) {
+    const roundedCandidate = roundToPrecision(candidate, 4);
+
+    if (
+      roundedCandidate > roundToPrecision(currentCueNumber, 4) &&
+      roundedCandidate < roundToPrecision(nextCueNumber, 4) &&
+      !isCollision(roundedCandidate)
+    ) {
+      return roundedCandidate;
+    }
+
+    // Increment and re-round to avoid accumulating floating-point error
+    candidate = roundToPrecision(candidate + step, 4);
+  }
+
+  // No unique cue number could be found in the available range
+  throw new Error(
+    `Unable to calculate a unique cue number between ${currentCueNumber} and ${nextCueNumber}.`
+  );
 };

@@ -109,6 +109,32 @@ describe('cueListHelpers', () => {
       it('handles negative cue numbers', () => {
         expect(calculateNextCueNumber(-1, [-1, 0])).toBe(-0.9);
       });
+
+      it('handles midpoint collision detection', () => {
+        // Test that the function avoids collisions when using midpoint fallback
+        // Cues at 1, 1.0003, 1.0005 - very tight space where midpoint (1.00015)
+        // would be checked for collision
+        const cues = [1, 1.0003, 1.0005];
+        const result = calculateNextCueNumber(1, cues);
+        // Should find 1.0001 (first available slot at 0.0001 precision)
+        expect(result).toBe(1.0001);
+        expect(cues).not.toContain(result);
+      });
+
+      it('throws when no space available between consecutive cues', () => {
+        // Create an impossibly tight space where every 0.0001 slot is taken
+        const cues = [1];
+        for (let i = 1; i <= 100; i++) {
+          cues.push(1 + i * 0.0001);
+        }
+        cues.push(1.0101); // Next cue after the packed range
+
+        // Duplicating 1.01 (which is right before 1.0101) should throw
+        // because all slots between 1.01 and 1.0101 are taken
+        expect(() => calculateNextCueNumber(1.01, cues)).toThrow(
+          /Unable to calculate a unique cue number/
+        );
+      });
     });
 
     describe('real-world scenarios', () => {
