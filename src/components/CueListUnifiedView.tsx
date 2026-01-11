@@ -31,11 +31,12 @@ import {
   ACTIVATE_SCENE,
 } from "@/graphql/scenes";
 import { Cue, Scene } from "@/types";
-import { convertCueIndexForLocalState } from "@/utils/cueListHelpers";
+import { convertCueIndexForLocalState, calculateNextCueNumber } from "@/utils/cueListHelpers";
 import { shouldIgnoreKeyboardEvent } from "@/utils/keyboardUtils";
 import BulkFadeUpdateModal from "./BulkFadeUpdateModal";
 import AddCueDialog from "./AddCueDialog";
 import { useCueListPlayback } from "@/hooks/useCueListPlayback";
+import { useCueListDataUpdates } from "@/hooks/useCueListDataUpdates";
 import FadeProgressChart from "./FadeProgressChart";
 import { EasingType } from "@/utils/easing";
 import {
@@ -1229,6 +1230,8 @@ export default function CueListUnifiedView({
 
   // Real-time playback synchronization
   const { playbackStatus } = useCueListPlayback(cueListId);
+  // Subscribe to real-time cue list data changes (cue/scene name changes, etc.)
+  useCueListDataUpdates({ cueListId });
 
   // Get current state from subscription data only
   const currentCueIndex = convertCueIndexForLocalState(
@@ -1644,7 +1647,9 @@ export default function CueListUnifiedView({
       });
       const newSceneId = duplicateResult.data?.duplicateScene?.id;
 
-      const newCueNumber = cue.cueNumber + 0.1;
+      // Calculate new cue number that fits after the current cue
+      const allCueNumbers = cueList.cues.map((c: Cue) => c.cueNumber);
+      const newCueNumber = calculateNextCueNumber(cue.cueNumber, allCueNumbers);
       await createCue({
         variables: {
           input: {

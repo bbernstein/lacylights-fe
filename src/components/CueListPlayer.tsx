@@ -30,9 +30,10 @@ import {
   ACTIVATE_SCENE,
 } from "@/graphql/scenes";
 import { useCueListPlayback } from "@/hooks/useCueListPlayback";
+import { useCueListDataUpdates } from "@/hooks/useCueListDataUpdates";
 import { useWebSocket } from "@/contexts/WebSocketContext";
 import { Cue } from "@/types";
-import { convertCueIndexForLocalState } from "@/utils/cueListHelpers";
+import { convertCueIndexForLocalState, calculateNextCueNumber } from "@/utils/cueListHelpers";
 import { DEFAULT_FADEOUT_TIME } from "@/constants/playback";
 import FadeProgressChart from "./FadeProgressChart";
 import { EasingType } from "@/utils/easing";
@@ -258,6 +259,8 @@ export default function CueListPlayer({
 
   // Call all hooks unconditionally (required by React)
   const { playbackStatus } = useCueListPlayback(cueListId);
+  // Subscribe to real-time cue list data changes (cue/scene name changes, etc.)
+  useCueListDataUpdates({ cueListId });
   const { connectionState, isStale, reconnect, ensureConnection } =
     useWebSocket();
 
@@ -956,8 +959,9 @@ export default function CueListPlayer({
       });
       const newSceneId = duplicateResult.data?.duplicateScene?.id;
 
-      // Create new cue with next decimal number
-      const newCueNumber = cue.cueNumber + 0.1;
+      // Calculate new cue number that fits after the current cue
+      const allCueNumbers = cueList.cues.map((c: Cue) => c.cueNumber);
+      const newCueNumber = calculateNextCueNumber(cue.cueNumber, allCueNumbers);
       await createCue({
         variables: {
           input: {
