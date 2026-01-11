@@ -25,6 +25,9 @@ export function useCueListDataUpdates({ cueListId, onDataChange }: UseCueListDat
       query: GET_CUE_LIST,
       variables: { id: cueListId },
       fetchPolicy: 'network-only',
+    }).catch((error) => {
+      // Log error but don't throw - the subscription will continue and retry on next change
+      console.error('Failed to refetch cue list data:', error);
     });
 
     // Call the optional callback
