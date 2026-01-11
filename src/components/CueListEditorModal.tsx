@@ -8,6 +8,7 @@ import { Cue, Scene } from '@/types';
 import BulkFadeUpdateModal from './BulkFadeUpdateModal';
 import BottomSheet from './BottomSheet';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import { useUserMode } from '@/contexts/UserModeContext';
 import {
   DndContext,
   closestCenter,
@@ -300,6 +301,7 @@ CueRow.displayName = 'CueRow';
 
 export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueListUpdated, onRunCueList }: CueListEditorModalProps) {
   const isMobile = useIsMobile();
+  const { canEditContent } = useUserMode();
   const [cueListName, setCueListName] = useState('');
   const [cueListDescription, setCueListDescription] = useState('');
   const [cueListLoop, setCueListLoop] = useState(false);
@@ -555,6 +557,15 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
     </div>
   ) : (
     <div className="space-y-4">
+      {/* Watcher mode banner */}
+      {!canEditContent && (
+        <div className="p-3 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg">
+          <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+            <span>👁️</span>
+            <span>Viewing in read-only mode. Editing is disabled in Watcher mode.</span>
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label htmlFor="cuelist-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -566,7 +577,8 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
             value={cueListName}
             onChange={(e) => setCueListName(e.target.value)}
             onBlur={handleUpdateCueList}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            disabled={!canEditContent}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
 
@@ -580,13 +592,14 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
             value={cueListDescription}
             onChange={(e) => setCueListDescription(e.target.value)}
             onBlur={handleUpdateCueList}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            disabled={!canEditContent}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
       </div>
 
       <div>
-        <label className="flex items-center space-x-2 cursor-pointer min-h-[44px] touch-manipulation">
+        <label className={`flex items-center space-x-2 min-h-[44px] touch-manipulation ${canEditContent ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
           <input
             type="checkbox"
             checked={cueListLoop}
@@ -595,7 +608,8 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
               setCueListLoop(newLoopValue);
               handleUpdateCueList({ loop: newLoopValue });
             }}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-5 w-5"
+            disabled={!canEditContent}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-5 w-5 disabled:cursor-not-allowed"
           />
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Loop cue list (restart from first cue after last cue finishes)
@@ -614,7 +628,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
           <h4 className="text-md font-medium text-gray-900 dark:text-white">
             Cues ({cueList.cues.length})
           </h4>
-          {selectedCueIds.size > 0 && (
+          {selectedCueIds.size > 0 && canEditContent && (
             <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'items-center space-x-2'}`}>
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 {selectedCueIds.size} selected
@@ -628,12 +642,14 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
             </div>
           )}
         </div>
-        <button
-          onClick={() => setShowAddCue(!showAddCue)}
-          className={`${isMobile ? 'w-full' : ''} inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 min-h-[44px] touch-manipulation`}
-        >
-          {showAddCue ? 'Cancel' : 'Add Cue'}
-        </button>
+        {canEditContent && (
+          <button
+            onClick={() => setShowAddCue(!showAddCue)}
+            className={`${isMobile ? 'w-full' : ''} inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 min-h-[44px] touch-manipulation`}
+          >
+            {showAddCue ? 'Cancel' : 'Add Cue'}
+          </button>
+        )}
       </div>
 
       {showAddCue && (

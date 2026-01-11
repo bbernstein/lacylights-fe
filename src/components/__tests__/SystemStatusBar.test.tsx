@@ -5,6 +5,7 @@ import SystemStatusBar from '../SystemStatusBar';
 import { GET_SYSTEM_INFO, SYSTEM_INFO_UPDATED } from '@/graphql/settings';
 import { GET_GLOBAL_PLAYBACK_STATUS, GLOBAL_PLAYBACK_STATUS_SUBSCRIPTION } from '@/graphql/cueLists';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
+import { UserModeProvider } from '@/contexts/UserModeContext';
 
 // Mock next/navigation with a mock push function we can test
 const mockPush = jest.fn();
@@ -132,7 +133,9 @@ const renderWithProviders = (component: React.ReactElement, mocks: readonly Mock
   return render(
     <MockedProvider mocks={mocks} addTypename={false}>
       <WebSocketProvider>
-        {component}
+        <UserModeProvider>
+          {component}
+        </UserModeProvider>
       </WebSocketProvider>
     </MockedProvider>
   );

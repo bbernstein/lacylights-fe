@@ -14,6 +14,7 @@ import {
 import { GET_PROJECT_SCENES } from "@/graphql/scenes";
 import { useProject } from "@/contexts/ProjectContext";
 import { useFocusMode } from "@/contexts/FocusModeContext";
+import { useUserMode } from "@/contexts/UserModeContext";
 import { SceneBoardButton } from "@/types";
 import {
   screenToCanvas,
@@ -56,6 +57,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       : id;
   const { currentProject } = useProject();
   const { isFocusMode, enterFocusMode, exitFocusMode } = useFocusMode();
+  const { canPlayback, canEditContent } = useUserMode();
 
   const [mode, setMode] = useState<"play" | "layout">("play");
   const [isAddSceneModalOpen, setIsAddSceneModalOpen] = useState(false);
@@ -1017,7 +1019,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   // Handle scene click (activate in play mode)
   const handleSceneClick = useCallback(
     (button: SceneBoardButton) => {
-      if (mode === "play") {
+      if (mode === "play" && canPlayback) {
         // Activate the scene
         activateScene({
           variables: {
@@ -1027,7 +1029,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         });
       }
     },
-    [mode, boardId, activateScene],
+    [mode, boardId, activateScene, canPlayback],
   );
 
   // Track touch start time and position to differentiate taps from drags
@@ -2190,12 +2192,14 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                 Play Mode
               </button>
               <button
-                onClick={() => setMode("layout")}
+                onClick={() => canEditContent && setMode("layout")}
+                disabled={!canEditContent}
                 className={`px-4 py-2 rounded-r ${
                   mode === "layout"
                     ? "bg-blue-600 text-white"
                     : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                }`}
+                } ${!canEditContent ? "opacity-50 cursor-not-allowed" : ""}`}
+                title={canEditContent ? "Switch to Layout Mode to edit" : "Editing disabled in Watcher mode"}
               >
                 Layout Mode
               </button>
@@ -2350,14 +2354,17 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                   </button>
                   <button
                     onClick={() => {
-                      setMode("layout");
-                      setMobileMenuOpen(false);
+                      if (canEditContent) {
+                        setMode("layout");
+                        setMobileMenuOpen(false);
+                      }
                     }}
+                    disabled={!canEditContent}
                     className={`flex-1 px-4 py-3 text-sm font-medium ${
                       mode === "layout"
                         ? "bg-blue-600 text-white"
                         : "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-                    }`}
+                    } ${!canEditContent ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
                     Layout Mode
                   </button>

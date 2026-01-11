@@ -4,6 +4,7 @@ import { ApolloProvider } from '@apollo/client';
 import apolloClient from '@/lib/apollo-client';
 import { ProjectProvider } from '@/contexts/ProjectContext';
 import { FocusModeProvider } from '@/contexts/FocusModeContext';
+import { UserModeProvider } from '@/contexts/UserModeContext';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
 import { useEffect } from 'react';
 
@@ -42,11 +43,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ApolloProvider client={apolloClient}>
       <WebSocketProvider>
-        <FocusModeProvider>
-          <ProjectProvider>
-            {children}
-          </ProjectProvider>
-        </FocusModeProvider>
+        <UserModeProvider>
+          <FocusModeProvider>
+            <ProjectProvider>
+              {children}
+            </ProjectProvider>
+          </FocusModeProvider>
+        </UserModeProvider>
       </WebSocketProvider>
     </ApolloProvider>
   );
