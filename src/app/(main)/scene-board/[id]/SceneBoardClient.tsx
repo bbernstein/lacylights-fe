@@ -431,6 +431,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         return;
       }
 
+      // Don't handle any shortcuts if in input field (let typing work normally)
+      if (isInputField) return;
+
       // Zoom shortcuts work in both layout and play mode
       if (e.key === "+" || e.key === "=") {
         e.preventDefault();
@@ -454,8 +457,8 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         return;
       }
 
-      // Don't handle editing shortcuts if in input field or in play mode
-      if (isInputField || mode === "play") return;
+      // Don't handle editing shortcuts if in play mode
+      if (mode === "play") return;
 
       // Select All (Cmd/Ctrl + A) - Layout mode only
       if ((e.metaKey || e.ctrlKey) && e.key === "a") {
