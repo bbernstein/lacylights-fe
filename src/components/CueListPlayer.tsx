@@ -32,6 +32,7 @@ import {
 import { useCueListPlayback } from "@/hooks/useCueListPlayback";
 import { useCueListDataUpdates } from "@/hooks/useCueListDataUpdates";
 import { useWebSocket } from "@/contexts/WebSocketContext";
+import { useUserMode } from "@/contexts/UserModeContext";
 import { Cue } from "@/types";
 import { convertCueIndexForLocalState, calculateNextCueNumber } from "@/utils/cueListHelpers";
 import { DEFAULT_FADEOUT_TIME } from "@/constants/playback";
@@ -263,6 +264,7 @@ export default function CueListPlayer({
   useCueListDataUpdates({ cueListId });
   const { connectionState, isStale, reconnect, ensureConnection } =
     useWebSocket();
+  const { canPlayback, canEditContent } = useUserMode();
 
   const { data: cueListData, loading } = useQuery(GET_CUE_LIST, {
     variables: { id: cueListId },
@@ -714,7 +716,7 @@ export default function CueListPlayer({
   );
 
   const handleGo = useCallback(async () => {
-    if (!cueList) return;
+    if (!cueList || !canPlayback) return;
 
     // Wait for WebSocket to be connected before mutation, so we receive real-time updates
     await ensureConnection();
@@ -757,10 +759,11 @@ export default function CueListPlayer({
     nextCue,
     isPaused,
     ensureConnection,
+    canPlayback,
   ]);
 
   const handlePrevious = useCallback(async () => {
-    if (!cueList || currentCueIndex <= 0) return;
+    if (!cueList || currentCueIndex <= 0 || !canPlayback) return;
 
     // Wait for WebSocket to be connected before mutation, so we receive real-time updates
     await ensureConnection();
@@ -774,10 +777,10 @@ export default function CueListPlayer({
         fadeInTime: cues[currentCueIndex - 1]?.fadeInTime,
       },
     });
-  }, [previousCueMutation, cueList, currentCueIndex, cues, ensureConnection]);
+  }, [previousCueMutation, cueList, currentCueIndex, cues, ensureConnection, canPlayback]);
 
   const handleStop = useCallback(async () => {
-    if (!cueList) return;
+    if (!cueList || !canPlayback) return;
 
     // Wait for WebSocket to be connected before mutation, so we receive real-time updates
     await ensureConnection();
@@ -796,7 +799,7 @@ export default function CueListPlayer({
         fadeOutTime: DEFAULT_FADEOUT_TIME,
       },
     });
-  }, [cueList, stopCueList, fadeToBlack, ensureConnection]);
+  }, [cueList, stopCueList, fadeToBlack, ensureConnection, canPlayback]);
 
   /**
    * Scrolls the current live cue into view, centered in the viewport.
@@ -888,7 +891,8 @@ export default function CueListPlayer({
       !cueList ||
       !isFading ||
       currentCueIndex < 0 ||
-      currentCueIndex >= cues.length
+      currentCueIndex >= cues.length ||
+      !canPlayback
     )
       return;
 
@@ -912,6 +916,7 @@ export default function CueListPlayer({
     currentCueIndex,
     cues.length,
     ensureConnection,
+    canPlayback,
   ]);
 
   // Context menu option handlers
@@ -1083,7 +1088,7 @@ export default function CueListPlayer({
 
   const handleJumpToCue = useCallback(
     async (index: number) => {
-      if (!cueList || index < 0 || index >= cues.length) return;
+      if (!cueList || index < 0 || index >= cues.length || !canPlayback) return;
 
       // Wait for WebSocket to be connected before mutation, so we receive real-time updates
       await ensureConnection();
@@ -1118,6 +1123,7 @@ export default function CueListPlayer({
       isPaused,
       currentCueIndex,
       resumeCueList,
+      canPlayback,
     ],
   );
 
@@ -1416,9 +1422,9 @@ export default function CueListPlayer({
 
           <button
             onClick={handlePrevious}
-            disabled={currentCueIndex <= 0}
+            disabled={currentCueIndex <= 0 || !canPlayback}
             className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title="Previous (←)"
+            title={canPlayback ? "Previous (←)" : "Playback disabled in Watcher mode"}
           >
             <svg
               className="w-6 h-6"
@@ -1437,13 +1443,13 @@ export default function CueListPlayer({
 
           <button
             onClick={handleGo}
-            disabled={isGoDisabled && !isPaused}
+            disabled={(isGoDisabled && !isPaused) || !canPlayback}
             className={`px-8 py-3 rounded-lg font-bold text-lg transition-colors text-white disabled:opacity-50 disabled:cursor-not-allowed ${
               isPaused
                 ? "bg-amber-600 hover:bg-amber-700"
                 : "bg-green-600 hover:bg-green-700"
             }`}
-            title={isPaused ? "RESUME (Space/Enter)" : "GO (Space/Enter)"}
+            title={!canPlayback ? "Playback disabled in Watcher mode" : isPaused ? "RESUME (Space/Enter)" : "GO (Space/Enter)"}
           >
             {isPaused ? "RESUME" : currentCueIndex === -1 ? "START" : "GO"}
           </button>
@@ -1451,9 +1457,9 @@ export default function CueListPlayer({
           {/* Next arrow button - provides familiar lighting console navigation alongside main GO button */}
           <button
             onClick={handleGo}
-            disabled={isGoDisabled}
+            disabled={isGoDisabled || !canPlayback}
             className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title="Next (→)"
+            title={canPlayback ? "Next (→)" : "Playback disabled in Watcher mode"}
           >
             <svg
               className="w-6 h-6"
@@ -1472,8 +1478,9 @@ export default function CueListPlayer({
 
           <button
             onClick={handleStop}
-            className="p-3 rounded-lg bg-red-600 hover:bg-red-700 transition-colors"
-            title="Stop (Esc)"
+            disabled={!canPlayback}
+            className="p-3 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title={canPlayback ? "Stop (Esc)" : "Playback disabled in Watcher mode"}
           >
             <svg
               className="w-6 h-6"
@@ -1499,16 +1506,18 @@ export default function CueListPlayer({
           {/* Hurry Up button - completes current fade instantly */}
           <button
             onClick={handleHurryUp}
-            disabled={!isFading}
+            disabled={!isFading || !canPlayback}
             className={`p-3 rounded-lg transition-colors ${
-              isFading
+              isFading && canPlayback
                 ? "bg-amber-600 hover:bg-amber-700 text-white"
                 : "bg-gray-700 text-gray-500 cursor-not-allowed"
             }`}
             title={
-              isFading
-                ? "Hurry Up - Complete fade instantly"
-                : "Hurry Up - Active during fade"
+              !canPlayback
+                ? "Playback disabled in Watcher mode"
+                : isFading
+                  ? "Hurry Up - Complete fade instantly"
+                  : "Hurry Up - Active during fade"
             }
             aria-label="Hurry up"
           >
@@ -1599,127 +1608,140 @@ export default function CueListPlayer({
       />
 
       {/* Context Menu */}
+      {/* Context menu options: Edit operations require canEditContent permission */}
       {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
           options={[
-            {
-              label: "Edit Cue",
-              onClick: handleEditCue,
-              icon: <PencilIcon className="w-4 h-4" />,
-            },
-            {
-              label: "Edit Scene",
-              onClick: () => handleContextMenuEditScene(contextMenu.cue),
-              icon: (
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                  />
-                </svg>
-              ),
-            },
-            {
-              label: "Duplicate Cue",
-              onClick: handleDuplicateCue,
-              icon: (
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-              ),
-            },
-            {
-              label: "Add Cue",
-              onClick: handleAddCueFromContextMenu,
-              icon: (
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-              ),
-            },
-            {
-              label: contextMenu.cue.skip ? "Unskip Cue" : "Skip Cue",
-              onClick: handleToggleCueSkip,
-              icon: contextMenu.cue.skip ? (
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 5l7 7-7 7M5 5l7 7-7 7"
-                  />
-                </svg>
-              ),
-            },
-            {
-              label: "Delete Cue",
-              onClick: handleContextMenuDeleteCue,
-              icon: (
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              ),
-              className:
-                "text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300",
-            },
+            ...(canEditContent
+              ? [
+                  {
+                    label: "Edit Cue",
+                    onClick: handleEditCue,
+                    icon: <PencilIcon className="w-4 h-4" />,
+                  },
+                  {
+                    label: "Edit Scene",
+                    onClick: () => handleContextMenuEditScene(contextMenu.cue),
+                    icon: (
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                    ),
+                  },
+                  {
+                    label: "Duplicate Cue",
+                    onClick: handleDuplicateCue,
+                    icon: (
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        />
+                      </svg>
+                    ),
+                  },
+                  {
+                    label: "Add Cue",
+                    onClick: handleAddCueFromContextMenu,
+                    icon: (
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 4v16m8-8H4"
+                        />
+                      </svg>
+                    ),
+                  },
+                  {
+                    label: contextMenu.cue.skip ? "Unskip Cue" : "Skip Cue",
+                    onClick: handleToggleCueSkip,
+                    icon: contextMenu.cue.skip ? (
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 5l7 7-7 7M5 5l7 7-7 7"
+                        />
+                      </svg>
+                    ),
+                  },
+                  {
+                    label: "Delete Cue",
+                    onClick: handleContextMenuDeleteCue,
+                    icon: (
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    ),
+                    className:
+                      "text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300",
+                  },
+                ]
+              : [
+                  // In watcher mode, show a message that editing is disabled
+                  {
+                    label: "Editing disabled (Watcher mode)",
+                    onClick: () => setContextMenu(null),
+                    className: "text-gray-500 cursor-not-allowed",
+                    disabled: true,
+                  },
+                ]),
           ]}
           onDismiss={() => setContextMenu(null)}
         />

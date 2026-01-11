@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { GET_SYSTEM_INFO, SYSTEM_INFO_UPDATED } from '@/graphql/settings';
 import { SystemInfo } from '@/types';
 import ConnectionStatusIndicator from './ConnectionStatusIndicator';
+import UserModeSelector from './UserModeSelector';
 import { useGlobalPlaybackStatus } from '@/hooks/useGlobalPlaybackStatus';
 
 /**
@@ -222,9 +223,14 @@ export default function SystemStatusBar() {
           {/* Now Playing button - visible on all screen sizes */}
           <NowPlayingButton />
         </div>
-        {/* Connection status - hidden on mobile */}
-        <div className="hidden md:block">
-          <ConnectionStatusIndicator />
+        {/* Right side controls */}
+        <div className="flex items-center gap-3">
+          {/* User mode selector */}
+          <UserModeSelector variant="compact" />
+          {/* Connection status - hidden on mobile */}
+          <div className="hidden md:block">
+            <ConnectionStatusIndicator />
+          </div>
         </div>
       </div>
     </div>

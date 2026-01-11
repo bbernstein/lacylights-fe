@@ -9,6 +9,18 @@ jest.mock('@/hooks/useMediaQuery', () => ({
   useIsMobile: jest.fn(() => false), // Default to desktop
 }));
 
+// Mock UserModeContext to provide default editor mode permissions
+jest.mock('@/contexts/UserModeContext', () => ({
+  useUserMode: () => ({
+    mode: 'editor',
+    setMode: jest.fn(),
+    canManageUsers: false,
+    canEditContent: true,
+    canPlayback: true,
+    canView: true,
+  }),
+}));
+
 import {
   GET_CUE_LIST,
   UPDATE_CUE_LIST,

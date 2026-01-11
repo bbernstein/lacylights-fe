@@ -48,6 +48,18 @@ jest.mock("../../contexts/WebSocketContext", () => ({
   }),
 }));
 
+// Mock UserModeContext to provide default editor mode permissions
+jest.mock("../../contexts/UserModeContext", () => ({
+  useUserMode: () => ({
+    mode: "editor",
+    setMode: jest.fn(),
+    canManageUsers: false,
+    canEditContent: true,
+    canPlayback: true,
+    canView: true,
+  }),
+}));
+
 const mockUseCueListPlayback = require("../../hooks/useCueListPlayback")
   .useCueListPlayback as jest.Mock;
 
