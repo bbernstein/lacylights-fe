@@ -456,7 +456,7 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
             Auto
           </button>
         </div>
-        {autoSelectChannel && startChannel > 0 && (
+        {autoSelectChannel && startChannel && parseInt(startChannel, 10) > 0 && (
           <p className="mt-1 text-xs text-green-600 dark:text-green-400">
             Auto-selected channel {startChannel}
           </p>
