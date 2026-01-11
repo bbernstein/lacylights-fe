@@ -191,7 +191,7 @@ describe('useCueListDataUpdates', () => {
       const mockSubscriptionData = {
         cueListDataChanged: {
           cueListId: mockCueListId,
-          changeType: 'CUE_CREATED' as CueListDataChangeType,
+          changeType: 'CUE_ADDED' as CueListDataChangeType,
           affectedCueIds: ['new-cue-1'],
           affectedSceneId: null,
           newSceneName: null,
@@ -250,12 +250,12 @@ describe('useCueListDataUpdates', () => {
       );
     });
 
-    it('handles SCENE_RENAMED change type', async () => {
+    it('handles SCENE_NAME_CHANGED change type', async () => {
       const onDataChange = jest.fn();
       const mockSubscriptionData = {
         cueListDataChanged: {
           cueListId: mockCueListId,
-          changeType: 'SCENE_RENAMED' as CueListDataChangeType,
+          changeType: 'SCENE_NAME_CHANGED' as CueListDataChangeType,
           affectedCueIds: ['cue-1', 'cue-2'],
           affectedSceneId: 'scene-1',
           newSceneName: 'New Scene Name',
@@ -304,7 +304,7 @@ describe('useCueListDataUpdates', () => {
 
       await waitFor(
         () => {
-          expect(onDataChange).toHaveBeenCalledWith('SCENE_RENAMED');
+          expect(onDataChange).toHaveBeenCalledWith('SCENE_NAME_CHANGED');
         },
         { timeout: 2000 }
       );
