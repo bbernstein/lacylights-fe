@@ -1739,6 +1739,7 @@ export default function CueListPlayer({
                     label: "Editing disabled (Watcher mode)",
                     onClick: () => setContextMenu(null),
                     className: "text-gray-500 cursor-not-allowed",
+                    disabled: true,
                   },
                 ]),
           ]}
