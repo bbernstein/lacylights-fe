@@ -89,8 +89,8 @@ export default function AddCueDialog({
   const [selectedSceneId, setSelectedSceneId] = useState("");
   const [createCopy, setCreateCopy] = useState(true);
   const [showAdvancedTiming, setShowAdvancedTiming] = useState(false);
-  const [fadeInTime, setFadeInTime] = useState(defaultFadeInTime);
-  const [fadeOutTime, setFadeOutTime] = useState(defaultFadeOutTime);
+  const [fadeInTime, setFadeInTime] = useState("");
+  const [fadeOutTime, setFadeOutTime] = useState("");
   const [followTime, setFollowTime] = useState<number | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
@@ -114,8 +114,8 @@ export default function AddCueDialog({
 
       // Reset other fields
       setCreateCopy(true);
-      setFadeInTime(defaultFadeInTime);
-      setFadeOutTime(defaultFadeOutTime);
+      setFadeInTime(defaultFadeInTime.toString());
+      setFadeOutTime(defaultFadeOutTime.toString());
       setFollowTime(undefined);
       setShowAdvancedTiming(false);
       setError(null);
@@ -137,11 +137,13 @@ export default function AddCueDialog({
     if (!selectedSceneId) {
       return "Please select a scene";
     }
-    if (fadeInTime < 0) {
-      return "Fade in time must be positive";
+    const fadeIn = fadeInTime === "" ? 0 : parseFloat(fadeInTime);
+    if (isNaN(fadeIn) || fadeIn < 0) {
+      return "Fade in time must be a valid positive number";
     }
-    if (fadeOutTime < 0) {
-      return "Fade out time must be positive";
+    const fadeOut = fadeOutTime === "" ? 0 : parseFloat(fadeOutTime);
+    if (isNaN(fadeOut) || fadeOut < 0) {
+      return "Fade out time must be a valid positive number";
     }
     if (followTime !== undefined && followTime < 0) {
       return "Follow time must be positive";
@@ -157,14 +159,16 @@ export default function AddCueDialog({
     }
 
     const cueNum = parseFloat(cueNumber);
+    const fadeIn = fadeInTime === "" ? 0 : parseFloat(fadeInTime);
+    const fadeOut = fadeOutTime === "" ? 0 : parseFloat(fadeOutTime);
 
     onAdd({
       cueNumber: cueNum,
       name: cueName.trim() || `Cue ${Math.floor(cueNum)}`,
       sceneId: selectedSceneId,
       createCopy,
-      fadeInTime,
-      fadeOutTime,
+      fadeInTime: fadeIn,
+      fadeOutTime: fadeOut,
       followTime,
       action,
     });
@@ -177,8 +181,8 @@ export default function AddCueDialog({
     setCueName("");
     setSelectedSceneId("");
     setCreateCopy(true);
-    setFadeInTime(defaultFadeInTime);
-    setFadeOutTime(defaultFadeOutTime);
+    setFadeInTime("");
+    setFadeOutTime("");
     setFollowTime(undefined);
     setShowAdvancedTiming(false);
     setError(null);
@@ -352,9 +356,7 @@ export default function AddCueDialog({
               step="0.1"
               min="0"
               value={fadeInTime}
-              onChange={(e) =>
-                setFadeInTime(parseFloat(e.target.value) || 0)
-              }
+              onChange={(e) => setFadeInTime(e.target.value)}
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base text-gray-900 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             />
           </div>
@@ -372,9 +374,7 @@ export default function AddCueDialog({
               step="0.1"
               min="0"
               value={fadeOutTime}
-              onChange={(e) =>
-                setFadeOutTime(parseFloat(e.target.value) || 0)
-              }
+              onChange={(e) => setFadeOutTime(e.target.value)}
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base text-gray-900 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             />
           </div>

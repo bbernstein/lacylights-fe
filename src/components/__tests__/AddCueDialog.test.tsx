@@ -199,7 +199,7 @@ describe('AddCueDialog', () => {
       fireEvent.click(addButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Fade in time must be positive')).toBeInTheDocument();
+        expect(screen.getByText('Fade in time must be a valid positive number')).toBeInTheDocument();
       });
 
       expect(mockOnAdd).not.toHaveBeenCalled();
