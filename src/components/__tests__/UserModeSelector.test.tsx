@@ -6,7 +6,7 @@ import { AVAILABLE_MODES, USER_MODE_LABELS } from '@/types/userMode';
 
 // Mock localStorage
 const mockLocalStorage = {
-  getItem: jest.fn(() => null),
+  getItem: jest.fn<string | null, [string]>(() => null),
   setItem: jest.fn(),
   removeItem: jest.fn(),
   clear: jest.fn(),
