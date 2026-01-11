@@ -19,8 +19,8 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
   const isMobile = useIsMobile();
   const [manufacturer, setManufacturer] = useState('');
   const [model, setModel] = useState('');
-  const [universe, setUniverse] = useState(1);
-  const [startChannel, setStartChannel] = useState(1);
+  const [universe, setUniverse] = useState("1");
+  const [startChannel, setStartChannel] = useState("1");
   const [selectedDefinitionId, setSelectedDefinitionId] = useState('');
   const [selectedModeId, setSelectedModeId] = useState('');
   const [name, setName] = useState('');
@@ -91,8 +91,8 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
       setDescription(fixture.description || '');
       setManufacturer(fixture.manufacturer);
       setModel(fixture.model);
-      setUniverse(fixture.universe);
-      setStartChannel(fixture.startChannel);
+      setUniverse(fixture.universe.toString());
+      setStartChannel(fixture.startChannel.toString());
       setSelectedDefinitionId(fixture.definitionId);
       // Note: modeId not needed with flattened structure
       
@@ -211,11 +211,14 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
   // Auto-select next available channel when toggled
   useEffect(() => {
     if (autoSelectChannel && selectedModeId) {
+      const universeNum = parseInt(universe, 10);
+      if (isNaN(universeNum)) return;
+
       const channelCount = getSelectedModeChannelCount();
-      const nextChannel = findNextAvailableChannel(universe, channelCount);
-      
+      const nextChannel = findNextAvailableChannel(universeNum, channelCount);
+
       if (nextChannel > 0) {
-        setStartChannel(nextChannel);
+        setStartChannel(nextChannel.toString());
       } else {
         setError(`No space available in universe ${universe} for fixture with ${channelCount} channels`);
       }
@@ -225,27 +228,41 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    
+
     if (!fixture) return;
-    
+
     if (!selectedDefinitionId) {
       setError('Please select a valid fixture model');
       return;
     }
 
+    // Parse and validate universe
+    const universeNum = universe === "" ? NaN : parseInt(universe, 10);
+    if (isNaN(universeNum) || universeNum < 1 || universeNum > 32768) {
+      setError('Universe must be between 1 and 32768');
+      return;
+    }
+
+    // Parse and validate start channel
+    const startChannelNum = startChannel === "" ? NaN : parseInt(startChannel, 10);
+    if (isNaN(startChannelNum) || startChannelNum < 1 || startChannelNum > 512) {
+      setError('Start channel must be between 1 and 512');
+      return;
+    }
+
     // Check for channel overlap (excluding current fixture)
-    const overlap = checkChannelOverlap(universe, startChannel);
+    const overlap = checkChannelOverlap(universeNum, startChannelNum);
     if (overlap) {
       const channelCount = getSelectedModeChannelCount();
-      const endChannel = startChannel + channelCount - 1;
-      setError(`Channel overlap detected with fixture "${overlap.name}" (U${overlap.universe}:${overlap.startChannel}-${overlap.startChannel + (overlap.mode?.channelCount || 1) - 1}). Your fixture would use channels ${startChannel}-${endChannel}.`);
+      const endChannel = startChannelNum + channelCount - 1;
+      setError(`Channel overlap detected with fixture "${overlap.name}" (U${overlap.universe}:${overlap.startChannel}-${overlap.startChannel + (overlap.mode?.channelCount || 1) - 1}). Your fixture would use channels ${startChannelNum}-${endChannel}.`);
       return;
     }
 
     // Check if channels exceed DMX limit
     const channelCount = getSelectedModeChannelCount();
-    if (startChannel + channelCount - 1 > 512) {
-      setError(`Channels exceed DMX limit of 512. Your fixture would use channels ${startChannel}-${startChannel + channelCount - 1}.`);
+    if (startChannelNum + channelCount - 1 > 512) {
+      setError(`Channels exceed DMX limit of 512. Your fixture would use channels ${startChannelNum}-${startChannelNum + channelCount - 1}.`);
       return;
     }
 
@@ -257,8 +274,8 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
           description: description || null,
           definitionId: selectedDefinitionId,
           modeId: selectedModeId || null,
-          universe,
-          startChannel,
+          universe: universeNum,
+          startChannel: startChannelNum,
         },
       },
     });
@@ -277,8 +294,8 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
   const handleClose = () => {
     setManufacturer('');
     setModel('');
-    setUniverse(1);
-    setStartChannel(1);
+    setUniverse("1");
+    setStartChannel("1");
     setSelectedDefinitionId('');
     setSelectedModeId('');
     setSelectedModelData(null);
@@ -395,19 +412,10 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
           min="1"
           max="32768"
           value={universe}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (value === '') {
-              setUniverse(1);
-            } else {
-              const num = parseInt(value);
-              if (!isNaN(num)) {
-                setUniverse(num);
-              }
-            }
-          }}
+          onChange={(e) => setUniverse(e.target.value)}
           onFocus={(e) => e.target.select()}
           required
+          placeholder="1"
           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         />
       </div>
@@ -424,20 +432,13 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
             max="512"
             value={startChannel}
             onChange={(e) => {
-              const value = e.target.value;
-              if (value === '') {
-                setStartChannel(1);
-              } else {
-                const num = parseInt(value);
-                if (!isNaN(num)) {
-                  setStartChannel(num);
-                  setAutoSelectChannel(false);
-                }
-              }
+              setStartChannel(e.target.value);
+              setAutoSelectChannel(false);
             }}
             onFocus={(e) => e.target.select()}
             required
             disabled={autoSelectChannel}
+            placeholder="1"
             className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <button

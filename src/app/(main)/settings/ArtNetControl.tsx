@@ -22,7 +22,7 @@ const MAX_FADE_TIME = 30;
  */
 export default function ArtNetControl() {
   /** Fade duration in seconds when disabling ArtNet (0-30) */
-  const [fadeTime, setFadeTime] = useState<number>(DEFAULT_FADEOUT_TIME);
+  const [fadeTime, setFadeTime] = useState(DEFAULT_FADEOUT_TIME.toString());
   /** Whether to show advanced fade options */
   const [showAdvanced, setShowAdvanced] = useState(false);
   /** Error message to display to user */
@@ -53,6 +53,13 @@ export default function ArtNetControl() {
     // Prevent concurrent toggle requests (race condition)
     if (toggling) return;
 
+    // Parse and validate fade time
+    const fadeTimeNum = fadeTime === "" ? 0 : parseFloat(fadeTime);
+    if (isNaN(fadeTimeNum) || fadeTimeNum < MIN_FADE_TIME || fadeTimeNum > MAX_FADE_TIME) {
+      setError(`Fade time must be between ${MIN_FADE_TIME} and ${MAX_FADE_TIME} seconds`);
+      return;
+    }
+
     setIsToggling(true);
     setError(null);
     try {
@@ -60,7 +67,7 @@ export default function ArtNetControl() {
         variables: {
           enabled: !isEnabled,
           // Only include fadeTime when disabling (fade to black before stopping)
-          fadeTime: !isEnabled ? null : fadeTime,
+          fadeTime: !isEnabled ? null : fadeTimeNum,
         },
       });
       await refetch();
@@ -74,17 +81,11 @@ export default function ArtNetControl() {
   };
 
   /**
-   * Handles fade time input changes with validation.
-   * Clamps values to valid range and ignores non-numeric input.
+   * Handles fade time input changes.
    * @param value - The new fade time value from the input
    */
   const handleFadeTimeChange = (value: string) => {
-    const parsed = parseFloat(value);
-    if (!isNaN(parsed)) {
-      // Clamp to valid range
-      const clamped = Math.max(MIN_FADE_TIME, Math.min(MAX_FADE_TIME, parsed));
-      setFadeTime(clamped);
-    }
+    setFadeTime(value);
   };
 
   return (
@@ -151,6 +152,7 @@ export default function ArtNetControl() {
                 min={MIN_FADE_TIME}
                 max={MAX_FADE_TIME}
                 step="0.5"
+                placeholder="0"
                 className="w-20 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               />
               <span className="text-sm text-gray-500 dark:text-gray-400">
