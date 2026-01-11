@@ -236,6 +236,29 @@ export interface GlobalPlaybackStatus {
   lastUpdated: string;
 }
 
+/** Types of changes that can occur in a cue list */
+export type CueListDataChangeType =
+  | 'CUE_ADDED'
+  | 'CUE_UPDATED'
+  | 'CUE_REMOVED'
+  | 'CUE_REORDERED'
+  | 'CUE_LIST_METADATA_CHANGED'
+  | 'SCENE_NAME_CHANGED';
+
+/** Payload for cue list data change notifications */
+export interface CueListDataChangedPayload {
+  cueListId: string;
+  changeType: CueListDataChangeType;
+  /** Affected cue IDs (for cue changes) */
+  affectedCueIds?: string[];
+  /** Affected scene ID (for scene name changes) */
+  affectedSceneId?: string;
+  /** New scene name if this is a SCENE_NAME_CHANGED event */
+  newSceneName?: string;
+  /** Timestamp of the change */
+  timestamp: string;
+}
+
 export interface UniverseOutput {
   universe: number;
   channels: number[];

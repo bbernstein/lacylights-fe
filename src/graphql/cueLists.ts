@@ -305,3 +305,16 @@ export const RESUME_CUE_LIST = gql`
     resumeCueList(cueListId: $cueListId)
   }
 `;
+
+export const CUE_LIST_DATA_CHANGED_SUBSCRIPTION = gql`
+  subscription CueListDataChanged($cueListId: ID!) {
+    cueListDataChanged(cueListId: $cueListId) {
+      cueListId
+      changeType
+      affectedCueIds
+      affectedSceneId
+      newSceneName
+      timestamp
+    }
+  }
+`;
