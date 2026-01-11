@@ -24,6 +24,7 @@ export const GET_PROJECT_CUE_LISTS = gql`
           followTime
           notes
           easingType
+          skip
         }
       }
     }
@@ -57,6 +58,7 @@ export const GET_CUE_LIST = gql`
         followTime
         notes
         easingType
+        skip
       }
     }
   }
@@ -117,6 +119,7 @@ export const CREATE_CUE = gql`
       followTime
       notes
       easingType
+      skip
     }
   }
 `;
@@ -136,6 +139,7 @@ export const UPDATE_CUE = gql`
       followTime
       notes
       easingType
+      skip
     }
   }
 `;
@@ -179,6 +183,27 @@ export const BULK_UPDATE_CUES = gql`
       followTime
       notes
       easingType
+      skip
+    }
+  }
+`;
+
+export const TOGGLE_CUE_SKIP = gql`
+  mutation ToggleCueSkip($cueId: ID!) {
+    toggleCueSkip(cueId: $cueId) {
+      id
+      name
+      cueNumber
+      scene {
+        id
+        name
+      }
+      fadeInTime
+      fadeOutTime
+      followTime
+      notes
+      easingType
+      skip
     }
   }
 `;

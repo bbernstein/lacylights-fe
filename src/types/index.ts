@@ -164,6 +164,8 @@ export interface Cue {
   followTime?: number;
   notes?: string;
   easingType?: string;
+  /** When true, this cue is skipped during playback but remains visible in the UI */
+  skip: boolean;
 }
 
 export interface BulkCueUpdateInput {
@@ -172,6 +174,8 @@ export interface BulkCueUpdateInput {
   fadeOutTime?: number;
   followTime?: number;
   easingType?: string;
+  /** When set, updates the skip status of all selected cues */
+  skip?: boolean;
 }
 
 // Bulk Fixture Operations
