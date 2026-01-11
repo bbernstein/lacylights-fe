@@ -1722,7 +1722,7 @@ export default function CueListUnifiedView({
       sceneId?: string;
       fadeInTime?: number;
       fadeOutTime?: number;
-      followTime?: number;
+      followTime?: number | null;
       action: "edit-scene" | "stay";
     }) => {
       try {

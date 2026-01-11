@@ -14,7 +14,7 @@ export default function SceneBoardPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newBoardName, setNewBoardName] = useState('');
   const [newBoardDescription, setNewBoardDescription] = useState('');
-  const [newBoardFadeTime, setNewBoardFadeTime] = useState(3.0);
+  const [newBoardFadeTime, setNewBoardFadeTime] = useState("3");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { currentProject, loading: projectLoading } = useProject();
 
@@ -29,7 +29,7 @@ export default function SceneBoardPage() {
       setIsCreateModalOpen(false);
       setNewBoardName('');
       setNewBoardDescription('');
-      setNewBoardFadeTime(3.0);
+      setNewBoardFadeTime("3");
     },
     onError: (error) => {
       setErrorMessage(`Error creating scene board: ${error.message}`);
@@ -56,8 +56,10 @@ export default function SceneBoardPage() {
       return;
     }
 
-    if (newBoardFadeTime < 0) {
-      setErrorMessage('Fade time must be 0 or greater');
+    // Parse fade time - empty string defaults to 0
+    const fadeTime = newBoardFadeTime === "" ? 0 : parseFloat(newBoardFadeTime);
+    if (isNaN(fadeTime) || fadeTime < 0) {
+      setErrorMessage('Fade time must be a valid number 0 or greater');
       return;
     }
 
@@ -67,7 +69,7 @@ export default function SceneBoardPage() {
           name: newBoardName,
           description: newBoardDescription || undefined,
           projectId: currentProject?.id,
-          defaultFadeTime: newBoardFadeTime,
+          defaultFadeTime: fadeTime,
         },
       },
     });
@@ -226,14 +228,12 @@ export default function SceneBoardPage() {
                   Default Fade Time (seconds)
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={newBoardFadeTime}
-                  onChange={(e) =>
-                    setNewBoardFadeTime(parseFloat(e.target.value) || 0)
-                  }
+                  onChange={(e) => setNewBoardFadeTime(e.target.value)}
                   className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-                  min="0"
-                  step="0.1"
+                  placeholder="0"
                 />
               </div>
             </div>
@@ -243,7 +243,7 @@ export default function SceneBoardPage() {
                   setIsCreateModalOpen(false);
                   setNewBoardName('');
                   setNewBoardDescription('');
-                  setNewBoardFadeTime(3.0);
+                  setNewBoardFadeTime("3");
                 }}
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >

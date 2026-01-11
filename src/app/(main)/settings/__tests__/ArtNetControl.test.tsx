@@ -71,6 +71,11 @@ const renderComponent = (mocks: MockedResponse[]) => {
 };
 
 describe('ArtNetControl', () => {
+  // Clear localStorage before each test to ensure consistent fade time default
+  beforeEach(() => {
+    localStorage.removeItem('lacylights-artnet-fade-time');
+  });
+
   it('renders enabled state correctly', async () => {
     renderComponent(createMocks(true));
 
@@ -220,7 +225,7 @@ describe('ArtNetControl', () => {
     });
   });
 
-  it('clamps fade time to valid range', async () => {
+  it('allows typing any fade time value, validates on submit', async () => {
     renderComponent(createMocks(true));
 
     await waitFor(() => {
@@ -231,12 +236,74 @@ describe('ArtNetControl', () => {
 
     const input = screen.getByRole('spinbutton');
 
-    // Test value above max (30) gets clamped
+    // Test value above max - can be typed but will show error on toggle
     fireEvent.change(input, { target: { value: '50' } });
-    expect(input).toHaveValue(30);
+    expect(input).toHaveValue(50);
 
-    // Test value below min (0) gets clamped
+    // Test value below min
     fireEvent.change(input, { target: { value: '-5' } });
-    expect(input).toHaveValue(0);
+    expect(input).toHaveValue(-5);
+
+    // Valid value
+    fireEvent.change(input, { target: { value: '5' } });
+    expect(input).toHaveValue(5);
+  });
+
+  it('shows error when toggle is clicked with invalid fade time', async () => {
+    renderComponent(createMocks(true));
+
+    await waitFor(() => {
+      expect(screen.getByText('Show fade options')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Show fade options'));
+
+    const input = screen.getByRole('spinbutton');
+
+    // Set invalid value above max
+    fireEvent.change(input, { target: { value: '50' } });
+
+    // Click toggle switch to disable ArtNet
+    const toggleSwitch = screen.getByRole('switch', { name: /toggle artnet/i });
+    fireEvent.click(toggleSwitch);
+
+    // Should show error message
+    await waitFor(() => {
+      expect(screen.getByText(/Fade time must be between 0 and 30 seconds/i)).toBeInTheDocument();
+    });
+  });
+
+  it('persists fade time to localStorage when changed', async () => {
+    renderComponent(createMocks(true));
+
+    await waitFor(() => {
+      expect(screen.getByText('Show fade options')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Show fade options'));
+
+    const input = screen.getByRole('spinbutton');
+
+    // Change fade time
+    fireEvent.change(input, { target: { value: '7.5' } });
+
+    // Should be saved to localStorage
+    expect(localStorage.getItem('lacylights-artnet-fade-time')).toBe('7.5');
+  });
+
+  it('loads fade time from localStorage on mount', async () => {
+    // Pre-set localStorage value
+    localStorage.setItem('lacylights-artnet-fade-time', '12');
+
+    renderComponent(createMocks(true));
+
+    await waitFor(() => {
+      expect(screen.getByText('Show fade options')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Show fade options'));
+
+    const input = screen.getByRole('spinbutton');
+    expect(input).toHaveValue(12);
   });
 });

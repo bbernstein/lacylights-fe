@@ -263,7 +263,7 @@ describe('EditCueDialog', () => {
       fireEvent.click(saveButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Fade in time must be positive')).toBeInTheDocument();
+        expect(screen.getByText('Fade in time must be a valid positive number')).toBeInTheDocument();
       });
 
       expect(mockOnUpdate).not.toHaveBeenCalled();
@@ -282,7 +282,7 @@ describe('EditCueDialog', () => {
       fireEvent.click(saveButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Fade out time must be positive')).toBeInTheDocument();
+        expect(screen.getByText('Fade out time must be a valid positive number')).toBeInTheDocument();
       });
 
       expect(mockOnUpdate).not.toHaveBeenCalled();
@@ -330,7 +330,7 @@ describe('EditCueDialog', () => {
         sceneId: 'scene-2',
         fadeInTime: 3,
         fadeOutTime: 3,
-        followTime: undefined,
+        followTime: null,
         action: 'stay',
       });
 
@@ -494,7 +494,7 @@ describe('EditCueDialog', () => {
 
       expect(mockOnUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
-          followTime: undefined,
+          followTime: null,
         })
       );
     });

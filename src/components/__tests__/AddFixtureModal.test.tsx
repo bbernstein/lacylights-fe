@@ -237,7 +237,7 @@ describe('AddFixtureModal', () => {
       // Clear and type new value using fireEvent for reliable clearing
       fireEvent.change(universeInput, { target: { value: '' } });
       await userEvent.type(universeInput, '2');
-      expect(universeInput).toHaveValue(2);
+      expect(universeInput).toHaveValue('2');
     });
 
     it('allows changing start channel', async () => {
@@ -246,7 +246,7 @@ describe('AddFixtureModal', () => {
 
       fireEvent.change(channelInput, { target: { value: '' } });
       await userEvent.type(channelInput, '10');
-      expect(channelInput).toHaveValue(10);
+      expect(channelInput).toHaveValue('10');
     });
 
     it('allows changing number of fixtures', async () => {
@@ -255,7 +255,7 @@ describe('AddFixtureModal', () => {
 
       fireEvent.change(numInput, { target: { value: '' } });
       await userEvent.type(numInput, '3');
-      expect(numInput).toHaveValue(3);
+      expect(numInput).toHaveValue('3');
     });
   });
 
@@ -376,20 +376,20 @@ describe('AddFixtureModal', () => {
       // Test minimum values
       fireEvent.change(universeInput, { target: { value: '' } });
       await userEvent.type(universeInput, '1');
-      expect(universeInput).toHaveValue(1);
+      expect(universeInput).toHaveValue('1');
 
       fireEvent.change(channelInput, { target: { value: '' } });
       await userEvent.type(channelInput, '1');
-      expect(channelInput).toHaveValue(1);
+      expect(channelInput).toHaveValue('1');
 
       // Test maximum values
       fireEvent.change(universeInput, { target: { value: '' } });
       await userEvent.type(universeInput, '32768');
-      expect(universeInput).toHaveValue(32768);
+      expect(universeInput).toHaveValue('32768');
 
       fireEvent.change(channelInput, { target: { value: '' } });
       await userEvent.type(channelInput, '512');
-      expect(channelInput).toHaveValue(512);
+      expect(channelInput).toHaveValue('512');
     });
 
     it('handles large number of fixtures', async () => {
@@ -399,7 +399,7 @@ describe('AddFixtureModal', () => {
       fireEvent.change(numInput, { target: { value: '' } });
       await userEvent.type(numInput, '100');
 
-      expect(numInput).toHaveValue(100);
+      expect(numInput).toHaveValue('100');
     });
   });
 

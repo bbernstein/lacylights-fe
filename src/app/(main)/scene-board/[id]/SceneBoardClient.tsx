@@ -64,11 +64,12 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   );
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [editedName, setEditedName] = useState("");
-  const [editedFadeTime, setEditedFadeTime] = useState(3.0);
-  const [editedCanvasWidth, setEditedCanvasWidth] =
-    useState(DEFAULT_CANVAS_WIDTH);
+  const [editedFadeTime, setEditedFadeTime] = useState("3");
+  const [editedCanvasWidth, setEditedCanvasWidth] = useState(
+    DEFAULT_CANVAS_WIDTH.toString(),
+  );
   const [editedCanvasHeight, setEditedCanvasHeight] = useState(
-    DEFAULT_CANVAS_HEIGHT,
+    DEFAULT_CANVAS_HEIGHT.toString(),
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -430,6 +431,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         return;
       }
 
+      // Don't handle any shortcuts if in input field (let typing work normally)
+      if (isInputField) return;
+
       // Zoom shortcuts work in both layout and play mode
       if (e.key === "+" || e.key === "=") {
         e.preventDefault();
@@ -453,8 +457,8 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         return;
       }
 
-      // Don't handle editing shortcuts if in input field or in play mode
-      if (isInputField || mode === "play") return;
+      // Don't handle editing shortcuts if in play mode
+      if (mode === "play") return;
 
       // Select All (Cmd/Ctrl + A) - Layout mode only
       if ((e.metaKey || e.ctrlKey) && e.key === "a") {
@@ -2020,8 +2024,31 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       return;
     }
 
-    if (editedFadeTime < 0) {
-      setErrorMessage("Fade time must be 0 or greater");
+    // Parse fade time - empty string defaults to 0
+    const fadeTime =
+      editedFadeTime === "" ? 0 : parseFloat(editedFadeTime);
+    if (isNaN(fadeTime) || fadeTime < 0) {
+      setErrorMessage("Fade time must be a valid number 0 or greater");
+      return;
+    }
+
+    // Parse canvas width
+    const canvasWidth =
+      editedCanvasWidth === ""
+        ? DEFAULT_CANVAS_WIDTH
+        : parseInt(editedCanvasWidth, 10);
+    if (isNaN(canvasWidth) || canvasWidth < 1000 || canvasWidth > 10000) {
+      setErrorMessage("Canvas width must be between 1000 and 10000 pixels");
+      return;
+    }
+
+    // Parse canvas height
+    const canvasHeight =
+      editedCanvasHeight === ""
+        ? DEFAULT_CANVAS_HEIGHT
+        : parseInt(editedCanvasHeight, 10);
+    if (isNaN(canvasHeight) || canvasHeight < 1000 || canvasHeight > 10000) {
+      setErrorMessage("Canvas height must be between 1000 and 10000 pixels");
       return;
     }
 
@@ -2030,9 +2057,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         id: boardId,
         input: {
           name: editedName,
-          defaultFadeTime: editedFadeTime,
-          canvasWidth: editedCanvasWidth,
-          canvasHeight: editedCanvasHeight,
+          defaultFadeTime: fadeTime,
+          canvasWidth: canvasWidth,
+          canvasHeight: canvasHeight,
         },
       },
     });
@@ -2047,9 +2074,13 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
   const openEditSettings = useCallback(() => {
     setEditedName(board?.name || "");
-    setEditedFadeTime(board?.defaultFadeTime || 3.0);
-    setEditedCanvasWidth(board?.canvasWidth || DEFAULT_CANVAS_WIDTH);
-    setEditedCanvasHeight(board?.canvasHeight || DEFAULT_CANVAS_HEIGHT);
+    setEditedFadeTime((board?.defaultFadeTime ?? 3).toString());
+    setEditedCanvasWidth(
+      (board?.canvasWidth || DEFAULT_CANVAS_WIDTH).toString(),
+    );
+    setEditedCanvasHeight(
+      (board?.canvasHeight || DEFAULT_CANVAS_HEIGHT).toString(),
+    );
     setIsEditingSettings(true);
   }, [board]);
 
@@ -2712,14 +2743,12 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                   Default Fade Time (seconds)
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={editedFadeTime}
-                  onChange={(e) =>
-                    setEditedFadeTime(parseFloat(e.target.value) || 0)
-                  }
+                  onChange={(e) => setEditedFadeTime(e.target.value)}
                   className="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  min="0"
-                  step="0.1"
+                  placeholder="0"
                 />
               </div>
               <div>
@@ -2727,22 +2756,12 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                   Canvas Width (pixels)
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={editedCanvasWidth}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value, 10);
-                    if (isNaN(value)) {
-                      setEditedCanvasWidth(DEFAULT_CANVAS_WIDTH);
-                    } else {
-                      setEditedCanvasWidth(
-                        Math.max(1000, Math.min(10000, value)),
-                      );
-                    }
-                  }}
+                  onChange={(e) => setEditedCanvasWidth(e.target.value)}
                   className="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  min="1000"
-                  max="10000"
-                  step="100"
+                  placeholder={DEFAULT_CANVAS_WIDTH.toString()}
                 />
               </div>
               <div>
@@ -2750,22 +2769,12 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                   Canvas Height (pixels)
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={editedCanvasHeight}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value, 10);
-                    if (isNaN(value)) {
-                      setEditedCanvasHeight(DEFAULT_CANVAS_HEIGHT);
-                    } else {
-                      setEditedCanvasHeight(
-                        Math.max(1000, Math.min(10000, value)),
-                      );
-                    }
-                  }}
+                  onChange={(e) => setEditedCanvasHeight(e.target.value)}
                   className="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  min="1000"
-                  max="10000"
-                  step="100"
+                  placeholder={DEFAULT_CANVAS_HEIGHT.toString()}
                 />
               </div>
             </div>
