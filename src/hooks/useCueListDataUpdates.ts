@@ -20,8 +20,11 @@ export function useCueListDataUpdates({ cueListId, onDataChange }: UseCueListDat
     const { changeType } = payload;
 
     // Refetch the cue list data to get the latest state
-    client.refetchQueries({
-      include: [{ query: GET_CUE_LIST, variables: { id: cueListId } }],
+    // Use client.query with network-only policy to force a fresh fetch with variables
+    client.query({
+      query: GET_CUE_LIST,
+      variables: { id: cueListId },
+      fetchPolicy: 'network-only',
     });
 
     // Call the optional callback
