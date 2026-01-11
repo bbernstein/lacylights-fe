@@ -23,6 +23,7 @@ import {
   PREVIOUS_CUE,
   GO_TO_CUE,
   STOP_CUE_LIST,
+  TOGGLE_CUE_SKIP,
 } from "@/graphql/cueLists";
 import {
   GET_PROJECT_SCENES,
@@ -60,6 +61,7 @@ import { CSS } from "@dnd-kit/utilities";
 import EditCueDialog from "./EditCueDialog";
 import ContextMenu from "./ContextMenu";
 import { PencilIcon } from "@heroicons/react/24/outline";
+import { SkipIndicator } from "./SkipIndicator";
 
 interface CueListUnifiedViewProps {
   cueListId: string;
@@ -515,6 +517,18 @@ const CueRow = React.forwardRef<
       borderClass = "border-l-4 border-yellow-500 animate-pulse";
     }
 
+    // Skip styling - apply special styling for skipped cues
+    let skipIndicator = null;
+    let skipTextClass = "";
+    if (cue.skip) {
+      borderClass =
+        borderClass || "border-l-4 border-gray-400 dark:border-gray-600";
+      rowBgClass = "bg-gray-100 dark:bg-gray-800/30";
+      textColorClass = "text-gray-400 dark:text-gray-500";
+      skipTextClass = "line-through";
+      skipIndicator = <SkipIndicator size="sm" className="ml-1" />;
+    }
+
     const handleRowClick = () => {
       if (!editMode) {
         onJumpToCue(cue, index);
@@ -581,13 +595,16 @@ const CueRow = React.forwardRef<
               </svg>
             </button>
           )}
-          <span className={`text-sm font-medium ${textColorClass}`}>
+          <span
+            className={`text-sm font-medium ${textColorClass} ${skipTextClass}`}
+          >
             {cue.cueNumber}
           </span>
+          {skipIndicator}
         </td>
 
         <td
-          className={`px-3 py-3 text-sm font-medium ${textColorClass}`}
+          className={`px-3 py-3 text-sm font-medium ${textColorClass} ${skipTextClass}`}
           onClick={(e) => e.stopPropagation()}
         >
           <EditableTextCell
@@ -907,6 +924,19 @@ const CueCard = React.forwardRef<
     borderClass = "border-4 border-yellow-500 animate-pulse";
   }
 
+  // Skip styling - apply special styling for skipped cues
+  let skipIndicator = null;
+  let skipTextClass = "";
+  if (cue.skip) {
+    borderClass = borderClass.includes("border-yellow")
+      ? borderClass
+      : "border-2 border-gray-400 dark:border-gray-600";
+    bgClass = "bg-gray-100 dark:bg-gray-800/30";
+    textColorClass = "text-gray-400 dark:text-gray-500";
+    skipTextClass = "line-through";
+    skipIndicator = <SkipIndicator size="sm" className="ml-1" />;
+  }
+
   const handleRowClick = () => {
     if (!editMode) {
       onJumpToCue(cue, index);
@@ -972,9 +1002,12 @@ const CueCard = React.forwardRef<
               </svg>
             </button>
           )}
-          <span className="font-bold text-sm">{cue.cueNumber}</span>
+          <span className={`font-bold text-sm ${skipTextClass}`}>
+            {cue.cueNumber}
+          </span>
+          {skipIndicator}
           <div
-            className="font-medium flex-1"
+            className={`font-medium flex-1 ${skipTextClass}`}
             onClick={(e) => e.stopPropagation()}
           >
             <EditableTextCell
@@ -1350,6 +1383,15 @@ export default function CueListUnifiedView({
     },
   });
 
+  const [toggleCueSkip] = useMutation(TOGGLE_CUE_SKIP, {
+    onCompleted: () => {
+      refetch();
+    },
+    onError: (error) => {
+      setError(error.message);
+    },
+  });
+
   const [reorderCues] = useMutation(REORDER_CUES, {
     onCompleted: () => {
       refetch();
@@ -1640,6 +1682,12 @@ export default function CueListUnifiedView({
     setMoveModeCueId(contextMenu.cue.id);
     setContextMenu(null);
   }, [contextMenu]);
+
+  const handleToggleCueSkip = useCallback(() => {
+    if (!contextMenu) return;
+    toggleCueSkip({ variables: { cueId: contextMenu.cue.id } });
+    setContextMenu(null);
+  }, [contextMenu, toggleCueSkip]);
 
   const handleAddCueFromContextMenu = useCallback(() => {
     if (!contextMenu) return;
@@ -2697,6 +2745,39 @@ export default function CueListUnifiedView({
                     strokeLinejoin="round"
                     strokeWidth={2}
                     d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+                  />
+                </svg>
+              ),
+            },
+            {
+              label: contextMenu.cue.skip ? "Unskip Cue" : "Skip Cue",
+              onClick: handleToggleCueSkip,
+              icon: contextMenu.cue.skip ? (
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 5l7 7-7 7M5 5l7 7-7 7"
                   />
                 </svg>
               ),

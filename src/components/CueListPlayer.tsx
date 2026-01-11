@@ -22,6 +22,7 @@ import {
   UPDATE_CUE,
   DELETE_CUE,
   RESUME_CUE_LIST,
+  TOGGLE_CUE_SKIP,
 } from "@/graphql/cueLists";
 import {
   GET_PROJECT_SCENES,
@@ -40,6 +41,7 @@ import EditCueDialog from "./EditCueDialog";
 import ContextMenu from "./ContextMenu";
 import { PencilIcon } from "@heroicons/react/24/outline";
 import { shouldIgnoreKeyboardEvent } from "@/utils/keyboardUtils";
+import { SkipIndicator } from "./SkipIndicator";
 
 interface CueListPlayerProps {
   cueListId: string;
@@ -104,9 +106,9 @@ export default function CueListPlayer({
   // undefined = first render (no scroll from this effect), number = subsequent renders
   const prevCueIndexForAutoScroll = useRef<number | undefined>(undefined);
   // Timeout ID for visibility change scroll
-  const visibilityScrollTimeoutId = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const visibilityScrollTimeoutId = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
   // RAF ID for cue change smooth scroll
   const cueChangeScrollRafId = useRef<number | null>(null);
 
@@ -296,6 +298,9 @@ export default function CueListPlayer({
   const [deleteCue] = useMutation(DELETE_CUE);
   const [duplicateScene] = useMutation(DUPLICATE_SCENE);
   const [activateScene] = useMutation(ACTIVATE_SCENE);
+  const [toggleCueSkip] = useMutation(TOGGLE_CUE_SKIP, {
+    refetchQueries: [{ query: GET_CUE_LIST, variables: { id: cueListId } }],
+  });
 
   // Fetch scenes for the Add Cue dialog
   const { data: scenesData } = useQuery(GET_PROJECT_SCENES, {
@@ -384,44 +389,45 @@ export default function CueListPlayer({
 
   // Callback ref for storing reference to current cue element
   // Also handles initial scroll when node is attached and we haven't scrolled yet
-  const currentCueCallbackRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      // Store the ref for use by scrolling logic and scrollToLiveCue button
-      currentCueRef.current = node;
+  const currentCueCallbackRef = useCallback((node: HTMLDivElement | null) => {
+    // Store the ref for use by scrolling logic and scrollToLiveCue button
+    currentCueRef.current = node;
 
-      // Perform initial scroll when we get a node and haven't scrolled yet
-      // This handles the case where the useEffect timeout fires before the ref is set
-      if (
-        node &&
-        !hasPerformedInitialScroll.current &&
-        node.isConnected &&
-        node.offsetParent !== null
-      ) {
-        hasPerformedInitialScroll.current = true;
+    // Perform initial scroll when we get a node and haven't scrolled yet
+    // This handles the case where the useEffect timeout fires before the ref is set
+    if (
+      node &&
+      !hasPerformedInitialScroll.current &&
+      node.isConnected &&
+      node.offsetParent !== null
+    ) {
+      hasPerformedInitialScroll.current = true;
 
-        // Cancel any pending RAF from the useEffect
-        if (scrollRafId.current !== null) {
-          cancelAnimationFrame(scrollRafId.current);
-        }
-
-        scrollRafId.current = requestAnimationFrame(() => {
-          scrollRafId.current = null;
-          node.scrollIntoView({
-            behavior: "instant",
-            block: "center",
-            inline: "nearest",
-          });
-        });
+      // Cancel any pending RAF from the useEffect
+      if (scrollRafId.current !== null) {
+        cancelAnimationFrame(scrollRafId.current);
       }
-    },
-    [],
-  );
+
+      scrollRafId.current = requestAnimationFrame(() => {
+        scrollRafId.current = null;
+        node.scrollIntoView({
+          behavior: "instant",
+          block: "center",
+          inline: "nearest",
+        });
+      });
+    }
+  }, []);
 
   // Effect to handle initial scroll when returning to the page or on first load
   // This runs after render and handles the scroll logic separately from the ref callback
   useEffect(() => {
     // Skip if we've already scrolled or no valid cue
-    if (hasPerformedInitialScroll.current || currentCueIndex < 0 || cues.length === 0) {
+    if (
+      hasPerformedInitialScroll.current ||
+      currentCueIndex < 0 ||
+      cues.length === 0
+    ) {
       return;
     }
 
@@ -875,7 +881,13 @@ export default function CueListPlayer({
    * Only active when a cue is currently fading in.
    */
   const handleHurryUp = useCallback(async () => {
-    if (!cueList || !isFading || currentCueIndex < 0 || currentCueIndex >= cues.length) return;
+    if (
+      !cueList ||
+      !isFading ||
+      currentCueIndex < 0 ||
+      currentCueIndex >= cues.length
+    )
+      return;
 
     // Wait for WebSocket to be connected before mutation
     await ensureConnection();
@@ -890,7 +902,14 @@ export default function CueListPlayer({
         fadeInTime: 0, // Complete instantly
       },
     });
-  }, [goToCue, cueList, isFading, currentCueIndex, cues.length, ensureConnection]);
+  }, [
+    goToCue,
+    cueList,
+    isFading,
+    currentCueIndex,
+    cues.length,
+    ensureConnection,
+  ]);
 
   // Context menu option handlers
   const handleEditCue = useCallback(() => {
@@ -995,6 +1014,12 @@ export default function CueListPlayer({
     setContextMenu(null);
   }, [contextMenu, deleteCue, cueListId]);
 
+  const handleToggleCueSkip = useCallback(() => {
+    if (!contextMenu) return;
+    toggleCueSkip({ variables: { cueId: contextMenu.cue.id } });
+    setContextMenu(null);
+  }, [contextMenu, toggleCueSkip]);
+
   // EditCueDialog update handler
   const handleEditCueDialogUpdate = useCallback(
     async (params: {
@@ -1081,7 +1106,15 @@ export default function CueListPlayer({
         },
       });
     },
-    [goToCue, cueList, cues, ensureConnection, isPaused, currentCueIndex, resumeCueList],
+    [
+      goToCue,
+      cueList,
+      cues,
+      ensureConnection,
+      isPaused,
+      currentCueIndex,
+      resumeCueList,
+    ],
   );
 
   const handleKeyPress = useCallback(
@@ -1202,17 +1235,39 @@ export default function CueListPlayer({
                   key={cue.id}
                   ref={isCurrent ? currentCueCallbackRef : null}
                   className={`relative rounded-lg p-4 border transition-all duration-200 overflow-hidden select-none cursor-pointer ${
-                    cue.id === highlightedCueId
-                      ? "bg-gray-700 border-yellow-500 border-2 shadow-lg animate-pulse"
-                      : isCurrent && isPaused
-                        ? "bg-gray-700 border-amber-500 border-2 scale-[1.02] shadow-lg"
-                        : isCurrent
-                          ? "bg-gray-700 border-green-500 border-2 scale-[1.02] shadow-lg"
-                          : isPrevious
-                            ? "bg-gray-800/50 border-gray-600 opacity-60 hover:bg-gray-700/70"
-                            : isNext
-                              ? "bg-gray-800/70 border-gray-600 opacity-80 hover:bg-gray-700/70"
-                              : "bg-gray-800 border-gray-700 hover:bg-gray-700/70"
+                    // First determine the base styling from cue state
+                    (() => {
+                      // Highlight state always takes precedence for border
+                      const isHighlighted = cue.id === highlightedCueId;
+
+                      // Skip styling: show skip appearance but preserve highlight border if present
+                      if (cue.skip) {
+                        const skipBase =
+                          "bg-gray-800/30 opacity-50 hover:opacity-70";
+                        if (isHighlighted) {
+                          return `${skipBase} border-yellow-500 border-2 shadow-lg animate-pulse`;
+                        }
+                        return `${skipBase} border-gray-600 border-l-4 border-l-gray-500`;
+                      }
+
+                      // Non-skipped cue styling
+                      if (isHighlighted) {
+                        return "bg-gray-700 border-yellow-500 border-2 shadow-lg animate-pulse";
+                      }
+                      if (isCurrent && isPaused) {
+                        return "bg-gray-700 border-amber-500 border-2 scale-[1.02] shadow-lg";
+                      }
+                      if (isCurrent) {
+                        return "bg-gray-700 border-green-500 border-2 scale-[1.02] shadow-lg";
+                      }
+                      if (isPrevious) {
+                        return "bg-gray-800/50 border-gray-600 opacity-60 hover:bg-gray-700/70";
+                      }
+                      if (isNext) {
+                        return "bg-gray-800/70 border-gray-600 opacity-80 hover:bg-gray-700/70";
+                      }
+                      return "bg-gray-800 border-gray-700 hover:bg-gray-700/70";
+                    })()
                   }`}
                   onClick={() => {
                     if (isCurrent) {
@@ -1259,18 +1314,41 @@ export default function CueListPlayer({
                   <div className="relative z-10 flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <div
-                        className={`text-2xl font-bold ${isCurrent && isPaused ? "text-amber-400" : isCurrent ? "text-green-400" : "text-gray-300"}`}
+                        className={`text-2xl font-bold flex items-center ${
+                          cue.skip
+                            ? "text-gray-500"
+                            : isCurrent && isPaused
+                              ? "text-amber-400"
+                              : isCurrent
+                                ? "text-green-400"
+                                : "text-gray-300"
+                        }`}
                       >
                         {cue.cueNumber}
+                        {cue.skip && (
+                          <SkipIndicator size="md" className="ml-2" />
+                        )}
                       </div>
                       <div className="flex-1">
                         <div
-                          className={`text-lg ${isCurrent ? "text-white" : "text-gray-300"}`}
+                          className={`text-lg ${
+                            cue.skip
+                              ? "text-gray-500 line-through"
+                              : isCurrent
+                                ? "text-white"
+                                : "text-gray-300"
+                          }`}
                         >
                           {cue.name}
                         </div>
                         <div
-                          className={`text-sm ${isCurrent ? "text-gray-300" : "text-gray-500"}`}
+                          className={`text-sm ${
+                            cue.skip
+                              ? "text-gray-600"
+                              : isCurrent
+                                ? "text-gray-300"
+                                : "text-gray-500"
+                          }`}
                         >
                           Scene: {cue.scene.name}
                         </div>
@@ -1580,6 +1658,39 @@ export default function CueListPlayer({
                     strokeLinejoin="round"
                     strokeWidth={2}
                     d="M12 4v16m8-8H4"
+                  />
+                </svg>
+              ),
+            },
+            {
+              label: contextMenu.cue.skip ? "Unskip Cue" : "Skip Cue",
+              onClick: handleToggleCueSkip,
+              icon: contextMenu.cue.skip ? (
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 5l7 7-7 7M5 5l7 7-7 7"
                   />
                 </svg>
               ),
