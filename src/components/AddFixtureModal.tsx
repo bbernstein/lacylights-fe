@@ -649,9 +649,8 @@ export default function AddFixtureModal({
         <input
           ref={numFixturesInputRef}
           id="numFixtures"
-          type="number"
-          min="1"
-          max="512"
+          type="text"
+          inputMode="numeric"
           value={numFixtures}
           onChange={(e) => setNumFixtures(e.target.value)}
           onFocus={(e) => e.target.select()}
@@ -677,9 +676,8 @@ export default function AddFixtureModal({
         </label>
         <input
           id="universe"
-          type="number"
-          min="1"
-          max="32768"
+          type="text"
+          inputMode="numeric"
           value={universe}
           onChange={(e) => setUniverse(e.target.value)}
           onFocus={(e) => e.target.select()}
@@ -698,9 +696,8 @@ export default function AddFixtureModal({
         <div className="flex gap-2">
           <input
             id="startChannel"
-            type="number"
-            min="1"
-            max="512"
+            type="text"
+            inputMode="numeric"
             value={startChannel}
             onChange={(e) => setStartChannel(e.target.value)}
             onFocus={(e) => e.target.select()}

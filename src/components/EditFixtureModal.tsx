@@ -408,9 +408,8 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
         </label>
         <input
           id="edit-universe"
-          type="number"
-          min="1"
-          max="32768"
+          type="text"
+          inputMode="numeric"
           value={universe}
           onChange={(e) => setUniverse(e.target.value)}
           onFocus={(e) => e.target.select()}
@@ -427,9 +426,8 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
         <div className="flex gap-2">
           <input
             id="edit-startChannel"
-            type="number"
-            min="1"
-            max="512"
+            type="text"
+            inputMode="numeric"
             value={startChannel}
             onChange={(e) => {
               setStartChannel(e.target.value);

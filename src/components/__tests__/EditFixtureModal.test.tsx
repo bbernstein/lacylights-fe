@@ -297,7 +297,7 @@ describe('EditFixtureModal', () => {
 
       expect(universeInput).toBeInTheDocument();
       expect(universeInput).not.toBeDisabled();
-      expect(universeInput).toHaveAttribute('type', 'number');
+      expect(universeInput).toHaveAttribute('type', 'text');
     });
 
     it('start channel input is editable', () => {
@@ -306,7 +306,7 @@ describe('EditFixtureModal', () => {
 
       expect(channelInput).toBeInTheDocument();
       expect(channelInput).not.toBeDisabled();
-      expect(channelInput).toHaveAttribute('type', 'number');
+      expect(channelInput).toHaveAttribute('type', 'text');
     });
   });
 
@@ -368,8 +368,8 @@ describe('EditFixtureModal', () => {
 
       expect(screen.getByLabelText('Fixture Name')).toHaveValue('Test Fixture');
       expect(screen.getByLabelText('Description')).toHaveValue('Test description');
-      expect(screen.getByLabelText('Universe')).toHaveValue(1);
-      expect(screen.getByLabelText('Start Channel')).toHaveValue(10);
+      expect(screen.getByLabelText('Universe')).toHaveValue('1');
+      expect(screen.getByLabelText('Start Channel')).toHaveValue('10');
     });
   });
 
@@ -377,13 +377,12 @@ describe('EditFixtureModal', () => {
     it('has form validation attributes', () => {
       renderWithProvider();
 
+      // Text inputs use inputMode for numeric keyboard on mobile
       const universeInput = screen.getByLabelText('Universe');
-      expect(universeInput).toHaveAttribute('min', '1');
-      expect(universeInput).toHaveAttribute('max', '32768');
+      expect(universeInput).toHaveAttribute('inputMode', 'numeric');
 
       const channelInput = screen.getByLabelText('Start Channel');
-      expect(channelInput).toHaveAttribute('min', '1');
-      expect(channelInput).toHaveAttribute('max', '512');
+      expect(channelInput).toHaveAttribute('inputMode', 'numeric');
 
       const nameInput = screen.getByLabelText('Fixture Name');
       expect(nameInput).toHaveAttribute('required');
@@ -462,7 +461,7 @@ describe('EditFixtureModal', () => {
 
       const channelInput = screen.getByDisplayValue('10');
       expect(channelInput).toBeInTheDocument();
-      expect(channelInput).toHaveValue(10);
+      expect(channelInput).toHaveValue('10');
     });
   });
 

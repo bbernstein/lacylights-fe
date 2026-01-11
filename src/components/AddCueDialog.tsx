@@ -352,11 +352,11 @@ export default function AddCueDialog({
             </label>
             <input
               id="fade-in-time"
-              type="number"
-              step="0.1"
-              min="0"
+              type="text"
+              inputMode="decimal"
               value={fadeInTime}
               onChange={(e) => setFadeInTime(e.target.value)}
+              placeholder="0"
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base text-gray-900 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             />
           </div>
@@ -370,11 +370,11 @@ export default function AddCueDialog({
             </label>
             <input
               id="fade-out-time"
-              type="number"
-              step="0.1"
-              min="0"
+              type="text"
+              inputMode="decimal"
               value={fadeOutTime}
               onChange={(e) => setFadeOutTime(e.target.value)}
+              placeholder="0"
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base text-gray-900 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             />
           </div>
@@ -388,9 +388,8 @@ export default function AddCueDialog({
             </label>
             <input
               id="follow-time"
-              type="number"
-              step="0.1"
-              min="0"
+              type="text"
+              inputMode="decimal"
               value={followTime ?? ""}
               onChange={(e) =>
                 setFollowTime(
