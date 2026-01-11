@@ -768,7 +768,7 @@ export default function AddFixtureModal({
           >
             {creating
               ? "Adding..."
-              : numFixtures === "1"
+              : (parseInt(numFixtures, 10) || 1) === 1
                 ? "Add Fixture"
                 : `Add ${numFixtures} Fixtures`}
           </button>
@@ -797,7 +797,7 @@ export default function AddFixtureModal({
           >
             {creating
               ? "Adding..."
-              : numFixtures === "1"
+              : (parseInt(numFixtures, 10) || 1) === 1
                 ? "Add Fixture"
                 : `Add ${numFixtures} Fixtures`}
           </button>
