@@ -310,4 +310,159 @@ describe('useCueListDataUpdates', () => {
       );
     });
   });
+
+  describe('error handling', () => {
+    beforeEach(() => {
+      // Suppress console.error for error handling tests
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('handles subscription errors gracefully', async () => {
+      const subscriptionError = new Error('Subscription connection failed');
+
+      const mocks: MockedResponse[] = [
+        {
+          request: {
+            query: CUE_LIST_DATA_CHANGED_SUBSCRIPTION,
+            variables: { cueListId: mockCueListId },
+          },
+          error: subscriptionError,
+        },
+      ];
+
+      // Hook should not throw when subscription errors occur
+      expect(() => {
+        renderHook(() => useCueListDataUpdates({ cueListId: mockCueListId }), {
+          wrapper: createMockProvider(mocks),
+        });
+      }).not.toThrow();
+
+      // Wait a bit for the error to be processed
+      await waitFor(
+        () => {
+          expect(console.error).toHaveBeenCalled();
+        },
+        { timeout: 2000 }
+      );
+    });
+
+    it('handles refetch query errors gracefully', async () => {
+      const mockSubscriptionData = {
+        cueListDataChanged: {
+          cueListId: mockCueListId,
+          changeType: 'CUE_UPDATED' as CueListDataChangeType,
+          affectedCueIds: ['cue-1'],
+          affectedSceneId: null,
+          newSceneName: null,
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      const queryError = new Error('Network error during refetch');
+
+      const mocks: MockedResponse[] = [
+        {
+          request: {
+            query: CUE_LIST_DATA_CHANGED_SUBSCRIPTION,
+            variables: { cueListId: mockCueListId },
+          },
+          result: {
+            data: mockSubscriptionData,
+          },
+        },
+        {
+          request: {
+            query: GET_CUE_LIST,
+            variables: { id: mockCueListId },
+          },
+          error: queryError,
+        },
+      ];
+
+      const onDataChange = jest.fn();
+
+      // Hook should not throw when refetch fails
+      expect(() => {
+        renderHook(
+          () => useCueListDataUpdates({ cueListId: mockCueListId, onDataChange }),
+          {
+            wrapper: createMockProvider(mocks),
+          }
+        );
+      }).not.toThrow();
+
+      // The onDataChange callback should still be called even if refetch fails
+      await waitFor(
+        () => {
+          expect(onDataChange).toHaveBeenCalledWith('CUE_UPDATED');
+        },
+        { timeout: 2000 }
+      );
+
+      // The error should be logged
+      await waitFor(
+        () => {
+          expect(console.error).toHaveBeenCalledWith(
+            'Failed to refetch cue list data:',
+            expect.any(Error)
+          );
+        },
+        { timeout: 2000 }
+      );
+    });
+
+    it('continues processing after refetch error', async () => {
+      const onDataChange = jest.fn();
+
+      // First subscription data triggers a failed refetch
+      const firstSubscriptionData = {
+        cueListDataChanged: {
+          cueListId: mockCueListId,
+          changeType: 'CUE_UPDATED' as CueListDataChangeType,
+          affectedCueIds: ['cue-1'],
+          affectedSceneId: null,
+          newSceneName: null,
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      const mocks: MockedResponse[] = [
+        {
+          request: {
+            query: CUE_LIST_DATA_CHANGED_SUBSCRIPTION,
+            variables: { cueListId: mockCueListId },
+          },
+          result: {
+            data: firstSubscriptionData,
+          },
+        },
+        {
+          request: {
+            query: GET_CUE_LIST,
+            variables: { id: mockCueListId },
+          },
+          error: new Error('Network error'),
+        },
+      ];
+
+      renderHook(
+        () => useCueListDataUpdates({ cueListId: mockCueListId, onDataChange }),
+        {
+          wrapper: createMockProvider(mocks),
+        }
+      );
+
+      // Callback should still be called despite refetch error
+      await waitFor(
+        () => {
+          expect(onDataChange).toHaveBeenCalledWith('CUE_UPDATED');
+        },
+        { timeout: 2000 }
+      );
+    });
+  });
 });

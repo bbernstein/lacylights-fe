@@ -42,5 +42,10 @@ export function useCueListDataUpdates({ cueListId, onDataChange }: UseCueListDat
         handleUpdate(data.data.cueListDataChanged);
       }
     },
+    onError: (error) => {
+      // Log subscription errors for debugging - the subscription will auto-reconnect
+      // due to shouldResubscribe: true
+      console.error('Cue list data subscription error:', error);
+    },
   });
 }
