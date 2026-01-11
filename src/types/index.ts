@@ -55,18 +55,18 @@ export interface FixtureInstance {
   id: string;
   name: string;
   description?: string;
-  
+
   // Flattened fixture definition info
   definitionId: string;
   manufacturer: string;
   model: string;
   type: FixtureType;
-  
+
   // Flattened mode info
   modeName: string;
   channelCount: number;
   channels: InstanceChannel[];
-  
+
   // DMX configuration
   project: Project;
   universe: number;
@@ -165,7 +165,7 @@ export interface Cue {
   notes?: string;
   easingType?: string;
   /** When true, this cue is skipped during playback but remains visible in the UI */
-  skip: boolean;
+  skip?: boolean;
 }
 
 export interface BulkCueUpdateInput {
@@ -279,21 +279,21 @@ export interface WiFiNetwork {
 }
 
 export enum WiFiSecurityType {
-  OPEN = 'OPEN',
-  WEP = 'WEP',
-  WPA_PSK = 'WPA_PSK',
-  WPA_EAP = 'WPA_EAP',
-  WPA3_PSK = 'WPA3_PSK',
-  WPA3_EAP = 'WPA3_EAP',
-  OWE = 'OWE',
+  OPEN = "OPEN",
+  WEP = "WEP",
+  WPA_PSK = "WPA_PSK",
+  WPA_EAP = "WPA_EAP",
+  WPA3_PSK = "WPA3_PSK",
+  WPA3_EAP = "WPA3_EAP",
+  OWE = "OWE",
 }
 
 export enum WiFiMode {
-  CLIENT = 'CLIENT',
-  AP = 'AP',
-  DISABLED = 'DISABLED',
-  CONNECTING = 'CONNECTING',
-  STARTING_AP = 'STARTING_AP',
+  CLIENT = "CLIENT",
+  AP = "AP",
+  DISABLED = "DISABLED",
+  CONNECTING = "CONNECTING",
+  STARTING_AP = "STARTING_AP",
 }
 
 export interface APConfig {
@@ -353,39 +353,39 @@ export interface ProjectUser {
 
 // Enums
 export enum FixtureType {
-  LED_PAR = 'LED_PAR',
-  MOVING_HEAD = 'MOVING_HEAD',
-  STROBE = 'STROBE',
-  DIMMER = 'DIMMER',
-  OTHER = 'OTHER'
+  LED_PAR = "LED_PAR",
+  MOVING_HEAD = "MOVING_HEAD",
+  STROBE = "STROBE",
+  DIMMER = "DIMMER",
+  OTHER = "OTHER",
 }
 
 export enum ChannelType {
-  INTENSITY = 'INTENSITY',
-  RED = 'RED',
-  GREEN = 'GREEN',
-  BLUE = 'BLUE',
-  WHITE = 'WHITE',
-  AMBER = 'AMBER',
-  UV = 'UV',
-  CYAN = 'CYAN',
-  MAGENTA = 'MAGENTA',
-  YELLOW = 'YELLOW',
-  LIME = 'LIME',
-  INDIGO = 'INDIGO',
-  COLD_WHITE = 'COLD_WHITE',
-  WARM_WHITE = 'WARM_WHITE',
-  PAN = 'PAN',
-  TILT = 'TILT',
-  ZOOM = 'ZOOM',
-  FOCUS = 'FOCUS',
-  IRIS = 'IRIS',
-  GOBO = 'GOBO',
-  COLOR_WHEEL = 'COLOR_WHEEL',
-  EFFECT = 'EFFECT',
-  STROBE = 'STROBE',
-  MACRO = 'MACRO',
-  OTHER = 'OTHER'
+  INTENSITY = "INTENSITY",
+  RED = "RED",
+  GREEN = "GREEN",
+  BLUE = "BLUE",
+  WHITE = "WHITE",
+  AMBER = "AMBER",
+  UV = "UV",
+  CYAN = "CYAN",
+  MAGENTA = "MAGENTA",
+  YELLOW = "YELLOW",
+  LIME = "LIME",
+  INDIGO = "INDIGO",
+  COLD_WHITE = "COLD_WHITE",
+  WARM_WHITE = "WARM_WHITE",
+  PAN = "PAN",
+  TILT = "TILT",
+  ZOOM = "ZOOM",
+  FOCUS = "FOCUS",
+  IRIS = "IRIS",
+  GOBO = "GOBO",
+  COLOR_WHEEL = "COLOR_WHEEL",
+  EFFECT = "EFFECT",
+  STROBE = "STROBE",
+  MACRO = "MACRO",
+  OTHER = "OTHER",
 }
 
 /**
@@ -403,22 +403,22 @@ export enum ChannelType {
  */
 export enum FadeBehavior {
   /** Smoothly interpolate between values during the transition. Best for intensity, colors, pan/tilt, zoom. */
-  FADE = 'FADE',
+  FADE = "FADE",
   /** Jump instantly to target value at the START of the transition. Best for gobos, color wheels, macros, effects. */
-  SNAP = 'SNAP',
+  SNAP = "SNAP",
   /** Hold the current value until the fade completes, then jump to target. Useful for discrete channels where you want the old value to remain visible throughout the crossfade. */
-  SNAP_END = 'SNAP_END'
+  SNAP_END = "SNAP_END",
 }
 
 export enum UserRole {
-  ADMIN = 'ADMIN',
-  USER = 'USER'
+  ADMIN = "ADMIN",
+  USER = "USER",
 }
 
 export enum ProjectRole {
-  OWNER = 'OWNER',
-  EDITOR = 'EDITOR',
-  VIEWER = 'VIEWER'
+  OWNER = "OWNER",
+  EDITOR = "EDITOR",
+  VIEWER = "VIEWER",
 }
 
 // Input Types
@@ -491,20 +491,20 @@ export interface UpdateSettingInput {
 
 // OFL (Open Fixture Library) Types
 export enum OFLImportPhase {
-  IDLE = 'IDLE',
-  DOWNLOADING = 'DOWNLOADING',
-  EXTRACTING = 'EXTRACTING',
-  PARSING = 'PARSING',
-  IMPORTING = 'IMPORTING',
-  COMPLETE = 'COMPLETE',
-  FAILED = 'FAILED',
-  CANCELLED = 'CANCELLED',
+  IDLE = "IDLE",
+  DOWNLOADING = "DOWNLOADING",
+  EXTRACTING = "EXTRACTING",
+  PARSING = "PARSING",
+  IMPORTING = "IMPORTING",
+  COMPLETE = "COMPLETE",
+  FAILED = "FAILED",
+  CANCELLED = "CANCELLED",
 }
 
 export enum OFLFixtureChangeType {
-  NEW = 'NEW',
-  UPDATED = 'UPDATED',
-  UNCHANGED = 'UNCHANGED',
+  NEW = "NEW",
+  UPDATED = "UPDATED",
+  UNCHANGED = "UNCHANGED",
 }
 
 export interface OFLImportStats {

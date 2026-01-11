@@ -61,6 +61,7 @@ import { CSS } from "@dnd-kit/utilities";
 import EditCueDialog from "./EditCueDialog";
 import ContextMenu from "./ContextMenu";
 import { PencilIcon } from "@heroicons/react/24/outline";
+import { SkipIndicator } from "./SkipIndicator";
 
 interface CueListUnifiedViewProps {
   cueListId: string;
@@ -520,17 +521,12 @@ const CueRow = React.forwardRef<
     let skipIndicator = null;
     let skipTextClass = "";
     if (cue.skip) {
-      borderClass = borderClass || "border-l-4 border-gray-400 dark:border-gray-600";
+      borderClass =
+        borderClass || "border-l-4 border-gray-400 dark:border-gray-600";
       rowBgClass = "bg-gray-100 dark:bg-gray-800/30";
       textColorClass = "text-gray-400 dark:text-gray-500";
       skipTextClass = "line-through";
-      skipIndicator = (
-        <span className="ml-1 text-gray-400 dark:text-gray-500" title="Skipped during playback">
-          <svg className="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-          </svg>
-        </span>
-      );
+      skipIndicator = <SkipIndicator size="sm" className="ml-1" />;
     }
 
     const handleRowClick = () => {
@@ -599,7 +595,9 @@ const CueRow = React.forwardRef<
               </svg>
             </button>
           )}
-          <span className={`text-sm font-medium ${textColorClass} ${skipTextClass}`}>
+          <span
+            className={`text-sm font-medium ${textColorClass} ${skipTextClass}`}
+          >
             {cue.cueNumber}
           </span>
           {skipIndicator}
@@ -930,17 +928,13 @@ const CueCard = React.forwardRef<
   let skipIndicator = null;
   let skipTextClass = "";
   if (cue.skip) {
-    borderClass = borderClass.includes("border-yellow") ? borderClass : "border-2 border-gray-400 dark:border-gray-600";
+    borderClass = borderClass.includes("border-yellow")
+      ? borderClass
+      : "border-2 border-gray-400 dark:border-gray-600";
     bgClass = "bg-gray-100 dark:bg-gray-800/30";
     textColorClass = "text-gray-400 dark:text-gray-500";
     skipTextClass = "line-through";
-    skipIndicator = (
-      <span className="ml-1 text-gray-400 dark:text-gray-500" title="Skipped during playback">
-        <svg className="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-        </svg>
-      </span>
-    );
+    skipIndicator = <SkipIndicator size="sm" className="ml-1" />;
   }
 
   const handleRowClick = () => {
@@ -1008,7 +1002,9 @@ const CueCard = React.forwardRef<
               </svg>
             </button>
           )}
-          <span className={`font-bold text-sm ${skipTextClass}`}>{cue.cueNumber}</span>
+          <span className={`font-bold text-sm ${skipTextClass}`}>
+            {cue.cueNumber}
+          </span>
           {skipIndicator}
           <div
             className={`font-medium flex-1 ${skipTextClass}`}
