@@ -56,12 +56,8 @@ npm run check            # Run both type-check and lint
 lacylights-fe/
 ├── src/
 │   ├── app/             # Next.js App Router pages
-│   ├── components/      # React components
-│   │   ├── fixtures/    # Fixture management components
-│   │   ├── scenes/      # Scene editing components
-│   │   ├── cues/        # Cue list components
-│   │   ├── boards/      # Scene board components
-│   │   └── common/      # Shared UI components
+│   ├── components/      # React components (flat structure)
+│   │   └── __tests__/   # Component tests
 │   ├── contexts/        # React Context providers
 │   ├── hooks/           # Custom React hooks
 │   ├── graphql/         # GraphQL queries and mutations
@@ -72,7 +68,6 @@ lacylights-fe/
 │   ├── constants/       # App-wide constants
 │   └── data/            # Static data (fixture definitions)
 ├── public/              # Static assets
-├── tests/               # Test files (mirrors src/)
 └── e2e/                 # Playwright E2E tests
 ```
 
@@ -127,7 +122,7 @@ WebSocket subscriptions provide live updates:
 ## Testing Guidelines
 
 ### Unit Tests
-- Mirror `src/` structure in `tests/`
+- Place tests in `__tests__/` directories alongside source files (e.g., `src/components/__tests__/`)
 - Use React Testing Library
 - Mock Apollo Client responses
 - Test user interactions, not implementation
@@ -152,9 +147,9 @@ render(
 - Run against static build for consistency
 
 ### Coverage Requirements
-- Lines: 70%
-- Functions: 65%
-- Branches: 50%
+- Lines: 61%
+- Functions: 56%
+- Branches: 51%
 
 ## CI/CD
 
@@ -170,8 +165,8 @@ render(
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `NEXT_PUBLIC_GRAPHQL_ENDPOINT` | `http://localhost:4000/graphql` | Backend GraphQL URL |
-| `NEXT_PUBLIC_WS_ENDPOINT` | `ws://localhost:4000/graphql` | WebSocket URL |
+| `NEXT_PUBLIC_GRAPHQL_URL` | `http://localhost:4000/graphql` | Backend GraphQL URL |
+| `NEXT_PUBLIC_GRAPHQL_WS_URL` | `ws://localhost:4000/graphql` | WebSocket URL |
 | `STATIC_EXPORT` | `false` | Enable static export mode |
 
 ### Services and Ports
