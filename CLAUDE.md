@@ -189,8 +189,9 @@ render(
 | [lacylights-go](https://github.com/bbernstein/lacylights-go) | Backend API this frontend consumes |
 | [lacylights-mcp](https://github.com/bbernstein/lacylights-mcp) | MCP server for AI features |
 | [lacylights-test](https://github.com/bbernstein/lacylights-test) | Integration tests for frontend+backend |
-| [lacylights-rpi](https://github.com/bbernstein/lacylights-rpi) | Deploys static build to Raspberry Pi |
-| [lacylights-mac](https://github.com/bbernstein/lacylights-mac) | macOS app embeds this frontend |
+| [lacylights-terraform](https://github.com/bbernstein/lacylights-terraform) | Distribution infrastructure - releases uploaded here |
+| [lacylights-rpi](https://github.com/bbernstein/lacylights-rpi) | Production platform - hosts this frontend on Raspberry Pi |
+| [lacylights-mac](https://github.com/bbernstein/lacylights-mac) | Production platform - hosts this frontend on macOS |
 
 ## Important Notes
 
