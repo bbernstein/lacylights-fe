@@ -199,10 +199,10 @@ render(
 
 ## Key Components
 
-### Scene Board
+### Layout Canvas
 - Pixel-based canvas (2000x2000px default)
 - Touch gesture support for mobile
-- Drag-and-drop scene buttons
+- Drag-and-drop fixture positioning
 
 ### Channel Sliders
 - Real-time DMX channel control
