@@ -90,9 +90,9 @@ All backend communication uses Apollo Client with generated TypeScript types:
 ```typescript
 // Queries are in src/graphql/
 import { useQuery } from '@apollo/client';
-import { GetProjectDocument } from '@/generated/graphql';
+import { GET_PROJECT } from '@/graphql/projects';
 
-const { data, loading } = useQuery(GetProjectDocument, {
+const { data, loading } = useQuery(GET_PROJECT, {
   variables: { id: projectId }
 });
 ```
