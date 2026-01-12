@@ -103,7 +103,7 @@ const { data, loading } = useQuery(GetProjectDocument, {
 3. Update queries/mutations in `src/graphql/`
 
 ### Component Structure
-- Components are organized by feature domain
+- Components use a flat directory structure
 - Each component should have a corresponding test file
 - Use custom hooks for shared logic
 - Prefer composition over inheritance
@@ -150,6 +150,7 @@ render(
 - Lines: 61%
 - Functions: 56%
 - Branches: 51%
+- Statements: 60%
 
 ## CI/CD
 
