@@ -13,8 +13,8 @@
  * @returns The extracted ID from the URL, or the original prop if not in static export mode
  *
  * @example
- * // For /scenes/abc123/edit with idProp = '__dynamic__'
- * const sceneId = extractDynamicRouteId('__dynamic__', /\/scenes\/([^\/\?#]+)/);
+ * // For /looks/abc123/edit with idProp = '__dynamic__'
+ * const lookId = extractDynamicRouteId('__dynamic__', /\/looks\/([^\/\?#]+)/);
  * // Returns: 'abc123'
  *
  * @example
