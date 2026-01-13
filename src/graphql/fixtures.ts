@@ -147,9 +147,9 @@ export const REORDER_PROJECT_FIXTURES = gql`
   }
 `;
 
-export const REORDER_SCENE_FIXTURES = gql`
-  mutation ReorderSceneFixtures($sceneId: ID!, $fixtureOrders: [FixtureOrderInput!]!) {
-    reorderSceneFixtures(sceneId: $sceneId, fixtureOrders: $fixtureOrders)
+export const REORDER_LOOK_FIXTURES = gql`
+  mutation ReorderLookFixtures($lookId: ID!, $fixtureOrders: [FixtureOrderInput!]!) {
+    reorderLookFixtures(lookId: $lookId, fixtureOrders: $fixtureOrders)
   }
 `;
 

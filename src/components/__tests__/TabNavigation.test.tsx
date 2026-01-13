@@ -33,8 +33,8 @@ describe('TabNavigation', () => {
 
       expect(screen.getByText('Dashboard')).toBeInTheDocument();
       expect(screen.getByText('Fixtures')).toBeInTheDocument();
-      expect(screen.getByText('Scenes')).toBeInTheDocument();
-      expect(screen.getByText('Scene Board')).toBeInTheDocument();
+      expect(screen.getByText('Looks')).toBeInTheDocument();
+      expect(screen.getByText('Look Board')).toBeInTheDocument();
       expect(screen.getByText('Cue Lists')).toBeInTheDocument();
     });
 
@@ -45,14 +45,14 @@ describe('TabNavigation', () => {
 
       const dashboardLink = screen.getByRole('link', { name: 'Dashboard' });
       const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
-      const scenesLink = screen.getByRole('link', { name: 'Scenes' });
-      const sceneBoardLink = screen.getByRole('link', { name: 'Scene Board' });
+      const looksLink = screen.getByRole('link', { name: 'Looks' });
+      const lookBoardLink = screen.getByRole('link', { name: 'Look Board' });
       const cueListsLink = screen.getByRole('link', { name: 'Cue Lists' });
 
       expect(dashboardLink).toHaveAttribute('href', '/');
       expect(fixturesLink).toHaveAttribute('href', '/fixtures');
-      expect(scenesLink).toHaveAttribute('href', '/scenes');
-      expect(sceneBoardLink).toHaveAttribute('href', '/scene-board');
+      expect(looksLink).toHaveAttribute('href', '/looks');
+      expect(lookBoardLink).toHaveAttribute('href', '/look-board');
       expect(cueListsLink).toHaveAttribute('href', '/cue-lists');
     });
 
@@ -76,10 +76,10 @@ describe('TabNavigation', () => {
       render(<TabNavigation />);
 
       const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
-      const scenesLink = screen.getByRole('link', { name: 'Scenes' });
+      const looksLink = screen.getByRole('link', { name: 'Looks' });
 
       expect(fixturesLink).toHaveClass('border-blue-500', 'text-blue-600');
-      expect(scenesLink).toHaveClass('border-transparent', 'text-gray-500');
+      expect(looksLink).toHaveClass('border-transparent', 'text-gray-500');
     });
 
     it('applies active styles to sub-paths', () => {
@@ -88,39 +88,39 @@ describe('TabNavigation', () => {
       render(<TabNavigation />);
 
       const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
-      const scenesLink = screen.getByRole('link', { name: 'Scenes' });
+      const looksLink = screen.getByRole('link', { name: 'Looks' });
 
       expect(fixturesLink).toHaveClass('border-blue-500', 'text-blue-600');
-      expect(scenesLink).toHaveClass('border-transparent', 'text-gray-500');
+      expect(looksLink).toHaveClass('border-transparent', 'text-gray-500');
     });
 
-    it('handles scenes path correctly', () => {
-      mockUsePathname.mockReturnValue('/scenes');
+    it('handles looks path correctly', () => {
+      mockUsePathname.mockReturnValue('/looks');
 
       render(<TabNavigation />);
 
       const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
-      const scenesLink = screen.getByRole('link', { name: 'Scenes' });
+      const looksLink = screen.getByRole('link', { name: 'Looks' });
       const cueListsLink = screen.getByRole('link', { name: 'Cue Lists' });
 
-      expect(scenesLink).toHaveClass('border-blue-500', 'text-blue-600');
+      expect(looksLink).toHaveClass('border-blue-500', 'text-blue-600');
       expect(fixturesLink).toHaveClass('border-transparent', 'text-gray-500');
       expect(cueListsLink).toHaveClass('border-transparent', 'text-gray-500');
     });
 
-    it('handles scene-board path correctly', () => {
-      mockUsePathname.mockReturnValue('/scene-board');
+    it('handles look-board path correctly', () => {
+      mockUsePathname.mockReturnValue('/look-board');
 
       render(<TabNavigation />);
 
       const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
-      const scenesLink = screen.getByRole('link', { name: 'Scenes' });
-      const sceneBoardLink = screen.getByRole('link', { name: 'Scene Board' });
+      const looksLink = screen.getByRole('link', { name: 'Looks' });
+      const lookBoardLink = screen.getByRole('link', { name: 'Look Board' });
       const cueListsLink = screen.getByRole('link', { name: 'Cue Lists' });
 
-      expect(sceneBoardLink).toHaveClass('border-blue-500', 'text-blue-600');
+      expect(lookBoardLink).toHaveClass('border-blue-500', 'text-blue-600');
       expect(fixturesLink).toHaveClass('border-transparent', 'text-gray-500');
-      expect(scenesLink).toHaveClass('border-transparent', 'text-gray-500');
+      expect(looksLink).toHaveClass('border-transparent', 'text-gray-500');
       expect(cueListsLink).toHaveClass('border-transparent', 'text-gray-500');
     });
 
@@ -130,12 +130,12 @@ describe('TabNavigation', () => {
       render(<TabNavigation />);
 
       const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
-      const scenesLink = screen.getByRole('link', { name: 'Scenes' });
+      const looksLink = screen.getByRole('link', { name: 'Looks' });
       const cueListsLink = screen.getByRole('link', { name: 'Cue Lists' });
 
       expect(cueListsLink).toHaveClass('border-blue-500', 'text-blue-600');
       expect(fixturesLink).toHaveClass('border-transparent', 'text-gray-500');
-      expect(scenesLink).toHaveClass('border-transparent', 'text-gray-500');
+      expect(looksLink).toHaveClass('border-transparent', 'text-gray-500');
     });
 
     it('handles unknown paths correctly', () => {
@@ -144,11 +144,11 @@ describe('TabNavigation', () => {
       render(<TabNavigation />);
 
       const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
-      const scenesLink = screen.getByRole('link', { name: 'Scenes' });
+      const looksLink = screen.getByRole('link', { name: 'Looks' });
       const cueListsLink = screen.getByRole('link', { name: 'Cue Lists' });
 
       expect(fixturesLink).toHaveClass('border-transparent', 'text-gray-500');
-      expect(scenesLink).toHaveClass('border-transparent', 'text-gray-500');
+      expect(looksLink).toHaveClass('border-transparent', 'text-gray-500');
       expect(cueListsLink).toHaveClass('border-transparent', 'text-gray-500');
     });
   });
@@ -193,10 +193,10 @@ describe('TabNavigation', () => {
       render(<TabNavigation />);
 
       const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
-      const scenesLink = screen.getByRole('link', { name: 'Scenes' });
+      const looksLink = screen.getByRole('link', { name: 'Looks' });
 
       expect(fixturesLink).toHaveClass('dark:text-blue-400');
-      expect(scenesLink).toHaveClass('dark:text-gray-400', 'dark:hover:text-gray-300');
+      expect(looksLink).toHaveClass('dark:text-gray-400', 'dark:hover:text-gray-300');
     });
   });
 
@@ -217,7 +217,7 @@ describe('TabNavigation', () => {
       render(<TabNavigation />);
 
       const links = screen.getAllByRole('link');
-      expect(links).toHaveLength(6); // Dashboard, Fixtures, Scenes, Scene Board, Cue Lists, Settings
+      expect(links).toHaveLength(6); // Dashboard, Fixtures, Looks, Look Board, Cue Lists, Settings
 
       links.forEach((link) => {
         expect(link).toHaveAttribute('href');
@@ -234,8 +234,8 @@ describe('TabNavigation', () => {
       const expectedTabs = [
         { name: 'Dashboard', href: '/' },
         { name: 'Fixtures', href: '/fixtures' },
-        { name: 'Scenes', href: '/scenes' },
-        { name: 'Scene Board', href: '/scene-board' },
+        { name: 'Looks', href: '/looks' },
+        { name: 'Look Board', href: '/look-board' },
         { name: 'Cue Lists', href: '/cue-lists' },
         { name: 'Settings', href: '/settings' },
       ];

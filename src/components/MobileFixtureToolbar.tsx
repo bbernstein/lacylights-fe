@@ -22,7 +22,7 @@ interface MobileFixtureToolbarProps {
 
 /**
  * Compact, non-modal toolbar for fixture controls on mobile.
- * Positioned above SceneEditorBottomActions to allow continued canvas interaction.
+ * Positioned above LookEditorBottomActions to allow continued canvas interaction.
  *
  * Features:
  * - Shows selection count

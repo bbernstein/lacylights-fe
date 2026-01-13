@@ -4,18 +4,18 @@ import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@apollo/client";
 import {
-  GET_SCENE_BOARD,
-  UPDATE_SCENE_BOARD,
-  ACTIVATE_SCENE_FROM_BOARD,
-  UPDATE_SCENE_BOARD_BUTTON_POSITIONS,
-  ADD_SCENE_TO_BOARD,
-  REMOVE_SCENE_FROM_BOARD,
-} from "@/graphql/sceneBoards";
-import { GET_PROJECT_SCENES } from "@/graphql/scenes";
+  GET_LOOK_BOARD,
+  UPDATE_LOOK_BOARD,
+  ACTIVATE_LOOK_FROM_BOARD,
+  UPDATE_LOOK_BOARD_BUTTON_POSITIONS,
+  ADD_LOOK_TO_BOARD,
+  REMOVE_LOOK_FROM_BOARD,
+} from "@/graphql/lookBoards";
+import { GET_PROJECT_LOOKS } from "@/graphql/looks";
 import { useProject } from "@/contexts/ProjectContext";
 import { useFocusMode } from "@/contexts/FocusModeContext";
 import { useUserMode } from "@/contexts/UserModeContext";
-import { SceneBoardButton } from "@/types";
+import { LookBoardButton } from "@/types";
 import {
   screenToCanvas,
   clamp,
@@ -43,11 +43,11 @@ const DEFAULT_CANVAS_HEIGHT = 4000;
 const TAP_THRESHOLD_TIME = 300; // ms - max time for a tap
 const TAP_MOVEMENT_THRESHOLD = 10; // pixels - max movement for a tap
 
-interface SceneBoardClientProps {
+interface LookBoardClientProps {
   id: string;
 }
 
-export default function SceneBoardClient({ id }: SceneBoardClientProps) {
+export default function LookBoardClient({ id }: LookBoardClientProps) {
   const router = useRouter();
   const boardId =
     id === "__dynamic__"
@@ -60,8 +60,8 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   const { canPlayback, canEditContent } = useUserMode();
 
   const [mode, setMode] = useState<"play" | "layout">("play");
-  const [isAddSceneModalOpen, setIsAddSceneModalOpen] = useState(false);
-  const [selectedSceneIds, setSelectedSceneIds] = useState<Set<string>>(
+  const [isAddLookModalOpen, setIsAddLookModalOpen] = useState(false);
+  const [selectedLookIds, setSelectedLookIds] = useState<Set<string>>(
     new Set(),
   );
   const [isEditingSettings, setIsEditingSettings] = useState(false);
@@ -76,7 +76,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Selection state for multi-select (button IDs, not scene IDs)
+  // Selection state for multi-select (button IDs, not look IDs)
   const [selectedButtonIds, setSelectedButtonIds] = useState<Set<string>>(
     new Set(),
   );
@@ -96,7 +96,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     x: number;
     y: number;
     type: "button" | "canvas";
-    button?: SceneBoardButton;
+    button?: LookBoardButton;
   } | null>(null);
 
   // Long-press state for touch devices
@@ -104,7 +104,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   const [longPressActive, setLongPressActive] = useState(false);
 
   // Drag state
-  const [draggingButton, setDraggingButton] = useState<SceneBoardButton | null>(
+  const [draggingButton, setDraggingButton] = useState<LookBoardButton | null>(
     null,
   );
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -208,17 +208,17 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     loading,
     error,
     refetch,
-  } = useQuery(GET_SCENE_BOARD, {
+  } = useQuery(GET_LOOK_BOARD, {
     variables: { id: boardId },
     skip: !boardId,
   });
 
-  const { data: scenesData } = useQuery(GET_PROJECT_SCENES, {
+  const { data: looksData } = useQuery(GET_PROJECT_LOOKS, {
     variables: { projectId: currentProject?.id },
     skip: !currentProject?.id,
   });
 
-  const [updateBoard] = useMutation(UPDATE_SCENE_BOARD, {
+  const [updateBoard] = useMutation(UPDATE_LOOK_BOARD, {
     onCompleted: () => {
       refetch();
       setIsEditingSettings(false);
@@ -228,13 +228,13 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     },
   });
 
-  const [activateScene] = useMutation(ACTIVATE_SCENE_FROM_BOARD, {
+  const [activateLook] = useMutation(ACTIVATE_LOOK_FROM_BOARD, {
     onError: (error) => {
-      setErrorMessage(`Error activating scene: ${error.message}`);
+      setErrorMessage(`Error activating look: ${error.message}`);
     },
   });
 
-  const [updatePositions] = useMutation(UPDATE_SCENE_BOARD_BUTTON_POSITIONS, {
+  const [updatePositions] = useMutation(UPDATE_LOOK_BOARD_BUTTON_POSITIONS, {
     onError: (error) => {
       setErrorMessage(`Error updating positions: ${error.message}`);
       // Refetch on error to revert to server state
@@ -242,45 +242,45 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     },
   });
 
-  const [addSceneToBoard] = useMutation(ADD_SCENE_TO_BOARD, {
+  const [addLookToBoard] = useMutation(ADD_LOOK_TO_BOARD, {
     onCompleted: () => {
       refetch();
-      setIsAddSceneModalOpen(false);
-      setSelectedSceneIds(new Set());
+      setIsAddLookModalOpen(false);
+      setSelectedLookIds(new Set());
     },
     onError: (error) => {
-      setErrorMessage(`Error adding scene: ${error.message}`);
+      setErrorMessage(`Error adding look: ${error.message}`);
     },
   });
 
-  const [removeSceneFromBoard] = useMutation(REMOVE_SCENE_FROM_BOARD, {
+  const [removeLookFromBoard] = useMutation(REMOVE_LOOK_FROM_BOARD, {
     onCompleted: () => {
       refetch();
     },
     onError: (error) => {
-      setErrorMessage(`Error removing scene: ${error.message}`);
+      setErrorMessage(`Error removing look: ${error.message}`);
     },
   });
 
-  const board = boardData?.sceneBoard;
+  const board = boardData?.lookBoard;
 
-  // Memoize available scenes to avoid recalculating on every render
-  const availableScenes = useMemo(
-    () => scenesData?.project?.scenes || [],
-    [scenesData?.project?.scenes],
+  // Memoize available looks to avoid recalculating on every render
+  const availableLooks = useMemo(
+    () => looksData?.project?.looks || [],
+    [looksData?.project?.looks],
   );
 
   // Memoize button IDs to avoid recalculating on every render
   const buttonsOnBoard = useMemo(
     () =>
-      new Set(board?.buttons?.map((b: SceneBoardButton) => b.scene.id) || []),
+      new Set(board?.buttons?.map((b: LookBoardButton) => b.look.id) || []),
     [board?.buttons],
   );
 
-  const scenesToAdd = useMemo(
+  const looksToAdd = useMemo(
     () =>
-      availableScenes.filter((s: { id: string }) => !buttonsOnBoard.has(s.id)),
-    [availableScenes, buttonsOnBoard],
+      availableLooks.filter((s: { id: string }) => !buttonsOnBoard.has(s.id)),
+    [availableLooks, buttonsOnBoard],
   );
 
   // Selection helper functions - defined before useEffects that use them
@@ -291,7 +291,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   const selectAllButtons = useCallback(() => {
     if (!board) return;
     setSelectedButtonIds(
-      new Set(board.buttons.map((b: SceneBoardButton) => b.id)),
+      new Set(board.buttons.map((b: LookBoardButton) => b.id)),
     );
   }, [board]);
 
@@ -309,7 +309,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     let maxX = -Infinity;
     let maxY = -Infinity;
 
-    board.buttons.forEach((button: SceneBoardButton) => {
+    board.buttons.forEach((button: LookBoardButton) => {
       const x = button.layoutX;
       const y = button.layoutY;
       const width = button.width || DEFAULT_BUTTON_WIDTH;
@@ -368,7 +368,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
   // Long-press helper functions
   const startLongPress = useCallback(
-    (x: number, y: number, button: SceneBoardButton | null) => {
+    (x: number, y: number, button: LookBoardButton | null) => {
       if (mode !== "layout") return;
 
       // Clear any existing timer
@@ -419,10 +419,10 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
       // Escape key - Close modals or clear selection
       if (e.key === "Escape") {
-        if (isAddSceneModalOpen) {
+        if (isAddLookModalOpen) {
           e.preventDefault();
-          setIsAddSceneModalOpen(false);
-          setSelectedSceneIds(new Set());
+          setIsAddLookModalOpen(false);
+          setSelectedLookIds(new Set());
         } else if (isEditingSettings) {
           e.preventDefault();
           setIsEditingSettings(false);
@@ -476,18 +476,18 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       ) {
         e.preventDefault();
         const buttonIds = Array.from(selectedButtonIds);
-        const buttons = board?.buttons.filter((b: SceneBoardButton) =>
+        const buttons = board?.buttons.filter((b: LookBoardButton) =>
           buttonIds.includes(b.id),
         );
         if (buttons && buttons.length > 0) {
           const message =
             buttons.length === 1
-              ? `Remove "${buttons[0].scene.name}" from this board?`
-              : `Remove ${buttons.length} scenes from this board?`;
+              ? `Remove "${buttons[0].look.name}" from this board?`
+              : `Remove ${buttons.length} looks from this board?`;
           if (window.confirm(message)) {
             // Remove all selected buttons
-            buttons.forEach((button: SceneBoardButton) => {
-              removeSceneFromBoard({
+            buttons.forEach((button: LookBoardButton) => {
+              removeLookFromBoard({
                 variables: { buttonId: button.id },
               });
             });
@@ -505,13 +505,13 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         e.preventDefault();
         const nudgeAmount = e.shiftKey ? 1 : 10; // Fine nudge with Shift
         const buttonIds = Array.from(selectedButtonIds);
-        const buttons = board?.buttons.filter((b: SceneBoardButton) =>
+        const buttons = board?.buttons.filter((b: LookBoardButton) =>
           buttonIds.includes(b.id),
         );
         if (!buttons || buttons.length === 0) return;
 
         // Calculate new positions for all selected buttons
-        const positions = buttons.map((button: SceneBoardButton) => {
+        const positions = buttons.map((button: LookBoardButton) => {
           let newX = button.layoutX;
           let newY = button.layoutY;
 
@@ -549,7 +549,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         updatePositions({
           variables: { positions },
           optimisticResponse: {
-            updateSceneBoardButtonPositions: true,
+            updateLookBoardButtonPositions: true,
           },
         });
       }
@@ -558,7 +558,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
-    isAddSceneModalOpen,
+    isAddLookModalOpen,
     isEditingSettings,
     mode,
     selectedButtonIds,
@@ -566,7 +566,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     clearButtonSelection,
     selectAllButtons,
     zoomToFit,
-    removeSceneFromBoard,
+    removeLookFromBoard,
     updatePositions,
   ]);
 
@@ -595,7 +595,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
   // Handle drag start
   const handleDragStart = useCallback(
-    (e: React.MouseEvent, button: SceneBoardButton) => {
+    (e: React.MouseEvent, button: LookBoardButton) => {
       if (mode !== "layout" || !board) return;
 
       // If Shift key is pressed, stop propagation to prevent canvas marquee,
@@ -619,14 +619,14 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       // Check if this button is selected - if so, we'll drag all selected buttons
       const isSelected = selectedButtonIds.has(button.id);
       const buttonsToDrag = isSelected
-        ? board.buttons.filter((b: SceneBoardButton) =>
+        ? board.buttons.filter((b: LookBoardButton) =>
             selectedButtonIds.has(b.id),
           )
         : [button];
 
       // Initialize multi-button drag state
       const dragMap = new Map();
-      buttonsToDrag.forEach((btn: SceneBoardButton) => {
+      buttonsToDrag.forEach((btn: LookBoardButton) => {
         dragMap.set(btn.id, {
           originalX: btn.layoutX,
           originalY: btn.layoutY,
@@ -787,7 +787,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
     // Find all buttons that intersect with the marquee
     const buttonsInMarquee = board.buttons.filter(
-      (button: SceneBoardButton) => {
+      (button: LookBoardButton) => {
         const buttonRight =
           button.layoutX + (button.width || DEFAULT_BUTTON_WIDTH);
         const buttonBottom =
@@ -807,7 +807,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     // Add these buttons to selection (don't replace)
     setSelectedButtonIds((prev) => {
       const newSet = new Set(prev);
-      buttonsInMarquee.forEach((button: SceneBoardButton) => {
+      buttonsInMarquee.forEach((button: LookBoardButton) => {
         newSet.add(button.id);
       });
       return newSet;
@@ -841,7 +841,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
     // Build complete button positions list for recalibration
     const allButtonPositions: ButtonPosition[] =
-      board?.buttons.map((btn: SceneBoardButton) => {
+      board?.buttons.map((btn: LookBoardButton) => {
         const draggingData = draggingButtons.get(btn.id);
         return {
           buttonId: btn.id,
@@ -867,7 +867,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       const clampedPositions = Array.from(draggingButtons.entries()).map(
         ([buttonId, buttonData]) => {
           const btn = board?.buttons.find(
-            (b: SceneBoardButton) => b.id === buttonId,
+            (b: LookBoardButton) => b.id === buttonId,
           );
           const width = btn?.width ?? DEFAULT_BUTTON_WIDTH;
           const height = btn?.height ?? DEFAULT_BUTTON_HEIGHT;
@@ -888,7 +888,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
       updatePositions({
         variables: { positions: clampedPositions },
-        optimisticResponse: { updateSceneBoardButtonPositions: true },
+        optimisticResponse: { updateLookBoardButtonPositions: true },
       });
     } else {
       // Apply viewport compensation if recalibration occurred
@@ -918,26 +918,26 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       // Save positions with cache update
       updatePositions({
         variables: { positions },
-        optimisticResponse: { updateSceneBoardButtonPositions: true },
+        optimisticResponse: { updateLookBoardButtonPositions: true },
         update: (cache) => {
-          const existingData = cache.readQuery<{ sceneBoard: typeof board }>({
-            query: GET_SCENE_BOARD,
+          const existingData = cache.readQuery<{ lookBoard: typeof board }>({
+            query: GET_LOOK_BOARD,
             variables: { id: boardId },
           });
 
-          if (existingData?.sceneBoard) {
+          if (existingData?.lookBoard) {
             const positionsMap = new Map(
               positions.map((p) => [p.buttonId, { x: p.layoutX, y: p.layoutY }]),
             );
 
             cache.writeQuery({
-              query: GET_SCENE_BOARD,
+              query: GET_LOOK_BOARD,
               variables: { id: boardId },
               data: {
-                sceneBoard: {
-                  ...existingData.sceneBoard,
-                  buttons: existingData.sceneBoard.buttons.map(
-                    (btn: SceneBoardButton) => {
+                lookBoard: {
+                  ...existingData.lookBoard,
+                  buttons: existingData.lookBoard.buttons.map(
+                    (btn: LookBoardButton) => {
                       const newPos = positionsMap.get(btn.id);
                       return newPos
                         ? { ...btn, layoutX: newPos.x, layoutY: newPos.y }
@@ -1016,20 +1016,20 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     setActuallyDragging,
   ]);
 
-  // Handle scene click (activate in play mode)
-  const handleSceneClick = useCallback(
-    (button: SceneBoardButton) => {
+  // Handle look click (activate in play mode)
+  const handleLookClick = useCallback(
+    (button: LookBoardButton) => {
       if (mode === "play" && canPlayback) {
-        // Activate the scene
-        activateScene({
+        // Activate the look
+        activateLook({
           variables: {
-            sceneBoardId: boardId,
-            sceneId: button.scene.id,
+            lookBoardId: boardId,
+            lookId: button.look.id,
           },
         });
       }
     },
-    [mode, boardId, activateScene, canPlayback],
+    [mode, boardId, activateLook, canPlayback],
   );
 
   // Track touch start time and position to differentiate taps from drags
@@ -1037,12 +1037,12 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     time: number;
     x: number;
     y: number;
-    button: SceneBoardButton | null;
+    button: LookBoardButton | null;
   }>({ time: 0, x: 0, y: 0, button: null });
 
   // Touch drag handlers (for mobile support)
   const handleTouchStartButton = useCallback(
-    (e: React.TouchEvent, button: SceneBoardButton) => {
+    (e: React.TouchEvent, button: LookBoardButton) => {
       // Only handle single-finger touches on buttons
       if (e.touches.length !== 1) return;
 
@@ -1088,14 +1088,14 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         // Check if this button is selected - if so, we'll drag all selected buttons
         const isSelected = selectedButtonIds.has(button.id);
         const buttonsToDrag = isSelected
-          ? board.buttons.filter((b: SceneBoardButton) =>
+          ? board.buttons.filter((b: LookBoardButton) =>
               selectedButtonIds.has(b.id),
             )
           : [button];
 
         // Initialize multi-button drag state
         const dragMap = new Map();
-        buttonsToDrag.forEach((btn: SceneBoardButton) => {
+        buttonsToDrag.forEach((btn: LookBoardButton) => {
           dragMap.set(btn.id, {
             originalX: btn.layoutX,
             originalY: btn.layoutY,
@@ -1252,10 +1252,10 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         touchDuration < TAP_THRESHOLD_TIME &&
         totalMovement < TAP_MOVEMENT_THRESHOLD;
 
-      // For play mode, we want to activate the scene on tap
+      // For play mode, we want to activate the look on tap
       if (mode === "play" && touchStart.button) {
         if (isTap) {
-          handleSceneClick(touchStart.button);
+          handleLookClick(touchStart.button);
         }
       } else if (mode === "layout") {
         if (isTap && touchStart.button) {
@@ -1272,7 +1272,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     },
     [
       handleDragEnd,
-      handleSceneClick,
+      handleLookClick,
       mode,
       cancelLongPress,
       longPressActive,
@@ -1775,42 +1775,42 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     };
   }, [viewport]);
 
-  const handleRemoveScene = useCallback(
-    (button: SceneBoardButton) => {
-      if (window.confirm(`Remove "${button.scene.name}" from this board?`)) {
-        removeSceneFromBoard({
+  const handleRemoveLook = useCallback(
+    (button: LookBoardButton) => {
+      if (window.confirm(`Remove "${button.look.name}" from this board?`)) {
+        removeLookFromBoard({
           variables: {
             buttonId: button.id,
           },
         });
       }
     },
-    [removeSceneFromBoard],
+    [removeLookFromBoard],
   );
 
-  const toggleSceneSelection = useCallback((sceneId: string) => {
-    setSelectedSceneIds((prev) => {
+  const toggleLookSelection = useCallback((lookId: string) => {
+    setSelectedLookIds((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(sceneId)) {
-        newSet.delete(sceneId);
+      if (newSet.has(lookId)) {
+        newSet.delete(lookId);
       } else {
-        newSet.add(sceneId);
+        newSet.add(lookId);
       }
       return newSet;
     });
   }, []);
 
-  const selectAllScenes = useCallback(() => {
-    setSelectedSceneIds(new Set(scenesToAdd.map((s: { id: string }) => s.id)));
-  }, [scenesToAdd]);
+  const selectAllLooks = useCallback(() => {
+    setSelectedLookIds(new Set(looksToAdd.map((s: { id: string }) => s.id)));
+  }, [looksToAdd]);
 
-  const deselectAllScenes = useCallback(() => {
-    setSelectedSceneIds(new Set());
+  const deselectAllLooks = useCallback(() => {
+    setSelectedLookIds(new Set());
   }, []);
 
   // Handle button click for selection (layout mode only)
   const handleButtonClick = useCallback(
-    (e: React.MouseEvent, button: SceneBoardButton) => {
+    (e: React.MouseEvent, button: LookBoardButton) => {
       if (mode !== "layout") return;
 
       // Stop propagation FIRST so canvas click doesn't fire
@@ -1902,7 +1902,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
   // Context menu handlers
   const handleButtonContextMenu = useCallback(
-    (e: React.MouseEvent, button: SceneBoardButton) => {
+    (e: React.MouseEvent, button: LookBoardButton) => {
       if (mode !== "layout") return;
       e.preventDefault();
       e.stopPropagation();
@@ -1933,9 +1933,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     setContextMenu(null);
   }, []);
 
-  const handleAddScenes = useCallback(async () => {
-    if (selectedSceneIds.size === 0) {
-      setErrorMessage("Please select at least one scene");
+  const handleAddLooks = useCallback(async () => {
+    if (selectedLookIds.size === 0) {
+      setErrorMessage("Please select at least one look");
       return;
     }
 
@@ -1943,7 +1943,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
     // Convert existing buttons to Rect format for collision detection
     const existingButtons: Rect[] = board.buttons.map(
-      (b: SceneBoardButton) => ({
+      (b: LookBoardButton) => ({
         layoutX: b.layoutX,
         layoutY: b.layoutY,
         width: b.width || DEFAULT_BUTTON_WIDTH,
@@ -1951,12 +1951,12 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       }),
     );
 
-    const sceneIdsArray = Array.from(selectedSceneIds);
-    const positions: Array<{ sceneId: string; x: number; y: number }> = [];
+    const lookIdsArray = Array.from(selectedLookIds);
+    const positions: Array<{ lookId: string; x: number; y: number }> = [];
     const currentButtons = [...existingButtons];
 
-    // Find positions for all selected scenes using collision detection
-    for (const sceneId of sceneIdsArray) {
+    // Find positions for all selected looks using collision detection
+    for (const lookId of lookIdsArray) {
       const availablePos = findAvailablePosition(
         currentButtons,
         board.canvasWidth,
@@ -1968,8 +1968,8 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
       );
 
       if (availablePos) {
-        positions.push({ sceneId, x: availablePos.x, y: availablePos.y });
-        // Mark this position as occupied for subsequent scenes
+        positions.push({ lookId, x: availablePos.x, y: availablePos.y });
+        // Mark this position as occupied for subsequent looks
         currentButtons.push({
           layoutX: availablePos.x,
           layoutY: availablePos.y,
@@ -1994,30 +1994,30 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
               (board.canvasWidth - DEFAULT_BUTTON_WIDTH),
           ) *
             FALLBACK_VERTICAL_STEP;
-        positions.push({ sceneId, x: fallbackX, y: fallbackY });
+        positions.push({ lookId, x: fallbackX, y: fallbackY });
       }
     }
 
-    // Add all scenes sequentially
+    // Add all looks sequentially
     try {
-      for (const { sceneId, x, y } of positions) {
-        await addSceneToBoard({
+      for (const { lookId, x, y } of positions) {
+        await addLookToBoard({
           variables: {
             input: {
-              sceneBoardId: boardId,
-              sceneId,
+              lookBoardId: boardId,
+              lookId,
               layoutX: x,
               layoutY: y,
             },
           },
         });
       }
-      // Clear selection after all scenes are added
-      setSelectedSceneIds(new Set());
+      // Clear selection after all looks are added
+      setSelectedLookIds(new Set());
     } catch (error) {
-      console.error("Error adding scenes:", error);
+      console.error("Error adding looks:", error);
     }
-  }, [selectedSceneIds, board, boardId, addSceneToBoard]);
+  }, [selectedLookIds, board, boardId, addLookToBoard]);
 
   const handleSaveSettings = useCallback(() => {
     // Validate inputs
@@ -2090,7 +2090,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-gray-500 dark:text-gray-400">
-          Loading scene board...
+          Loading look board...
         </div>
       </div>
     );
@@ -2099,7 +2099,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
   if (error || !board) {
     return (
       <div className="p-4 bg-red-100 text-red-700 rounded dark:bg-red-900/20 dark:text-red-400 dark:border dark:border-red-800">
-        Error loading scene board: {error?.message || "Board not found"}
+        Error loading look board: {error?.message || "Board not found"}
       </div>
     );
   }
@@ -2125,9 +2125,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         /* Minimal Focus Mode Header */
         <div className="bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 px-3 py-2 flex items-center gap-3">
           <button
-            onClick={() => router.push("/scene-board")}
+            onClick={() => router.push("/look-board")}
             className="text-gray-300 hover:text-white shrink-0 text-2xl"
-            aria-label="Back to scene boards"
+            aria-label="Back to look boards"
           >
             ←
           </button>
@@ -2163,9 +2163,9 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
             {/* Left side - Back button and title */}
             <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
               <button
-                onClick={() => router.push("/scene-board")}
+                onClick={() => router.push("/look-board")}
                 className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white shrink-0"
-                aria-label="Back to scene boards"
+                aria-label="Back to look boards"
               >
                 ←
               </button>
@@ -2174,7 +2174,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                   {board.name}
                 </h1>
                 <p className="hidden md:block text-sm text-gray-600 dark:text-gray-300">
-                  {board.buttons.length} scenes • Fade: {board.defaultFadeTime}s
+                  {board.buttons.length} looks • Fade: {board.defaultFadeTime}s
                 </p>
               </div>
             </div>
@@ -2252,7 +2252,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
             <button
               onClick={zoomToFit}
               className="px-3 py-1.5 border rounded hover:bg-white text-gray-700 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300 flex items-center gap-1.5"
-              title="Zoom to fit all scenes"
+              title="Zoom to fit all looks"
             >
               <svg
                 className="w-4 h-4"
@@ -2276,14 +2276,14 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
               Settings
             </button>
             <button
-              onClick={() => setIsAddSceneModalOpen(true)}
+              onClick={() => setIsAddLookModalOpen(true)}
               className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 dark:disabled:opacity-50"
               disabled={mode === "play"}
               aria-disabled={mode === "play"}
-              aria-label={mode === "play" ? "Add Scene (disabled in Play Mode)" : "Add Scene"}
-              title={mode === "play" ? "Switch to Layout Mode to add scenes" : "Add scenes to the board"}
+              aria-label={mode === "play" ? "Add Look (disabled in Play Mode)" : "Add Look"}
+              title={mode === "play" ? "Switch to Layout Mode to add looks" : "Add looks to the board"}
             >
-              + Add Scene
+              + Add Look
             </button>
           </div>
         </div>
@@ -2329,7 +2329,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
               {/* Board info */}
               <div className="pb-4 border-b dark:border-gray-700">
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                  {board.buttons.length} scenes • Fade: {board.defaultFadeTime}s
+                  {board.buttons.length} looks • Fade: {board.defaultFadeTime}s
                 </p>
               </div>
 
@@ -2419,17 +2419,17 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
 
                 <button
                   onClick={() => {
-                    setIsAddSceneModalOpen(true);
+                    setIsAddLookModalOpen(true);
                     setMobileMenuOpen(false);
                   }}
                   className="w-full px-4 py-3 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-left"
                   disabled={mode === "play"}
                 >
-                  + Add Scene
+                  + Add Look
                 </button>
                 {mode === "play" && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 px-2">
-                    Switch to Layout Mode to add scenes
+                    Switch to Layout Mode to add looks
                   </p>
                 )}
 
@@ -2487,7 +2487,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
               />
             )}
 
-            {board.buttons.map((button: SceneBoardButton) => {
+            {board.buttons.map((button: LookBoardButton) => {
               // Check if this button is being dragged (either as main button or part of multi-drag)
               const draggingData = draggingButtons.get(button.id);
               const isDragging = draggingData !== undefined;
@@ -2525,11 +2525,11 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                   onTouchEnd={handleTouchEndButton}
                   {...(mode === "play"
                     ? {
-                        onClick: () => handleSceneClick(button),
+                        onClick: () => handleLookClick(button),
                         onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            handleSceneClick(button);
+                            handleLookClick(button);
                           }
                         },
                       }
@@ -2538,7 +2538,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                       })}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${mode === "play" ? "Activate" : "Drag"} scene ${button.scene.name}`}
+                  aria-label={`${mode === "play" ? "Activate" : "Drag"} look ${button.look.name}`}
                 >
                   <div
                     className={`h-full rounded-lg flex items-center justify-center p-4 transition-all ${
@@ -2561,7 +2561,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                             : { color: '#f5f5f5' }
                         }
                       >
-                        {button.label || button.scene.name}
+                        {button.label || button.look.name}
                       </div>
                     </div>
                   </div>
@@ -2589,12 +2589,12 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
             {board.buttons.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center text-gray-400">
-                  <p className="text-xl mb-4">No scenes on this board yet</p>
+                  <p className="text-xl mb-4">No looks on this board yet</p>
                   <button
-                    onClick={() => setIsAddSceneModalOpen(true)}
+                    onClick={() => setIsAddLookModalOpen(true)}
                     className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
                   >
-                    Add Your First Scene
+                    Add Your First Look
                   </button>
                 </div>
               </div>
@@ -2608,57 +2608,57 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
         <div className="bg-gray-800 text-white px-6 py-2 text-sm">
           {mode === "play" ? (
             <span>
-              🎮 Play Mode - Tap scenes to activate • Drag to pan • Pinch to
+              🎮 Play Mode - Tap looks to activate • Drag to pan • Pinch to
               zoom
             </span>
           ) : (
             <span>
-              ✏️ Layout Mode - Drag scenes to reposition (snaps to {GRID_SIZE}px
+              ✏️ Layout Mode - Drag looks to reposition (snaps to {GRID_SIZE}px
               grid) • Drag canvas to pan • Pinch to zoom
             </span>
           )}
         </div>
       )}
 
-      {/* Add Scene Modal */}
-      {isAddSceneModalOpen && (
+      {/* Add Look Modal */}
+      {isAddLookModalOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={() => setIsAddSceneModalOpen(false)}
+          onClick={() => setIsAddLookModalOpen(false)}
         >
           <div
             className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
-            aria-labelledby="add-scene-modal-title"
+            aria-labelledby="add-look-modal-title"
           >
             <h2
-              id="add-scene-modal-title"
+              id="add-look-modal-title"
               className="text-2xl font-bold mb-4 dark:text-white"
             >
-              Add Scenes to Board
+              Add Looks to Board
             </h2>
-            {scenesToAdd.length === 0 ? (
+            {looksToAdd.length === 0 ? (
               <p className="text-gray-600 dark:text-gray-400 mb-4">
-                All scenes are already on this board!
+                All looks are already on this board!
               </p>
             ) : (
               <>
                 <div className="mb-4">
                   <div className="flex justify-between items-center mb-2">
                     <label className="block text-sm font-medium dark:text-gray-300">
-                      Select Scenes ({selectedSceneIds.size} selected)
+                      Select Looks ({selectedLookIds.size} selected)
                     </label>
                     <div className="flex gap-2">
                       <button
-                        onClick={selectAllScenes}
+                        onClick={selectAllLooks}
                         className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                       >
                         Select All
                       </button>
                       <button
-                        onClick={deselectAllScenes}
+                        onClick={deselectAllLooks}
                         className="text-xs text-gray-600 dark:text-gray-400 hover:underline"
                       >
                         Clear
@@ -2666,19 +2666,19 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                     </div>
                   </div>
                   <div className="border dark:border-gray-600 rounded max-h-96 overflow-y-auto bg-white dark:bg-gray-700">
-                    {scenesToAdd.map((scene: { id: string; name: string }) => (
+                    {looksToAdd.map((look: { id: string; name: string }) => (
                       <label
-                        key={scene.id}
+                        key={look.id}
                         className="flex items-center px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer border-b last:border-b-0 dark:border-gray-600"
                       >
                         <input
                           type="checkbox"
-                          checked={selectedSceneIds.has(scene.id)}
-                          onChange={() => toggleSceneSelection(scene.id)}
+                          checked={selectedLookIds.has(look.id)}
+                          onChange={() => toggleLookSelection(look.id)}
                           className="mr-3 h-4 w-4 text-blue-600 rounded focus:ring-blue-500 focus:ring-2"
                         />
                         <span className="text-sm dark:text-white">
-                          {scene.name}
+                          {look.name}
                         </span>
                       </label>
                     ))}
@@ -2687,23 +2687,23 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                 <div className="flex justify-end gap-2">
                   <button
                     onClick={() => {
-                      setIsAddSceneModalOpen(false);
-                      setSelectedSceneIds(new Set());
+                      setIsAddLookModalOpen(false);
+                      setSelectedLookIds(new Set());
                     }}
                     className="px-4 py-2 border rounded hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={handleAddScenes}
-                    disabled={selectedSceneIds.size === 0}
+                    onClick={handleAddLooks}
+                    disabled={selectedLookIds.size === 0}
                     className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Add{" "}
-                    {selectedSceneIds.size > 0
-                      ? `${selectedSceneIds.size} `
+                    {selectedLookIds.size > 0
+                      ? `${selectedLookIds.size} `
                       : ""}
-                    Scene{selectedSceneIds.size !== 1 ? "s" : ""}
+                    Look{selectedLookIds.size !== 1 ? "s" : ""}
                   </button>
                 </div>
               </>
@@ -2811,7 +2811,7 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
               ? [
                   {
                     label: "Remove",
-                    onClick: () => handleRemoveScene(contextMenu.button!),
+                    onClick: () => handleRemoveLook(contextMenu.button!),
                     className:
                       "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20",
                     icon: (
@@ -2833,8 +2833,8 @@ export default function SceneBoardClient({ id }: SceneBoardClientProps) {
                 ]
               : [
                   {
-                    label: "Add Scenes...",
-                    onClick: () => setIsAddSceneModalOpen(true),
+                    label: "Add Looks...",
+                    onClick: () => setIsAddLookModalOpen(true),
                     icon: (
                       <svg
                         className="w-4 h-4"

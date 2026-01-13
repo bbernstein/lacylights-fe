@@ -1,17 +1,17 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import SceneEditorLayout from "@/components/SceneEditorLayout";
-import { extractSceneId } from "@/utils/routeUtils";
+import LookEditorLayout from "@/components/LookEditorLayout";
+import { extractLookId } from "@/utils/routeUtils";
 
-interface SceneEditorPageClientProps {
-  sceneId: string;
+interface LookEditorPageClientProps {
+  lookId: string;
 }
 
-export default function SceneEditorPageClient({
-  sceneId: sceneIdProp,
-}: SceneEditorPageClientProps) {
-  const sceneId = extractSceneId(sceneIdProp);
+export default function LookEditorPageClient({
+  lookId: lookIdProp,
+}: LookEditorPageClientProps) {
+  const lookId = extractLookId(lookIdProp);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -32,21 +32,21 @@ export default function SceneEditorPageClient({
         : "";
       router.push(`/cue-lists/${cueListId}${highlightParam}`);
     } else {
-      router.push("/scenes");
+      router.push("/looks");
     }
   };
 
   const handleToggleMode = () => {
     if (isLayoutMode) {
-      router.push(`/scenes/${sceneId}/edit`);
+      router.push(`/looks/${lookId}/edit`);
     } else {
-      router.push(`/scenes/${sceneId}/edit?mode=layout`);
+      router.push(`/looks/${lookId}/edit?mode=layout`);
     }
   };
 
   return (
-    <SceneEditorLayout
-      sceneId={sceneId}
+    <LookEditorLayout
+      lookId={lookId}
       mode={mode}
       onClose={handleClose}
       onToggleMode={handleToggleMode}

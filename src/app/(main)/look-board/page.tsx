@@ -3,14 +3,14 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
-  GET_PROJECT_SCENE_BOARDS,
-  CREATE_SCENE_BOARD,
-  DELETE_SCENE_BOARD,
-} from '@/graphql/sceneBoards';
+  GET_PROJECT_LOOK_BOARDS,
+  CREATE_LOOK_BOARD,
+  DELETE_LOOK_BOARD,
+} from '@/graphql/lookBoards';
 import { useProject } from '@/contexts/ProjectContext';
-import { SceneBoard } from '@/types';
+import { LookBoard } from '@/types';
 
-export default function SceneBoardPage() {
+export default function LookBoardPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newBoardName, setNewBoardName] = useState('');
   const [newBoardDescription, setNewBoardDescription] = useState('');
@@ -18,12 +18,12 @@ export default function SceneBoardPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { currentProject, loading: projectLoading } = useProject();
 
-  const { data, loading, error, refetch } = useQuery(GET_PROJECT_SCENE_BOARDS, {
+  const { data, loading, error, refetch } = useQuery(GET_PROJECT_LOOK_BOARDS, {
     variables: { projectId: currentProject?.id },
     skip: !currentProject?.id,
   });
 
-  const [createSceneBoard] = useMutation(CREATE_SCENE_BOARD, {
+  const [createLookBoard] = useMutation(CREATE_LOOK_BOARD, {
     onCompleted: () => {
       refetch();
       setIsCreateModalOpen(false);
@@ -32,22 +32,22 @@ export default function SceneBoardPage() {
       setNewBoardFadeTime("3");
     },
     onError: (error) => {
-      setErrorMessage(`Error creating scene board: ${error.message}`);
+      setErrorMessage(`Error creating look board: ${error.message}`);
     },
   });
 
-  const [deleteSceneBoard] = useMutation(DELETE_SCENE_BOARD, {
+  const [deleteLookBoard] = useMutation(DELETE_LOOK_BOARD, {
     onCompleted: () => {
       refetch();
     },
     onError: (error) => {
-      setErrorMessage(`Error deleting scene board: ${error.message}`);
+      setErrorMessage(`Error deleting look board: ${error.message}`);
     },
   });
 
-  const sceneBoards = useMemo(
-    () => data?.sceneBoards || [],
-    [data?.sceneBoards]
+  const lookBoards = useMemo(
+    () => data?.lookBoards || [],
+    [data?.lookBoards]
   );
 
   const handleCreateBoard = () => {
@@ -63,7 +63,7 @@ export default function SceneBoardPage() {
       return;
     }
 
-    createSceneBoard({
+    createLookBoard({
       variables: {
         input: {
           name: newBoardName,
@@ -75,13 +75,13 @@ export default function SceneBoardPage() {
     });
   };
 
-  const handleDeleteBoard = (board: SceneBoard) => {
+  const handleDeleteBoard = (board: LookBoard) => {
     if (
       window.confirm(
-        `Are you sure you want to delete "${board.name}"? This will remove all scene buttons from the board.`
+        `Are you sure you want to delete "${board.name}"? This will remove all look buttons from the board.`
       )
     ) {
-      deleteSceneBoard({
+      deleteLookBoard({
         variables: {
           id: board.id,
         },
@@ -89,10 +89,10 @@ export default function SceneBoardPage() {
     }
   };
 
-  const handleOpenBoard = (board: SceneBoard) => {
+  const handleOpenBoard = (board: LookBoard) => {
     // Use full page navigation to avoid Next.js client-side routing issues
     // with output: 'export' and dynamic params
-    window.location.href = `/scene-board/${board.id}`;
+    window.location.href = `/look-board/${board.id}`;
   };
 
   if (projectLoading || loading) {
@@ -106,7 +106,7 @@ export default function SceneBoardPage() {
   if (error) {
     return (
       <div className="p-4 bg-red-100 text-red-700 rounded dark:bg-red-900/20 dark:text-red-400 dark:border dark:border-red-800">
-        Error loading scene boards: {error.message}
+        Error loading look boards: {error.message}
       </div>
     );
   }
@@ -130,16 +130,16 @@ export default function SceneBoardPage() {
             className="text-red-700 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
             aria-label="Dismiss error"
           >
-            ✕
+            X
           </button>
         </div>
       )}
 
       <div className="sm:flex sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Scene Boards</h2>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Look Boards</h2>
           <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
-            Control your lighting with customizable scene boards
+            Control your lighting with customizable look boards
           </p>
         </div>
         <div className="mt-4 sm:mt-0">
@@ -148,18 +148,18 @@ export default function SceneBoardPage() {
             onClick={() => setIsCreateModalOpen(true)}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            New Scene Board
+            New Look Board
           </button>
         </div>
       </div>
 
-      {sceneBoards.length === 0 ? (
+      {lookBoards.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-          <p className="text-gray-500 dark:text-gray-400">No scene boards yet. Create your first scene board to get started.</p>
+          <p className="text-gray-500 dark:text-gray-400">No look boards yet. Create your first look board to get started.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sceneBoards.map((board: SceneBoard) => (
+          {lookBoards.map((board: LookBoard) => (
             <div
               key={board.id}
               className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer"
@@ -184,7 +184,7 @@ export default function SceneBoardPage() {
                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">{board.description}</p>
               )}
               <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-                <span>{board.buttons.length} scenes</span>
+                <span>{board.buttons.length} looks</span>
                 <span>Fade: {board.defaultFadeTime}s</span>
               </div>
             </div>
@@ -192,11 +192,11 @@ export default function SceneBoardPage() {
         </div>
       )}
 
-      {/* Create Scene Board Modal */}
+      {/* Create Look Board Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Create Scene Board</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Create Look Board</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

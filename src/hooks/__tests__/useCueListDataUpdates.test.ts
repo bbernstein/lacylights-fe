@@ -119,8 +119,8 @@ describe('useCueListDataUpdates', () => {
       expect(subscriptionString).toContain('$cueListId');
       expect(subscriptionString).toContain('changeType');
       expect(subscriptionString).toContain('affectedCueIds');
-      expect(subscriptionString).toContain('affectedSceneId');
-      expect(subscriptionString).toContain('newSceneName');
+      expect(subscriptionString).toContain('affectedLookId');
+      expect(subscriptionString).toContain('newLookName');
       expect(subscriptionString).toContain('timestamp');
     });
   });
@@ -133,8 +133,8 @@ describe('useCueListDataUpdates', () => {
           cueListId: mockCueListId,
           changeType: 'CUE_UPDATED' as CueListDataChangeType,
           affectedCueIds: ['cue-1'],
-          affectedSceneId: null,
-          newSceneName: null,
+          affectedLookId: null,
+          newLookName: null,
           timestamp: new Date().toISOString(),
         },
       };
@@ -193,8 +193,8 @@ describe('useCueListDataUpdates', () => {
           cueListId: mockCueListId,
           changeType: 'CUE_ADDED' as CueListDataChangeType,
           affectedCueIds: ['new-cue-1'],
-          affectedSceneId: null,
-          newSceneName: null,
+          affectedLookId: null,
+          newLookName: null,
           timestamp: new Date().toISOString(),
         },
       };
@@ -257,8 +257,8 @@ describe('useCueListDataUpdates', () => {
           cueListId: mockCueListId,
           changeType: 'SCENE_NAME_CHANGED' as CueListDataChangeType,
           affectedCueIds: ['cue-1', 'cue-2'],
-          affectedSceneId: 'scene-1',
-          newSceneName: 'New Scene Name',
+          affectedLookId: 'look-1',
+          newLookName: 'New Look Name',
           timestamp: new Date().toISOString(),
         },
       };
@@ -356,8 +356,8 @@ describe('useCueListDataUpdates', () => {
           cueListId: mockCueListId,
           changeType: 'CUE_UPDATED' as CueListDataChangeType,
           affectedCueIds: ['cue-1'],
-          affectedSceneId: null,
-          newSceneName: null,
+          affectedLookId: null,
+          newLookName: null,
           timestamp: new Date().toISOString(),
         },
       };
@@ -424,8 +424,8 @@ describe('useCueListDataUpdates', () => {
           cueListId: mockCueListId,
           changeType: 'CUE_UPDATED' as CueListDataChangeType,
           affectedCueIds: ['cue-1'],
-          affectedSceneId: null,
-          newSceneName: null,
+          affectedLookId: null,
+          newLookName: null,
           timestamp: new Date().toISOString(),
         },
       };

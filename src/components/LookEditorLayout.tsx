@@ -4,21 +4,21 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useRouter } from "next/navigation";
 import {
-  GET_SCENE,
-  UPDATE_SCENE,
+  GET_LOOK,
+  UPDATE_LOOK,
   START_PREVIEW_SESSION,
   CANCEL_PREVIEW_SESSION,
   UPDATE_PREVIEW_CHANNEL,
-  INITIALIZE_PREVIEW_WITH_SCENE,
-  ACTIVATE_SCENE,
-} from "@/graphql/scenes";
+  INITIALIZE_PREVIEW_WITH_LOOK,
+  ACTIVATE_LOOK,
+} from "@/graphql/looks";
 import { FixtureValue, FixtureInstance, ChannelValue } from "@/types";
 import ChannelListEditor from "./ChannelListEditor";
 import LayoutCanvas from "./LayoutCanvas";
 import MultiSelectControls from "./MultiSelectControls";
 import UnsavedChangesModal from "./UnsavedChangesModal";
-import SceneEditorMobileToolbar from "./SceneEditorMobileToolbar";
-import SceneEditorBottomActions from "./SceneEditorBottomActions";
+import LookEditorMobileToolbar from "./LookEditorMobileToolbar";
+import LookEditorBottomActions from "./LookEditorBottomActions";
 import { sparseToDense, denseToSparse } from "@/utils/channelConversion";
 import { useUndoStack, UndoDelta, UndoAction } from "@/hooks/useUndoStack";
 import {
@@ -26,8 +26,8 @@ import {
   DEFAULT_CANVAS_HEIGHT,
 } from "@/lib/layoutCanvasUtils";
 
-interface SceneEditorLayoutProps {
-  sceneId: string;
+interface LookEditorLayoutProps {
+  lookId: string;
   mode: "channels" | "layout";
   onClose: () => void;
   onToggleMode: () => void;
@@ -98,7 +98,7 @@ export interface SharedEditorState {
 }
 
 /**
- * Type for fixture channel values used in scene updates
+ * Type for fixture channel values used in look updates
  */
 type FixtureChannelValues = {
   fixtureId: string;
@@ -147,15 +147,15 @@ export function buildFixtureChannelValues(
   return { fixtureId, channels: sparseChannels };
 }
 
-export default function SceneEditorLayout({
-  sceneId,
+export default function LookEditorLayout({
+  lookId,
   mode,
   onClose,
   onToggleMode,
   fromPlayer,
   cueListId,
   returnCueNumber,
-}: SceneEditorLayoutProps) {
+}: LookEditorLayoutProps) {
   const router = useRouter();
 
   // Track mounted state to prevent state updates after unmount
@@ -209,7 +209,7 @@ export default function SceneEditorLayout({
   const [initialActiveChannels, setInitialActiveChannels] = useState<
     Map<string, Set<number>>
   >(new Map());
-  // Track whether initial state has been set (handles edge case of scene with zero active channels)
+  // Track whether initial state has been set (handles edge case of look with zero active channels)
   const initialActiveChannelsSet = useRef(false);
 
   // Undo/redo stack
@@ -225,20 +225,20 @@ export default function SceneEditorLayout({
     null,
   );
 
-  // Fetch scene data for both modes (shared state)
+  // Fetch look data for both modes (shared state)
   const {
-    data: sceneData,
-    loading: sceneLoading,
-    refetch: refetchScene,
-  } = useQuery(GET_SCENE, {
-    variables: { id: sceneId },
+    data: lookData,
+    loading: lookLoading,
+    refetch: refetchLook,
+  } = useQuery(GET_LOOK, {
+    variables: { id: lookId },
   });
 
-  // Mutation for updating scene (no refetch - we use optimistic local state)
-  const [updateScene] = useMutation(UPDATE_SCENE);
+  // Mutation for updating look (no refetch - we use optimistic local state)
+  const [updateLook] = useMutation(UPDATE_LOOK);
 
-  // Mutation for activating scene (used when coming from Player Mode)
-  const [activateScene] = useMutation(ACTIVATE_SCENE);
+  // Mutation for activating look (used when coming from Player Mode)
+  const [activateLook] = useMutation(ACTIVATE_LOOK);
 
   // Preview mutations
   const [startPreviewSession] = useMutation(START_PREVIEW_SESSION, {
@@ -270,17 +270,17 @@ export default function SceneEditorLayout({
   });
 
   const [updatePreviewChannel] = useMutation(UPDATE_PREVIEW_CHANNEL);
-  const [initializePreviewWithScene] = useMutation(
-    INITIALIZE_PREVIEW_WITH_SCENE,
+  const [initializePreviewWithLook] = useMutation(
+    INITIALIZE_PREVIEW_WITH_LOOK,
   );
 
-  const scene = sceneData?.scene;
+  const look = lookData?.look;
 
   // Cache converted sparse-to-dense values to avoid repeated conversions
   const serverDenseValues = useMemo(() => {
     const values = new Map<string, number[]>();
-    if (scene) {
-      scene.fixtureValues.forEach((fv: FixtureValue) => {
+    if (look) {
+      look.fixtureValues.forEach((fv: FixtureValue) => {
         const channelCount = fv.fixture.channels?.length || 0;
         values.set(
           fv.fixture.id,
@@ -289,7 +289,7 @@ export default function SceneEditorLayout({
       });
     }
     return values;
-  }, [scene]);
+  }, [look]);
 
   // Track mounted state to prevent state updates after unmount
   useEffect(() => {
@@ -299,12 +299,12 @@ export default function SceneEditorLayout({
     };
   }, []);
 
-  // Initialize local state from scene data when scene loads
+  // Initialize local state from look data when look loads
   useEffect(() => {
-    if (scene) {
+    if (look) {
       // Initialize active channels
       const active = new Map<string, Set<number>>();
-      scene.fixtureValues.forEach((fv: FixtureValue) => {
+      look.fixtureValues.forEach((fv: FixtureValue) => {
         // Build set of active channel indices from sparse array
         const activeSet = new Set<number>();
         (fv.channels || []).forEach((ch: ChannelValue) => {
@@ -315,10 +315,10 @@ export default function SceneEditorLayout({
       setActiveChannels(active);
 
       // Also set initial active channels for dirty tracking (only on first load)
-      // Use ref flag to handle edge case of scene with zero active channels
+      // Use ref flag to handle edge case of look with zero active channels
       if (!initialActiveChannelsSet.current) {
         const initial = new Map<string, Set<number>>();
-        scene.fixtureValues.forEach((fv: FixtureValue) => {
+        look.fixtureValues.forEach((fv: FixtureValue) => {
           const activeSet = new Set<number>();
           (fv.channels || []).forEach((ch: ChannelValue) => {
             activeSet.add(ch.offset);
@@ -329,11 +329,11 @@ export default function SceneEditorLayout({
         initialActiveChannelsSet.current = true;
       }
 
-      // Initialize channel values from scene (only if not already set)
+      // Initialize channel values from look (only if not already set)
       // This ensures we don't overwrite values when switching between modes
       if (localFixtureValues.size === 0) {
         const values = new Map<string, number[]>();
-        scene.fixtureValues.forEach((fv: FixtureValue) => {
+        look.fixtureValues.forEach((fv: FixtureValue) => {
           const channelCount = fv.fixture.channels?.length || 0;
           values.set(
             fv.fixture.id,
@@ -344,15 +344,15 @@ export default function SceneEditorLayout({
       }
     }
   // Note: We use a ref (initialActiveChannelsSet) instead of initialActiveChannels.size
-  // to track initialization, since a scene could legitimately have zero active channels.
+  // to track initialization, since a look could legitimately have zero active channels.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene, localFixtureValues.size]);
+  }, [look, localFixtureValues.size]);
 
   // Build channel values map for layout canvas (merge server + local state)
   const fixtureValues = useMemo(() => {
     const values = new Map<string, number[]>();
-    if (scene) {
-      scene.fixtureValues.forEach((fv: FixtureValue) => {
+    if (look) {
+      look.fixtureValues.forEach((fv: FixtureValue) => {
         const fixtureId = fv.fixture.id;
         // Use local value if available, otherwise use cached server value
         const channelValues = localFixtureValues.has(fixtureId)
@@ -362,12 +362,12 @@ export default function SceneEditorLayout({
       });
     }
     return values;
-  }, [scene, localFixtureValues, serverDenseValues]);
+  }, [look, localFixtureValues, serverDenseValues]);
 
   // Get selected fixtures
   const selectedFixtures: FixtureInstance[] = [];
-  if (scene) {
-    scene.fixtureValues.forEach((fv: FixtureValue) => {
+  if (look) {
+    look.fixtureValues.forEach((fv: FixtureValue) => {
       if (selectedFixtureIds.has(fv.fixture.id)) {
         selectedFixtures.push(fv.fixture);
       }
@@ -424,13 +424,13 @@ export default function SceneEditorLayout({
   // Clear removedFixtureIds when those fixtures no longer exist in server data (after save)
   // This handles the case where ChannelListEditor saves directly without calling parent's onSave
   useEffect(() => {
-    if (removedFixtureIds.size === 0 || !scene?.fixtureValues) return;
+    if (removedFixtureIds.size === 0 || !look?.fixtureValues) return;
 
     // Track if effect is still current to avoid state updates after unmount
     let isCurrent = true;
 
     const serverFixtureIds = new Set(
-      scene.fixtureValues.map((fv: FixtureValue) => fv.fixture.id),
+      look.fixtureValues.map((fv: FixtureValue) => fv.fixture.id),
     );
 
     // Check if any fixtures we marked as removed are now gone from server data
@@ -450,26 +450,26 @@ export default function SceneEditorLayout({
     return () => {
       isCurrent = false;
     };
-  }, [scene?.fixtureValues, removedFixtureIds]);
+  }, [look?.fixtureValues, removedFixtureIds]);
 
-  // Auto-activate scene on mount when coming from Player Mode (prevents blackout)
+  // Auto-activate look on mount when coming from Player Mode (prevents blackout)
   useEffect(() => {
-    if (fromPlayer && sceneId) {
-      activateScene({
-        variables: { sceneId },
+    if (fromPlayer && lookId) {
+      activateLook({
+        variables: { lookId },
       }).catch((error) => {
-        console.error("Failed to activate scene from Player Mode:", error);
+        console.error("Failed to activate look from Player Mode:", error);
       });
     }
-  }, [fromPlayer, sceneId, activateScene]);
+  }, [fromPlayer, lookId, activateLook]);
 
   // Auto-start preview mode when coming from Player Mode
   useEffect(() => {
-    if (fromPlayer && !previewMode && scene?.project?.id) {
+    if (fromPlayer && !previewMode && look?.project?.id) {
       handleTogglePreview();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromPlayer, scene?.project?.id]);
+  }, [fromPlayer, look?.project?.id]);
 
   // Cleanup preview on unmount or mode switch
   useEffect(() => {
@@ -498,7 +498,7 @@ export default function SceneEditorLayout({
         value: number;
       }>,
     ) => {
-      if (!scene || changes.length === 0) return;
+      if (!look || changes.length === 0) return;
 
       // Update local state immediately for responsive UI
       setLocalFixtureValues((prev) => {
@@ -514,7 +514,7 @@ export default function SceneEditorLayout({
         return newMap;
       });
     },
-    [scene, serverDenseValues],
+    [look, serverDenseValues],
   );
 
   // Debounced preview update for real-time drag updates (50ms debounce)
@@ -603,21 +603,21 @@ export default function SceneEditorLayout({
     [previewMode, previewSessionId, updatePreviewChannel],
   );
 
-  // Initialize preview with all current scene values
-  const initializePreviewWithSceneValues = useCallback(
+  // Initialize preview with all current look values
+  const initializePreviewWithLookValues = useCallback(
     async (sessionId: string) => {
-      if (!scene) return;
+      if (!look) return;
 
       try {
-        await initializePreviewWithScene({
-          variables: { sessionId, sceneId },
+        await initializePreviewWithLook({
+          variables: { sessionId, lookId },
         });
       } catch (error) {
-        console.error("Failed to initialize preview with scene:", error);
+        console.error("Failed to initialize preview with look:", error);
         setPreviewError((error as Error).message);
       }
     },
-    [scene, sceneId, initializePreviewWithScene],
+    [look, lookId, initializePreviewWithLook],
   );
 
   // Toggle preview mode
@@ -627,15 +627,15 @@ export default function SceneEditorLayout({
       await cancelPreviewSession({
         variables: { sessionId: previewSessionId },
       });
-    } else if (scene?.project?.id) {
+    } else if (look?.project?.id) {
       // Start preview
       try {
         const result = await startPreviewSession({
-          variables: { projectId: scene.project.id },
+          variables: { projectId: look.project.id },
         });
 
         if (result.data?.startPreviewSession?.id) {
-          await initializePreviewWithSceneValues(
+          await initializePreviewWithLookValues(
             result.data.startPreviewSession.id,
           );
         }
@@ -647,16 +647,16 @@ export default function SceneEditorLayout({
   }, [
     previewMode,
     previewSessionId,
-    scene,
+    look,
     cancelPreviewSession,
     startPreviewSession,
-    initializePreviewWithSceneValues,
+    initializePreviewWithLookValues,
   ]);
 
   // Handle single channel value change (used by ChannelListEditor)
   const handleSingleChannelChange = useCallback(
     (fixtureId: string, channelIndex: number, value: number) => {
-      if (!scene) return;
+      if (!look) return;
 
       // Capture previous value for undo
       const currentValues =
@@ -696,7 +696,7 @@ export default function SceneEditorLayout({
       }
     },
     [
-      scene,
+      look,
       localFixtureValues,
       serverDenseValues,
       pushAction,
@@ -710,7 +710,7 @@ export default function SceneEditorLayout({
   // Used by ChannelListEditor when applying undo/redo actions
   const handleChannelValueChangeNoUndo = useCallback(
     (fixtureId: string, channelIndex: number, value: number) => {
-      if (!scene) return;
+      if (!look) return;
 
       // Update local state only, no undo push
       setLocalFixtureValues((prev) => {
@@ -723,7 +723,7 @@ export default function SceneEditorLayout({
         return newMap;
       });
     },
-    [scene, serverDenseValues],
+    [look, serverDenseValues],
   );
 
   // Handle batched channel value changes from MultiSelectControls
@@ -737,7 +737,7 @@ export default function SceneEditorLayout({
         value: number;
       }>,
     ) => {
-      if (!scene || changes.length === 0) return;
+      if (!look || changes.length === 0) return;
 
       // Capture previous values for undo BEFORE updating state
       const undoDeltas: UndoDelta[] = changes.map(
@@ -788,7 +788,7 @@ export default function SceneEditorLayout({
       // The isDirty computed value will update to reflect unsaved changes
     },
     [
-      scene,
+      look,
       previewMode,
       previewSessionId,
       batchedPreviewUpdate,
@@ -828,7 +828,7 @@ export default function SceneEditorLayout({
     [],
   );
 
-  // Handle removing a fixture from the scene
+  // Handle removing a fixture from the look
   const handleRemoveFixture = useCallback((fixtureId: string) => {
     setRemovedFixtureIds((prev) => new Set([...prev, fixtureId]));
     // Also remove from local fixture values if present
@@ -890,9 +890,9 @@ export default function SceneEditorLayout({
     });
   }, []);
 
-  // Save current changes to the scene
-  const handleSaveScene = useCallback(async () => {
-    if (!scene) return;
+  // Save current changes to the look
+  const handleSaveLook = useCallback(async () => {
+    if (!look) return;
 
     setSaveStatus("saving");
     if (saveStatusTimeoutRef.current) {
@@ -905,11 +905,11 @@ export default function SceneEditorLayout({
 
       // Build set of existing fixture IDs for quick lookup
       const existingFixtureIds = new Set(
-        scene.fixtureValues.map((fv: FixtureValue) => fv.fixture.id),
+        look.fixtureValues.map((fv: FixtureValue) => fv.fixture.id),
       );
 
-      // First, process existing fixtures from the scene (excluding removed ones)
-      scene.fixtureValues.forEach((fv: FixtureValue) => {
+      // First, process existing fixtures from the look (excluding removed ones)
+      look.fixtureValues.forEach((fv: FixtureValue) => {
         // Skip fixtures that have been removed
         if (removedFixtureIds.has(fv.fixture.id)) return;
 
@@ -923,7 +923,7 @@ export default function SceneEditorLayout({
         );
       });
 
-      // Then, add any new fixtures from localFixtureValues that aren't in scene.fixtureValues
+      // Then, add any new fixtures from localFixtureValues that aren't in look.fixtureValues
       // These are fixtures that were added but not yet saved
       for (const [fixtureId, localValues] of localFixtureValues) {
         if (!existingFixtureIds.has(fixtureId)) {
@@ -937,17 +937,17 @@ export default function SceneEditorLayout({
 
       const updatedFixtureValues = Array.from(fixtureValuesMap.values());
 
-      await updateScene({
+      await updateLook({
         variables: {
-          id: sceneId,
+          id: lookId,
           input: {
             fixtureValues: updatedFixtureValues,
           },
         },
       });
 
-      // Refetch scene data to update serverDenseValues with saved values
-      await refetchScene();
+      // Refetch look data to update serverDenseValues with saved values
+      await refetchLook();
 
       // Clear undo history after save
       clearHistory();
@@ -973,21 +973,21 @@ export default function SceneEditorLayout({
         router.push(`/cue-lists/${cueListId}${highlightParam}`);
       }
     } catch (error) {
-      console.error("Failed to save scene:", error);
+      console.error("Failed to save look:", error);
       setSaveStatus("error");
       saveStatusTimeoutRef.current = setTimeout(() => {
         setSaveStatus("idle");
       }, 3000);
     }
   }, [
-    scene,
-    sceneId,
-    updateScene,
+    look,
+    lookId,
+    updateLook,
     localFixtureValues,
     activeChannels,
     removedFixtureIds,
     clearHistory,
-    refetchScene,
+    refetchLook,
     fromPlayer,
     cueListId,
     returnCueNumber,
@@ -1215,7 +1215,7 @@ export default function SceneEditorLayout({
         // Save: Cmd+S or Ctrl+S
         e.preventDefault();
         if (isDirty) {
-          handleSaveScene();
+          handleSaveLook();
         }
       }
     };
@@ -1231,7 +1231,7 @@ export default function SceneEditorLayout({
     handleUndo,
     handleRedo,
     isDirty,
-    handleSaveScene,
+    handleSaveLook,
   ]);
 
 
@@ -1257,7 +1257,7 @@ export default function SceneEditorLayout({
 
   // Handle modal save action
   const handleModalSave = useCallback(async () => {
-    await handleSaveScene();
+    await handleSaveLook();
     setShowUnsavedModal(false);
     if (pendingAction === "close") {
       onClose();
@@ -1265,7 +1265,7 @@ export default function SceneEditorLayout({
       onToggleMode();
     }
     setPendingAction(null);
-  }, [handleSaveScene, pendingAction, onClose, onToggleMode]);
+  }, [handleSaveLook, pendingAction, onClose, onToggleMode]);
 
   // Handle modal discard action
   const handleModalDiscard = useCallback(() => {
@@ -1288,8 +1288,8 @@ export default function SceneEditorLayout({
   return (
     <div className="fixed inset-0 bg-gray-900 flex flex-col">
       {/* Mobile toolbar */}
-      <SceneEditorMobileToolbar
-        sceneName={scene?.name || "Loading..."}
+      <LookEditorMobileToolbar
+        lookName={look?.name || "Loading..."}
         mode={mode}
         fromPlayer={fromPlayer}
         onClose={handleClose}
@@ -1299,13 +1299,13 @@ export default function SceneEditorLayout({
       {/* Desktop top bar with mode switcher and controls */}
       <div className="flex-none bg-gray-800 border-b border-gray-700 px-4 py-3 hidden md:block">
         <div className="flex items-center justify-between">
-          {/* Left section: Back button and scene name */}
+          {/* Left section: Back button and look name */}
           <div className="flex items-center space-x-3 min-w-0">
             {/* Back button - context-aware, compact for narrow screens */}
             <button
               onClick={handleClose}
               className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 rounded-md transition-colors flex-shrink-0"
-              title={fromPlayer ? "Back to Player" : "Back to Scenes"}
+              title={fromPlayer ? "Back to Player" : "Back to Looks"}
             >
               {fromPlayer ? (
                 <>
@@ -1340,7 +1340,7 @@ export default function SceneEditorLayout({
                     stroke="currentColor"
                     viewBox="0 0 24 24"
                     role="img"
-                    aria-label="Return to scenes"
+                    aria-label="Return to looks"
                   >
                     <path
                       strokeLinecap="round"
@@ -1349,14 +1349,14 @@ export default function SceneEditorLayout({
                       d="M10 19l-7-7m0 0l7-7m-7 7h18"
                     />
                   </svg>
-                  <span className="hidden lg:inline">Scenes</span>
+                  <span className="hidden lg:inline">Looks</span>
                 </>
               )}
             </button>
 
-            {/* Scene name */}
-            <span className="text-sm text-gray-400 truncate max-w-[150px] lg:max-w-[250px]" title={scene?.name}>
-              {scene?.name || "Loading..."}
+            {/* Look name */}
+            <span className="text-sm text-gray-400 truncate max-w-[150px] lg:max-w-[250px]" title={look?.name}>
+              {look?.name || "Loading..."}
             </span>
           </div>
 
@@ -1479,7 +1479,7 @@ export default function SceneEditorLayout({
 
                 {/* Save button with dirty/status indicator */}
                 <button
-                  onClick={handleSaveScene}
+                  onClick={handleSaveLook}
                   disabled={saveStatus === "saving" || (!isDirty && !hasUnsavedPreviewChanges && saveStatus !== "saved" && saveStatus !== "error")}
                   className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     saveStatus === "error"
@@ -1590,13 +1590,13 @@ export default function SceneEditorLayout({
 
       {/* Editor content area */}
       <div className="flex-1 overflow-hidden relative pb-36 md:pb-0">
-        {sceneLoading ? (
+        {lookLoading ? (
           <div className="h-full flex items-center justify-center text-gray-400">
-            Loading scene...
+            Loading look...
           </div>
         ) : mode === "channels" ? (
           <ChannelListEditor
-            sceneId={sceneId}
+            lookId={lookId}
             onClose={onClose}
             sharedState={{
               channelValues:
@@ -1622,7 +1622,7 @@ export default function SceneEditorLayout({
               onRemoveFixture: handleRemoveFixture,
               onUnremoveFixture: handleUnremoveFixture,
               onDeleteFixtureValues: handleDeleteFixtureValues,
-              onSave: handleSaveScene,
+              onSave: handleSaveLook,
               saveStatus,
             }}
             onDirtyChange={(_dirty) => {
@@ -1630,10 +1630,10 @@ export default function SceneEditorLayout({
               // This will be handled by the shared isDirty computation
             }}
           />
-        ) : scene ? (
+        ) : look ? (
           <>
             <LayoutCanvas
-              fixtures={scene.fixtureValues.map(
+              fixtures={look.fixtureValues.map(
                 (fv: FixtureValue) => fv.fixture,
               )}
               fixtureValues={fixtureValues}
@@ -1643,8 +1643,8 @@ export default function SceneEditorLayout({
               onPaste={handlePasteFixtureValues}
               canPaste={copiedChannelValues !== null}
               showCopiedFeedback={showCopiedFeedback}
-              canvasWidth={scene.project?.layoutCanvasWidth ?? DEFAULT_CANVAS_WIDTH}
-              canvasHeight={scene.project?.layoutCanvasHeight ?? DEFAULT_CANVAS_HEIGHT}
+              canvasWidth={look.project?.layoutCanvasWidth ?? DEFAULT_CANVAS_WIDTH}
+              canvasHeight={look.project?.layoutCanvasHeight ?? DEFAULT_CANVAS_HEIGHT}
             />
             {selectedFixtures.length > 0 && (
               <MultiSelectControls
@@ -1684,19 +1684,19 @@ export default function SceneEditorLayout({
           </>
         ) : (
           <div className="h-full flex items-center justify-center text-gray-400">
-            Loading scene...
+            Loading look...
           </div>
         )}
       </div>
 
       {/* Mobile bottom actions */}
-      <SceneEditorBottomActions
+      <LookEditorBottomActions
         isDirty={isDirty}
         canUndo={canUndo}
         canRedo={canRedo}
         previewMode={previewMode}
         saveStatus={saveStatus}
-        onSave={handleSaveScene}
+        onSave={handleSaveLook}
         onUndo={handleUndo}
         onRedo={handleRedo}
         onTogglePreview={handleTogglePreview}

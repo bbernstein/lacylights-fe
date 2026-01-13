@@ -9,9 +9,9 @@ import {
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/solid';
 
 /**
- * Props for the SceneEditorBottomActions component
+ * Props for the LookEditorBottomActions component
  */
-interface SceneEditorBottomActionsProps {
+interface LookEditorBottomActionsProps {
   /** Whether there are unsaved changes */
   isDirty: boolean;
   /** Whether undo is available */
@@ -35,7 +35,7 @@ interface SceneEditorBottomActionsProps {
 }
 
 /**
- * Fixed bottom action bar for Scene Editor on mobile
+ * Fixed bottom action bar for Look Editor on mobile
  *
  * Displays primary actions at the bottom of the screen:
  * - Save button (with status indicator)
@@ -46,7 +46,7 @@ interface SceneEditorBottomActionsProps {
  *
  * @example
  * ```tsx
- * <SceneEditorBottomActions
+ * <LookEditorBottomActions
  *   isDirty={isDirty}
  *   canUndo={canUndo}
  *   canRedo={canRedo}
@@ -59,7 +59,7 @@ interface SceneEditorBottomActionsProps {
  * />
  * ```
  */
-export default function SceneEditorBottomActions({
+export default function LookEditorBottomActions({
   isDirty,
   canUndo,
   canRedo,
@@ -69,8 +69,8 @@ export default function SceneEditorBottomActions({
   onUndo,
   onRedo,
   onTogglePreview,
-  testId = 'scene-editor-bottom-actions',
-}: SceneEditorBottomActionsProps) {
+  testId = 'look-editor-bottom-actions',
+}: LookEditorBottomActionsProps) {
   return (
     <div
       className="fixed bottom-16 left-0 right-0 bg-gray-800 border-t border-gray-700 px-4 py-3 md:hidden z-40"

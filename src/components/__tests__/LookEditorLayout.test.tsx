@@ -2,8 +2,8 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
-import SceneEditorLayout, { buildFixtureChannelValues } from '../SceneEditorLayout';
-import { GET_SCENE } from '@/graphql/scenes';
+import LookEditorLayout, { buildFixtureChannelValues } from '../LookEditorLayout';
+import { GET_LOOK } from '@/graphql/looks';
 import { FixtureType, ChannelType, FadeBehavior } from '@/types';
 
 // Mock ChannelListEditor since it's tested separately
@@ -50,10 +50,10 @@ const mockFixture = {
   __typename: 'FixtureInstance',
 };
 
-const mockScene = {
-  id: 'scene-1',
-  name: 'Test Scene',
-  description: 'Test scene description',
+const mockLook = {
+  id: 'look-1',
+  name: 'Test Look',
+  description: 'Test look description',
   createdAt: '2023-01-01T12:00:00Z',
   updatedAt: '2023-01-02T12:00:00Z',
   project: mockProject,
@@ -70,24 +70,24 @@ const mockScene = {
       __typename: 'FixtureValue',
     },
   ],
-  __typename: 'Scene',
+  __typename: 'Look',
 };
 
-const mockGetSceneQuery = {
+const mockGetLookQuery = {
   request: {
-    query: GET_SCENE,
-    variables: { id: 'scene-1' },
+    query: GET_LOOK,
+    variables: { id: 'look-1' },
   },
   result: {
     data: {
-      scene: mockScene,
+      look: mockLook,
     },
   },
 };
 
-describe('SceneEditorLayout', () => {
+describe('LookEditorLayout', () => {
   const defaultProps = {
-    sceneId: 'scene-1',
+    lookId: 'look-1',
     mode: 'channels' as const,
     onClose: jest.fn(),
     onToggleMode: jest.fn(),
@@ -100,51 +100,51 @@ describe('SceneEditorLayout', () => {
   describe('rendering', () => {
     it('renders with channels mode', async () => {
       render(
-        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
-          <SceneEditorLayout {...defaultProps} />
+        <MockedProvider mocks={[mockGetLookQuery]} addTypename={false}>
+          <LookEditorLayout {...defaultProps} />
         </MockedProvider>
       );
 
       // Both mobile and desktop toolbars render back button text
-      expect(screen.getAllByText('Back to Scenes').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Back to Looks').length).toBeGreaterThan(0);
       expect(screen.getByText('Channel List')).toBeInTheDocument();
       expect(screen.getByText('2D Layout')).toBeInTheDocument();
-      // Wait for scene data to load before checking for channel list editor
+      // Wait for look data to load before checking for channel list editor
       await screen.findByTestId('channel-list-editor');
       expect(screen.getByTestId('channel-list-editor')).toBeInTheDocument();
     });
 
     it('renders with layout mode', async () => {
       render(
-        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
-          <SceneEditorLayout {...defaultProps} mode="layout" />
+        <MockedProvider mocks={[mockGetLookQuery]} addTypename={false}>
+          <LookEditorLayout {...defaultProps} mode="layout" />
         </MockedProvider>
       );
 
       // Both mobile and desktop toolbars render back button text
-      expect(screen.getAllByText('Back to Scenes').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Back to Looks').length).toBeGreaterThan(0);
       expect(screen.getByText('Channel List')).toBeInTheDocument();
       expect(screen.getByText('2D Layout')).toBeInTheDocument();
-      // Wait for scene data to load
+      // Wait for look data to load
       await screen.findByTestId('layout-canvas');
     });
 
     it('shows loading state in layout mode before data loads', () => {
       render(
-        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
-          <SceneEditorLayout {...defaultProps} mode="layout" />
+        <MockedProvider mocks={[mockGetLookQuery]} addTypename={false}>
+          <LookEditorLayout {...defaultProps} mode="layout" />
         </MockedProvider>
       );
 
-      expect(screen.getByText('Loading scene...')).toBeInTheDocument();
+      expect(screen.getByText('Loading look...')).toBeInTheDocument();
     });
   });
 
   describe('mode switching', () => {
     it('highlights active mode tab', () => {
       const { rerender } = render(
-        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
-          <SceneEditorLayout {...defaultProps} mode="channels" />
+        <MockedProvider mocks={[mockGetLookQuery]} addTypename={false}>
+          <LookEditorLayout {...defaultProps} mode="channels" />
         </MockedProvider>
       );
 
@@ -155,8 +155,8 @@ describe('SceneEditorLayout', () => {
       expect(layoutButton).not.toHaveClass('bg-blue-600');
 
       rerender(
-        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
-          <SceneEditorLayout {...defaultProps} mode="layout" />
+        <MockedProvider mocks={[mockGetLookQuery]} addTypename={false}>
+          <LookEditorLayout {...defaultProps} mode="layout" />
         </MockedProvider>
       );
 
@@ -168,8 +168,8 @@ describe('SceneEditorLayout', () => {
       const onToggleMode = jest.fn();
 
       render(
-        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
-          <SceneEditorLayout {...defaultProps} mode="channels" onToggleMode={onToggleMode} />
+        <MockedProvider mocks={[mockGetLookQuery]} addTypename={false}>
+          <LookEditorLayout {...defaultProps} mode="channels" onToggleMode={onToggleMode} />
         </MockedProvider>
       );
 
@@ -183,8 +183,8 @@ describe('SceneEditorLayout', () => {
       const onToggleMode = jest.fn();
 
       render(
-        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
-          <SceneEditorLayout {...defaultProps} mode="layout" onToggleMode={onToggleMode} />
+        <MockedProvider mocks={[mockGetLookQuery]} addTypename={false}>
+          <LookEditorLayout {...defaultProps} mode="layout" onToggleMode={onToggleMode} />
         </MockedProvider>
       );
 
@@ -198,8 +198,8 @@ describe('SceneEditorLayout', () => {
       const onToggleMode = jest.fn();
 
       render(
-        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
-          <SceneEditorLayout {...defaultProps} mode="channels" onToggleMode={onToggleMode} />
+        <MockedProvider mocks={[mockGetLookQuery]} addTypename={false}>
+          <LookEditorLayout {...defaultProps} mode="channels" onToggleMode={onToggleMode} />
         </MockedProvider>
       );
 
@@ -215,14 +215,14 @@ describe('SceneEditorLayout', () => {
       const onClose = jest.fn();
 
       render(
-        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
-          <SceneEditorLayout {...defaultProps} onClose={onClose} />
+        <MockedProvider mocks={[mockGetLookQuery]} addTypename={false}>
+          <LookEditorLayout {...defaultProps} onClose={onClose} />
         </MockedProvider>
       );
 
       // Use getAllByText since both mobile and desktop toolbars render the text
       // Select the desktop version (second element, as mobile toolbar renders first)
-      const backButtons = screen.getAllByText('Back to Scenes');
+      const backButtons = screen.getAllByText('Back to Looks');
       await userEvent.click(backButtons[0]);
 
       expect(onClose).toHaveBeenCalledTimes(1);
@@ -230,16 +230,16 @@ describe('SceneEditorLayout', () => {
   });
 
   describe('GraphQL data loading', () => {
-    it('fetches scene data in both modes for shared state', async () => {
-      // Scene data is now fetched in all modes to support shared state between views
+    it('fetches look data in both modes for shared state', async () => {
+      // Look data is now fetched in all modes to support shared state between views
       const { container } = render(
-        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
-          <SceneEditorLayout {...defaultProps} mode="channels" />
+        <MockedProvider mocks={[mockGetLookQuery]} addTypename={false}>
+          <LookEditorLayout {...defaultProps} mode="channels" />
         </MockedProvider>
       );
 
-      // Shows loading initially while fetching scene data
-      expect(screen.getByText('Loading scene...')).toBeInTheDocument();
+      // Shows loading initially while fetching look data
+      expect(screen.getByText('Loading look...')).toBeInTheDocument();
 
       // After data loads, shows channel list editor
       await screen.findByTestId('channel-list-editor');
@@ -247,20 +247,20 @@ describe('SceneEditorLayout', () => {
       expect(container.querySelector('[data-testid="layout-canvas"]')).not.toBeInTheDocument();
     });
 
-    it('fetches scene data when in layout mode', async () => {
+    it('fetches look data when in layout mode', async () => {
       render(
-        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
-          <SceneEditorLayout {...defaultProps} mode="layout" />
+        <MockedProvider mocks={[mockGetLookQuery]} addTypename={false}>
+          <LookEditorLayout {...defaultProps} mode="layout" />
         </MockedProvider>
       );
 
       // Initially shows loading
-      expect(screen.getByText('Loading scene...')).toBeInTheDocument();
+      expect(screen.getByText('Loading look...')).toBeInTheDocument();
 
       // After data loads, shows layout canvas
       await screen.findByTestId('layout-canvas');
       expect(screen.getByTestId('layout-canvas')).toBeInTheDocument();
-      expect(screen.queryByText('Loading scene...')).not.toBeInTheDocument();
+      expect(screen.queryByText('Loading look...')).not.toBeInTheDocument();
     });
   });
 
@@ -347,24 +347,24 @@ describe('SceneEditorLayout', () => {
   });
 
   describe('header display', () => {
-    it('displays scene name in header after loading', async () => {
+    it('displays look name in header after loading', async () => {
       render(
-        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
-          <SceneEditorLayout {...defaultProps} mode="layout" />
+        <MockedProvider mocks={[mockGetLookQuery]} addTypename={false}>
+          <LookEditorLayout {...defaultProps} mode="layout" />
         </MockedProvider>
       );
 
-      // Wait for scene data to load
+      // Wait for look data to load
       await screen.findByTestId('layout-canvas');
 
-      // Scene name should be displayed in the header (may have multiple instances for mobile/desktop)
-      expect(screen.getAllByText('Test Scene').length).toBeGreaterThan(0);
+      // Look name should be displayed in the header (may have multiple instances for mobile/desktop)
+      expect(screen.getAllByText('Test Look').length).toBeGreaterThan(0);
     });
 
-    it('shows Loading... before scene name is available', () => {
+    it('shows Loading... before look name is available', () => {
       render(
-        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
-          <SceneEditorLayout {...defaultProps} mode="layout" />
+        <MockedProvider mocks={[mockGetLookQuery]} addTypename={false}>
+          <LookEditorLayout {...defaultProps} mode="layout" />
         </MockedProvider>
       );
 
@@ -376,12 +376,12 @@ describe('SceneEditorLayout', () => {
   describe('save button accessibility', () => {
     it('has aria-live attribute for screen reader announcements', async () => {
       render(
-        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
-          <SceneEditorLayout {...defaultProps} mode="layout" />
+        <MockedProvider mocks={[mockGetLookQuery]} addTypename={false}>
+          <LookEditorLayout {...defaultProps} mode="layout" />
         </MockedProvider>
       );
 
-      // Wait for scene data to load
+      // Wait for look data to load
       await screen.findByTestId('layout-canvas');
 
       // Find save button by its title
@@ -391,12 +391,12 @@ describe('SceneEditorLayout', () => {
 
     it('has appropriate aria-label for current state', async () => {
       render(
-        <MockedProvider mocks={[mockGetSceneQuery]} addTypename={false}>
-          <SceneEditorLayout {...defaultProps} mode="layout" />
+        <MockedProvider mocks={[mockGetLookQuery]} addTypename={false}>
+          <LookEditorLayout {...defaultProps} mode="layout" />
         </MockedProvider>
       );
 
-      // Wait for scene data to load
+      // Wait for look data to load
       await screen.findByTestId('layout-canvas');
 
       // Find save button - when no changes, should indicate no changes to save

@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_CUE_LIST, UPDATE_CUE_LIST, CREATE_CUE, UPDATE_CUE, DELETE_CUE, REORDER_CUES } from '@/graphql/cueLists';
-import { GET_PROJECT_SCENES } from '@/graphql/scenes';
-import { Cue, Scene } from '@/types';
+import { GET_PROJECT_LOOKS } from '@/graphql/looks';
+import { Cue, Look } from '@/types';
 import BulkFadeUpdateModal from './BulkFadeUpdateModal';
 import BottomSheet from './BottomSheet';
 import { useIsMobile } from '@/hooks/useMediaQuery';
@@ -41,7 +41,7 @@ interface CueListEditorModalProps {
 
 interface CueRowProps {
   cue: Cue;
-  scenes: Scene[];
+  looks: Look[];
   onUpdate: (cue: Cue) => void;
   onDelete: (cue: Cue) => void;
   isDragging?: boolean;
@@ -49,7 +49,7 @@ interface CueRowProps {
   onSelect?: (cueId: string, selected: boolean) => void;
 }
 
-function SortableCueRow({ cue, scenes, onUpdate, onDelete, isSelected, onSelect }: CueRowProps) {
+function SortableCueRow({ cue, looks, onUpdate, onDelete, isSelected, onSelect }: CueRowProps) {
   const {
     attributes,
     listeners,
@@ -70,7 +70,7 @@ function SortableCueRow({ cue, scenes, onUpdate, onDelete, isSelected, onSelect 
       ref={setNodeRef}
       style={style}
       cue={cue}
-      scenes={scenes}
+      looks={looks}
       onUpdate={onUpdate}
       onDelete={onDelete}
       isDragging={isDragging}
@@ -89,12 +89,12 @@ interface CueRowInternalProps extends CueRowProps {
 }
 
 const CueRow = React.forwardRef<HTMLTableRowElement, CueRowInternalProps>(
-  ({ cue, scenes, onUpdate, onDelete, isDragging, isSelected, onSelect, style, dragAttributes, dragListeners }, ref) => {
+  ({ cue, looks, onUpdate, onDelete, isDragging, isSelected, onSelect, style, dragAttributes, dragListeners }, ref) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     name: cue.name,
     cueNumber: cue.cueNumber.toString(),
-    sceneId: cue.scene.id,
+    lookId: cue.look.id,
     fadeInTime: cue.fadeInTime.toString(),
     fadeOutTime: cue.fadeOutTime.toString(),
     followTime: (cue.followTime || 0).toString(),
@@ -106,7 +106,7 @@ const CueRow = React.forwardRef<HTMLTableRowElement, CueRowInternalProps>(
       ...cue,
       name: editData.name,
       cueNumber: parseFloat(editData.cueNumber) || 0,
-      scene: scenes.find(s => s.id === editData.sceneId) || cue.scene,
+      look: looks.find(l => l.id === editData.lookId) || cue.look,
       fadeInTime: parseFloat(editData.fadeInTime) || 0,
       fadeOutTime: parseFloat(editData.fadeOutTime) || 0,
       followTime: parseFloat(editData.followTime) || undefined,
@@ -119,7 +119,7 @@ const CueRow = React.forwardRef<HTMLTableRowElement, CueRowInternalProps>(
     setEditData({
       name: cue.name,
       cueNumber: cue.cueNumber.toString(),
-      sceneId: cue.scene.id,
+      lookId: cue.look.id,
       fadeInTime: cue.fadeInTime.toString(),
       fadeOutTime: cue.fadeOutTime.toString(),
       followTime: (cue.followTime || 0).toString(),
@@ -171,12 +171,12 @@ const CueRow = React.forwardRef<HTMLTableRowElement, CueRowInternalProps>(
         </td>
         <td className="px-4 py-3">
           <select
-            value={editData.sceneId}
-            onChange={(e) => setEditData({ ...editData, sceneId: e.target.value })}
+            value={editData.lookId}
+            onChange={(e) => setEditData({ ...editData, lookId: e.target.value })}
             className="w-full rounded border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600"
           >
-            {scenes.map((scene) => (
-              <option key={scene.id} value={scene.id}>{scene.name}</option>
+            {looks.map((look) => (
+              <option key={look.id} value={look.id}>{look.name}</option>
             ))}
           </select>
         </td>
@@ -266,7 +266,7 @@ const CueRow = React.forwardRef<HTMLTableRowElement, CueRowInternalProps>(
         </div>
       </td>
       <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{cue.name}</td>
-      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{cue.scene.name}</td>
+      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{cue.look.name}</td>
       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{cue.fadeInTime}s</td>
       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{cue.fadeOutTime}s</td>
       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{cue.followTime || 0}s</td>
@@ -312,7 +312,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
   const [newCue, setNewCue] = useState({
     name: '',
     cueNumber: '1',
-    sceneId: '',
+    lookId: '',
     fadeInTime: '3',
     fadeOutTime: '3',
     followTime: '0',
@@ -331,7 +331,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
     },
   });
 
-  const { data: scenesData } = useQuery(GET_PROJECT_SCENES, {
+  const { data: looksData } = useQuery(GET_PROJECT_LOOKS, {
     variables: { projectId: cueListData?.cueList?.project?.id },
     skip: !cueListData?.cueList?.project?.id,
   });
@@ -352,7 +352,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
       setNewCue({
         name: '',
         cueNumber: '1',
-        sceneId: '',
+        lookId: '',
         fadeInTime: '3',
         fadeOutTime: '3',
         followTime: '0',
@@ -392,7 +392,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
   });
 
   const cueList = cueListData?.cueList;
-  const scenes = scenesData?.project?.scenes || [];
+  const looks = looksData?.project?.looks || [];
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -451,7 +451,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
   };
 
   const handleAddCue = () => {
-    if (!cueList || !newCue.sceneId) return;
+    if (!cueList || !newCue.lookId) return;
 
     createCue({
       variables: {
@@ -459,7 +459,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
           name: newCue.name,
           cueNumber: parseFloat(newCue.cueNumber) || 1,
           cueListId: cueList.id,
-          sceneId: newCue.sceneId,
+          lookId: newCue.lookId,
           fadeInTime: parseFloat(newCue.fadeInTime) || 3,
           fadeOutTime: parseFloat(newCue.fadeOutTime) || 3,
           followTime: parseFloat(newCue.followTime) || undefined,
@@ -477,7 +477,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
           name: cue.name,
           cueNumber: cue.cueNumber,
           cueListId: cueList?.id,
-          sceneId: cue.scene.id,
+          lookId: cue.look.id,
           fadeInTime: cue.fadeInTime,
           fadeOutTime: cue.fadeOutTime,
           followTime: cue.followTime || undefined,
@@ -679,15 +679,15 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Scene</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Look</label>
               <select
-                value={newCue.sceneId}
-                onChange={(e) => setNewCue({ ...newCue, sceneId: e.target.value })}
+                value={newCue.lookId}
+                onChange={(e) => setNewCue({ ...newCue, lookId: e.target.value })}
                 className="w-full rounded border-gray-300 text-base dark:bg-gray-700 dark:border-gray-600"
               >
-                <option value="">Select scene...</option>
-                {scenes.map((scene: Scene) => (
-                  <option key={scene.id} value={scene.id}>{scene.name}</option>
+                <option value="">Select look...</option>
+                {looks.map((look: Look) => (
+                  <option key={look.id} value={look.id}>{look.name}</option>
                 ))}
               </select>
             </div>
@@ -740,7 +740,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
           <div className={`flex ${isMobile ? 'flex-col' : 'justify-end'}`}>
             <button
               onClick={handleAddCue}
-              disabled={!newCue.name || !newCue.sceneId}
+              disabled={!newCue.name || !newCue.lookId}
               className={`${isMobile ? 'w-full' : ''} inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 min-h-[44px] touch-manipulation`}
             >
               Add Cue
@@ -768,7 +768,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                 </th>
                 <th className="px-2 md:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Cue #</th>
                 <th className="px-2 md:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Name</th>
-                <th className="px-2 md:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Scene</th>
+                <th className="px-2 md:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Look</th>
                 <th className="px-2 md:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap">Fade In</th>
                 <th className="px-2 md:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap">Fade Out</th>
                 <th className="px-2 md:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Follow</th>
@@ -791,7 +791,7 @@ export default function CueListEditorModal({ isOpen, onClose, cueListId, onCueLi
                     <SortableCueRow
                       key={cue.id}
                       cue={cue}
-                      scenes={scenes}
+                      looks={looks}
                       onUpdate={handleUpdateCue}
                       onDelete={handleDeleteCue}
                       isSelected={selectedCueIds.has(cue.id)}

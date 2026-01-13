@@ -6,7 +6,7 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   fixtures: FixtureInstance[];
-  scenes: Scene[];
+  looks: Look[];
   cueLists: CueList[];
   users: ProjectUser[];
   // 2D Layout canvas dimensions (for fixture positioning)
@@ -100,7 +100,7 @@ export interface ChannelValue {
   value: number;
 }
 
-export interface Scene {
+export interface Look {
   id: string;
   name: string;
   description?: string;
@@ -116,7 +116,7 @@ export interface FixtureValue {
   channels: ChannelValue[]; // Sparse array of channel values
 }
 
-export interface SceneBoard {
+export interface LookBoard {
   id: string;
   name: string;
   description?: string;
@@ -125,15 +125,15 @@ export interface SceneBoard {
   gridSize?: number;
   canvasWidth: number; // Canvas width in pixels
   canvasHeight: number; // Canvas height in pixels
-  buttons: SceneBoardButton[];
+  buttons: LookBoardButton[];
   createdAt: string;
   updatedAt: string;
 }
 
-export interface SceneBoardButton {
+export interface LookBoardButton {
   id: string;
-  sceneBoard: SceneBoard;
-  scene: Scene;
+  lookBoard: LookBoard;
+  look: Look;
   layoutX: number; // X position in pixels (0 to canvasWidth-1)
   layoutY: number; // Y position in pixels (0 to canvasHeight-1)
   width?: number; // Button width in pixels (default: 200)
@@ -158,7 +158,7 @@ export interface Cue {
   id: string;
   name: string;
   cueNumber: number;
-  scene: Scene;
+  look: Look;
   fadeInTime: number;
   fadeOutTime: number;
   followTime?: number;
@@ -202,9 +202,9 @@ export interface BulkFixtureUpdateInput {
 export interface CueListPlaybackStatus {
   cueListId: string;
   currentCueIndex: number | null;
-  /** True when scene values are currently active on DMX fixtures (stays true after fade until stopped) */
+  /** True when look values are currently active on DMX fixtures (stays true after fade until stopped) */
   isPlaying: boolean;
-  /** True when the cue list is paused (scene activated outside cue context, cue index preserved) */
+  /** True when the cue list is paused (look activated outside cue context, cue index preserved) */
   isPaused: boolean;
   /** True when a fade transition is in progress (fade-in, fade-out, or crossfade) */
   isFading: boolean;
@@ -217,7 +217,7 @@ export interface CueListPlaybackStatus {
 export interface GlobalPlaybackStatus {
   /** True if any cue list is currently playing */
   isPlaying: boolean;
-  /** True if a cue list is paused (scene activated outside cue context) */
+  /** True if a cue list is paused (look activated outside cue context) */
   isPaused: boolean;
   /** True if a fade transition is in progress */
   isFading: boolean;
@@ -243,7 +243,7 @@ export type CueListDataChangeType =
   | 'CUE_REMOVED'
   | 'CUE_REORDERED'
   | 'CUE_LIST_METADATA_CHANGED'
-  | 'SCENE_NAME_CHANGED';
+  | 'LOOK_NAME_CHANGED';
 
 /** Payload for cue list data change notifications */
 export interface CueListDataChangedPayload {
@@ -251,10 +251,10 @@ export interface CueListDataChangedPayload {
   changeType: CueListDataChangeType;
   /** Affected cue IDs (for cue changes) */
   affectedCueIds?: string[];
-  /** Affected scene ID (for scene name changes) */
-  affectedSceneId?: string;
-  /** New scene name if this is a SCENE_NAME_CHANGED event */
-  newSceneName?: string;
+  /** Affected look ID (for look name changes) */
+  affectedLookId?: string;
+  /** New look name if this is a LOOK_NAME_CHANGED event */
+  newLookName?: string;
   /** Timestamp of the change */
   timestamp: string;
 }
@@ -412,7 +412,7 @@ export enum ChannelType {
 }
 
 /**
- * Determines how a channel behaves during scene transitions.
+ * Determines how a channel behaves during look transitions.
  *
  * @example
  * // FADE: Good for smooth transitions
@@ -476,14 +476,14 @@ export interface UpdateFixtureInstanceInput {
   tags?: string[];
 }
 
-export interface CreateSceneInput {
+export interface CreateLookInput {
   name: string;
   description?: string;
   projectId: string;
   fixtureValues: FixtureValueInput[];
 }
 
-export interface UpdateSceneInput {
+export interface UpdateLookInput {
   name?: string;
   description?: string;
   fixtureValues?: FixtureValueInput[];

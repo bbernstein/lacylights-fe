@@ -3,8 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MockedProvider } from "@apollo/client/testing";
 import DashboardPage from "../page";
 import { GET_PROJECT_FIXTURES } from "@/graphql/fixtures";
-import { GET_PROJECT_SCENES } from "@/graphql/scenes";
-import { GET_PROJECT_SCENE_BOARDS } from "@/graphql/sceneBoards";
+import { GET_PROJECT_LOOKS } from "@/graphql/looks";
+import { GET_PROJECT_LOOK_BOARDS } from "@/graphql/lookBoards";
 import { GET_PROJECT_CUE_LISTS } from "@/graphql/cueLists";
 import { GET_SYSTEM_INFO } from "@/graphql/settings";
 import {
@@ -21,7 +21,7 @@ const mockProject = {
   createdAt: "2024-01-01",
   updatedAt: "2024-01-01",
   fixtures: [],
-  scenes: [],
+  looks: [],
   cueLists: [],
   users: [],
 };
@@ -88,26 +88,26 @@ const mockFixtures = [
   },
 ];
 
-const mockScenes = [
+const mockLooks = [
   {
-    id: "scene-1",
-    name: "Scene A",
+    id: "look-1",
+    name: "Look A",
     description: "",
     createdAt: "2024-01-01",
     updatedAt: "2024-01-01",
     fixtureValues: [],
   },
   {
-    id: "scene-2",
-    name: "Scene B",
+    id: "look-2",
+    name: "Look B",
     description: "",
     createdAt: "2024-01-01",
     updatedAt: "2024-01-01",
     fixtureValues: [],
   },
   {
-    id: "scene-3",
-    name: "Scene C",
+    id: "look-3",
+    name: "Look C",
     description: "",
     createdAt: "2024-01-01",
     updatedAt: "2024-01-01",
@@ -115,7 +115,7 @@ const mockScenes = [
   },
 ];
 
-const mockSceneBoards = [
+const mockLookBoards = [
   {
     id: "board-1",
     name: "Main Board",
@@ -190,8 +190,8 @@ const mockPlaybackStatus: {
 const createMocks = (
   options: {
     fixtures?: typeof mockFixtures;
-    scenes?: typeof mockScenes;
-    sceneBoards?: typeof mockSceneBoards;
+    looks?: typeof mockLooks;
+    lookBoards?: typeof mockLookBoards;
     cueLists?: typeof mockCueLists;
     systemInfo?: typeof mockSystemInfo;
     playbackStatus?: typeof mockPlaybackStatus;
@@ -213,26 +213,26 @@ const createMocks = (
   },
   {
     request: {
-      query: GET_PROJECT_SCENES,
+      query: GET_PROJECT_LOOKS,
       variables: { projectId: "project-1" },
     },
     result: {
       data: {
         project: {
           id: "project-1",
-          scenes: options.scenes ?? mockScenes,
+          looks: options.looks ?? mockLooks,
         },
       },
     },
   },
   {
     request: {
-      query: GET_PROJECT_SCENE_BOARDS,
+      query: GET_PROJECT_LOOK_BOARDS,
       variables: { projectId: "project-1" },
     },
     result: {
       data: {
-        sceneBoards: options.sceneBoards ?? mockSceneBoards,
+        lookBoards: options.lookBoards ?? mockLookBoards,
       },
     },
   },
@@ -328,8 +328,8 @@ describe("DashboardPage", () => {
         expect(screen.getByTestId("fixtures-card")).toBeInTheDocument();
       });
 
-      expect(screen.getByTestId("scenes-card")).toBeInTheDocument();
-      expect(screen.getByTestId("scene-boards-card")).toBeInTheDocument();
+      expect(screen.getByTestId("looks-card")).toBeInTheDocument();
+      expect(screen.getByTestId("look-boards-card")).toBeInTheDocument();
       expect(screen.getByTestId("cue-lists-card")).toBeInTheDocument();
       expect(screen.getByTestId("settings-card")).toBeInTheDocument();
     });
@@ -444,8 +444,8 @@ describe("DashboardPage", () => {
     });
   });
 
-  describe("scenes card", () => {
-    it("displays scene count and names", async () => {
+  describe("looks card", () => {
+    it("displays look count and names", async () => {
       const mocks = createMocks();
 
       render(
@@ -458,18 +458,18 @@ describe("DashboardPage", () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByTestId("scenes-card")).toBeInTheDocument();
+        expect(screen.getByTestId("looks-card")).toBeInTheDocument();
       });
 
-      const scenesCard = screen.getByTestId("scenes-card");
-      expect(scenesCard).toHaveTextContent("3");
-      expect(screen.getByText("Scene A")).toBeInTheDocument();
-      expect(screen.getByText("Scene B")).toBeInTheDocument();
-      expect(screen.getByText("Scene C")).toBeInTheDocument();
+      const looksCard = screen.getByTestId("looks-card");
+      expect(looksCard).toHaveTextContent("3");
+      expect(screen.getByText("Look A")).toBeInTheDocument();
+      expect(screen.getByText("Look B")).toBeInTheDocument();
+      expect(screen.getByText("Look C")).toBeInTheDocument();
     });
 
-    it("shows empty state when no scenes", async () => {
-      const mocks = createMocks({ scenes: [] });
+    it("shows empty state when no looks", async () => {
+      const mocks = createMocks({ looks: [] });
 
       render(
         <MockedProvider
@@ -481,23 +481,23 @@ describe("DashboardPage", () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByTestId("scenes-card")).toBeInTheDocument();
+        expect(screen.getByTestId("looks-card")).toBeInTheDocument();
       });
 
-      expect(screen.getByText("No scenes created")).toBeInTheDocument();
+      expect(screen.getByText("No looks created")).toBeInTheDocument();
     });
 
-    it("truncates scenes list and shows '+X more' when more than 8 scenes", async () => {
-      const manyScenes = Array.from({ length: 10 }, (_, i) => ({
-        id: `scene-${i + 1}`,
-        name: `Scene ${i + 1}`,
+    it("truncates looks list and shows '+X more' when more than 8 looks", async () => {
+      const manyLooks = Array.from({ length: 10 }, (_, i) => ({
+        id: `look-${i + 1}`,
+        name: `Look ${i + 1}`,
         description: "",
         createdAt: "2024-01-01",
         updatedAt: "2024-01-01",
         fixtureValues: [],
       }));
 
-      const mocks = createMocks({ scenes: manyScenes });
+      const mocks = createMocks({ looks: manyLooks });
 
       render(
         <MockedProvider
@@ -509,22 +509,22 @@ describe("DashboardPage", () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByTestId("scenes-card")).toBeInTheDocument();
+        expect(screen.getByTestId("looks-card")).toBeInTheDocument();
       });
 
-      const scenesCard = screen.getByTestId("scenes-card");
-      // Should show first 8 scenes
-      expect(scenesCard).toHaveTextContent("Scene 1");
-      expect(scenesCard).toHaveTextContent("Scene 8");
-      // Should show "+2 more..." for remaining scenes
-      expect(scenesCard).toHaveTextContent("+2 more...");
-      // Should NOT show scenes beyond 8
-      expect(scenesCard).not.toHaveTextContent("Scene 9");
+      const looksCard = screen.getByTestId("looks-card");
+      // Should show first 8 looks
+      expect(looksCard).toHaveTextContent("Look 1");
+      expect(looksCard).toHaveTextContent("Look 8");
+      // Should show "+2 more..." for remaining looks
+      expect(looksCard).toHaveTextContent("+2 more...");
+      // Should NOT show looks beyond 8
+      expect(looksCard).not.toHaveTextContent("Look 9");
     });
   });
 
-  describe("scene boards card", () => {
-    it("displays scene board count and button counts", async () => {
+  describe("look boards card", () => {
+    it("displays look board count and button counts", async () => {
       const mocks = createMocks();
 
       render(
@@ -537,10 +537,10 @@ describe("DashboardPage", () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByTestId("scene-boards-card")).toBeInTheDocument();
+        expect(screen.getByTestId("look-boards-card")).toBeInTheDocument();
       });
 
-      const boardsCard = screen.getByTestId("scene-boards-card");
+      const boardsCard = screen.getByTestId("look-boards-card");
       expect(boardsCard).toHaveTextContent("2");
       expect(boardsCard).toHaveTextContent("Main Board");
       expect(boardsCard).toHaveTextContent("(2 buttons)");
@@ -548,7 +548,7 @@ describe("DashboardPage", () => {
       expect(boardsCard).toHaveTextContent("(0 buttons)");
     });
 
-    it("renders links to specific scene boards", async () => {
+    it("renders links to specific look boards", async () => {
       const mocks = createMocks();
 
       render(
@@ -561,13 +561,13 @@ describe("DashboardPage", () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByTestId("scene-boards-card")).toBeInTheDocument();
+        expect(screen.getByTestId("look-boards-card")).toBeInTheDocument();
       });
 
       const mainBoardLink = screen.getByRole("link", { name: /Main Board/i });
       expect(mainBoardLink).toHaveAttribute(
         "href",
-        "/scene-board?board=board-1",
+        "/look-board?board=board-1",
       );
     });
   });
@@ -737,13 +737,13 @@ describe("DashboardPage", () => {
         "href",
         "/fixtures",
       );
-      expect(screen.getByRole("link", { name: "Scenes" })).toHaveAttribute(
+      expect(screen.getByRole("link", { name: "Looks" })).toHaveAttribute(
         "href",
-        "/scenes",
+        "/looks",
       );
       expect(
-        screen.getByRole("link", { name: "Scene Boards" }),
-      ).toHaveAttribute("href", "/scene-board");
+        screen.getByRole("link", { name: "Look Boards" }),
+      ).toHaveAttribute("href", "/look-board");
       expect(screen.getByRole("link", { name: "Cue Lists" })).toHaveAttribute(
         "href",
         "/cue-lists",

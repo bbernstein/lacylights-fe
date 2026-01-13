@@ -7,7 +7,7 @@ import {
   DELETE_FIXTURE_INSTANCE,
   GET_PROJECT_FIXTURES,
   REORDER_PROJECT_FIXTURES,
-  REORDER_SCENE_FIXTURES,
+  REORDER_LOOK_FIXTURES,
   SUGGEST_CHANNEL_ASSIGNMENT,
   GET_CHANNEL_MAP,
 } from '../fixtures';
@@ -66,9 +66,9 @@ describe('GraphQL Fixtures', () => {
       expect(REORDER_PROJECT_FIXTURES.kind).toBe('Document');
     });
 
-    it('exports REORDER_SCENE_FIXTURES mutation', () => {
-      expect(REORDER_SCENE_FIXTURES).toBeDefined();
-      expect(REORDER_SCENE_FIXTURES.kind).toBe('Document');
+    it('exports REORDER_LOOK_FIXTURES mutation', () => {
+      expect(REORDER_LOOK_FIXTURES).toBeDefined();
+      expect(REORDER_LOOK_FIXTURES.kind).toBe('Document');
     });
   });
 
@@ -96,7 +96,7 @@ describe('GraphQL Fixtures', () => {
         UPDATE_FIXTURE_INSTANCE,
         DELETE_FIXTURE_INSTANCE,
         REORDER_PROJECT_FIXTURES,
-        REORDER_SCENE_FIXTURES,
+        REORDER_LOOK_FIXTURES,
       ];
 
       mutations.forEach(mutation => {
@@ -203,11 +203,11 @@ describe('GraphQL Fixtures', () => {
       expect(mutationString).toContain('$fixtureOrders');
     });
 
-    it('REORDER_SCENE_FIXTURES contains expected content', () => {
-      const mutationString = REORDER_SCENE_FIXTURES.loc?.source.body;
+    it('REORDER_LOOK_FIXTURES contains expected content', () => {
+      const mutationString = REORDER_LOOK_FIXTURES.loc?.source.body;
       expect(mutationString).toContain('mutation');
-      expect(mutationString?.toLowerCase()).toContain('reorderscenefixtures');
-      expect(mutationString).toContain('$sceneId');
+      expect(mutationString?.toLowerCase()).toContain('reorderlookfixtures');
+      expect(mutationString).toContain('$lookId');
       expect(mutationString).toContain('$fixtureOrders');
     });
   });
@@ -392,7 +392,7 @@ describe('GraphQL Fixtures', () => {
         UPDATE_FIXTURE_INSTANCE,
         DELETE_FIXTURE_INSTANCE,
         REORDER_PROJECT_FIXTURES,
-        REORDER_SCENE_FIXTURES,
+        REORDER_LOOK_FIXTURES,
       ];
       mutations.forEach(mutation => {
         const operation = mutation.definitions[0];

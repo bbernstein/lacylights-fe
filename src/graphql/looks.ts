@@ -1,10 +1,10 @@
 import { gql } from '@apollo/client';
 
-export const GET_PROJECT_SCENES = gql`
-  query GetProjectScenes($projectId: ID!) {
+export const GET_PROJECT_LOOKS = gql`
+  query GetProjectLooks($projectId: ID!) {
     project(id: $projectId) {
       id
-      scenes {
+      looks {
         id
         name
         description
@@ -45,9 +45,9 @@ export const GET_PROJECT_SCENES = gql`
   }
 `;
 
-export const GET_SCENE = gql`
-  query GetScene($id: ID!) {
-    scene(id: $id) {
+export const GET_LOOK = gql`
+  query GetLook($id: ID!) {
+    look(id: $id) {
       id
       name
       description
@@ -97,9 +97,9 @@ export const GET_SCENE = gql`
   }
 `;
 
-export const CREATE_SCENE = gql`
-  mutation CreateScene($input: CreateSceneInput!) {
-    createScene(input: $input) {
+export const CREATE_LOOK = gql`
+  mutation CreateLook($input: CreateLookInput!) {
+    createLook(input: $input) {
       id
       name
       description
@@ -118,9 +118,9 @@ export const CREATE_SCENE = gql`
   }
 `;
 
-export const UPDATE_SCENE = gql`
-  mutation UpdateScene($id: ID!, $input: UpdateSceneInput!) {
-    updateScene(id: $id, input: $input) {
+export const UPDATE_LOOK = gql`
+  mutation UpdateLook($id: ID!, $input: UpdateLookInput!) {
+    updateLook(id: $id, input: $input) {
       id
       name
       description
@@ -139,15 +139,15 @@ export const UPDATE_SCENE = gql`
   }
 `;
 
-export const DELETE_SCENE = gql`
-  mutation DeleteScene($id: ID!) {
-    deleteScene(id: $id)
+export const DELETE_LOOK = gql`
+  mutation DeleteLook($id: ID!) {
+    deleteLook(id: $id)
   }
 `;
 
-export const DUPLICATE_SCENE = gql`
-  mutation DuplicateScene($id: ID!) {
-    duplicateScene(id: $id) {
+export const DUPLICATE_LOOK = gql`
+  mutation DuplicateLook($id: ID!) {
+    duplicateLook(id: $id) {
       id
       name
       description
@@ -166,17 +166,17 @@ export const DUPLICATE_SCENE = gql`
   }
 `;
 
-export const GET_CURRENT_ACTIVE_SCENE = gql`
-  query GetCurrentActiveScene {
-    currentActiveScene {
+export const GET_CURRENT_ACTIVE_LOOK = gql`
+  query GetCurrentActiveLook {
+    currentActiveLook {
       id
     }
   }
 `;
 
-export const ACTIVATE_SCENE = gql`
-  mutation ActivateScene($sceneId: ID!) {
-    setSceneLive(sceneId: $sceneId)
+export const ACTIVATE_LOOK = gql`
+  mutation ActivateLook($lookId: ID!) {
+    setLookLive(lookId: $lookId)
   }
 `;
 
@@ -217,9 +217,9 @@ export const UPDATE_PREVIEW_CHANNEL = gql`
   }
 `;
 
-export const INITIALIZE_PREVIEW_WITH_SCENE = gql`
-  mutation InitializePreviewWithScene($sessionId: ID!, $sceneId: ID!) {
-    initializePreviewWithScene(sessionId: $sessionId, sceneId: $sceneId)
+export const INITIALIZE_PREVIEW_WITH_LOOK = gql`
+  mutation InitializePreviewWithLook($sessionId: ID!, $lookId: ID!) {
+    initializePreviewWithLook(sessionId: $sessionId, lookId: $lookId)
   }
 `;
 

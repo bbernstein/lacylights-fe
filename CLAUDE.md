@@ -9,7 +9,7 @@ LacyLights Frontend is the web-based user interface for the LacyLights theatrica
 **Role in LacyLights Ecosystem:**
 - Primary user interface for lighting designers and operators
 - Consumes GraphQL API from lacylights-go backend
-- Real-time scene visualization and control
+- Real-time look visualization and control
 - Touch-optimized for mobile devices and tablets
 
 ## Development Commands
@@ -109,13 +109,13 @@ const { data, loading } = useQuery(GET_PROJECT, {
 - Prefer composition over inheritance
 
 ### State Management
-- **Apollo Cache**: Server state (projects, fixtures, scenes)
+- **Apollo Cache**: Server state (projects, fixtures, looks)
 - **React Context**: UI state (selected project, theme)
 - **Local State**: Component-specific state
 
 ### Real-time Updates
 WebSocket subscriptions provide live updates:
-- Scene activation changes
+- Look activation changes
 - Cue playback status
 - DMX output monitoring
 

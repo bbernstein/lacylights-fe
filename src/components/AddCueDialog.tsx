@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import BottomSheet from "./BottomSheet";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 
-interface Scene {
+interface Look {
   id: string;
   name: string;
   description?: string;
@@ -15,15 +15,15 @@ interface AddCueDialogProps {
   onClose: () => void;
   cueListId: string;
   currentCueNumber: number;
-  currentSceneId: string | null;
-  scenes: Scene[];
+  currentLookId: string | null;
+  looks: Look[];
   defaultFadeInTime?: number;
   defaultFadeOutTime?: number;
   externalError?: string | null;
   onAdd: (params: {
     cueNumber: number;
     name: string;
-    sceneId: string;
+    lookId: string;
     createCopy: boolean;
     fadeInTime: number;
     fadeOutTime: number;
@@ -37,9 +37,9 @@ interface AddCueDialogProps {
  *
  * Features:
  * - Auto-calculates insert position (currentCueNumber + 0.5) for seamless cue insertion
- * - Smart defaults: pre-populates scene and timing values based on current context
- * - Scene copy option: create independent scene copy to prevent affecting other cues
- * - Two workflow options: "Add Only" or "Add & Edit" (opens scene editor immediately)
+ * - Smart defaults: pre-populates look and timing values based on current context
+ * - Look copy option: create independent look copy to prevent affecting other cues
+ * - Two workflow options: "Add Only" or "Add & Edit" (opens look editor immediately)
  * - Advanced timing controls: fade in/out times and auto-follow timing
  *
  * The dialog validates all inputs and displays errors from both form validation
@@ -50,8 +50,8 @@ interface AddCueDialogProps {
  * @param props.onClose - Callback when dialog is closed
  * @param props.cueListId - ID of the cue list to add the cue to
  * @param props.currentCueNumber - Current cue number, used to calculate insert position
- * @param props.currentSceneId - Current scene ID for pre-selecting in dropdown
- * @param props.scenes - Available scenes for selection
+ * @param props.currentLookId - Current look ID for pre-selecting in dropdown
+ * @param props.looks - Available looks for selection
  * @param props.defaultFadeInTime - Default fade in time in seconds (default: 3)
  * @param props.defaultFadeOutTime - Default fade out time in seconds (default: 3)
  * @param props.externalError - External error message from parent (e.g., mutation failure)
@@ -64,7 +64,7 @@ interface AddCueDialogProps {
  *   onClose={() => setShowDialog(false)}
  *   cueListId="list-123"
  *   currentCueNumber={5}
- *   currentSceneId="scene-456"
+ *   currentLookId="scene-456"
  *   scenes={availableScenes}
  *   externalError={error}
  *   onAdd={handleAddCue}
@@ -75,8 +75,8 @@ export default function AddCueDialog({
   isOpen,
   onClose,
   currentCueNumber,
-  currentSceneId,
-  scenes,
+  currentLookId,
+  looks,
   defaultFadeInTime = 3,
   defaultFadeOutTime = 3,
   externalError,
@@ -86,7 +86,7 @@ export default function AddCueDialog({
   // Form state
   const [cueNumber, setCueNumber] = useState("");
   const [cueName, setCueName] = useState("");
-  const [selectedSceneId, setSelectedSceneId] = useState("");
+  const [selectedLookId, setSelectedLookId] = useState("");
   const [createCopy, setCreateCopy] = useState(true);
   const [showAdvancedTiming, setShowAdvancedTiming] = useState(false);
   const [fadeInTime, setFadeInTime] = useState("");
@@ -101,11 +101,11 @@ export default function AddCueDialog({
       const insertPosition = currentCueNumber >= 0 ? currentCueNumber + 0.5 : 1;
       setCueNumber(insertPosition.toString());
 
-      // Default to current scene if available
-      if (currentSceneId) {
-        setSelectedSceneId(currentSceneId);
-      } else if (scenes.length > 0) {
-        setSelectedSceneId(scenes[0].id);
+      // Default to current look if available
+      if (currentLookId) {
+        setSelectedLookId(currentLookId);
+      } else if (looks.length > 0) {
+        setSelectedLookId(looks[0].id);
       }
 
       // Generate default cue name
@@ -123,8 +123,8 @@ export default function AddCueDialog({
   }, [
     isOpen,
     currentCueNumber,
-    currentSceneId,
-    scenes,
+    currentLookId,
+    looks,
     defaultFadeInTime,
     defaultFadeOutTime,
   ]);
@@ -134,8 +134,8 @@ export default function AddCueDialog({
     if (isNaN(cueNum) || cueNum < 0) {
       return "Cue number must be a valid positive number";
     }
-    if (!selectedSceneId) {
-      return "Please select a scene";
+    if (!selectedLookId) {
+      return "Please select a look";
     }
     const fadeIn = fadeInTime === "" ? 0 : parseFloat(fadeInTime);
     if (isNaN(fadeIn) || fadeIn < 0) {
@@ -165,7 +165,7 @@ export default function AddCueDialog({
     onAdd({
       cueNumber: cueNum,
       name: cueName.trim() || `Cue ${Math.floor(cueNum)}`,
-      sceneId: selectedSceneId,
+      lookId: selectedLookId,
       createCopy,
       fadeInTime: fadeIn,
       fadeOutTime: fadeOut,
@@ -179,7 +179,7 @@ export default function AddCueDialog({
   const handleClose = () => {
     setCueNumber("");
     setCueName("");
-    setSelectedSceneId("");
+    setSelectedLookId("");
     setCreateCopy(true);
     setFadeInTime("");
     setFadeOutTime("");
@@ -264,25 +264,25 @@ export default function AddCueDialog({
         />
       </div>
 
-      {/* Scene Selection */}
+      {/* Look Selection */}
       <div>
         <label
-          htmlFor="scene-select"
+          htmlFor="look-select"
           className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
         >
-          Scene *
+          Look *
         </label>
         <select
-          id="scene-select"
-          value={selectedSceneId}
-          onChange={(e) => setSelectedSceneId(e.target.value)}
+          id="look-select"
+          value={selectedLookId}
+          onChange={(e) => setSelectedLookId(e.target.value)}
           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base text-gray-900 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           required
         >
-          <option value="">Select a scene...</option>
-          {scenes.map((scene) => (
-            <option key={scene.id} value={scene.id}>
-              {scene.name}
+          <option value="">Select a look...</option>
+          {looks.map((look) => (
+            <option key={look.id} value={look.id}>
+              {look.name}
             </option>
           ))}
         </select>
@@ -304,12 +304,12 @@ export default function AddCueDialog({
             htmlFor="create-copy"
             className="font-medium text-gray-700 dark:text-gray-300"
           >
-            Create a copy of the scene
+            Create a copy of the look
           </label>
           <p className="text-gray-500 dark:text-gray-400">
             {createCopy
-              ? "Recommended: Changes will not affect other cues using this scene"
-              : "Warning: Changes will affect all cues using this scene"}
+              ? "Recommended: Changes will not affect other cues using this look"
+              : "Warning: Changes will affect all cues using this look"}
           </p>
         </div>
       </div>

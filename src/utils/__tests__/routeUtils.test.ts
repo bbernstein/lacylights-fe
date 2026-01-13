@@ -1,10 +1,10 @@
-import { extractDynamicRouteId, extractSceneId, extractCueListId } from '../routeUtils';
+import { extractDynamicRouteId, extractLookId, extractCueListId } from '../routeUtils';
 
 describe('routeUtils', () => {
   describe('extractDynamicRouteId', () => {
     describe('when NOT in static export mode', () => {
       it('should return the original id prop when not __dynamic__', () => {
-        const result = extractDynamicRouteId('abc123', /\/scenes\/([^\/\?#]+)/);
+        const result = extractDynamicRouteId('abc123', /\/looks\/([^\/\?#]+)/);
         expect(result).toBe('abc123');
       });
 
@@ -37,13 +37,13 @@ describe('routeUtils', () => {
 
       it('should extract id from URL when idProp is __dynamic__', () => {
         Object.defineProperty(window, 'location', {
-          value: { pathname: '/scenes/my-scene-id-123/edit' },
+          value: { pathname: '/looks/my-look-id-123/edit' },
           writable: true,
           configurable: true,
         });
 
-        const result = extractDynamicRouteId('__dynamic__', /\/scenes\/([^\/\?#]+)/);
-        expect(result).toBe('my-scene-id-123');
+        const result = extractDynamicRouteId('__dynamic__', /\/looks\/([^\/\?#]+)/);
+        expect(result).toBe('my-look-id-123');
       });
 
       it('should return __dynamic__ if pattern does not match URL', () => {
@@ -53,7 +53,7 @@ describe('routeUtils', () => {
           configurable: true,
         });
 
-        const result = extractDynamicRouteId('__dynamic__', /\/scenes\/([^\/\?#]+)/);
+        const result = extractDynamicRouteId('__dynamic__', /\/looks\/([^\/\?#]+)/);
         expect(result).toBe('__dynamic__');
       });
 
@@ -70,24 +70,24 @@ describe('routeUtils', () => {
 
       it('should stop at query parameters', () => {
         Object.defineProperty(window, 'location', {
-          value: { pathname: '/scenes/scene-123?tab=settings' },
+          value: { pathname: '/looks/look-123?tab=settings' },
           writable: true,
           configurable: true,
         });
 
-        const result = extractDynamicRouteId('__dynamic__', /\/scenes\/([^\/\?#]+)/);
-        expect(result).toBe('scene-123');
+        const result = extractDynamicRouteId('__dynamic__', /\/looks\/([^\/\?#]+)/);
+        expect(result).toBe('look-123');
       });
 
       it('should stop at hash fragments', () => {
         Object.defineProperty(window, 'location', {
-          value: { pathname: '/scenes/scene-456#section' },
+          value: { pathname: '/looks/look-456#section' },
           writable: true,
           configurable: true,
         });
 
-        const result = extractDynamicRouteId('__dynamic__', /\/scenes\/([^\/\?#]+)/);
-        expect(result).toBe('scene-456');
+        const result = extractDynamicRouteId('__dynamic__', /\/looks\/([^\/\?#]+)/);
+        expect(result).toBe('look-456');
       });
 
       it('should handle trailing slashes in pathname', () => {
@@ -104,10 +104,10 @@ describe('routeUtils', () => {
   });
 
   // Note: Tests for static export mode are skipped due to JSDOM limitations with window.location mocking.
-  describe('extractSceneId', () => {
+  describe('extractLookId', () => {
     it('should return original id when not in static export mode', () => {
-      const result = extractSceneId('scene-abc');
-      expect(result).toBe('scene-abc');
+      const result = extractLookId('look-abc');
+      expect(result).toBe('look-abc');
     });
 
     describe.skip('static export mode tests (skipped due to JSDOM limitations)', () => {
@@ -128,36 +128,36 @@ describe('routeUtils', () => {
         }
       });
 
-      it('should extract scene id from /scenes/:id URL', () => {
+      it('should extract look id from /looks/:id URL', () => {
         Object.defineProperty(window, 'location', {
-          value: { pathname: '/scenes/extracted-scene-id' },
+          value: { pathname: '/looks/extracted-look-id' },
           writable: true,
           configurable: true,
         });
 
-        const result = extractSceneId('__dynamic__');
-        expect(result).toBe('extracted-scene-id');
+        const result = extractLookId('__dynamic__');
+        expect(result).toBe('extracted-look-id');
       });
 
-      it('should extract scene id from /scenes/:id/edit URL', () => {
+      it('should extract look id from /looks/:id/edit URL', () => {
         Object.defineProperty(window, 'location', {
-          value: { pathname: '/scenes/edit-scene-id/edit' },
+          value: { pathname: '/looks/edit-look-id/edit' },
           writable: true,
           configurable: true,
         });
 
-        const result = extractSceneId('__dynamic__');
-        expect(result).toBe('edit-scene-id');
+        const result = extractLookId('__dynamic__');
+        expect(result).toBe('edit-look-id');
       });
 
-      it('should handle CUID format scene IDs', () => {
+      it('should handle CUID format look IDs', () => {
         Object.defineProperty(window, 'location', {
-          value: { pathname: '/scenes/cmggobir40ntk4ipsxdkg2o9y/edit' },
+          value: { pathname: '/looks/cmggobir40ntk4ipsxdkg2o9y/edit' },
           writable: true,
           configurable: true,
         });
 
-        const result = extractSceneId('__dynamic__');
+        const result = extractLookId('__dynamic__');
         expect(result).toBe('cmggobir40ntk4ipsxdkg2o9y');
       });
     });

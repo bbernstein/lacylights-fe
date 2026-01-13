@@ -16,7 +16,7 @@
 import 'cross-fetch/polyfill';
 import { ApolloClient, InMemoryCache, gql, HttpLink } from '@apollo/client';
 import { GET_PROJECTS, GET_PROJECT } from '../projects';
-import { GET_PROJECT_SCENES } from '../scenes';
+import { GET_PROJECT_LOOKS } from '../looks';
 
 describe('GraphQL Integration Contract Tests', () => {
   let client: ApolloClient<unknown>;
@@ -110,10 +110,10 @@ describe('GraphQL Integration Contract Tests', () => {
 
           // Validate nested relationships
           expect(data.project).toHaveProperty('fixtures');
-          expect(data.project).toHaveProperty('scenes');
+          expect(data.project).toHaveProperty('looks');
           expect(data.project).toHaveProperty('cueLists');
           expect(Array.isArray(data.project.fixtures)).toBe(true);
-          expect(Array.isArray(data.project.scenes)).toBe(true);
+          expect(Array.isArray(data.project.looks)).toBe(true);
           expect(Array.isArray(data.project.cueLists)).toBe(true);
 
           // Validate nested object structure if data exists
@@ -123,10 +123,10 @@ describe('GraphQL Integration Contract Tests', () => {
             expect(fixture).toHaveProperty('name');
           }
 
-          if (data.project.scenes.length > 0) {
-            const scene = data.project.scenes[0];
-            expect(scene).toHaveProperty('id');
-            expect(scene).toHaveProperty('name');
+          if (data.project.looks.length > 0) {
+            const look = data.project.looks[0];
+            expect(look).toHaveProperty('id');
+            expect(look).toHaveProperty('name');
           }
 
           if (data.project.cueLists.length > 0) {
@@ -143,8 +143,8 @@ describe('GraphQL Integration Contract Tests', () => {
     });
   });
 
-  describe('Scene Queries', () => {
-    it('should successfully query project scenes with nested fixture data', async () => {
+  describe('Look Queries', () => {
+    it('should successfully query project looks with nested fixture data', async () => {
       // Get a project first
       const projectsResult = await client.query({
         query: GET_PROJECTS,
@@ -155,7 +155,7 @@ describe('GraphQL Integration Contract Tests', () => {
         const projectId = projectsResult.data.projects[0].id;
 
         const { data, errors } = await client.query({
-          query: GET_PROJECT_SCENES,
+          query: GET_PROJECT_LOOKS,
           variables: { projectId },
           fetchPolicy: 'network-only',
         });
@@ -163,20 +163,20 @@ describe('GraphQL Integration Contract Tests', () => {
         expect(errors).toBeUndefined();
         expect(data).toBeDefined();
         expect(data.project).toBeDefined();
-        expect(data.project.scenes).toBeDefined();
-        expect(Array.isArray(data.project.scenes)).toBe(true);
+        expect(data.project.looks).toBeDefined();
+        expect(Array.isArray(data.project.looks)).toBe(true);
 
-        // Validate scene structure if scenes exist
-        if (data.project.scenes.length > 0) {
-          const scene = data.project.scenes[0];
-          expect(scene).toHaveProperty('id');
-          expect(scene).toHaveProperty('name');
-          expect(scene).toHaveProperty('fixtureValues');
-          expect(Array.isArray(scene.fixtureValues)).toBe(true);
+        // Validate look structure if looks exist
+        if (data.project.looks.length > 0) {
+          const look = data.project.looks[0];
+          expect(look).toHaveProperty('id');
+          expect(look).toHaveProperty('name');
+          expect(look).toHaveProperty('fixtureValues');
+          expect(Array.isArray(look.fixtureValues)).toBe(true);
 
           // Validate fixture values structure if data exists
-          if (scene.fixtureValues.length > 0) {
-            const fixtureValue = scene.fixtureValues[0];
+          if (look.fixtureValues.length > 0) {
+            const fixtureValue = look.fixtureValues[0];
             expect(fixtureValue).toHaveProperty('id');
             expect(fixtureValue).toHaveProperty('fixture');
             expect(fixtureValue).toHaveProperty('channels');
@@ -208,7 +208,7 @@ describe('GraphQL Integration Contract Tests', () => {
           }
         }
       } else {
-        console.log('Skipping scene test - no projects in database');
+        console.log('Skipping look test - no projects in database');
       }
     });
   });

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import BottomSheet from "./BottomSheet";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 
-interface Scene {
+interface Look {
   id: string;
   name: string;
   description?: string;
@@ -14,7 +14,7 @@ interface Cue {
   id: string;
   cueNumber: number;
   name: string;
-  scene: {
+  look: {
     id: string;
     name: string;
   };
@@ -27,17 +27,17 @@ interface EditCueDialogProps {
   isOpen: boolean;
   onClose: () => void;
   cue: Cue;
-  scenes: Scene[];
+  looks: Look[];
   externalError?: string | null;
   onUpdate: (params: {
     cueId: string;
     cueNumber?: number;
     name?: string;
-    sceneId?: string;
+    lookId?: string;
     fadeInTime?: number;
     fadeOutTime?: number;
     followTime?: number | null;
-    action: "edit-scene" | "stay";
+    action: "edit-look" | "stay";
   }) => void;
 }
 
@@ -46,9 +46,9 @@ interface EditCueDialogProps {
  *
  * Features:
  * - Pre-populated form fields with current cue values
- * - Allows editing cue number, name, scene reference, and timing parameters
- * - Scene change warning when user selects a different scene
- * - Two workflow options: "Save" or "Save & Edit Scene" (opens scene editor after save)
+ * - Allows editing cue number, name, look reference, and timing parameters
+ * - Look change warning when user selects a different look
+ * - Two workflow options: "Save" or "Save & Edit Look" (opens look editor after save)
  * - Advanced timing controls for fade in/out and auto-follow timing
  *
  * The dialog validates all inputs and displays errors from both form validation
@@ -59,7 +59,7 @@ interface EditCueDialogProps {
  * @param props.isOpen - Controls dialog visibility
  * @param props.onClose - Callback when dialog is closed
  * @param props.cue - The cue to edit, with current values
- * @param props.scenes - Available scenes for selection
+ * @param props.looks - Available looks for selection
  * @param props.externalError - External error message from parent (e.g., mutation failure)
  * @param props.onUpdate - Callback when cue is updated, receives updated parameters and action
  *
@@ -79,7 +79,7 @@ export default function EditCueDialog({
   isOpen,
   onClose,
   cue,
-  scenes,
+  looks,
   externalError,
   onUpdate,
 }: EditCueDialogProps) {
@@ -87,7 +87,7 @@ export default function EditCueDialog({
   // Form state
   const [cueNumber, setCueNumber] = useState("");
   const [cueName, setCueName] = useState("");
-  const [selectedSceneId, setSelectedSceneId] = useState("");
+  const [selectedLookId, setSelectedLookId] = useState("");
   const [showAdvancedTiming, setShowAdvancedTiming] = useState(false);
   const [fadeInTime, setFadeInTime] = useState("");
   const [fadeOutTime, setFadeOutTime] = useState("");
@@ -99,7 +99,7 @@ export default function EditCueDialog({
     if (isOpen && cue) {
       setCueNumber(cue.cueNumber.toString());
       setCueName(cue.name);
-      setSelectedSceneId(cue.scene.id);
+      setSelectedLookId(cue.look.id);
       setFadeInTime(cue.fadeInTime.toString());
       setFadeOutTime(cue.fadeOutTime.toString());
       setFollowTime(cue.followTime ?? null);
@@ -116,8 +116,8 @@ export default function EditCueDialog({
     if (!cueName.trim()) {
       return "Cue name is required";
     }
-    if (!selectedSceneId) {
-      return "Please select a scene";
+    if (!selectedLookId) {
+      return "Please select a look";
     }
     const fadeIn = fadeInTime === "" ? 0 : parseFloat(fadeInTime);
     if (isNaN(fadeIn) || fadeIn < 0) {
@@ -133,7 +133,7 @@ export default function EditCueDialog({
     return null;
   };
 
-  const handleSubmit = (action: "edit-scene" | "stay") => {
+  const handleSubmit = (action: "edit-look" | "stay") => {
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
@@ -148,7 +148,7 @@ export default function EditCueDialog({
       cueId: cue.id,
       cueNumber: cueNum,
       name: cueName.trim(),
-      sceneId: selectedSceneId,
+      lookId: selectedLookId,
       fadeInTime: fadeIn,
       fadeOutTime: fadeOut,
       followTime,
@@ -161,7 +161,7 @@ export default function EditCueDialog({
   const handleClose = () => {
     setCueNumber("");
     setCueName("");
-    setSelectedSceneId("");
+    setSelectedLookId("");
     setFadeInTime("");
     setFadeOutTime("");
     setFollowTime(null);
@@ -246,31 +246,31 @@ export default function EditCueDialog({
         />
       </div>
 
-      {/* Scene Selection */}
+      {/* Look Selection */}
       <div>
         <label
-          htmlFor="scene-select"
+          htmlFor="look-select"
           className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
         >
-          Scene *
+          Look *
         </label>
         <select
-          id="scene-select"
-          value={selectedSceneId}
-          onChange={(e) => setSelectedSceneId(e.target.value)}
+          id="look-select"
+          value={selectedLookId}
+          onChange={(e) => setSelectedLookId(e.target.value)}
           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base text-gray-900 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           required
         >
-          <option value="">Select a scene...</option>
-          {scenes.map((scene) => (
-            <option key={scene.id} value={scene.id}>
-              {scene.name}
+          <option value="">Select a look...</option>
+          {looks.map((look) => (
+            <option key={look.id} value={look.id}>
+              {look.name}
             </option>
           ))}
         </select>
-        {selectedSceneId !== cue.scene.id && (
+        {selectedLookId !== cue.look.id && (
           <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-            Warning: Changing scene will update this cue to reference a different scene
+            Warning: Changing look will update this cue to reference a different look
           </p>
         )}
       </div>
@@ -377,10 +377,10 @@ export default function EditCueDialog({
         <>
           <button
             type="button"
-            onClick={() => handleSubmit("edit-scene")}
+            onClick={() => handleSubmit("edit-look")}
             className="w-full px-4 py-3 text-base font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-h-[44px] touch-manipulation"
           >
-            Save & Edit Scene
+            Save & Edit Look
           </button>
           <button
             type="button"
@@ -415,10 +415,10 @@ export default function EditCueDialog({
           </button>
           <button
             type="button"
-            onClick={() => handleSubmit("edit-scene")}
+            onClick={() => handleSubmit("edit-look")}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            Save & Edit Scene
+            Save & Edit Look
           </button>
         </>
       )}
