@@ -13,8 +13,8 @@
  * @returns The extracted ID from the URL, or the original prop if not in static export mode
  *
  * @example
- * // For /scenes/abc123/edit with idProp = '__dynamic__'
- * const sceneId = extractDynamicRouteId('__dynamic__', /\/scenes\/([^\/\?#]+)/);
+ * // For /looks/abc123/edit with idProp = '__dynamic__'
+ * const lookId = extractDynamicRouteId('__dynamic__', /\/looks\/([^\/\?#]+)/);
  * // Returns: 'abc123'
  *
  * @example
@@ -34,15 +34,15 @@ export function extractDynamicRouteId(idProp: string, routePattern: RegExp): str
 }
 
 /**
- * Extracts a scene ID from the URL when in static export mode.
- * Pattern matches /scenes/{sceneId}/edit or /scenes/{sceneId}
+ * Extracts a look ID from the URL when in static export mode.
+ * Pattern matches /looks/{lookId}/edit or /looks/{lookId}
  *
- * @param sceneIdProp - The scene ID prop from Next.js
- * @returns The extracted scene ID
+ * @param lookIdProp - The look ID prop from Next.js
+ * @returns The extracted look ID
  */
-export function extractSceneId(sceneIdProp: string): string {
+export function extractLookId(lookIdProp: string): string {
   // Excludes /, ?, and # from the ID to handle query params and hash fragments
-  return extractDynamicRouteId(sceneIdProp, /\/scenes\/([^\/\?#]+)/);
+  return extractDynamicRouteId(lookIdProp, /\/looks\/([^\/\?#]+)/);
 }
 
 /**

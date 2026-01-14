@@ -10,10 +10,10 @@ jest.mock('@/hooks/useMediaQuery', () => ({
 import { useIsMobile } from '@/hooks/useMediaQuery';
 const mockUseIsMobile = useIsMobile as jest.Mock;
 
-const mockScenes = [
-  { id: 'scene-1', name: 'Scene 1', description: 'First scene' },
-  { id: 'scene-2', name: 'Scene 2', description: 'Second scene' },
-  { id: 'scene-3', name: 'Scene 3', description: 'Third scene' },
+const mockLooks = [
+  { id: 'look-1', name: 'Look 1', description: 'First look' },
+  { id: 'look-2', name: 'Look 2', description: 'Second look' },
+  { id: 'look-3', name: 'Look 3', description: 'Third look' },
 ];
 
 describe('AddCueDialog', () => {
@@ -25,8 +25,8 @@ describe('AddCueDialog', () => {
     onClose: mockOnClose,
     cueListId: 'cue-list-1',
     currentCueNumber: 5,
-    currentSceneId: 'scene-2',
-    scenes: mockScenes,
+    currentLookId: 'look-2',
+    looks: mockLooks,
     defaultFadeInTime: 3,
     defaultFadeOutTime: 3,
     onAdd: mockOnAdd,
@@ -54,8 +54,8 @@ describe('AddCueDialog', () => {
       render(<AddCueDialog {...defaultProps} />);
       expect(screen.getByLabelText('Cue Number *')).toBeInTheDocument();
       expect(screen.getByLabelText('Cue Name')).toBeInTheDocument();
-      expect(screen.getByLabelText('Scene *')).toBeInTheDocument();
-      expect(screen.getByLabelText('Create a copy of the scene')).toBeInTheDocument();
+      expect(screen.getByLabelText('Look *')).toBeInTheDocument();
+      expect(screen.getByLabelText('Create a copy of the look')).toBeInTheDocument();
     });
 
     it('renders action buttons', () => {
@@ -79,16 +79,16 @@ describe('AddCueDialog', () => {
       expect(cueNumberInput.value).toBe('1');
     });
 
-    it('defaults to current scene when provided', () => {
-      render(<AddCueDialog {...defaultProps} currentSceneId="scene-2" />);
-      const sceneSelect = screen.getByLabelText('Scene *') as HTMLSelectElement;
-      expect(sceneSelect.value).toBe('scene-2');
+    it('defaults to current look when provided', () => {
+      render(<AddCueDialog {...defaultProps} currentLookId="look-2" />);
+      const lookSelect = screen.getByLabelText('Look *') as HTMLSelectElement;
+      expect(lookSelect.value).toBe('look-2');
     });
 
-    it('defaults to first scene when no current scene', () => {
-      render(<AddCueDialog {...defaultProps} currentSceneId={null} />);
-      const sceneSelect = screen.getByLabelText('Scene *') as HTMLSelectElement;
-      expect(sceneSelect.value).toBe('scene-1');
+    it('defaults to first look when no current look', () => {
+      render(<AddCueDialog {...defaultProps} currentLookId={null} />);
+      const lookSelect = screen.getByLabelText('Look *') as HTMLSelectElement;
+      expect(lookSelect.value).toBe('look-1');
     });
 
     it('generates default cue name based on cue number', () => {
@@ -99,7 +99,7 @@ describe('AddCueDialog', () => {
 
     it('"Create a copy" checkbox is checked by default', () => {
       render(<AddCueDialog {...defaultProps} />);
-      const createCopyCheckbox = screen.getByLabelText('Create a copy of the scene') as HTMLInputElement;
+      const createCopyCheckbox = screen.getByLabelText('Create a copy of the look') as HTMLInputElement;
       expect(createCopyCheckbox.checked).toBe(true);
     });
   });
@@ -119,16 +119,16 @@ describe('AddCueDialog', () => {
       expect(cueNameInput.value).toBe('Opening Scene');
     });
 
-    it('updates selected scene when changed', () => {
+    it('updates selected look when changed', () => {
       render(<AddCueDialog {...defaultProps} />);
-      const sceneSelect = screen.getByLabelText('Scene *') as HTMLSelectElement;
-      fireEvent.change(sceneSelect, { target: { value: 'scene-3' } });
-      expect(sceneSelect.value).toBe('scene-3');
+      const lookSelect = screen.getByLabelText('Look *') as HTMLSelectElement;
+      fireEvent.change(lookSelect, { target: { value: 'look-3' } });
+      expect(lookSelect.value).toBe('look-3');
     });
 
     it('toggles create copy checkbox', () => {
       render(<AddCueDialog {...defaultProps} />);
-      const createCopyCheckbox = screen.getByLabelText('Create a copy of the scene') as HTMLInputElement;
+      const createCopyCheckbox = screen.getByLabelText('Create a copy of the look') as HTMLInputElement;
       expect(createCopyCheckbox.checked).toBe(true);
       fireEvent.click(createCopyCheckbox);
       expect(createCopyCheckbox.checked).toBe(false);
@@ -171,16 +171,16 @@ describe('AddCueDialog', () => {
       expect(mockOnAdd).not.toHaveBeenCalled();
     });
 
-    it('shows error when no scene is selected', async () => {
-      render(<AddCueDialog {...defaultProps} currentSceneId={null} />);
-      const sceneSelect = screen.getByLabelText('Scene *');
-      fireEvent.change(sceneSelect, { target: { value: '' } });
+    it('shows error when no look is selected', async () => {
+      render(<AddCueDialog {...defaultProps} currentLookId={null} />);
+      const lookSelect = screen.getByLabelText('Look *');
+      fireEvent.change(lookSelect, { target: { value: '' } });
 
       const addButton = screen.getByText('Add & Edit');
       fireEvent.click(addButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Please select a scene')).toBeInTheDocument();
+        expect(screen.getByText('Please select a look')).toBeInTheDocument();
       });
 
       expect(mockOnAdd).not.toHaveBeenCalled();
@@ -217,8 +217,8 @@ describe('AddCueDialog', () => {
       const cueNameInput = screen.getByLabelText('Cue Name');
       fireEvent.change(cueNameInput, { target: { value: 'Test Cue' } });
 
-      const sceneSelect = screen.getByLabelText('Scene *');
-      fireEvent.change(sceneSelect, { target: { value: 'scene-3' } });
+      const lookSelect = screen.getByLabelText('Look *');
+      fireEvent.change(lookSelect, { target: { value: 'look-3' } });
 
       // Submit
       const addEditButton = screen.getByText('Add & Edit');
@@ -227,7 +227,7 @@ describe('AddCueDialog', () => {
       expect(mockOnAdd).toHaveBeenCalledWith({
         cueNumber: 6.5,
         name: 'Test Cue',
-        sceneId: 'scene-3',
+        lookId: 'look-3',
         createCopy: true,
         fadeInTime: 3,
         fadeOutTime: 3,
@@ -304,7 +304,7 @@ describe('AddCueDialog', () => {
       render(<AddCueDialog {...defaultProps} />);
 
       // Uncheck create copy
-      const createCopyCheckbox = screen.getByLabelText('Create a copy of the scene');
+      const createCopyCheckbox = screen.getByLabelText('Create a copy of the look');
       fireEvent.click(createCopyCheckbox);
 
       // Submit
@@ -354,12 +354,12 @@ describe('AddCueDialog', () => {
   });
 
   describe('Edge Cases', () => {
-    it('handles empty scene list gracefully', () => {
-      render(<AddCueDialog {...defaultProps} scenes={[]} currentSceneId={null} />);
-      const sceneSelect = screen.getByLabelText('Scene *');
-      expect(sceneSelect).toBeInTheDocument();
-      // Should only have the "Select a scene..." option
-      expect(sceneSelect.children.length).toBe(1);
+    it('handles empty look list gracefully', () => {
+      render(<AddCueDialog {...defaultProps} looks={[]} currentLookId={null} />);
+      const lookSelect = screen.getByLabelText('Look *');
+      expect(lookSelect).toBeInTheDocument();
+      // Should only have the "Select a look..." option
+      expect(lookSelect.children.length).toBe(1);
     });
 
     it('handles cue number 0 correctly', () => {

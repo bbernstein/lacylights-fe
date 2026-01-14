@@ -282,7 +282,7 @@ export default function ImportExportButtons({
             projectId,
             options: {
               includeFixtures: true,
-              includeScenes: true,
+              includeLooks: true,
               includeCueLists: true
             }
           }

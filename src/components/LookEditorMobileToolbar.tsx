@@ -4,11 +4,11 @@ import { useState, useCallback } from 'react';
 import { ChevronLeftIcon, ChevronDownIcon, PlayIcon } from '@heroicons/react/24/outline';
 
 /**
- * Props for the SceneEditorMobileToolbar component
+ * Props for the LookEditorMobileToolbar component
  */
-interface SceneEditorMobileToolbarProps {
-  /** Scene name to display */
-  sceneName: string;
+interface LookEditorMobileToolbarProps {
+  /** Look name to display */
+  lookName: string;
   /** Current editing mode */
   mode: 'channels' | 'layout';
   /** Whether editing from Player Mode */
@@ -22,11 +22,11 @@ interface SceneEditorMobileToolbarProps {
 }
 
 /**
- * Minimal mobile toolbar for the Scene Editor
+ * Minimal mobile toolbar for the Look Editor
  *
  * Displays a compact top bar on mobile devices with:
- * - Back button (context-aware: "Player" or "Scenes")
- * - Scene name (truncated)
+ * - Back button (context-aware: "Player" or "Looks")
+ * - Look name (truncated)
  * - Compact mode switcher dropdown
  * - Player Mode indicator (icon only on mobile)
  *
@@ -34,23 +34,23 @@ interface SceneEditorMobileToolbarProps {
  *
  * @example
  * ```tsx
- * <SceneEditorMobileToolbar
- *   sceneName="Blue Wash"
+ * <LookEditorMobileToolbar
+ *   lookName="Blue Wash"
  *   mode="channels"
  *   fromPlayer={false}
- *   onClose={() => router.push('/scenes')}
+ *   onClose={() => router.push('/looks')}
  *   onToggleMode={() => setMode(mode === 'channels' ? 'layout' : 'channels')}
  * />
  * ```
  */
-export default function SceneEditorMobileToolbar({
-  sceneName,
+export default function LookEditorMobileToolbar({
+  lookName,
   mode,
   fromPlayer = false,
   onClose,
   onToggleMode,
-  testId = 'scene-editor-mobile-toolbar',
-}: SceneEditorMobileToolbarProps) {
+  testId = 'look-editor-mobile-toolbar',
+}: LookEditorMobileToolbarProps) {
   const [showModeDropdown, setShowModeDropdown] = useState(false);
 
   const handleModeSelect = useCallback(
@@ -72,14 +72,14 @@ export default function SceneEditorMobileToolbar({
       <button
         onClick={onClose}
         className="flex items-center text-gray-300 hover:text-white p-2 -ml-2 rounded-md transition-colors touch-manipulation"
-        aria-label={fromPlayer ? 'Back to Player' : 'Back to Scenes'}
+        aria-label={fromPlayer ? 'Back to Player' : 'Back to Looks'}
         data-testid={`${testId}-back-button`}
       >
         <ChevronLeftIcon className="h-5 w-5" />
-        <span className="sr-only">{fromPlayer ? 'Back to Player' : 'Back to Scenes'}</span>
+        <span className="sr-only">{fromPlayer ? 'Back to Player' : 'Back to Looks'}</span>
       </button>
 
-      {/* Scene name + Player Mode indicator */}
+      {/* Look name + Player Mode indicator */}
       <div className="flex items-center space-x-2 flex-1 min-w-0 px-2">
         {fromPlayer && (
           <div
@@ -92,10 +92,10 @@ export default function SceneEditorMobileToolbar({
         )}
         <h1
           className="text-white font-medium truncate"
-          title={sceneName}
-          data-testid={`${testId}-scene-name`}
+          title={lookName}
+          data-testid={`${testId}-look-name`}
         >
-          {sceneName}
+          {lookName}
         </h1>
       </div>
 

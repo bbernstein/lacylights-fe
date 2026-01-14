@@ -15,7 +15,7 @@ export const GET_PROJECT_CUE_LISTS = gql`
           id
           name
           cueNumber
-          scene {
+          look {
             id
             name
           }
@@ -48,7 +48,7 @@ export const GET_CUE_LIST = gql`
         id
         name
         cueNumber
-        scene {
+        look {
           id
           name
           description
@@ -110,7 +110,7 @@ export const CREATE_CUE = gql`
       id
       name
       cueNumber
-      scene {
+      look {
         id
         name
       }
@@ -130,7 +130,7 @@ export const UPDATE_CUE = gql`
       id
       name
       cueNumber
-      scene {
+      look {
         id
         name
       }
@@ -174,7 +174,7 @@ export const BULK_UPDATE_CUES = gql`
       id
       name
       cueNumber
-      scene {
+      look {
         id
         name
       }
@@ -194,7 +194,7 @@ export const TOGGLE_CUE_SKIP = gql`
       id
       name
       cueNumber
-      scene {
+      look {
         id
         name
       }
@@ -312,8 +312,8 @@ export const CUE_LIST_DATA_CHANGED_SUBSCRIPTION = gql`
       cueListId
       changeType
       affectedCueIds
-      affectedSceneId
-      newSceneName
+      affectedLookId
+      newLookName
       timestamp
     }
   }

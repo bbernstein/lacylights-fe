@@ -28,7 +28,7 @@ export const GET_PROJECT = gql`
         id
         name
       }
-      scenes {
+      looks {
         id
         name
       }
@@ -82,7 +82,7 @@ export const IMPORT_PROJECT_FROM_QLC = gql`
       }
       originalFileName
       fixtureCount
-      sceneCount
+      lookCount
       cueListCount
       warnings
     }
@@ -128,7 +128,7 @@ export const EXPORT_PROJECT_TO_QLC = gql`
       projectName
       xmlContent
       fixtureCount
-      sceneCount
+      lookCount
       cueListCount
     }
   }
@@ -143,7 +143,7 @@ export const EXPORT_PROJECT = gql`
       stats {
         fixtureDefinitionsCount
         fixtureInstancesCount
-        scenesCount
+        looksCount
         cueListsCount
         cuesCount
       }
@@ -158,7 +158,7 @@ export const IMPORT_PROJECT = gql`
       stats {
         fixtureDefinitionsCreated
         fixtureInstancesCreated
-        scenesCreated
+        looksCreated
         cueListsCreated
         cuesCreated
       }

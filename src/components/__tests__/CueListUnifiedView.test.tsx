@@ -14,7 +14,7 @@ import {
   GO_TO_CUE,
   STOP_CUE_LIST,
 } from "../../graphql/cueLists";
-import { GET_PROJECT_SCENES } from "../../graphql/scenes";
+import { GET_PROJECT_LOOKS } from "../../graphql/looks";
 
 // Mock drag and drop functionality
 jest.mock("@dnd-kit/core", () => ({
@@ -108,7 +108,7 @@ jest.mock("../AddCueDialog", () => {
             onAdd?.({
               cueNumber: 5.5,
               name: "Test Cue",
-              sceneId: "scene-1",
+              lookId: "look-1",
               createCopy: true,
               fadeInTime: 3,
               fadeOutTime: 3,
@@ -157,7 +157,7 @@ jest.mock("../EditCueDialog", () => {
     cue?: {
       id: string;
       name: string;
-      scene?: {
+      look?: {
         id: string;
       };
     };
@@ -172,7 +172,7 @@ jest.mock("../EditCueDialog", () => {
           onClick={() =>
             onUpdate?.({
               cueId: cue?.id,
-              sceneId: cue?.scene?.id,
+              lookId: cue?.look?.id,
               action: "stay",
             })
           }
@@ -183,12 +183,12 @@ jest.mock("../EditCueDialog", () => {
           onClick={() =>
             onUpdate?.({
               cueId: cue?.id,
-              sceneId: cue?.scene?.id,
-              action: "edit-scene",
+              lookId: cue?.look?.id,
+              action: "edit-look",
             })
           }
         >
-          Save & Edit Scene
+          Save & Edit Look
         </button>
       </div>
     ) : null;
@@ -234,16 +234,16 @@ const mockCueList = {
       fadeInTime: 3.0,
       fadeOutTime: 3.0,
       followTime: 0,
-      notes: "Opening scene",
-      scene: {
-        id: "scene-1",
-        name: "Scene 1",
-        description: "Test scene 1",
+      notes: "Opening look",
+      look: {
+        id: "look-1",
+        name: "Look 1",
+        description: "Test look 1",
         fixtureValues: [],
         project: mockProject,
         createdAt: "2023-01-01T12:00:00Z",
         updatedAt: "2023-01-01T12:00:00Z",
-        __typename: "Scene",
+        __typename: "Look",
       },
       __typename: "Cue",
     },
@@ -255,15 +255,15 @@ const mockCueList = {
       fadeOutTime: 2.0,
       followTime: 5.0,
       notes: "Auto follow",
-      scene: {
-        id: "scene-2",
-        name: "Scene 2",
-        description: "Test scene 2",
+      look: {
+        id: "look-2",
+        name: "Look 2",
+        description: "Test look 2",
         fixtureValues: [],
         project: mockProject,
         createdAt: "2023-01-02T12:00:00Z",
         updatedAt: "2023-01-02T12:00:00Z",
-        __typename: "Scene",
+        __typename: "Look",
       },
       __typename: "Cue",
     },
@@ -271,36 +271,36 @@ const mockCueList = {
   __typename: "CueList",
 };
 
-const mockScenes = [
+const mockLooks = [
   {
-    id: "scene-1",
-    name: "Scene 1",
-    description: "Test scene 1",
+    id: "look-1",
+    name: "Look 1",
+    description: "Test look 1",
     fixtureValues: [],
     project: mockProject,
     createdAt: "2023-01-01T12:00:00Z",
     updatedAt: "2023-01-01T12:00:00Z",
-    __typename: "Scene",
+    __typename: "Look",
   },
   {
-    id: "scene-2",
-    name: "Scene 2",
-    description: "Test scene 2",
+    id: "look-2",
+    name: "Look 2",
+    description: "Test look 2",
     fixtureValues: [],
     project: mockProject,
     createdAt: "2023-01-02T12:00:00Z",
     updatedAt: "2023-01-02T12:00:00Z",
-    __typename: "Scene",
+    __typename: "Look",
   },
   {
-    id: "scene-3",
-    name: "Scene 3",
-    description: "Test scene 3",
+    id: "look-3",
+    name: "Look 3",
+    description: "Test look 3",
     fixtureValues: [],
     project: mockProject,
     createdAt: "2023-01-03T12:00:00Z",
     updatedAt: "2023-01-03T12:00:00Z",
-    __typename: "Scene",
+    __typename: "Look",
   },
 ];
 
@@ -330,13 +330,13 @@ const createMocks = () => [
   },
   {
     request: {
-      query: GET_PROJECT_SCENES,
+      query: GET_PROJECT_LOOKS,
       variables: { projectId: "project-1" },
     },
     result: {
       data: {
         project: {
-          scenes: mockScenes,
+          looks: mockLooks,
           __typename: "Project",
         },
       },
@@ -373,7 +373,7 @@ const createMocks = () => [
           fadeOutTime: 3.0,
           followTime: 0,
           notes: "",
-          scene: mockScenes[0],
+          look: mockLooks[0],
           __typename: "Cue",
         },
       },
@@ -572,8 +572,8 @@ describe("CueListUnifiedView", () => {
         // Both mobile and desktop views render, so use getAllByText
         expect(screen.getAllByText("Opening")[0]).toBeInTheDocument();
         expect(screen.getAllByText("Transition")[0]).toBeInTheDocument();
-        expect(screen.getAllByText("Scene 1")[0]).toBeInTheDocument();
-        expect(screen.getAllByText("Scene 2")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Look 1")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Look 2")[0]).toBeInTheDocument();
       });
     });
 
@@ -622,7 +622,7 @@ describe("CueListUnifiedView", () => {
 
       expect(screen.getByPlaceholderText("Cue #")).toBeInTheDocument();
       expect(screen.getByPlaceholderText("Cue name")).toBeInTheDocument();
-      expect(screen.getByText("Select scene...")).toBeInTheDocument();
+      expect(screen.getByText("Select look...")).toBeInTheDocument();
     });
 
     it("shows checkboxes for cue selection in edit mode", async () => {
@@ -784,21 +784,21 @@ describe("CueListUnifiedView", () => {
       expect(screen.getByTestId("bulk-fade-update-modal")).toBeInTheDocument();
     });
 
-    it("navigates to scene editor when edit button is clicked", async () => {
+    it("navigates to look editor when edit button is clicked", async () => {
       renderWithProvider();
 
       await waitFor(() => {
         expect(screen.getByText("EDITING")).toBeInTheDocument();
       });
 
-      const editSceneButtons = screen.getAllByTitle("Edit scene");
-      expect(editSceneButtons.length).toBeGreaterThan(0);
+      const editLookButtons = screen.getAllByTitle("Edit look");
+      expect(editLookButtons.length).toBeGreaterThan(0);
 
-      await userEvent.click(editSceneButtons[0]);
+      await userEvent.click(editLookButtons[0]);
 
-      // Should navigate to the scene editor
+      // Should navigate to the look editor
       expect(mockPush).toHaveBeenCalledWith(
-        expect.stringContaining("/scenes/"),
+        expect.stringContaining("/looks/"),
       );
       expect(mockPush).toHaveBeenCalledWith(
         expect.stringContaining("mode=layout"),
@@ -1087,7 +1087,7 @@ describe("CueListUnifiedView", () => {
       });
     });
 
-    it("handles edit scene from context menu", async () => {
+    it("handles edit look from context menu", async () => {
       renderWithProvider();
 
       await waitFor(() => {
@@ -1105,12 +1105,12 @@ describe("CueListUnifiedView", () => {
         expect(screen.getByTestId("context-menu")).toBeInTheDocument();
       });
 
-      const editSceneButton = screen.getByText("Edit Scene");
-      await userEvent.click(editSceneButton);
+      const editLookButton = screen.getByText("Edit Look");
+      await userEvent.click(editLookButton);
 
-      // Should navigate to scene editor
+      // Should navigate to look editor
       expect(mockPush).toHaveBeenCalledWith(
-        expect.stringContaining("/scenes/"),
+        expect.stringContaining("/looks/"),
       );
     });
 
@@ -1453,7 +1453,7 @@ describe("CueListUnifiedView", () => {
       });
     });
 
-    it("navigates to scene editor when save and edit scene is clicked", async () => {
+    it("navigates to look editor when save and edit look is clicked", async () => {
       renderWithProvider();
 
       await waitFor(() => {
@@ -1478,14 +1478,14 @@ describe("CueListUnifiedView", () => {
         expect(screen.getByText("Edit Cue")).toBeInTheDocument();
       });
 
-      // Find and click save & edit scene button
-      const saveEditButton = screen.getByText("Save & Edit Scene");
+      // Find and click save & edit look button
+      const saveEditButton = screen.getByText("Save & Edit Look");
       await userEvent.click(saveEditButton);
 
-      // Should navigate to scene editor
+      // Should navigate to look editor
       await waitFor(() => {
         expect(mockPush).toHaveBeenCalledWith(
-          expect.stringContaining("/scenes/"),
+          expect.stringContaining("/looks/"),
         );
       });
     });

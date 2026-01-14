@@ -1,5 +1,5 @@
 import { use } from 'react';
-import SceneBoardClient from './SceneBoardClient';
+import LookBoardClient from './LookBoardClient';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -12,8 +12,8 @@ export async function generateStaticParams() {
 }
 
 // Server component that extracts params and passes to client component
-export default function SceneBoardDetailPage({ params }: PageProps) {
+export default function LookBoardDetailPage({ params }: PageProps) {
   const { id } = use(params);
 
-  return <SceneBoardClient id={id} />;
+  return <LookBoardClient id={id} />;
 }

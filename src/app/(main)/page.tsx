@@ -5,15 +5,15 @@ import Link from "next/link";
 import { useQuery } from "@apollo/client";
 import { useProject } from "@/contexts/ProjectContext";
 import { GET_PROJECT_FIXTURES } from "@/graphql/fixtures";
-import { GET_PROJECT_SCENES } from "@/graphql/scenes";
-import { GET_PROJECT_SCENE_BOARDS } from "@/graphql/sceneBoards";
+import { GET_PROJECT_LOOKS } from "@/graphql/looks";
+import { GET_PROJECT_LOOK_BOARDS } from "@/graphql/lookBoards";
 import { GET_PROJECT_CUE_LISTS } from "@/graphql/cueLists";
 import { GET_SYSTEM_INFO } from "@/graphql/settings";
 import { useGlobalPlaybackStatus } from "@/hooks/useGlobalPlaybackStatus";
 import {
   FixtureInstance,
-  Scene,
-  SceneBoard,
+  Look,
+  LookBoard,
   CueList,
   FixtureType,
   SystemInfo,
@@ -111,19 +111,19 @@ export default function DashboardPage() {
   });
 
   const {
-    data: scenesData,
-    loading: scenesLoading,
-    error: scenesError,
-  } = useQuery(GET_PROJECT_SCENES, {
+    data: looksData,
+    loading: looksLoading,
+    error: looksError,
+  } = useQuery(GET_PROJECT_LOOKS, {
     variables: { projectId },
     skip: !projectId,
   });
 
   const {
-    data: sceneBoardsData,
-    loading: sceneBoardsLoading,
-    error: sceneBoardsError,
-  } = useQuery(GET_PROJECT_SCENE_BOARDS, {
+    data: lookBoardsData,
+    loading: lookBoardsLoading,
+    error: lookBoardsError,
+  } = useQuery(GET_PROJECT_LOOK_BOARDS, {
     variables: { projectId },
     skip: !projectId,
   });
@@ -145,13 +145,13 @@ export default function DashboardPage() {
     () => fixturesData?.project?.fixtures || [],
     [fixturesData?.project?.fixtures],
   );
-  const scenes = useMemo<Scene[]>(
-    () => scenesData?.project?.scenes || [],
-    [scenesData?.project?.scenes],
+  const looks = useMemo<Look[]>(
+    () => looksData?.project?.looks || [],
+    [looksData?.project?.looks],
   );
-  const sceneBoards = useMemo<SceneBoard[]>(
-    () => sceneBoardsData?.sceneBoards || [],
-    [sceneBoardsData?.sceneBoards],
+  const lookBoards = useMemo<LookBoard[]>(
+    () => lookBoardsData?.lookBoards || [],
+    [lookBoardsData?.lookBoards],
   );
   const cueLists = useMemo<CueList[]>(
     () => cueListsData?.project?.cueLists || [],
@@ -189,13 +189,13 @@ export default function DashboardPage() {
   const isLoading =
     projectLoading ||
     fixturesLoading ||
-    scenesLoading ||
-    sceneBoardsLoading ||
+    looksLoading ||
+    lookBoardsLoading ||
     cueListsLoading;
 
   // Error state
   const hasError =
-    fixturesError || scenesError || sceneBoardsError || cueListsError;
+    fixturesError || looksError || lookBoardsError || cueListsError;
 
   if (projectLoading) {
     return (
@@ -222,7 +222,7 @@ export default function DashboardPage() {
         <p className="text-red-800 dark:text-red-200">
           Error loading data:{" "}
           {
-            (fixturesError || scenesError || sceneBoardsError || cueListsError)
+            (fixturesError || looksError || lookBoardsError || cueListsError)
               ?.message
           }
         </p>
@@ -288,57 +288,57 @@ export default function DashboardPage() {
             )}
           </DashboardCard>
 
-          {/* Scenes Card */}
+          {/* Looks Card */}
           <DashboardCard
-            title="Scenes"
-            href="/scenes"
-            count={scenes.length}
+            title="Looks"
+            href="/looks"
+            count={looks.length}
             countLabel={
-              scenes.length === 1 ? "1 scene" : `${scenes.length} scenes`
+              looks.length === 1 ? "1 look" : `${looks.length} looks`
             }
-            testId="scenes-card"
+            testId="looks-card"
           >
-            {scenes.length > 0 ? (
+            {looks.length > 0 ? (
               <ul className="space-y-1">
-                {scenes.slice(0, 8).map((scene) => (
+                {looks.slice(0, 8).map((look) => (
                   <li
-                    key={scene.id}
+                    key={look.id}
                     className="text-sm text-gray-600 dark:text-gray-300 truncate"
                   >
-                    {scene.name}
+                    {look.name}
                   </li>
                 ))}
-                {scenes.length > 8 && (
+                {looks.length > 8 && (
                   <li className="text-sm text-gray-400 dark:text-gray-500">
-                    +{scenes.length - 8} more...
+                    +{looks.length - 8} more...
                   </li>
                 )}
               </ul>
             ) : (
               <p className="text-sm text-gray-400 dark:text-gray-500 italic">
-                No scenes created
+                No looks created
               </p>
             )}
           </DashboardCard>
 
-          {/* Scene Boards Card */}
+          {/* Look Boards Card */}
           <DashboardCard
-            title="Scene Boards"
-            href="/scene-board"
-            count={sceneBoards.length}
+            title="Look Boards"
+            href="/look-board"
+            count={lookBoards.length}
             countLabel={
-              sceneBoards.length === 1
+              lookBoards.length === 1
                 ? "1 board"
-                : `${sceneBoards.length} boards`
+                : `${lookBoards.length} boards`
             }
-            testId="scene-boards-card"
+            testId="look-boards-card"
           >
-            {sceneBoards.length > 0 ? (
+            {lookBoards.length > 0 ? (
               <ul className="space-y-1">
-                {sceneBoards.map((board) => (
+                {lookBoards.map((board) => (
                   <li key={board.id} className="text-sm">
                     <Link
-                      href={`/scene-board?board=${board.id}`}
+                      href={`/look-board?board=${board.id}`}
                       className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
                     >
                       <span className="font-medium">{board.name}</span>
@@ -352,7 +352,7 @@ export default function DashboardPage() {
               </ul>
             ) : (
               <p className="text-sm text-gray-400 dark:text-gray-500 italic">
-                No scene boards created
+                No look boards created
               </p>
             )}
           </DashboardCard>

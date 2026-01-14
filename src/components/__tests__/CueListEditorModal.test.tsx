@@ -30,7 +30,7 @@ import {
   REORDER_CUES,
   BULK_UPDATE_CUES,
 } from '../../graphql/cueLists';
-import { GET_PROJECT_SCENES } from '../../graphql/scenes';
+import { GET_PROJECT_LOOKS } from '../../graphql/looks';
 
 // Mock the dnd-kit library
 jest.mock('@dnd-kit/core', () => ({
@@ -110,26 +110,26 @@ const mockProject = {
   __typename: 'Project',
 };
 
-const mockScenes = [
+const mockLooks = [
   {
-    id: 'scene-1',
-    name: 'Scene 1',
-    description: 'Test Scene 1',
+    id: 'look-1',
+    name: 'Look 1',
+    description: 'Test Look 1',
     project: mockProject,
     fixtureValues: [],
     createdAt: '2023-01-01T12:00:00Z',
     updatedAt: '2023-01-01T12:00:00Z',
-    __typename: 'Scene',
+    __typename: 'Look',
   },
   {
-    id: 'scene-2',
-    name: 'Scene 2',
-    description: 'Test Scene 2',
+    id: 'look-2',
+    name: 'Look 2',
+    description: 'Test Look 2',
     project: mockProject,
     fixtureValues: [],
     createdAt: '2023-01-01T12:00:00Z',
     updatedAt: '2023-01-01T12:00:00Z',
-    __typename: 'Scene',
+    __typename: 'Look',
   },
 ];
 
@@ -138,7 +138,7 @@ const mockCues = [
     id: 'cue-1',
     name: 'Cue 1',
     cueNumber: 1,
-    scene: mockScenes[0],
+    look: mockLooks[0],
     fadeInTime: 3,
     fadeOutTime: 3,
     followTime: null,
@@ -149,7 +149,7 @@ const mockCues = [
     id: 'cue-2',
     name: 'Cue 2',
     cueNumber: 2,
-    scene: mockScenes[1],
+    look: mockLooks[1],
     fadeInTime: 5,
     fadeOutTime: 5,
     followTime: 2,
@@ -216,14 +216,14 @@ const createMocks = () => [
   },
   {
     request: {
-      query: GET_PROJECT_SCENES,
+      query: GET_PROJECT_LOOKS,
       variables: { projectId: 'project-1' },
     },
     result: {
       data: {
         project: {
           id: 'project-1',
-          scenes: mockScenes,
+          looks: mockLooks,
           __typename: 'Project',
         },
       },
@@ -259,7 +259,7 @@ const createMocks = () => [
           name: 'New Cue',
           cueNumber: 3,
           cueListId: 'cuelist-1',
-          sceneId: 'scene-1',
+          lookId: 'look-1',
           fadeInTime: 3,
           fadeOutTime: 3,
           followTime: null,
@@ -273,7 +273,7 @@ const createMocks = () => [
           id: 'cue-3',
           name: 'New Cue',
           cueNumber: 3,
-          scene: mockScenes[0],
+          look: mockLooks[0],
           fadeInTime: 3,
           fadeOutTime: 3,
           followTime: null,
@@ -292,7 +292,7 @@ const createMocks = () => [
           name: 'Updated Cue',
           cueNumber: 1,
           cueListId: 'cuelist-1',
-          sceneId: 'scene-1',
+          lookId: 'look-1',
           fadeInTime: 4,
           fadeOutTime: 4,
           followTime: null,
@@ -473,8 +473,8 @@ describe('CueListEditorModal', () => {
       await waitFor(() => {
         expect(screen.getByText('Cue 1')).toBeInTheDocument();
         expect(screen.getByText('Cue 2')).toBeInTheDocument();
-        expect(screen.getByText('Scene 1')).toBeInTheDocument();
-        expect(screen.getByText('Scene 2')).toBeInTheDocument();
+        expect(screen.getByText('Look 1')).toBeInTheDocument();
+        expect(screen.getByText('Look 2')).toBeInTheDocument();
       });
     });
 
@@ -514,14 +514,14 @@ describe('CueListEditorModal', () => {
         },
         {
           request: {
-            query: GET_PROJECT_SCENES,
+            query: GET_PROJECT_LOOKS,
             variables: { projectId: 'project-1' },
           },
           result: {
             data: {
               project: {
                 id: 'project-1',
-                scenes: mockScenes,
+                looks: mockLooks,
                 __typename: 'Project',
               },
             },
@@ -566,7 +566,7 @@ describe('CueListEditorModal', () => {
 
       expect(screen.getAllByText('Cue #')).toHaveLength(2); // One in table header, one in form
       expect(screen.getAllByText('Name')).toHaveLength(2); // One in table header, one in form
-      expect(screen.getAllByText('Scene')).toHaveLength(2); // One in table header, one in form
+      expect(screen.getAllByText('Look')).toHaveLength(2); // One in table header, one in form
       // Fade In/Out/Follow appear in both table header and form
       expect(screen.getAllByText('Fade In')).toHaveLength(2);
       expect(screen.getAllByText('Fade Out')).toHaveLength(2);
@@ -865,14 +865,14 @@ describe('CueListEditorModal', () => {
         },
         {
           request: {
-            query: GET_PROJECT_SCENES,
+            query: GET_PROJECT_LOOKS,
             variables: { projectId: 'project-1' },
           },
           result: {
             data: {
               project: {
                 id: 'project-1',
-                scenes: mockScenes,
+                looks: mockLooks,
                 __typename: 'Project',
               },
             },
@@ -943,7 +943,7 @@ describe('CueListEditorModal', () => {
       await waitFor(() => {
         expect(screen.getByText('Cue #')).toBeInTheDocument();
         expect(screen.getByText('Name')).toBeInTheDocument();
-        expect(screen.getByText('Scene')).toBeInTheDocument();
+        expect(screen.getByText('Look')).toBeInTheDocument();
         expect(screen.getByText('Fade In')).toBeInTheDocument();
         expect(screen.getByText('Fade Out')).toBeInTheDocument();
         expect(screen.getByText('Follow')).toBeInTheDocument();
@@ -987,14 +987,14 @@ describe('CueListEditorModal', () => {
         },
         {
           request: {
-            query: GET_PROJECT_SCENES,
+            query: GET_PROJECT_LOOKS,
             variables: { projectId: 'project-1' },
           },
           result: {
             data: {
               project: {
                 id: 'project-1',
-                scenes: mockScenes,
+                looks: mockLooks,
                 __typename: 'Project',
               },
             },
@@ -1041,14 +1041,14 @@ describe('CueListEditorModal', () => {
         },
         {
           request: {
-            query: GET_PROJECT_SCENES,
+            query: GET_PROJECT_LOOKS,
             variables: { projectId: 'project-1' },
           },
           result: {
             data: {
               project: {
                 id: 'project-1',
-                scenes: mockScenes,
+                looks: mockLooks,
                 __typename: 'Project',
               },
             },

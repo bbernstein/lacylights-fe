@@ -2,21 +2,21 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
-import { CREATE_SCENE } from '@/graphql/scenes';
+import { CREATE_LOOK } from '@/graphql/looks';
 import { GET_PROJECT_FIXTURES } from '@/graphql/fixtures';
 import { InstanceChannel, FixtureInstance } from '@/types';
 import { denseToSparse } from '@/utils/channelConversion';
 import BottomSheet from './BottomSheet';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 
-interface CreateSceneModalProps {
+interface CreateLookModalProps {
   isOpen: boolean;
   onClose: () => void;
   projectId: string;
-  onSceneCreated: () => void;
+  onLookCreated: () => void;
 }
 
-export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCreated }: CreateSceneModalProps) {
+export default function CreateLookModal({ isOpen, onClose, projectId, onLookCreated }: CreateLookModalProps) {
   const isMobile = useIsMobile();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -27,9 +27,9 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
     skip: !projectId,
   });
 
-  const [createScene, { loading: creating }] = useMutation(CREATE_SCENE, {
+  const [createLook, { loading: creating }] = useMutation(CREATE_LOOK, {
     onCompleted: () => {
-      onSceneCreated();
+      onLookCreated();
       handleClose();
     },
     onError: (error) => {
@@ -43,7 +43,7 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
     e?.preventDefault();
     setError(null);
 
-    // Create scene with all fixtures at their default values
+    // Create look with all fixtures at their default values
     // Convert dense default values to sparse format for storage
     const fixtureValues = fixtures.map((fixture: FixtureInstance) => {
       // Direct access to channels - no more complex logic!
@@ -56,7 +56,7 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
       };
     });
 
-    createScene({
+    createLook({
       variables: {
         input: {
           name,
@@ -76,9 +76,9 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
   };
 
   const formContent = (
-    <form id="create-scene-form" onSubmit={handleSubmit} className="space-y-4">
+    <form id="create-look-form" onSubmit={handleSubmit} className="space-y-4">
       <p className="text-sm text-gray-600 dark:text-gray-400">
-        Create a new lighting scene. All fixtures will be added with default values that you can edit later.
+        Create a new lighting look. All fixtures will be added with default values that you can edit later.
       </p>
 
       {error && (
@@ -91,7 +91,7 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
             </div>
             <div className="ml-3">
               <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
-                Error creating scene
+                Error creating look
               </h3>
               <div className="mt-2 text-sm text-red-700 dark:text-red-300">
                 <p className="whitespace-pre-wrap select-all">{error}</p>
@@ -102,11 +102,11 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
       )}
 
       <div>
-        <label htmlFor="scene-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Scene Name *
+        <label htmlFor="look-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Look Name *
         </label>
         <input
-          id="scene-name"
+          id="look-name"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -117,14 +117,14 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
       </div>
 
       <div>
-        <label htmlFor="scene-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label htmlFor="look-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Description
         </label>
         <textarea
-          id="scene-description"
+          id="look-description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Optional description of this scene..."
+          placeholder="Optional description of this look..."
           rows={3}
           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         />
@@ -143,7 +143,7 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
             ))}
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            All fixtures will be added with default values. You can edit individual fixture values after creating the scene.
+            All fixtures will be added with default values. You can edit individual fixture values after creating the look.
           </p>
         </div>
       )}
@@ -151,7 +151,7 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
       {fixtures.length === 0 && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
           <p className="text-sm text-yellow-800 dark:text-yellow-200">
-            No fixtures found in this project. Add some fixtures first before creating scenes.
+            No fixtures found in this project. Add some fixtures first before creating looks.
           </p>
         </div>
       )}
@@ -164,11 +164,11 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
         <>
           <button
             type="submit"
-            form="create-scene-form"
+            form="create-look-form"
             disabled={creating || !name.trim() || fixtures.length === 0}
             className="w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-3 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
           >
-            {creating ? 'Creating...' : 'Create Scene'}
+            {creating ? 'Creating...' : 'Create Look'}
           </button>
           <button
             type="button"
@@ -189,11 +189,11 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
           </button>
           <button
             type="submit"
-            form="create-scene-form"
+            form="create-look-form"
             disabled={creating || !name.trim() || fixtures.length === 0}
             className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {creating ? 'Creating...' : 'Create Scene'}
+            {creating ? 'Creating...' : 'Create Look'}
           </button>
         </>
       )}
@@ -204,10 +204,10 @@ export default function CreateSceneModal({ isOpen, onClose, projectId, onSceneCr
     <BottomSheet
       isOpen={isOpen}
       onClose={handleClose}
-      title="Create Scene"
+      title="Create Look"
       footer={footerContent}
       maxWidth="max-w-lg"
-      testId="create-scene-modal"
+      testId="create-look-modal"
     >
       {formContent}
     </BottomSheet>

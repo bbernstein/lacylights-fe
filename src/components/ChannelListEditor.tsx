@@ -2,9 +2,9 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { useCurrentActiveScene } from '@/hooks/useCurrentActiveScene';
-import { GET_SCENE, UPDATE_SCENE, START_PREVIEW_SESSION, CANCEL_PREVIEW_SESSION, UPDATE_PREVIEW_CHANNEL, INITIALIZE_PREVIEW_WITH_SCENE } from '@/graphql/scenes';
-import { GET_PROJECT_FIXTURES, REORDER_SCENE_FIXTURES } from '@/graphql/fixtures';
+import { useCurrentActiveLook } from '@/hooks/useCurrentActiveLook';
+import { GET_LOOK, UPDATE_LOOK, START_PREVIEW_SESSION, CANCEL_PREVIEW_SESSION, UPDATE_PREVIEW_CHANNEL, INITIALIZE_PREVIEW_WITH_LOOK } from '@/graphql/looks';
+import { GET_PROJECT_FIXTURES, REORDER_LOOK_FIXTURES } from '@/graphql/fixtures';
 import {
   DndContext,
   closestCenter,
@@ -30,20 +30,20 @@ import ChannelSlider from './ChannelSlider';
 import { generateUUID } from '@/utils/uuid';
 import { sparseToDense, denseToSparse } from '@/utils/channelConversion';
 import { useUndoStack, UndoDelta, FixtureDelta, UndoAction } from '@/hooks/useUndoStack';
-import { SharedEditorState } from './SceneEditorLayout';
+import { SharedEditorState } from './LookEditorLayout';
 
 interface ChannelListEditorProps {
-  sceneId: string;
+  lookId: string;
   onClose?: () => void;
-  /** Shared state from parent SceneEditorLayout for coordinated editing */
+  /** Shared state from parent LookEditorLayout for coordinated editing */
   sharedState?: SharedEditorState;
   /** Callback when local dirty state changes (for name/description) */
   onDirtyChange?: (isDirty: boolean) => void;
 }
 
-// Extended FixtureValue interface with sceneOrder for sorting
-interface SceneFixtureValue extends FixtureValue {
-  sceneOrder?: number;
+// Extended FixtureValue interface with lookOrder for sorting
+interface LookFixtureValue extends FixtureValue {
+  lookOrder?: number;
 }
 
 interface ColorSwatchProps {
@@ -215,7 +215,7 @@ function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchPro
 }
 
 interface SortableFixtureRowProps {
-  fixtureValue: SceneFixtureValue;
+  fixtureValue: LookFixtureValue;
   index: number;
   channelValues: Map<string, number[]>;
   formatFixtureInfo: (fixture: FixtureInstance) => string;
@@ -343,7 +343,7 @@ function SortableFixtureRow({
             type="button"
             onClick={() => handleRemoveFixture(fixtureValue.fixture.id)}
             className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-            title="Remove from scene"
+            title="Remove from look"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -394,7 +394,7 @@ function SortableFixtureRow({
   );
 }
 
-export default function ChannelListEditor({ sceneId, onClose, sharedState, onDirtyChange: _onDirtyChange }: ChannelListEditorProps) {
+export default function ChannelListEditor({ lookId, onClose, sharedState, onDirtyChange: _onDirtyChange }: ChannelListEditorProps) {
   // Determine if we're using shared state from parent
   const useSharedState = !!sharedState;
 
@@ -411,8 +411,8 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
       }
     : setLocalChannelValues;
 
-  const [sceneName, setSceneName] = useState('');
-  const [sceneDescription, setSceneDescription] = useState('');
+  const [lookName, setLookName] = useState('');
+  const [lookDescription, setLookDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   // Preview mode state
@@ -458,8 +458,8 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
 
   // Initial state for dirty tracking (set from server data)
   const [initialChannelValues, setInitialChannelValues] = useState<Map<string, number[]>>(new Map());
-  const [initialSceneName, setInitialSceneName] = useState('');
-  const [initialSceneDescription, setInitialSceneDescription] = useState('');
+  const [initialLookName, setInitialLookName] = useState('');
+  const [initialLookDescription, setInitialLookDescription] = useState('');
 
   // Local undo/redo stack (only used when not using shared state)
   const localUndoStack = useUndoStack({
@@ -493,28 +493,28 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     return parts.join(' • ');
   };
 
-  const { data: sceneData, loading, refetch: refetchScene } = useQuery(GET_SCENE, {
-    variables: { id: sceneId },
-    skip: !sceneId, // Always fetch scene data for fixture list and name/description
+  const { data: lookData, loading, refetch: refetchLook } = useQuery(GET_LOOK, {
+    variables: { id: lookId },
+    skip: !lookId, // Always fetch look data for fixture list and name/description
     onCompleted: (data) => {
-      if (data.scene) {
-        // Initialize scene name and description
-        setSceneName(data.scene.name);
-        setSceneDescription(data.scene.description || '');
+      if (data.look) {
+        // Initialize look name and description
+        setLookName(data.look.name);
+        setLookDescription(data.look.description || '');
 
         // Store initial values for dirty tracking
-        setInitialSceneName(data.scene.name);
-        setInitialSceneDescription(data.scene.description || '');
+        setInitialLookName(data.look.name);
+        setInitialLookDescription(data.look.description || '');
 
         // Only initialize channel values when NOT using shared state
-        // When using shared state, the parent (SceneEditorLayout) manages these
+        // When using shared state, the parent (LookEditorLayout) manages these
         if (!useSharedState) {
           // Initialize channel values map with fixture arrays
           // Convert sparse format to dense for internal state
           const values = new Map<string, number[]>();
           // Track which channels are active (present in the sparse array)
           const active = new Map<string, Set<number>>();
-          data.scene.fixtureValues.forEach((fixtureValue: SceneFixtureValue) => {
+          data.look.fixtureValues.forEach((fixtureValue: LookFixtureValue) => {
             const channelCount = fixtureValue.fixture.channels?.length || 0;
             const denseValues = sparseToDense(fixtureValue.channels || [], channelCount);
             values.set(fixtureValue.fixture.id, denseValues);
@@ -543,19 +543,19 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     },
   });
 
-  const scene = sceneData?.scene;
+  const look =lookData?.look;
 
   // Compute local dirty state (name/description changes, fixture add/remove)
   const localDirtyState = useMemo(() => {
     // Check if name or description changed
-    if (sceneName !== initialSceneName) return true;
-    if (sceneDescription !== initialSceneDescription) return true;
+    if (lookName !== initialLookName) return true;
+    if (lookDescription !== initialLookDescription) return true;
 
     // Check if any fixtures were added or removed
     if (selectedFixturesToAdd.size > 0 || removedFixtures.size > 0) return true;
 
     return false;
-  }, [sceneName, sceneDescription, initialSceneName, initialSceneDescription, selectedFixturesToAdd, removedFixtures]);
+  }, [lookName, lookDescription, initialLookName, initialLookDescription, selectedFixturesToAdd, removedFixtures]);
 
   // Combined dirty state - when using shared state, combine local dirty with parent's isDirty
   const isDirty = useMemo(() => {
@@ -580,17 +580,17 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     return false;
   }, [useSharedState, sharedState, localDirtyState, channelValues, initialChannelValues]);
 
-  // Clear selectedFixturesToAdd when those fixtures appear in scene.fixtureValues (after save)
-  // Clear localRemovedFixtures when those fixtures no longer exist in scene.fixtureValues (after save)
+  // Clear selectedFixturesToAdd when those fixtures appear in look.fixtureValues (after save)
+  // Clear localRemovedFixtures when those fixtures no longer exist in look.fixtureValues (after save)
   // This fixes the dirty flag not resetting after save since onCompleted only fires on initial load
   useEffect(() => {
-    if (!scene?.fixtureValues) return;
+    if (!look?.fixtureValues) return;
 
     // Track if effect is still current to avoid state updates after unmount
     let isCurrent = true;
 
     const serverFixtureIds = new Set(
-      scene.fixtureValues.map((fv: SceneFixtureValue) => fv.fixture.id)
+      look.fixtureValues.map((fv: LookFixtureValue) => fv.fixture.id)
     );
 
     // Check if any fixtures we were adding are now in the server data
@@ -629,24 +629,24 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     return () => {
       isCurrent = false;
     };
-  }, [scene?.fixtureValues, selectedFixturesToAdd, useSharedState, localRemovedFixtures]);
+  }, [look?.fixtureValues, selectedFixturesToAdd, useSharedState, localRemovedFixtures]);
 
   // Get all project fixtures to show available fixtures for adding
   const { data: projectFixturesData } = useQuery(GET_PROJECT_FIXTURES, {
-    variables: { projectId: scene?.project?.id },
-    skip: !scene?.project?.id,
+    variables: { projectId: look?.project?.id },
+    skip: !look?.project?.id,
   });
 
-  // Subscribe to current active scene updates to check if this scene is currently being played
-  const { currentActiveScene } = useCurrentActiveScene();
+  // Subscribe to current active look updates to check if this look is currently being played
+  const { currentActiveLook } = useCurrentActiveLook();
 
-  // Check if the scene being edited is currently active
-  const isSceneCurrentlyActive = currentActiveScene?.id === sceneId;
+  // Check if the look being edited is currently active
+  const isLookCurrentlyActive = currentActiveLook?.id === lookId;
 
-  const [updateScene, { loading: updating }] = useMutation(UPDATE_SCENE, {
+  const [updateLook, { loading: updating }] = useMutation(UPDATE_LOOK, {
     onCompleted: () => {
       // Refetch to get latest data
-      refetchScene();
+      refetchLook();
       // When using shared state, don't close after saving - just save and stay in editor
       // This prevents the confusing behavior of showing the unsaved changes modal
       // User can manually switch views or close when ready
@@ -698,14 +698,14 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     },
   });
 
-  const [initializePreviewWithScene] = useMutation(INITIALIZE_PREVIEW_WITH_SCENE, {
+  const [initializePreviewWithLook] = useMutation(INITIALIZE_PREVIEW_WITH_LOOK, {
     onError: (error) => {
 
       setPreviewError(error.message);
     },
   });
 
-  const [reorderSceneFixtures] = useMutation(REORDER_SCENE_FIXTURES, {
+  const [reorderLookFixtures] = useMutation(REORDER_LOOK_FIXTURES, {
     onError: (error) => {
 
       setError(`Failed to reorder fixtures: ${error.message}`);
@@ -786,7 +786,7 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
   // Color picker handlers
   const handleColorSwatchClick = (fixtureId: string) => {
     // Look for the fixture in activeFixtureValues (includes both saved and newly added fixtures)
-    const fixtureValue = activeFixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
+    const fixtureValue = activeFixtureValues.find((fv: LookFixtureValue) => fv.fixture.id === fixtureId);
     if (!fixtureValue) return;
 
     const channels = (fixtureValue.fixture.channels || []).map((channelDef: InstanceChannel, index: number) => ({
@@ -829,7 +829,7 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     }
   };
 
-  // Check if a specific channel is active (will be saved to the scene)
+  // Check if a specific channel is active (will be saved to the look)
   const isChannelActive = useCallback((fixtureId: string, channelIndex: number): boolean => {
     const fixtureActiveChannels = activeChannels.get(fixtureId);
     // If no active channels tracked for this fixture, default to all active
@@ -1134,7 +1134,7 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
 
   const applyColorToFixture = (fixtureId: string, color: { r: number; g: number; b: number }, _final: boolean, intensityOverride?: number) => {
     // Look for the fixture in activeFixtureValues (includes both saved and newly added fixtures)
-    const fixtureValue = activeFixtureValues.find((fv: SceneFixtureValue) => fv.fixture.id === fixtureId);
+    const fixtureValue = activeFixtureValues.find((fv: LookFixtureValue) => fv.fixture.id === fixtureId);
     if (!fixtureValue) return;
 
     const channels = (fixtureValue.fixture.channels || []).map((channelDef: InstanceChannel, index: number) => ({
@@ -1286,38 +1286,38 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     }
   }, [copiedChannelValues, copiedActiveChannels, channelValues, useSharedState, sharedState, previewMode, previewSessionId, updatePreviewChannel]);
 
-  // Helper to get available fixtures that aren't already in the scene
+  // Helper to get available fixtures that aren't already in the look
   const availableFixtures = useMemo(() => {
-    if (!projectFixturesData?.project?.fixtures || !scene) return [];
+    if (!projectFixturesData?.project?.fixtures || !look) return [];
 
-    const sceneFixtureIds = new Set(
-      scene.fixtureValues
-        .filter((fv: SceneFixtureValue) => !removedFixtures.has(fv.fixture.id))
-        .map((fv: SceneFixtureValue) => fv.fixture.id)
+    const lookFixtureIds = new Set(
+      look.fixtureValues
+        .filter((fv: LookFixtureValue) => !removedFixtures.has(fv.fixture.id))
+        .map((fv: LookFixtureValue) => fv.fixture.id)
     );
 
     return projectFixturesData.project.fixtures.filter(
-      (fixture: FixtureInstance) => !sceneFixtureIds.has(fixture.id)
+      (fixture: FixtureInstance) => !lookFixtureIds.has(fixture.id)
     );
-  }, [projectFixturesData, scene, removedFixtures]);
+  }, [projectFixturesData, look, removedFixtures]);
 
-  // Helper to get the active fixtures in the scene (including newly added ones)
+  // Helper to get the active fixtures in the look (including newly added ones)
   const activeFixtureValues = useMemo(() => {
-    if (!scene) return [];
+    if (!look) return [];
 
     // Start with existing fixtures that haven't been removed
-    const fixtures = scene.fixtureValues.filter(
-      (fv: SceneFixtureValue) => !removedFixtures.has(fv.fixture.id)
+    const fixtures = look.fixtureValues.filter(
+      (fv: LookFixtureValue) => !removedFixtures.has(fv.fixture.id)
     );
 
     // Build a set of existing fixture IDs for quick lookup
-    const existingFixtureIds = new Set(fixtures.map((fv: SceneFixtureValue) => fv.fixture.id));
+    const existingFixtureIds = new Set(fixtures.map((fv: LookFixtureValue) => fv.fixture.id));
 
-    // Add newly selected fixtures (only if they don't already exist in the scene)
+    // Add newly selected fixtures (only if they don't already exist in the look)
     if (selectedFixturesToAdd.size > 0 && projectFixturesData?.project?.fixtures) {
-      let nextSceneOrder = fixtures.length + 1; // Start from the next available position
+      let nextLookOrder = fixtures.length + 1; // Start from the next available position
       selectedFixturesToAdd.forEach(fixtureId => {
-        // Skip if fixture already exists in the scene (prevents duplicates after save)
+        // Skip if fixture already exists in the look (prevents duplicates after save)
         if (existingFixtureIds.has(fixtureId)) {
           return;
         }
@@ -1330,26 +1330,26 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
             id: `temp-${generateUUID()}-${fixtureId}`, // Temporary ID for new fixtures using browser-compatible UUID generator
             fixture: fixture,
             channels: denseToSparse(defaultValues), // Store in sparse format
-            sceneOrder: nextSceneOrder++, // Use unique incrementing order values
+            lookOrder: nextLookOrder++, // Use unique incrementing order values
           });
         }
       });
     }
 
     return fixtures;
-  }, [scene, removedFixtures, selectedFixturesToAdd, projectFixturesData]);
+  }, [look, removedFixtures, selectedFixturesToAdd, projectFixturesData]);
 
   const handleRemoveFixture = (fixtureId: string) => {
     // Get current channel values for undo
     const currentValues = channelValues.get(fixtureId);
     const wasInSelectedToAdd = selectedFixturesToAdd.has(fixtureId);
 
-    // Check current scene state to determine if this fixture already exists on the server.
-    // A fixture is "new" only if it's in selectedFixturesToAdd AND not in scene.fixtureValues.
-    const existsInScene = !!scene?.fixtureValues?.some(
-      (fv: SceneFixtureValue) => fv.fixture.id === fixtureId
+    // Check current look state to determine if this fixture already exists on the server.
+    // A fixture is "new" only if it's in selectedFixturesToAdd AND not in look.fixtureValues.
+    const existsInLook = !!look?.fixtureValues?.some(
+      (fv: LookFixtureValue) => fv.fixture.id === fixtureId
     );
-    const wasNewFixture = wasInSelectedToAdd && !existsInScene;
+    const wasNewFixture = wasInSelectedToAdd && !existsInLook;
 
     // Push to undo stack - use parent's stack when in shared state mode
     const fixtureDelta: FixtureDelta = {
@@ -1436,7 +1436,7 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
   };
 
   const handleSortFixtures = async (sortField: 'name' | 'manufacturer' | 'channel', sortOrder: 'asc' | 'desc') => {
-    if (!scene) return;
+    if (!look) return;
 
     // Sort the active fixture values by the specified field
     const sortedFixtures = [...activeFixtureValues].sort((a, b) => {
@@ -1470,21 +1470,21 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     });
 
     // Create fixture orders for the sorted list
-    const fixtureOrders = sortedFixtures.map((fv: SceneFixtureValue, index: number) => ({
+    const fixtureOrders = sortedFixtures.map((fv: LookFixtureValue, index: number) => ({
       fixtureId: fv.fixture.id,
       order: index + 1,
     }));
 
     try {
-      await reorderSceneFixtures({
+      await reorderLookFixtures({
         variables: {
-          sceneId: scene.id,
+          lookId: look.id,
           fixtureOrders,
         },
       });
 
-      // Refresh scene data to get updated order
-      await refetchScene();
+      // Refresh look data to get updated order
+      await refetchLook();
     } catch (error) {
 
       setError(`Failed to sort fixtures: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -1494,31 +1494,31 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (over && active.id !== over.id && scene) {
-      const oldIndex = activeFixtureValues.findIndex((fv: SceneFixtureValue) => fv.fixture.id === active.id);
-      const newIndex = activeFixtureValues.findIndex((fv: SceneFixtureValue) => fv.fixture.id === over.id);
+    if (over && active.id !== over.id && look) {
+      const oldIndex = activeFixtureValues.findIndex((fv: LookFixtureValue) => fv.fixture.id === active.id);
+      const newIndex = activeFixtureValues.findIndex((fv: LookFixtureValue) => fv.fixture.id === over.id);
 
       if (oldIndex !== -1 && newIndex !== -1) {
-        // Create new order for all fixtures in the scene
+        // Create new order for all fixtures in the look
         const newFixtureValues = arrayMove(activeFixtureValues, oldIndex, newIndex);
 
-        // Update sceneOrder for all fixtures
-        // Type assertion needed because arrayMove returns unknown[] despite input being SceneFixtureValue[]
-        const fixtureOrders = (newFixtureValues as SceneFixtureValue[]).map((fv: SceneFixtureValue, index: number) => ({
+        // Update lookOrder for all fixtures
+        // Type assertion needed because arrayMove returns unknown[] despite input being LookFixtureValue[]
+        const fixtureOrders = (newFixtureValues as LookFixtureValue[]).map((fv: LookFixtureValue, index: number) => ({
           fixtureId: fv.fixture.id,
           order: index + 1,
         }));
 
         try {
-          await reorderSceneFixtures({
+          await reorderLookFixtures({
             variables: {
-              sceneId: scene.id,
+              lookId: look.id,
               fixtureOrders,
             },
           });
 
-          // Refresh scene data to get updated order
-          await refetchScene();
+          // Refresh look data to get updated order
+          await refetchLook();
 
         } catch {
 
@@ -1532,11 +1532,11 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     e.preventDefault();
     setError(null);
 
-    if (!scene) return;
+    if (!look) return;
 
     // Build fixture values from active fixtures
     // Convert dense format to sparse for mutation, but only include active channels
-    const fixtureValues = activeFixtureValues.map((fixtureValue: SceneFixtureValue) => {
+    const fixtureValues = activeFixtureValues.map((fixtureValue: LookFixtureValue) => {
       const fixtureId = fixtureValue.fixture.id;
       const localDense = channelValues.get(fixtureId);
       const fixtureActiveChannels = activeChannels.get(fixtureId);
@@ -1564,32 +1564,32 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
       }
     });
 
-    updateScene({
+    updateLook({
       variables: {
-        id: scene.id,
+        id: look.id,
         input: {
-          name: sceneName,
-          description: sceneDescription || undefined,
+          name: lookName,
+          description: lookDescription || undefined,
           fixtureValues,
         },
       },
     });
   };
 
-  // Helper function to apply all current scene values to preview
+  // Helper function to apply all current look values to preview
   const applyAllChannelValuesToPreview = async (sessionId: string) => {
-    if (!scene) return;
+    if (!look) return;
 
     try {
-      await initializePreviewWithScene({
+      await initializePreviewWithLook({
         variables: {
           sessionId,
-          sceneId: scene.id,
+          lookId: look.id,
         },
       });
     } catch {
 
-      setPreviewError('Failed to initialize preview with scene values');
+      setPreviewError('Failed to initialize preview with look values');
     }
   };
 
@@ -1599,13 +1599,13 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
       await cancelPreviewSession({
         variables: { sessionId: previewSessionId },
       });
-    } else if (scene?.project?.id) {
+    } else if (look?.project?.id) {
       // Start preview session
       const result = await startPreviewSession({
-        variables: { projectId: scene.project.id },
+        variables: { projectId: look.project.id },
       });
 
-      // Apply all current scene values to the preview session
+      // Apply all current look values to the preview session
       if (result.data?.startPreviewSession?.id) {
         await applyAllChannelValuesToPreview(result.data.startPreviewSession.id);
       }
@@ -1629,8 +1629,8 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
     // Reset local state (only affects local state, not shared state managed by parent)
     setLocalChannelValues(new Map());
     setLocalActiveChannels(new Map());
-    setSceneName('');
-    setSceneDescription('');
+    setLookName('');
+    setLookDescription('');
     setError(null);
     setPreviewError(null);
     setShowAddFixtures(false);
@@ -1704,15 +1704,15 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center bg-white dark:bg-gray-900">
-        <p className="text-gray-600 dark:text-gray-400">Loading scene...</p>
+        <p className="text-gray-600 dark:text-gray-400">Loading look...</p>
       </div>
     );
   }
 
-  if (!scene) {
+  if (!look) {
     return (
       <div className="h-full flex items-center justify-center bg-white dark:bg-gray-900">
-        <p className="text-red-600 dark:text-red-400">Scene not found</p>
+        <p className="text-red-600 dark:text-red-400">Look not found</p>
       </div>
     );
   }
@@ -1724,9 +1724,9 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                Edit Scene
+                Edit Look
               </h3>
-              {isSceneCurrentlyActive && (
+              {isLookCurrentlyActive && (
                 <div className="flex items-center space-x-2 px-3 py-1 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-full">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                   <span className="text-xs font-medium text-green-800 dark:text-green-200">
@@ -1738,28 +1738,28 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="scene-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Scene Name *
+                <label htmlFor="look-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Look Name *
                 </label>
                 <input
-                  id="scene-name"
+                  id="look-name"
                   type="text"
-                  value={sceneName}
-                  onChange={(e) => setSceneName(e.target.value)}
-                  placeholder="Enter scene name..."
+                  value={lookName}
+                  onChange={(e) => setLookName(e.target.value)}
+                  placeholder="Enter look name..."
                   required
                   className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
 
               <div>
-                <label htmlFor="scene-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="look-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Description
                 </label>
                 <textarea
-                  id="scene-description"
-                  value={sceneDescription}
-                  onChange={(e) => setSceneDescription(e.target.value)}
+                  id="look-description"
+                  value={lookDescription}
+                  onChange={(e) => setLookDescription(e.target.value)}
                   placeholder="Optional description..."
                   rows={2}
                   className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -1804,7 +1804,7 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
                   )}
                   <button
                     type="submit"
-                    disabled={updating || !sceneName.trim()}
+                    disabled={updating || !lookName.trim()}
                     className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {updating ? 'Saving...' : 'Save Changes'}
@@ -1821,10 +1821,10 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
                       Preview Mode
                     </h4>
                     <p className="text-xs text-gray-600 dark:text-gray-400">
-                      {isSceneCurrentlyActive
+                      {isLookCurrentlyActive
                         ? (previewMode
-                            ? 'Preview mode active (scene is also LIVE - saved changes apply immediately)'
-                            : 'Scene is LIVE - saved changes apply immediately. Preview mode for testing changes.')
+                            ? 'Preview mode active (look is also LIVE - saved changes apply immediately)'
+                            : 'Look is LIVE - saved changes apply immediately. Preview mode for testing changes.')
                         : (previewMode
                             ? 'Changes are sent to DMX output in real-time for testing'
                             : 'Enable to see changes live while editing (for testing only)')
@@ -1859,7 +1859,7 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
                 </div>
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-red-200">
-                    Error updating scene
+                    Error updating look
                   </h3>
                   <div className="mt-2 text-sm text-red-300">
                     <p className="whitespace-pre-wrap select-all">{error}</p>
@@ -1891,7 +1891,7 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
 
           <div className="mb-4 flex items-center justify-between">
             <div className="text-sm text-gray-700 dark:text-gray-400">
-              Total fixtures in scene: {activeFixtureValues.length}
+              Total fixtures in look: {activeFixtureValues.length}
             </div>
             <div className="flex items-center gap-2">
               {/* Sort dropdown */}
@@ -2031,7 +2031,7 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
                 )}
               </div>
               {availableFixtures.length === 0 ? (
-                <p className="text-sm text-gray-400">All project fixtures are already in this scene</p>
+                <p className="text-sm text-gray-400">All project fixtures are already in this look</p>
               ) : (
                 <>
                   <div className="max-h-48 overflow-y-auto mb-3 space-y-2">
@@ -2123,11 +2123,11 @@ export default function ChannelListEditor({ sceneId, onClose, sharedState, onDir
               onDragEnd={handleDragEnd}
             >
               <SortableContext
-                items={activeFixtureValues.map((fv: SceneFixtureValue) => fv.fixture.id)}
+                items={activeFixtureValues.map((fv: LookFixtureValue) => fv.fixture.id)}
                 strategy={verticalListSortingStrategy}
               >
                 <div className="divide-y divide-gray-700">
-                  {activeFixtureValues.map((fixtureValue: SceneFixtureValue, index: number) => (
+                  {activeFixtureValues.map((fixtureValue: LookFixtureValue, index: number) => (
                     <SortableFixtureRow
                       key={`${fixtureValue.id}-${index}`}
                       fixtureValue={fixtureValue}

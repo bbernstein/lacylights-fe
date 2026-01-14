@@ -26,11 +26,11 @@ import {
   TOGGLE_CUE_SKIP,
 } from "@/graphql/cueLists";
 import {
-  GET_PROJECT_SCENES,
-  DUPLICATE_SCENE,
-  ACTIVATE_SCENE,
-} from "@/graphql/scenes";
-import { Cue, Scene } from "@/types";
+  GET_PROJECT_LOOKS,
+  DUPLICATE_LOOK,
+  ACTIVATE_LOOK,
+} from "@/graphql/looks";
+import { Cue, Look } from "@/types";
 import { convertCueIndexForLocalState, calculateNextCueNumber } from "@/utils/cueListHelpers";
 import { shouldIgnoreKeyboardEvent } from "@/utils/keyboardUtils";
 import BulkFadeUpdateModal from "./BulkFadeUpdateModal";
@@ -379,9 +379,9 @@ interface SortableCueRowProps {
   onJumpToCue: (cue: Cue, index: number) => void;
   onUpdateCue: (cue: Cue) => void;
   onDeleteCue: (cue: Cue) => void;
-  onEditScene: (sceneId: string) => void;
+  onEditLook: (lookId: string) => void;
   editMode: boolean;
-  scenes: Scene[];
+  looks: Look[];
   isSelected: boolean;
   onSelect: (cueId: string, selected: boolean) => void;
   currentCueRef?: React.MutableRefObject<
@@ -469,9 +469,9 @@ const CueRow = React.forwardRef<
       onJumpToCue,
       onUpdateCue,
       onDeleteCue,
-      onEditScene,
+      onEditLook,
       editMode,
-      scenes,
+      looks,
       isSelected,
       onSelect,
       style,
@@ -488,8 +488,8 @@ const CueRow = React.forwardRef<
     },
     ref,
   ) => {
-    const [showSceneSelect, setShowSceneSelect] = useState(false);
-    const [selectedSceneId, setSelectedSceneId] = useState(cue.scene.id);
+    const [showLookSelect, setShowLookSelect] = useState(false);
+    const [selectedLookId, setSelectedLookId] = useState(cue.look.id);
 
     const isHighlighted =
       highlightedCueNumber !== null && cue.cueNumber === highlightedCueNumber;
@@ -536,12 +536,12 @@ const CueRow = React.forwardRef<
       }
     };
 
-    const handleSceneChange = () => {
+    const handleLookChange = () => {
       onUpdateCue({
         ...cue,
-        scene: scenes.find((s) => s.id === selectedSceneId) || cue.scene,
+        look: looks.find((l) => l.id === selectedLookId) || cue.look,
       });
-      setShowSceneSelect(false);
+      setShowLookSelect(false);
     };
 
     return (
@@ -622,22 +622,22 @@ const CueRow = React.forwardRef<
           className={`px-3 py-3 text-sm ${textColorClass}`}
           onClick={(e) => e.stopPropagation()}
         >
-          {editMode && showSceneSelect ? (
+          {editMode && showLookSelect ? (
             <div className="flex items-center space-x-1">
               <select
-                value={selectedSceneId}
-                onChange={(e) => setSelectedSceneId(e.target.value)}
+                value={selectedLookId}
+                onChange={(e) => setSelectedLookId(e.target.value)}
                 className="text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600"
                 onClick={(e) => e.stopPropagation()}
               >
-                {scenes.map((scene) => (
-                  <option key={scene.id} value={scene.id}>
-                    {scene.name}
+                {looks.map((look) => (
+                  <option key={look.id} value={look.id}>
+                    {look.name}
                   </option>
                 ))}
               </select>
               <button
-                onClick={handleSceneChange}
+                onClick={handleLookChange}
                 className="text-green-600 hover:text-green-800 p-1"
               >
                 <svg
@@ -656,8 +656,8 @@ const CueRow = React.forwardRef<
               </button>
               <button
                 onClick={() => {
-                  setSelectedSceneId(cue.scene.id);
-                  setShowSceneSelect(false);
+                  setSelectedLookId(cue.look.id);
+                  setShowLookSelect(false);
                 }}
                 className="text-gray-600 hover:text-gray-800 p-1"
               >
@@ -695,18 +695,18 @@ const CueRow = React.forwardRef<
                   </div>
                 )}
               <button
-                onClick={() => editMode && setShowSceneSelect(true)}
+                onClick={() => editMode && setShowLookSelect(true)}
                 disabled={!editMode}
                 className={`relative z-10 ${editMode ? "hover:underline" : ""}`}
               >
-                {cue.scene.name}
+                {cue.look.name}
               </button>
               {editMode && (
                 <button
-                  onClick={() => onEditScene(cue.scene.id)}
+                  onClick={() => onEditLook(cue.look.id)}
                   className="relative z-10 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1"
-                  title="Edit scene"
-                  aria-label="Edit scene"
+                  title="Edit look"
+                  aria-label="Edit look"
                 >
                   <PencilIcon className="w-4 h-4" />
                 </button>
@@ -878,9 +878,9 @@ const CueCard = React.forwardRef<
     onJumpToCue,
     onUpdateCue,
     onDeleteCue,
-    onEditScene,
+    onEditLook,
     editMode,
-    scenes,
+    looks,
     isSelected,
     onSelect,
     style,
@@ -896,8 +896,8 @@ const CueCard = React.forwardRef<
     isInMoveMode,
   } = props;
 
-  const [showSceneSelect, setShowSceneSelect] = useState(false);
-  const [selectedSceneId, setSelectedSceneId] = useState(cue.scene.id);
+  const [showLookSelect, setShowLookSelect] = useState(false);
+  const [selectedLookId, setSelectedLookId] = useState(cue.look.id);
 
   const isHighlighted =
     highlightedCueNumber !== null && cue.cueNumber === highlightedCueNumber;
@@ -944,12 +944,12 @@ const CueCard = React.forwardRef<
     }
   };
 
-  const handleSceneChange = () => {
+  const handleLookChange = () => {
     onUpdateCue({
       ...cue,
-      scene: scenes.find((s) => s.id === selectedSceneId) || cue.scene,
+      look: looks.find((l) => l.id === selectedLookId) || cue.look,
     });
-    setShowSceneSelect(false);
+    setShowLookSelect(false);
   };
 
   return (
@@ -1039,31 +1039,31 @@ const CueCard = React.forwardRef<
         </div>
       </div>
 
-      {/* Line 2: Scene, Fade Out */}
+      {/* Line 2: Look, Fade Out */}
       <div
         className="flex items-center justify-between mb-2"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center space-x-2 flex-1">
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            Scene:
+            Look:
           </span>
-          {editMode && showSceneSelect ? (
+          {editMode && showLookSelect ? (
             <div className="flex items-center space-x-1">
               <select
-                value={selectedSceneId}
-                onChange={(e) => setSelectedSceneId(e.target.value)}
+                value={selectedLookId}
+                onChange={(e) => setSelectedLookId(e.target.value)}
                 className="text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600"
                 onClick={(e) => e.stopPropagation()}
               >
-                {scenes.map((scene) => (
-                  <option key={scene.id} value={scene.id}>
-                    {scene.name}
+                {looks.map((look) => (
+                  <option key={look.id} value={look.id}>
+                    {look.name}
                   </option>
                 ))}
               </select>
               <button
-                onClick={handleSceneChange}
+                onClick={handleLookChange}
                 className="text-green-600 hover:text-green-800 p-1"
               >
                 <svg
@@ -1082,8 +1082,8 @@ const CueCard = React.forwardRef<
               </button>
               <button
                 onClick={() => {
-                  setSelectedSceneId(cue.scene.id);
-                  setShowSceneSelect(false);
+                  setSelectedLookId(cue.look.id);
+                  setShowLookSelect(false);
                 }}
                 className="text-gray-600 hover:text-gray-800 p-1"
               >
@@ -1120,17 +1120,17 @@ const CueCard = React.forwardRef<
                   </div>
                 )}
               <button
-                onClick={() => editMode && setShowSceneSelect(true)}
+                onClick={() => editMode && setShowLookSelect(true)}
                 disabled={!editMode}
                 className={`relative z-10 text-sm ${editMode ? "hover:underline" : ""}`}
               >
-                {cue.scene.name}
+                {cue.look.name}
               </button>
               {editMode && (
                 <button
-                  onClick={() => onEditScene(cue.scene.id)}
+                  onClick={() => onEditLook(cue.look.id)}
                   className="relative z-10 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                  title="Edit scene"
+                  title="Edit look"
                 >
                   <PencilIcon className="w-4 h-4" />
                 </button>
@@ -1230,7 +1230,7 @@ export default function CueListUnifiedView({
 
   // Real-time playback synchronization
   const { playbackStatus } = useCueListPlayback(cueListId);
-  // Subscribe to real-time cue list data changes (cue/scene name changes, etc.)
+  // Subscribe to real-time cue list data changes (cue/look name changes, etc.)
   useCueListDataUpdates({ cueListId });
 
   // Get current state from subscription data only
@@ -1277,7 +1277,7 @@ export default function CueListUnifiedView({
   const [newCue, setNewCue] = useState({
     name: "",
     cueNumber: "1",
-    sceneId: "",
+    lookId: "",
     fadeInTime: "3",
     fadeOutTime: "3",
     followTime: "0",
@@ -1301,7 +1301,7 @@ export default function CueListUnifiedView({
     },
   });
 
-  const { data: scenesData } = useQuery(GET_PROJECT_SCENES, {
+  const { data: looksData } = useQuery(GET_PROJECT_LOOKS, {
     variables: { projectId: cueListData?.cueList?.project?.id },
     skip: !cueListData?.cueList?.project?.id,
   });
@@ -1365,7 +1365,7 @@ export default function CueListUnifiedView({
       setNewCue({
         name: "",
         cueNumber: "1",
-        sceneId: "",
+        lookId: "",
         fadeInTime: "3",
         fadeOutTime: "3",
         followTime: "0",
@@ -1410,21 +1410,21 @@ export default function CueListUnifiedView({
     },
   });
 
-  const [duplicateScene] = useMutation(DUPLICATE_SCENE, {
+  const [duplicateLook] = useMutation(DUPLICATE_LOOK, {
     onError: (error) => {
-      setError(`Failed to duplicate scene: ${error.message}`);
+      setError(`Failed to duplicate look: ${error.message}`);
     },
   });
 
-  const [activateScene] = useMutation(ACTIVATE_SCENE, {
+  const [activateLook] = useMutation(ACTIVATE_LOOK, {
     onError: (error) => {
-      setError(`Failed to activate scene: ${error.message}`);
+      setError(`Failed to activate look: ${error.message}`);
     },
   });
 
   const cueList = cueListData?.cueList;
   const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
-  const scenes = scenesData?.project?.scenes || [];
+  const looks = looksData?.project?.looks || [];
   const currentCue =
     currentCueIndex >= 0 && currentCueIndex < cues.length
       ? cues[currentCueIndex]
@@ -1496,7 +1496,7 @@ export default function CueListUnifiedView({
     }
   }, [currentCueIndex, editMode]);
 
-  // Handle highlight flash effect when returning from scene editor
+  // Handle highlight flash effect when returning from look editor
   useEffect(() => {
     const highlightCue = searchParams.get("highlightCue");
     if (highlightCue) {
@@ -1624,17 +1624,17 @@ export default function CueListUnifiedView({
     setContextMenu(null);
   }, [contextMenu]);
 
-  const handleContextMenuEditScene = useCallback(
+  const handleContextMenuEditLook = useCallback(
     async (cue: Cue) => {
-      await activateScene({
-        variables: { sceneId: cue.scene.id },
+      await activateLook({
+        variables: { lookId: cue.look.id },
       });
       router.push(
-        `/scenes/${cue.scene.id}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}`,
+        `/looks/${cue.look.id}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}`,
       );
       setContextMenu(null);
     },
-    [activateScene, router, cueListId],
+    [activateLook, router, cueListId],
   );
 
   const handleDuplicateCue = useCallback(async () => {
@@ -1642,10 +1642,10 @@ export default function CueListUnifiedView({
     const { cue } = contextMenu;
 
     try {
-      const duplicateResult = await duplicateScene({
-        variables: { id: cue.scene.id },
+      const duplicateResult = await duplicateLook({
+        variables: { id: cue.look.id },
       });
-      const newSceneId = duplicateResult.data?.duplicateScene?.id;
+      const newLookId = duplicateResult.data?.duplicateLook?.id;
 
       // Calculate new cue number that fits after the current cue
       const allCueNumbers = cueList.cues.map((c: Cue) => c.cueNumber);
@@ -1656,7 +1656,7 @@ export default function CueListUnifiedView({
             cueNumber: newCueNumber,
             name: `${cue.name} (copy)`,
             cueListId: cueList.id,
-            sceneId: newSceneId || cue.scene.id,
+            lookId: newLookId || cue.look.id,
             fadeInTime: cue.fadeInTime,
             fadeOutTime: cue.fadeOutTime,
             followTime: cue.followTime,
@@ -1670,7 +1670,7 @@ export default function CueListUnifiedView({
       console.error("Failed to duplicate cue:", error);
     }
     setContextMenu(null);
-  }, [contextMenu, cueList, duplicateScene, createCue]);
+  }, [contextMenu, cueList, duplicateLook, createCue]);
 
   const handleContextMenuDeleteCue = useCallback(() => {
     if (!contextMenu) return;
@@ -1702,7 +1702,7 @@ export default function CueListUnifiedView({
     setNewCue({
       name: `Cue ${Math.floor(cue.cueNumber + 0.5)}`,
       cueNumber: (cue.cueNumber + 0.5).toString(),
-      sceneId: cue.scene.id,
+      lookId: cue.look.id,
       fadeInTime: cue.fadeInTime.toString(),
       fadeOutTime: cue.fadeOutTime.toString(),
       followTime: cue.followTime?.toString() || "0",
@@ -1719,11 +1719,11 @@ export default function CueListUnifiedView({
       cueId: string;
       cueNumber?: number;
       name?: string;
-      sceneId?: string;
+      lookId?: string;
       fadeInTime?: number;
       fadeOutTime?: number;
       followTime?: number | null;
-      action: "edit-scene" | "stay";
+      action: "edit-look" | "stay";
     }) => {
       try {
         await updateCue({
@@ -1733,7 +1733,7 @@ export default function CueListUnifiedView({
               name: params.name,
               cueNumber: params.cueNumber,
               cueListId: cueList?.id,
-              sceneId: params.sceneId,
+              lookId: params.lookId,
               fadeInTime: params.fadeInTime,
               fadeOutTime: params.fadeOutTime,
               followTime: params.followTime,
@@ -1744,12 +1744,12 @@ export default function CueListUnifiedView({
           ],
         });
 
-        if (params.action === "edit-scene" && params.sceneId) {
-          await activateScene({
-            variables: { sceneId: params.sceneId },
+        if (params.action === "edit-look" && params.lookId) {
+          await activateLook({
+            variables: { lookId: params.lookId },
           });
           router.push(
-            `/scenes/${params.sceneId}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}`,
+            `/looks/${params.lookId}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}`,
           );
         }
 
@@ -1759,7 +1759,7 @@ export default function CueListUnifiedView({
         console.error("Failed to update cue:", error);
       }
     },
-    [cueList, cueListId, updateCue, activateScene, router],
+    [cueList, cueListId, updateCue, activateLook, router],
   );
 
   const handleNext = useCallback(async () => {
@@ -1868,7 +1868,7 @@ export default function CueListUnifiedView({
           name: cue.name,
           cueNumber: cue.cueNumber,
           cueListId: cueList?.id,
-          sceneId: cue.scene.id,
+          lookId: cue.look.id,
           fadeInTime: cue.fadeInTime,
           fadeOutTime: cue.fadeOutTime,
           followTime: cue.followTime || undefined,
@@ -1951,7 +1951,7 @@ export default function CueListUnifiedView({
   }, [cueList, reorderCues]);
 
   const handleAddCue = () => {
-    if (!cueList || !newCue.sceneId) return;
+    if (!cueList || !newCue.lookId) return;
 
     createCue({
       variables: {
@@ -1959,7 +1959,7 @@ export default function CueListUnifiedView({
           name: newCue.name,
           cueNumber: newCue.cueNumber ? parseFloat(newCue.cueNumber) : 1,
           cueListId: cueList.id,
-          sceneId: newCue.sceneId,
+          lookId: newCue.lookId,
           fadeInTime: parseFloat(newCue.fadeInTime) || 3,
           fadeOutTime: parseFloat(newCue.fadeOutTime) || 3,
           followTime:
@@ -1976,7 +1976,7 @@ export default function CueListUnifiedView({
     async (params: {
       cueNumber: number;
       name: string;
-      sceneId: string;
+      lookId: string;
       createCopy: boolean;
       fadeInTime: number;
       fadeOutTime: number;
@@ -1986,14 +1986,14 @@ export default function CueListUnifiedView({
       if (!cueList) return;
 
       try {
-        // Duplicate scene if requested
-        let targetSceneId = params.sceneId;
+        // Duplicate look if requested
+        let targetLookId = params.lookId;
         if (params.createCopy) {
-          const duplicateResult = await duplicateScene({
-            variables: { id: params.sceneId },
+          const duplicateResult = await duplicateLook({
+            variables: { id: params.lookId },
           });
-          targetSceneId =
-            duplicateResult.data?.duplicateScene?.id || params.sceneId;
+          targetLookId =
+            duplicateResult.data?.duplicateLook?.id || params.lookId;
         }
 
         // Create the cue
@@ -2003,7 +2003,7 @@ export default function CueListUnifiedView({
               cueNumber: params.cueNumber,
               name: params.name,
               cueListId: cueList.id,
-              sceneId: targetSceneId,
+              lookId: targetLookId,
               fadeInTime: params.fadeInTime,
               fadeOutTime: params.fadeOutTime,
               followTime: params.followTime,
@@ -2014,15 +2014,15 @@ export default function CueListUnifiedView({
           ],
         });
 
-        if (params.action === "edit" && targetSceneId) {
-          // Activate the scene before navigation to prevent blackout
-          await activateScene({
-            variables: { sceneId: targetSceneId },
+        if (params.action === "edit" && targetLookId) {
+          // Activate the look before navigation to prevent blackout
+          await activateLook({
+            variables: { lookId: targetLookId },
           });
 
-          // Navigate to scene editor in layout mode
+          // Navigate to look editor in layout mode
           router.push(
-            `/scenes/${targetSceneId}/edit?mode=layout&fromPlayer=true&cueListId=${cueList.id}&returnCueNumber=${params.cueNumber}`,
+            `/looks/${targetLookId}/edit?mode=layout&fromPlayer=true&cueListId=${cueList.id}&returnCueNumber=${params.cueNumber}`,
           );
         }
 
@@ -2032,7 +2032,7 @@ export default function CueListUnifiedView({
         console.error("Failed to add cue:", error);
       }
     },
-    [cueList, createCue, duplicateScene, activateScene, router],
+    [cueList, createCue, duplicateLook, activateLook, router],
   );
 
   const handleUpdateCueList = (
@@ -2100,8 +2100,8 @@ export default function CueListUnifiedView({
   const selectedCues =
     cueList?.cues.filter((cue: Cue) => selectedCueIds.has(cue.id)) || [];
 
-  const handleEditScene = (sceneId: string) => {
-    router.push(`/scenes/${sceneId}/edit?mode=layout`);
+  const handleEditLook = (lookId: string) => {
+    router.push(`/looks/${lookId}/edit?mode=layout`);
   };
 
   if (loading) {
@@ -2246,16 +2246,16 @@ export default function CueListUnifiedView({
                   className="rounded border-gray-600 bg-gray-700 text-white text-sm md:col-span-2 min-w-0"
                 />
                 <select
-                  value={newCue.sceneId}
+                  value={newCue.lookId}
                   onChange={(e) =>
-                    setNewCue({ ...newCue, sceneId: e.target.value })
+                    setNewCue({ ...newCue, lookId: e.target.value })
                   }
                   className="rounded border-gray-600 bg-gray-700 text-white text-sm min-w-0"
                 >
-                  <option value="">Select scene...</option>
-                  {scenes.map((scene: Scene) => (
-                    <option key={scene.id} value={scene.id}>
-                      {scene.name}
+                  <option value="">Select look...</option>
+                  {looks.map((look: Look) => (
+                    <option key={look.id} value={look.id}>
+                      {look.name}
                     </option>
                   ))}
                 </select>
@@ -2283,7 +2283,7 @@ export default function CueListUnifiedView({
                 </div>
                 <button
                   onClick={handleAddCue}
-                  disabled={!newCue.name || !newCue.sceneId}
+                  disabled={!newCue.name || !newCue.lookId}
                   className="px-3 py-1 text-sm font-medium rounded text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 min-w-0"
                 >
                   Add
@@ -2342,9 +2342,9 @@ export default function CueListUnifiedView({
                       onJumpToCue={handleJumpToCue}
                       onUpdateCue={handleUpdateCue}
                       onDeleteCue={handleDeleteCue}
-                      onEditScene={handleEditScene}
+                      onEditLook={handleEditLook}
                       editMode={editMode}
-                      scenes={scenes}
+                      looks={looks}
                       isSelected={selectedCueIds.has(cue.id)}
                       onSelect={handleSelectCue}
                       currentCueRef={currentCueRef}
@@ -2393,7 +2393,7 @@ export default function CueListUnifiedView({
                     Name
                   </th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
-                    Scene
+                    Look
                   </th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                     In
@@ -2455,9 +2455,9 @@ export default function CueListUnifiedView({
                           onJumpToCue={handleJumpToCue}
                           onUpdateCue={handleUpdateCue}
                           onDeleteCue={handleDeleteCue}
-                          onEditScene={handleEditScene}
+                          onEditLook={handleEditLook}
                           editMode={editMode}
-                          scenes={scenes}
+                          looks={looks}
                           isSelected={selectedCueIds.has(cue.id)}
                           onSelect={handleSelectCue}
                           currentCueRef={currentCueRef}
@@ -2660,8 +2660,8 @@ export default function CueListUnifiedView({
         currentCueNumber={
           currentCueIndex >= 0 ? cues[currentCueIndex]?.cueNumber || 0 : 0
         }
-        currentSceneId={currentCue?.scene.id || null}
-        scenes={scenes}
+        currentLookId={currentCue?.look.id || null}
+        looks={looks}
         defaultFadeInTime={cueList?.defaultFadeInTime || 3}
         defaultFadeOutTime={cueList?.defaultFadeOutTime || 3}
         onAdd={handleAddCueFromDialog}
@@ -2679,8 +2679,8 @@ export default function CueListUnifiedView({
               icon: <PencilIcon className="w-4 h-4" />,
             },
             {
-              label: "Edit Scene",
-              onClick: () => handleContextMenuEditScene(contextMenu.cue),
+              label: "Edit Look",
+              onClick: () => handleContextMenuEditLook(contextMenu.cue),
               icon: (
                 <svg
                   className="w-4 h-4"
@@ -2822,7 +2822,7 @@ export default function CueListUnifiedView({
             setEditingCue(null);
           }}
           cue={editingCue}
-          scenes={scenes}
+          looks={looks}
           onUpdate={handleEditCueDialogUpdate}
         />
       )}

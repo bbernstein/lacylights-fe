@@ -41,11 +41,11 @@ export const USER_MODE_DESCRIPTIONS: Record<UserMode, string> = {
 export interface UserPermissions {
   /** Can create, edit, delete users and assign roles (Admin only) */
   canManageUsers: boolean;
-  /** Can create/edit/delete fixtures, scenes, scene boards, cue lists, cues (Admin, Editor) */
+  /** Can create/edit/delete fixtures, looks, look boards, cue lists, cues (Admin, Editor) */
   canEditContent: boolean;
-  /** Can advance cues, activate scenes, start/stop cue lists (Admin, Editor, Player) */
+  /** Can advance cues, activate looks, start/stop cue lists (Admin, Editor, Player) */
   canPlayback: boolean;
-  /** Can view all fixtures, scenes, scene boards, cue lists (All modes) */
+  /** Can view all fixtures, looks, look boards, cue lists (All modes) */
   canView: boolean;
 }
 

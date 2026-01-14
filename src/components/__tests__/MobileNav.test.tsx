@@ -24,8 +24,8 @@ describe('MobileNav', () => {
 
     expect(screen.getByTestId('mobile-nav-item-')).toBeInTheDocument(); // Dashboard at root
     expect(screen.getByTestId('mobile-nav-item-fixtures')).toBeInTheDocument();
-    expect(screen.getByTestId('mobile-nav-item-scenes')).toBeInTheDocument();
-    expect(screen.getByTestId('mobile-nav-item-scene-board')).toBeInTheDocument();
+    expect(screen.getByTestId('mobile-nav-item-looks')).toBeInTheDocument();
+    expect(screen.getByTestId('mobile-nav-item-look-board')).toBeInTheDocument();
     expect(screen.getByTestId('mobile-nav-item-cue-lists')).toBeInTheDocument();
     expect(screen.getByTestId('mobile-nav-item-settings')).toBeInTheDocument();
   });
@@ -44,12 +44,12 @@ describe('MobileNav', () => {
   });
 
   it('marks active item with aria-current', () => {
-    mockUsePathname.mockReturnValue('/scenes');
+    mockUsePathname.mockReturnValue('/looks');
 
     render(<MobileNav />);
 
-    const scenesLink = screen.getByTestId('mobile-nav-item-scenes');
-    expect(scenesLink).toHaveAttribute('aria-current', 'page');
+    const looksLink = screen.getByTestId('mobile-nav-item-looks');
+    expect(looksLink).toHaveAttribute('aria-current', 'page');
 
     const fixturesLink = screen.getByTestId('mobile-nav-item-fixtures');
     expect(fixturesLink).not.toHaveAttribute('aria-current');
@@ -69,17 +69,17 @@ describe('MobileNav', () => {
 
     render(<MobileNav />);
 
-    const scenesLink = screen.getByTestId('mobile-nav-item-scenes');
-    expect(scenesLink).toHaveClass('text-gray-500');
+    const looksLink = screen.getByTestId('mobile-nav-item-looks');
+    expect(looksLink).toHaveClass('text-gray-500');
   });
 
   it('handles nested routes correctly', () => {
-    mockUsePathname.mockReturnValue('/scene-board/123');
+    mockUsePathname.mockReturnValue('/look-board/123');
 
     render(<MobileNav />);
 
-    const sceneBoardLink = screen.getByTestId('mobile-nav-item-scene-board');
-    expect(sceneBoardLink).toHaveAttribute('aria-current', 'page');
+    const lookBoardLink = screen.getByTestId('mobile-nav-item-look-board');
+    expect(lookBoardLink).toHaveAttribute('aria-current', 'page');
   });
 
   it('displays abbreviated labels for items', () => {
@@ -101,13 +101,13 @@ describe('MobileNav', () => {
       'href',
       '/fixtures'
     );
-    expect(screen.getByTestId('mobile-nav-item-scenes')).toHaveAttribute(
+    expect(screen.getByTestId('mobile-nav-item-looks')).toHaveAttribute(
       'href',
-      '/scenes'
+      '/looks'
     );
-    expect(screen.getByTestId('mobile-nav-item-scene-board')).toHaveAttribute(
+    expect(screen.getByTestId('mobile-nav-item-look-board')).toHaveAttribute(
       'href',
-      '/scene-board'
+      '/look-board'
     );
     expect(screen.getByTestId('mobile-nav-item-cue-lists')).toHaveAttribute(
       'href',
@@ -135,7 +135,7 @@ describe('MobileNav', () => {
     render(<MobileNav />);
 
     const links = screen.getAllByRole('link');
-    expect(links).toHaveLength(6); // Dashboard, Fixtures, Scenes, Scene Board, Cue Lists, Settings
+    expect(links).toHaveLength(6); // Dashboard, Fixtures, Looks, Look Board, Cue Lists, Settings
   });
 
   it('is fixed to the bottom of the viewport', () => {
@@ -204,8 +204,8 @@ describe('navItems configuration', () => {
     const hrefs = navItems.map((item) => item.href);
     expect(hrefs).toContain('/');
     expect(hrefs).toContain('/fixtures');
-    expect(hrefs).toContain('/scenes');
-    expect(hrefs).toContain('/scene-board');
+    expect(hrefs).toContain('/looks');
+    expect(hrefs).toContain('/look-board');
     expect(hrefs).toContain('/cue-lists');
     expect(hrefs).toContain('/settings');
   });

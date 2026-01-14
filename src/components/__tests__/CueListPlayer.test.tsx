@@ -82,12 +82,12 @@ describe("CueListPlayer", () => {
     cues: [
       {
         id: "cue-1",
-        name: "Opening Scene",
+        name: "Opening Look",
         cueNumber: 1,
-        scene: {
-          id: "scene-1",
-          name: "Scene 1",
-          description: "Test scene 1",
+        look: {
+          id: "look-1",
+          name: "Look 1",
+          description: "Test look 1",
           fixtureValues: [],
           project: {
             id: "project-1",
@@ -96,7 +96,7 @@ describe("CueListPlayer", () => {
           },
           createdAt: "2023-01-01T12:00:00Z",
           updatedAt: "2023-01-01T12:00:00Z",
-          __typename: "Scene",
+          __typename: "Look",
         },
         fadeInTime: 2.0,
         fadeOutTime: 3.0,
@@ -106,12 +106,12 @@ describe("CueListPlayer", () => {
       },
       {
         id: "cue-2",
-        name: "Mid Scene",
+        name: "Mid Look",
         cueNumber: 2,
-        scene: {
-          id: "scene-2",
-          name: "Scene 2",
-          description: "Test scene 2",
+        look: {
+          id: "look-2",
+          name: "Look 2",
+          description: "Test look 2",
           fixtureValues: [],
           project: {
             id: "project-1",
@@ -120,7 +120,7 @@ describe("CueListPlayer", () => {
           },
           createdAt: "2023-01-02T12:00:00Z",
           updatedAt: "2023-01-02T12:00:00Z",
-          __typename: "Scene",
+          __typename: "Look",
         },
         fadeInTime: 1.5,
         fadeOutTime: 2.5,
@@ -130,12 +130,12 @@ describe("CueListPlayer", () => {
       },
       {
         id: "cue-3",
-        name: "Closing Scene",
+        name: "Closing Look",
         cueNumber: 3,
-        scene: {
-          id: "scene-3",
-          name: "Scene 3",
-          description: "Test scene 3",
+        look: {
+          id: "look-3",
+          name: "Look 3",
+          description: "Test look 3",
           fixtureValues: [],
           project: {
             id: "project-1",
@@ -144,7 +144,7 @@ describe("CueListPlayer", () => {
           },
           createdAt: "2023-01-03T12:00:00Z",
           updatedAt: "2023-01-03T12:00:00Z",
-          __typename: "Scene",
+          __typename: "Look",
         },
         fadeInTime: 3.0,
         fadeOutTime: 4.0,
@@ -292,8 +292,8 @@ describe("CueListPlayer", () => {
       await waitFor(() => {
         // Cue list name is now in parent component (CueListPageClient)
         // Check that cues are rendered instead
-        expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
-        expect(screen.getAllByText("Mid Scene")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Opening Look")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Mid Look")[0]).toBeInTheDocument();
       });
     });
 
@@ -330,10 +330,10 @@ describe("CueListPlayer", () => {
         // Current cue (index 0) has "(scroll to view)" in title
         expect(progressDots[0]).toHaveAttribute(
           "title",
-          "1: Opening Scene (scroll to view)",
+          "1: Opening Look (scroll to view)",
         );
-        expect(progressDots[1]).toHaveAttribute("title", "2: Mid Scene");
-        expect(progressDots[2]).toHaveAttribute("title", "3: Closing Scene");
+        expect(progressDots[1]).toHaveAttribute("title", "2: Mid Look");
+        expect(progressDots[2]).toHaveAttribute("title", "3: Closing Look");
       });
     });
   });
@@ -345,10 +345,10 @@ describe("CueListPlayer", () => {
 
       await waitFor(() => {
         // Now Playing section duplicates cue name, so use getAllByText
-        expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
-        expect(screen.getAllByText("Mid Scene")[0]).toBeInTheDocument();
-        expect(screen.getAllByText("Scene: Scene 1")[0]).toBeInTheDocument();
-        expect(screen.getAllByText("Scene: Scene 2")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Opening Look")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Mid Look")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Look: Look 1")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Look: Look 2")[0]).toBeInTheDocument();
       });
     });
 
@@ -358,7 +358,7 @@ describe("CueListPlayer", () => {
 
       await waitFor(() => {
         // Get from cue list display, not Now Playing section
-        const openingSceneElements = screen.getAllByText("Opening Scene");
+        const openingSceneElements = screen.getAllByText("Opening Look");
         const currentCue = openingSceneElements[
           openingSceneElements.length - 1
         ].closest('div[class*="bg-gray-700"]');
@@ -386,8 +386,8 @@ describe("CueListPlayer", () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        // Next cue (Mid Scene) should have opacity-80 styling
-        const midSceneElements = screen.getAllByText("Mid Scene");
+        // Next cue (Mid Look) should have opacity-80 styling
+        const midSceneElements = screen.getAllByText("Mid Look");
         const nextCue = midSceneElements[0].closest('div[class*="opacity-80"]');
         expect(nextCue).toBeInTheDocument();
       });
@@ -598,7 +598,7 @@ describe("CueListPlayer", () => {
         expect(progressDots).toHaveLength(3);
       });
 
-      const thirdDot = screen.getByTitle("3: Closing Scene");
+      const thirdDot = screen.getByTitle("3: Closing Look");
       await userEvent.click(thirdDot);
     });
 
@@ -621,11 +621,11 @@ describe("CueListPlayer", () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        expect(screen.getAllByText("Mid Scene")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Mid Look")[0]).toBeInTheDocument();
       });
 
       // Click on a non-current cue to jump to it
-      const midSceneElements = screen.getAllByText("Mid Scene");
+      const midSceneElements = screen.getAllByText("Mid Look");
       const midSceneCue = midSceneElements[0].closest(
         'div[class*="cursor-pointer"]',
       );
@@ -639,12 +639,12 @@ describe("CueListPlayer", () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Opening Look")[0]).toBeInTheDocument();
       });
 
       // All cues including current have cursor-pointer class (current scrolls, others jump)
       // Find the outer cue card div that has cursor-pointer
-      const openingSceneElements = screen.getAllByText("Opening Scene");
+      const openingSceneElements = screen.getAllByText("Opening Look");
       const currentCue = openingSceneElements[
         openingSceneElements.length - 1
       ].closest('div[class*="cursor-pointer"]');
@@ -677,11 +677,11 @@ describe("CueListPlayer", () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        expect(screen.getAllByText("Mid Scene")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Mid Look")[0]).toBeInTheDocument();
       });
 
       // Find a non-current cue and single-click it
-      const midSceneElements = screen.getAllByText("Mid Scene");
+      const midSceneElements = screen.getAllByText("Mid Look");
       const midSceneCue = midSceneElements[0].closest(
         'div[class*="cursor-pointer"]',
       );
@@ -866,7 +866,7 @@ describe("CueListPlayer", () => {
       });
 
       // Current cue progress dot has "(scroll to view)" in title
-      const currentDot = screen.getByTitle("1: Opening Scene (scroll to view)");
+      const currentDot = screen.getByTitle("1: Opening Look (scroll to view)");
       fireEvent.click(currentDot);
 
       // Advance past the click delay (300ms)
@@ -890,11 +890,11 @@ describe("CueListPlayer", () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Opening Look")[0]).toBeInTheDocument();
       });
 
       // Find and click the current cue card
-      const openingSceneElements = screen.getAllByText("Opening Scene");
+      const openingSceneElements = screen.getAllByText("Opening Look");
       const currentCueCard = openingSceneElements[
         openingSceneElements.length - 1
       ].closest('div[class*="cursor-pointer"]');
@@ -941,7 +941,7 @@ describe("CueListPlayer", () => {
 
         // Wait for cues to render
         await waitFor(() => {
-          expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+          expect(screen.getAllByText("Opening Look")[0]).toBeInTheDocument();
         });
 
         // Wait for auto-scroll via callback ref + RAF (reactive approach, no hardcoded delay)
@@ -981,7 +981,7 @@ describe("CueListPlayer", () => {
 
       // Wait for component to render (cue list name appears in heading)
       await waitFor(() => {
-        expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Opening Look")[0]).toBeInTheDocument();
       });
 
       // Wait a bit to ensure no auto-scroll occurs
@@ -1018,7 +1018,7 @@ describe("CueListPlayer", () => {
 
         // Wait for component to render
         await waitFor(() => {
-          expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+          expect(screen.getAllByText("Opening Look")[0]).toBeInTheDocument();
         });
 
         // Run all timers to complete any pending scroll operations
@@ -1083,7 +1083,7 @@ describe("CueListPlayer", () => {
 
         // Wait for initial render and initial scrolls
         await waitFor(() => {
-          expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+          expect(screen.getAllByText("Opening Look")[0]).toBeInTheDocument();
         });
 
         // Run timers to complete initial scroll
@@ -1157,7 +1157,7 @@ describe("CueListPlayer", () => {
         const { rerender } = renderWithProvider(mocks);
 
         await waitFor(() => {
-          expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+          expect(screen.getAllByText("Opening Look")[0]).toBeInTheDocument();
         });
 
         jest.runAllTimers();
@@ -1327,7 +1327,7 @@ describe("CueListPlayer", () => {
 
       await waitFor(() => {
         // Get from cue list display, not Now Playing section
-        const openingSceneElements = screen.getAllByText("Opening Scene");
+        const openingSceneElements = screen.getAllByText("Opening Look");
         const currentCue = openingSceneElements[
           openingSceneElements.length - 1
         ].closest('div[class*="bg-gray-700"]');
@@ -1341,7 +1341,7 @@ describe("CueListPlayer", () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        const midSceneElements = screen.getAllByText("Mid Scene");
+        const midSceneElements = screen.getAllByText("Mid Look");
         const nextCue = midSceneElements[0].closest('div[class*="opacity-80"]');
         expect(nextCue).toBeInTheDocument();
       });
@@ -1372,7 +1372,7 @@ describe("CueListPlayer", () => {
       await waitFor(() => {
         // Cue list name/description now in parent component
         // Just verify cues render successfully
-        expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Opening Look")[0]).toBeInTheDocument();
       });
     });
 
@@ -1383,8 +1383,8 @@ describe("CueListPlayer", () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        // Opening Scene appears in both NOW PLAYING section and cue list
-        expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+        // Opening Look appears in both NOW PLAYING section and cue list
+        expect(screen.getAllByText("Opening Look")[0]).toBeInTheDocument();
         const progressDots = screen.getAllByTitle(/\d+: .+/);
         expect(progressDots).toHaveLength(1);
       });
@@ -1455,7 +1455,7 @@ describe("CueListPlayer", () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        const openingSceneElements = screen.getAllByText("Opening Scene");
+        const openingSceneElements = screen.getAllByText("Opening Look");
         const currentCue = openingSceneElements[
           openingSceneElements.length - 1
         ].closest('div[class*="bg-gray-700"]');
@@ -1527,7 +1527,7 @@ describe("CueListPlayer", () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        const pausedDot = screen.getByTitle("1: Opening Scene (PAUSED - click to resume)");
+        const pausedDot = screen.getByTitle("1: Opening Look (PAUSED - click to resume)");
         expect(pausedDot).toBeInTheDocument();
       });
     });
@@ -1557,7 +1557,7 @@ describe("CueListPlayer", () => {
       await waitFor(() => {
         // Connection status bar is hidden when fully connected
         // Just verify component renders successfully without connection bar
-        expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Opening Look")[0]).toBeInTheDocument();
       });
 
       // Verify no connection warning bar is shown
@@ -1743,7 +1743,7 @@ describe("CueListPlayer", () => {
 
       await waitFor(() => {
         // Component renders successfully
-        expect(screen.getAllByText("Opening Scene")[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Opening Look")[0]).toBeInTheDocument();
       });
 
       const reconnectButton = screen.queryByRole("button", {

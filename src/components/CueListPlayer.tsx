@@ -25,10 +25,10 @@ import {
   TOGGLE_CUE_SKIP,
 } from "@/graphql/cueLists";
 import {
-  GET_PROJECT_SCENES,
-  DUPLICATE_SCENE,
-  ACTIVATE_SCENE,
-} from "@/graphql/scenes";
+  GET_PROJECT_LOOKS,
+  DUPLICATE_LOOK,
+  ACTIVATE_LOOK,
+} from "@/graphql/looks";
 import { useCueListPlayback } from "@/hooks/useCueListPlayback";
 import { useCueListDataUpdates } from "@/hooks/useCueListDataUpdates";
 import { useWebSocket } from "@/contexts/WebSocketContext";
@@ -58,7 +58,7 @@ interface CueListPlayerProps {
  * - Sequential cue execution with keyboard controls (Space/Enter for GO)
  * - Visual feedback with fade progress charts and cue state indicators
  * - Context menu for quick cue operations (right-click or long-press on mobile)
- * - Seamless editing workflow with no blackouts during scene activation
+ * - Seamless editing workflow with no blackouts during look activation
  * - Looping support for continuous playback
  *
  * @param props - Component props
@@ -260,7 +260,7 @@ export default function CueListPlayer({
 
   // Call all hooks unconditionally (required by React)
   const { playbackStatus } = useCueListPlayback(cueListId);
-  // Subscribe to real-time cue list data changes (cue/scene name changes, etc.)
+  // Subscribe to real-time cue list data changes (cue/look name changes, etc.)
   useCueListDataUpdates({ cueListId });
   const { connectionState, isStale, reconnect, ensureConnection } =
     useWebSocket();
@@ -301,14 +301,14 @@ export default function CueListPlayer({
   const [createCue] = useMutation(CREATE_CUE);
   const [updateCue] = useMutation(UPDATE_CUE);
   const [deleteCue] = useMutation(DELETE_CUE);
-  const [duplicateScene] = useMutation(DUPLICATE_SCENE);
-  const [activateScene] = useMutation(ACTIVATE_SCENE);
+  const [duplicateLook] = useMutation(DUPLICATE_LOOK);
+  const [activateLook] = useMutation(ACTIVATE_LOOK);
   const [toggleCueSkip] = useMutation(TOGGLE_CUE_SKIP, {
     refetchQueries: [{ query: GET_CUE_LIST, variables: { id: cueListId } }],
   });
 
-  // Fetch scenes for the Add Cue dialog
-  const { data: scenesData } = useQuery(GET_PROJECT_SCENES, {
+  // Fetch looks for the Add Cue dialog
+  const { data: looksData } = useQuery(GET_PROJECT_LOOKS, {
     variables: { projectId: cueListData?.cueList?.project?.id || "" },
     skip: !cueListData?.cueList?.project?.id || isDynamicPlaceholder,
   });
@@ -322,15 +322,15 @@ export default function CueListPlayer({
       onCueListLoaded(cueList.name);
     }
   }, [cueList?.name, onCueListLoaded]);
-  const scenes = scenesData?.project?.scenes || [];
+  const looks = looksData?.project?.looks || [];
 
   // Get current state from subscription data only
   const currentCueIndex = convertCueIndexForLocalState(
     playbackStatus?.currentCueIndex,
   );
-  // isPlaying = scene is active on DMX, isFading = fade transition in progress
+  // isPlaying = look is active on DMX, isFading = fade transition in progress
   const isPlaying = playbackStatus?.isPlaying || false;
-  // isPaused = cue list paused (scene activated outside cue context), cue index preserved
+  // isPaused = cue list paused (look activated outside cue context), cue index preserved
   const isPaused = playbackStatus?.isPaused || false;
   const isFading = playbackStatus?.isFading || false;
   const fadeProgress = playbackStatus?.fadeProgress ?? 0;
@@ -619,7 +619,7 @@ export default function CueListPlayer({
     return currentCueIndex >= cues.length - 1 && currentCueIndex !== -1;
   }, [cues.length, currentCueIndex, cueList?.loop]);
 
-  // Handle highlight parameter from URL (when returning from scene editor)
+  // Handle highlight parameter from URL (when returning from look editor)
   useEffect(() => {
     const highlightCueNumber = searchParams.get("highlightCue");
     if (highlightCueNumber && cues.length > 0) {
@@ -644,7 +644,7 @@ export default function CueListPlayer({
     async (params: {
       cueNumber: number;
       name: string;
-      sceneId: string;
+      lookId: string;
       createCopy: boolean;
       fadeInTime: number;
       fadeOutTime: number;
@@ -654,14 +654,14 @@ export default function CueListPlayer({
       if (!cueList) return;
 
       try {
-        // Duplicate scene if requested
-        let targetSceneId = params.sceneId;
+        // Duplicate look if requested
+        let targetLookId = params.lookId;
         if (params.createCopy) {
-          const duplicateResult = await duplicateScene({
-            variables: { id: params.sceneId },
+          const duplicateResult = await duplicateLook({
+            variables: { id: params.lookId },
           });
-          targetSceneId =
-            duplicateResult.data?.duplicateScene?.id || params.sceneId;
+          targetLookId =
+            duplicateResult.data?.duplicateLook?.id || params.lookId;
         }
 
         // Create the cue
@@ -671,7 +671,7 @@ export default function CueListPlayer({
               cueNumber: params.cueNumber,
               name: params.name,
               cueListId: cueList.id,
-              sceneId: targetSceneId,
+              lookId: targetLookId,
               fadeInTime: params.fadeInTime,
               fadeOutTime: params.fadeOutTime,
               followTime: params.followTime,
@@ -684,15 +684,15 @@ export default function CueListPlayer({
 
         const newCueId = createResult.data?.createCue?.id;
 
-        if (params.action === "edit" && targetSceneId) {
-          // Activate the scene before navigation to prevent blackout
-          await activateScene({
-            variables: { sceneId: targetSceneId },
+        if (params.action === "edit" && targetLookId) {
+          // Activate the look before navigation to prevent blackout
+          await activateLook({
+            variables: { lookId: targetLookId },
           });
 
-          // Navigate to scene editor in layout mode
+          // Navigate to look editor in layout mode
           router.push(
-            `/scenes/${targetSceneId}/edit?mode=layout&fromPlayer=true&cueListId=${cueList.id}&returnCueNumber=${params.cueNumber}`,
+            `/looks/${targetLookId}/edit?mode=layout&fromPlayer=true&cueListId=${cueList.id}&returnCueNumber=${params.cueNumber}`,
           );
         }
 
@@ -712,7 +712,7 @@ export default function CueListPlayer({
         return;
       }
     },
-    [cueList, createCue, duplicateScene, activateScene, router],
+    [cueList, createCue, duplicateLook, activateLook, router],
   );
 
   const handleGo = useCallback(async () => {
@@ -724,7 +724,7 @@ export default function CueListPlayer({
     // Guard against component unmount during ensureConnection
     if (!isMounted.current) return;
 
-    // If paused, resume the current cue (snap to scene instantly)
+    // If paused, resume the current cue (snap to look instantly)
     if (isPaused && currentCueIndex >= 0) {
       await resumeCueList({
         variables: {
@@ -927,30 +927,30 @@ export default function CueListPlayer({
     setContextMenu(null);
   }, [contextMenu]);
 
-  const handleContextMenuEditScene = useCallback(
+  const handleContextMenuEditLook = useCallback(
     async (cue: Cue) => {
       try {
-        // Activate scene to prevent blackout
-        await activateScene({
-          variables: { sceneId: cue.scene.id },
+        // Activate look to prevent blackout
+        await activateLook({
+          variables: { lookId: cue.look.id },
         });
-        // Navigate to scene editor with fromPlayer params
+        // Navigate to look editor with fromPlayer params
         router.push(
-          `/scenes/${cue.scene.id}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}&returnCueNumber=${cue.cueNumber}`,
+          `/looks/${cue.look.id}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}&returnCueNumber=${cue.cueNumber}`,
         );
         setContextMenu(null);
       } catch (error) {
-        console.error("Failed to activate scene:", error);
+        console.error("Failed to activate look:", error);
         const errorMessage =
           error instanceof Error
             ? error.message
-            : "Failed to activate scene for editing";
+            : "Failed to activate look for editing";
         setMutationError(errorMessage);
         setTimeout(() => setMutationError(null), 5000);
         setContextMenu(null);
       }
     },
-    [activateScene, router, cueListId],
+    [activateLook, router, cueListId],
   );
 
   const handleDuplicateCue = useCallback(async () => {
@@ -958,11 +958,11 @@ export default function CueListPlayer({
     const { cue } = contextMenu;
 
     try {
-      // Duplicate the scene
-      const duplicateResult = await duplicateScene({
-        variables: { id: cue.scene.id },
+      // Duplicate the look
+      const duplicateResult = await duplicateLook({
+        variables: { id: cue.look.id },
       });
-      const newSceneId = duplicateResult.data?.duplicateScene?.id;
+      const newLookId = duplicateResult.data?.duplicateLook?.id;
 
       // Calculate new cue number that fits after the current cue
       const allCueNumbers = cueList.cues.map((c: Cue) => c.cueNumber);
@@ -973,7 +973,7 @@ export default function CueListPlayer({
             cueNumber: newCueNumber,
             name: `${cue.name} (copy)`,
             cueListId: cueList.id,
-            sceneId: newSceneId || cue.scene.id,
+            lookId: newLookId || cue.look.id,
             fadeInTime: cue.fadeInTime,
             fadeOutTime: cue.fadeOutTime,
             followTime: cue.followTime,
@@ -992,7 +992,7 @@ export default function CueListPlayer({
       setTimeout(() => setMutationError(null), 5000);
     }
     setContextMenu(null);
-  }, [contextMenu, cueList, duplicateScene, createCue]);
+  }, [contextMenu, cueList, duplicateLook, createCue]);
 
   const handleAddCueFromContextMenu = useCallback(() => {
     if (!contextMenu) return;
@@ -1035,11 +1035,11 @@ export default function CueListPlayer({
       cueId: string;
       cueNumber?: number;
       name?: string;
-      sceneId?: string;
+      lookId?: string;
       fadeInTime?: number;
       fadeOutTime?: number;
       followTime?: number | null;
-      action: "edit-scene" | "stay";
+      action: "edit-look" | "stay";
     }) => {
       try {
         // Update the cue
@@ -1050,7 +1050,7 @@ export default function CueListPlayer({
               name: params.name,
               cueNumber: params.cueNumber,
               cueListId: cueList?.id,
-              sceneId: params.sceneId,
+              lookId: params.lookId,
               fadeInTime: params.fadeInTime,
               fadeOutTime: params.fadeOutTime,
               followTime: params.followTime,
@@ -1061,13 +1061,13 @@ export default function CueListPlayer({
           ],
         });
 
-        if (params.action === "edit-scene" && params.sceneId) {
-          // Activate scene and navigate to editor
-          await activateScene({
-            variables: { sceneId: params.sceneId },
+        if (params.action === "edit-look" && params.lookId) {
+          // Activate look and navigate to editor
+          await activateLook({
+            variables: { lookId: params.lookId },
           });
           router.push(
-            `/scenes/${params.sceneId}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}&returnCueNumber=${params.cueNumber}`,
+            `/looks/${params.lookId}/edit?mode=layout&fromPlayer=true&cueListId=${cueListId}&returnCueNumber=${params.cueNumber}`,
           );
         }
 
@@ -1083,7 +1083,7 @@ export default function CueListPlayer({
         return;
       }
     },
-    [cueList, cueListId, updateCue, activateScene, router],
+    [cueList, cueListId, updateCue, activateLook, router],
   );
 
   const handleJumpToCue = useCallback(
@@ -1292,7 +1292,7 @@ export default function CueListPlayer({
                   onTouchEnd={handleTouchEnd}
                 >
                   {/* Fade progress chart as full background for current cue */}
-                  {/* Show when scene is playing (active on DMX), with progress during fade or 100% when holding */}
+                  {/* Show when look is playing (active on DMX), with progress during fade or 100% when holding */}
                   {isCurrent && isPlaying && (
                     <div className="absolute inset-0 opacity-30">
                       <FadeProgressChart
@@ -1360,7 +1360,7 @@ export default function CueListPlayer({
                                 : "text-gray-500"
                           }`}
                         >
-                          Scene: {cue.scene.name}
+                          Look: {cue.look.name}
                         </div>
                         {/* Timing info */}
                         <div
@@ -1597,10 +1597,10 @@ export default function CueListPlayer({
             ? cues[currentCueIndex]?.cueNumber || currentCueIndex
             : -1
         }
-        currentSceneId={
-          currentCueIndex >= 0 ? cues[currentCueIndex]?.scene?.id || null : null
+        currentLookId={
+          currentCueIndex >= 0 ? cues[currentCueIndex]?.look?.id || null : null
         }
-        scenes={scenes}
+        looks={looks}
         defaultFadeInTime={cueList.defaultFadeInTime || 3}
         defaultFadeOutTime={cueList.defaultFadeOutTime || 3}
         externalError={addCueError}
@@ -1622,8 +1622,8 @@ export default function CueListPlayer({
                     icon: <PencilIcon className="w-4 h-4" />,
                   },
                   {
-                    label: "Edit Scene",
-                    onClick: () => handleContextMenuEditScene(contextMenu.cue),
+                    label: "Edit Look",
+                    onClick: () => handleContextMenuEditLook(contextMenu.cue),
                     icon: (
                       <svg
                         className="w-4 h-4"
@@ -1757,7 +1757,7 @@ export default function CueListPlayer({
             setEditCueError(null);
           }}
           cue={editingCue}
-          scenes={scenes}
+          looks={looks}
           externalError={editCueError}
           onUpdate={handleEditCueDialogUpdate}
         />

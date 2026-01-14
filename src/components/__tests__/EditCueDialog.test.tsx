@@ -10,19 +10,19 @@ jest.mock('@/hooks/useMediaQuery', () => ({
 import { useIsMobile } from '@/hooks/useMediaQuery';
 const mockUseIsMobile = useIsMobile as jest.Mock;
 
-const mockScenes = [
-  { id: 'scene-1', name: 'Scene 1', description: 'First scene' },
-  { id: 'scene-2', name: 'Scene 2', description: 'Second scene' },
-  { id: 'scene-3', name: 'Scene 3', description: 'Third scene' },
+const mockLooks = [
+  { id: 'look-1', name: 'Look 1', description: 'First look' },
+  { id: 'look-2', name: 'Look 2', description: 'Second look' },
+  { id: 'look-3', name: 'Look 3', description: 'Third look' },
 ];
 
 const mockCue = {
   id: 'cue-1',
   cueNumber: 5,
   name: 'Test Cue',
-  scene: {
-    id: 'scene-2',
-    name: 'Scene 2',
+  look: {
+    id: 'look-2',
+    name: 'Look 2',
   },
   fadeInTime: 3,
   fadeOutTime: 3,
@@ -37,7 +37,7 @@ describe('EditCueDialog', () => {
     isOpen: true,
     onClose: mockOnClose,
     cue: mockCue,
-    scenes: mockScenes,
+    looks: mockLooks,
     onUpdate: mockOnUpdate,
   };
 
@@ -63,14 +63,14 @@ describe('EditCueDialog', () => {
       render(<EditCueDialog {...defaultProps} />);
       expect(screen.getByLabelText('Cue Number *')).toBeInTheDocument();
       expect(screen.getByLabelText('Cue Name *')).toBeInTheDocument();
-      expect(screen.getByLabelText('Scene *')).toBeInTheDocument();
+      expect(screen.getByLabelText('Look *')).toBeInTheDocument();
     });
 
     it('renders action buttons', () => {
       render(<EditCueDialog {...defaultProps} />);
       expect(screen.getByText('Cancel')).toBeInTheDocument();
       expect(screen.getByText('Save')).toBeInTheDocument();
-      expect(screen.getByText('Save & Edit Scene')).toBeInTheDocument();
+      expect(screen.getByText('Save & Edit Look')).toBeInTheDocument();
     });
   });
 
@@ -87,10 +87,10 @@ describe('EditCueDialog', () => {
       expect(cueNameInput.value).toBe('Test Cue');
     });
 
-    it('pre-populates selected scene from cue', () => {
+    it('pre-populates selected look from cue', () => {
       render(<EditCueDialog {...defaultProps} />);
-      const sceneSelect = screen.getByLabelText('Scene *') as HTMLSelectElement;
-      expect(sceneSelect.value).toBe('scene-2');
+      const lookSelect = screen.getByLabelText('Look *') as HTMLSelectElement;
+      expect(lookSelect.value).toBe('look-2');
     });
 
     it('pre-populates fade times from cue', () => {
@@ -147,26 +147,26 @@ describe('EditCueDialog', () => {
       expect(cueNameInput.value).toBe('Updated Cue');
     });
 
-    it('updates selected scene when changed', () => {
+    it('updates selected look when changed', () => {
       render(<EditCueDialog {...defaultProps} />);
-      const sceneSelect = screen.getByLabelText('Scene *') as HTMLSelectElement;
-      fireEvent.change(sceneSelect, { target: { value: 'scene-3' } });
-      expect(sceneSelect.value).toBe('scene-3');
+      const lookSelect = screen.getByLabelText('Look *') as HTMLSelectElement;
+      fireEvent.change(lookSelect, { target: { value: 'look-3' } });
+      expect(lookSelect.value).toBe('look-3');
     });
 
-    it('shows warning when scene is changed', () => {
+    it('shows warning when look is changed', () => {
       render(<EditCueDialog {...defaultProps} />);
-      const sceneSelect = screen.getByLabelText('Scene *') as HTMLSelectElement;
+      const lookSelect = screen.getByLabelText('Look *') as HTMLSelectElement;
 
-      // Change scene
-      fireEvent.change(sceneSelect, { target: { value: 'scene-3' } });
+      // Change look
+      fireEvent.change(lookSelect, { target: { value: 'look-3' } });
 
-      expect(screen.getByText(/Warning: Changing scene will update this cue/)).toBeInTheDocument();
+      expect(screen.getByText(/Warning: Changing look will update this cue/)).toBeInTheDocument();
     });
 
-    it('does not show warning when scene unchanged', () => {
+    it('does not show warning when look unchanged', () => {
       render(<EditCueDialog {...defaultProps} />);
-      expect(screen.queryByText(/Warning: Changing scene will update this cue/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Warning: Changing look will update this cue/)).not.toBeInTheDocument();
     });
 
     it('shows/hides advanced timing section', () => {
@@ -235,16 +235,16 @@ describe('EditCueDialog', () => {
       expect(mockOnUpdate).not.toHaveBeenCalled();
     });
 
-    it('shows error when no scene is selected', async () => {
+    it('shows error when no look is selected', async () => {
       render(<EditCueDialog {...defaultProps} />);
-      const sceneSelect = screen.getByLabelText('Scene *');
-      fireEvent.change(sceneSelect, { target: { value: '' } });
+      const lookSelect = screen.getByLabelText('Look *');
+      fireEvent.change(lookSelect, { target: { value: '' } });
 
       const saveButton = screen.getByText('Save');
       fireEvent.click(saveButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Please select a scene')).toBeInTheDocument();
+        expect(screen.getByText('Please select a look')).toBeInTheDocument();
       });
 
       expect(mockOnUpdate).not.toHaveBeenCalled();
@@ -327,7 +327,7 @@ describe('EditCueDialog', () => {
         cueId: 'cue-1',
         cueNumber: 6.5,
         name: 'Updated Test Cue',
-        sceneId: 'scene-2',
+        lookId: 'look-2',
         fadeInTime: 3,
         fadeOutTime: 3,
         followTime: null,
@@ -337,15 +337,15 @@ describe('EditCueDialog', () => {
       expect(mockOnClose).toHaveBeenCalled();
     });
 
-    it('calls onUpdate with action "edit-scene" when clicking "Save & Edit Scene"', () => {
+    it('calls onUpdate with action "edit-look" when clicking "Save & Edit Look"', () => {
       render(<EditCueDialog {...defaultProps} />);
 
-      const saveEditButton = screen.getByText('Save & Edit Scene');
+      const saveEditButton = screen.getByText('Save & Edit Look');
       fireEvent.click(saveEditButton);
 
       expect(mockOnUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
-          action: 'edit-scene',
+          action: 'edit-look',
         })
       );
 
@@ -381,11 +381,11 @@ describe('EditCueDialog', () => {
       );
     });
 
-    it('includes updated scene when changed', () => {
+    it('includes updated look when changed', () => {
       render(<EditCueDialog {...defaultProps} />);
 
-      const sceneSelect = screen.getByLabelText('Scene *');
-      fireEvent.change(sceneSelect, { target: { value: 'scene-3' } });
+      const lookSelect = screen.getByLabelText('Look *');
+      fireEvent.change(lookSelect, { target: { value: 'look-3' } });
 
       // Submit
       const saveButton = screen.getByText('Save');
@@ -393,7 +393,7 @@ describe('EditCueDialog', () => {
 
       expect(mockOnUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
-          sceneId: 'scene-3',
+          lookId: 'look-3',
         })
       );
     });
@@ -456,12 +456,12 @@ describe('EditCueDialog', () => {
   });
 
   describe('Edge Cases', () => {
-    it('handles empty scene list gracefully', () => {
-      render(<EditCueDialog {...defaultProps} scenes={[]} />);
-      const sceneSelect = screen.getByLabelText('Scene *');
-      expect(sceneSelect).toBeInTheDocument();
-      // Should only have the "Select a scene..." option
-      expect(sceneSelect.children.length).toBe(1);
+    it('handles empty look list gracefully', () => {
+      render(<EditCueDialog {...defaultProps} looks={[]} />);
+      const lookSelect = screen.getByLabelText('Look *');
+      expect(lookSelect).toBeInTheDocument();
+      // Should only have the "Select a look..." option
+      expect(lookSelect.children.length).toBe(1);
     });
 
     it('handles cue with decimal number correctly', () => {
@@ -512,7 +512,7 @@ describe('EditCueDialog', () => {
     it('stacks buttons vertically on mobile', () => {
       render(<EditCueDialog {...defaultProps} />);
 
-      const saveEditButton = screen.getByText('Save & Edit Scene');
+      const saveEditButton = screen.getByText('Save & Edit Look');
       const buttonContainer = saveEditButton.parentElement;
       expect(buttonContainer).toHaveClass('flex-col');
     });
@@ -521,12 +521,12 @@ describe('EditCueDialog', () => {
       render(<EditCueDialog {...defaultProps} />);
 
       const buttons = screen.getAllByRole('button').filter(btn =>
-        ['Save & Edit Scene', 'Save', 'Cancel'].includes(btn.textContent || '')
+        ['Save & Edit Look', 'Save', 'Cancel'].includes(btn.textContent || '')
       );
       const buttonLabels = buttons.map(b => b.textContent);
 
-      // Primary action (Save & Edit Scene) should be first on mobile
-      expect(buttonLabels[0]).toBe('Save & Edit Scene');
+      // Primary action (Save & Edit Look) should be first on mobile
+      expect(buttonLabels[0]).toBe('Save & Edit Look');
       expect(buttonLabels[1]).toBe('Save');
       expect(buttonLabels[2]).toBe('Cancel');
     });
@@ -534,7 +534,7 @@ describe('EditCueDialog', () => {
     it('has proper touch targets on mobile', () => {
       render(<EditCueDialog {...defaultProps} />);
 
-      const saveEditButton = screen.getByText('Save & Edit Scene');
+      const saveEditButton = screen.getByText('Save & Edit Look');
       const saveButton = screen.getByText('Save');
       const cancelButton = screen.getByText('Cancel');
 
@@ -546,7 +546,7 @@ describe('EditCueDialog', () => {
     it('has touch-manipulation class on mobile buttons', () => {
       render(<EditCueDialog {...defaultProps} />);
 
-      const saveEditButton = screen.getByText('Save & Edit Scene');
+      const saveEditButton = screen.getByText('Save & Edit Look');
       const saveButton = screen.getByText('Save');
       const cancelButton = screen.getByText('Cancel');
 
