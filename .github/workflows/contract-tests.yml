@@ -27,13 +27,30 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             PR_BRANCH="${{ github.head_ref }}"
             echo "PR branch: $PR_BRANCH"
-            # Check if matching branch exists in backend
-            if git ls-remote --exit-code --heads https://github.com/bbernstein/lacylights-go.git "$PR_BRANCH" > /dev/null 2>&1; then
+
+            # Function to check if a branch exists in backend
+            check_branch() {
+              git ls-remote --exit-code --heads https://github.com/bbernstein/lacylights-go.git "$1" > /dev/null 2>&1
+            }
+
+            # Try branches in order of preference:
+            # 1. Exact match (same branch name)
+            # 2. -backend variant (feature/foo-frontend -> feature/foo-backend)
+            # 3. Fallback to main
+
+            if check_branch "$PR_BRANCH"; then
               echo "Found matching backend branch: $PR_BRANCH"
               echo "branch=$PR_BRANCH" >> $GITHUB_OUTPUT
             else
-              echo "No matching backend branch found, using main"
-              echo "branch=main" >> $GITHUB_OUTPUT
+              # Try converting -frontend to -backend suffix
+              BACKEND_VARIANT=$(echo "$PR_BRANCH" | sed 's/-frontend$/-backend/')
+              if [ "$BACKEND_VARIANT" != "$PR_BRANCH" ] && check_branch "$BACKEND_VARIANT"; then
+                echo "Found backend variant branch: $BACKEND_VARIANT"
+                echo "branch=$BACKEND_VARIANT" >> $GITHUB_OUTPUT
+              else
+                echo "No matching backend branch found, using main"
+                echo "branch=main" >> $GITHUB_OUTPUT
+              fi
             fi
           else
             echo "Not a PR, using main"
