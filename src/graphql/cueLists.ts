@@ -25,6 +25,18 @@ export const GET_PROJECT_CUE_LISTS = gql`
           notes
           easingType
           skip
+          effects {
+            id
+            effectId
+            effect {
+              id
+              name
+              effectType
+              waveform
+            }
+            intensity
+            speed
+          }
         }
       }
     }
@@ -59,6 +71,18 @@ export const GET_CUE_LIST = gql`
         notes
         easingType
         skip
+        effects {
+          id
+          effectId
+          effect {
+            id
+            name
+            effectType
+            waveform
+          }
+          intensity
+          speed
+        }
       }
     }
   }

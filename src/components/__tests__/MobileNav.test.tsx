@@ -25,6 +25,7 @@ describe('MobileNav', () => {
     expect(screen.getByTestId('mobile-nav-item-')).toBeInTheDocument(); // Dashboard at root
     expect(screen.getByTestId('mobile-nav-item-fixtures')).toBeInTheDocument();
     expect(screen.getByTestId('mobile-nav-item-looks')).toBeInTheDocument();
+    expect(screen.getByTestId('mobile-nav-item-effects')).toBeInTheDocument();
     expect(screen.getByTestId('mobile-nav-item-look-board')).toBeInTheDocument();
     expect(screen.getByTestId('mobile-nav-item-cue-lists')).toBeInTheDocument();
     expect(screen.getByTestId('mobile-nav-item-settings')).toBeInTheDocument();
@@ -86,6 +87,7 @@ describe('MobileNav', () => {
     render(<MobileNav />);
 
     expect(screen.getByText('Home')).toBeInTheDocument(); // Dashboard shortName
+    expect(screen.getByText('FX')).toBeInTheDocument(); // Effects shortName
     expect(screen.getByText('Board')).toBeInTheDocument();
     expect(screen.getByText('Cues')).toBeInTheDocument();
   });
@@ -104,6 +106,10 @@ describe('MobileNav', () => {
     expect(screen.getByTestId('mobile-nav-item-looks')).toHaveAttribute(
       'href',
       '/looks'
+    );
+    expect(screen.getByTestId('mobile-nav-item-effects')).toHaveAttribute(
+      'href',
+      '/effects'
     );
     expect(screen.getByTestId('mobile-nav-item-look-board')).toHaveAttribute(
       'href',
@@ -135,7 +141,7 @@ describe('MobileNav', () => {
     render(<MobileNav />);
 
     const links = screen.getAllByRole('link');
-    expect(links).toHaveLength(6); // Dashboard, Fixtures, Looks, Look Board, Cue Lists, Settings
+    expect(links).toHaveLength(7); // Dashboard, Fixtures, Looks, Effects, Look Board, Cue Lists, Settings
   });
 
   it('is fixed to the bottom of the viewport', () => {
@@ -205,6 +211,7 @@ describe('navItems configuration', () => {
     expect(hrefs).toContain('/');
     expect(hrefs).toContain('/fixtures');
     expect(hrefs).toContain('/looks');
+    expect(hrefs).toContain('/effects');
     expect(hrefs).toContain('/look-board');
     expect(hrefs).toContain('/cue-lists');
     expect(hrefs).toContain('/settings');

@@ -154,6 +154,26 @@ export interface CueList {
   updatedAt: string;
 }
 
+/** Links an effect to a cue with runtime parameters */
+export interface CueEffect {
+  id: string;
+  cueId: string;
+  effectId: string;
+  effect?: Effect;
+  /** Intensity override (0-100) */
+  intensity: number;
+  /** Speed/frequency multiplier */
+  speed: number;
+}
+
+/** Effect definition (simplified for cue display) */
+export interface Effect {
+  id: string;
+  name: string;
+  effectType: string;
+  waveform?: string;
+}
+
 export interface Cue {
   id: string;
   name: string;
@@ -166,6 +186,8 @@ export interface Cue {
   easingType?: string;
   /** When true, this cue is skipped during playback but remains visible in the UI */
   skip?: boolean;
+  /** Effects attached to this cue */
+  effects?: CueEffect[];
 }
 
 export interface BulkCueUpdateInput {
