@@ -5,7 +5,8 @@ import { GET_EFFECTS, ACTIVATE_EFFECT, STOP_EFFECT } from '@/graphql/effects';
 import { EffectType, WaveformType, PriorityBand, CompositionMode, TransitionBehavior } from '@/generated/graphql';
 
 // Simple mock effects matching the Effect interface in the component
-const mockEffects = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for reference
+const _mockEffects = [
   {
     __typename: 'Effect',
     id: 'effect-1',
@@ -135,7 +136,8 @@ const activateEffectMock: MockedResponse = {
   },
 };
 
-const stopEffectMock: MockedResponse = {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for future stop effect tests
+const _stopEffectMock: MockedResponse = {
   request: {
     query: STOP_EFFECT,
     variables: { effectId: 'effect-1', fadeTime: 1.0 },

@@ -3,7 +3,7 @@ import WaveformPreview, { WaveformIcon } from '../WaveformPreview';
 import { WaveformType } from '@/generated/graphql';
 
 // Mock requestAnimationFrame for animation tests
-const mockRequestAnimationFrame = jest.fn((callback: FrameRequestCallback) => {
+const mockRequestAnimationFrame = jest.fn((_callback: FrameRequestCallback) => {
   // Return a mock frame ID
   return 1;
 });

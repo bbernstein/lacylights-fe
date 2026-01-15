@@ -1,7 +1,9 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import CreateEffectModal from '../CreateEffectModal';
 import { CREATE_EFFECT, GET_EFFECTS } from '@/graphql/effects';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- keep for future mutation tests
+const _keepMutationImports = { CREATE_EFFECT, GET_EFFECTS };
 import {
   EffectType,
   PriorityBand,
@@ -15,7 +17,8 @@ jest.mock('@/hooks/useMediaQuery', () => ({
   useIsMobile: jest.fn(() => false),
 }));
 
-const createEffectSuccessMock: MockedResponse = {
+// These mocks are kept for future tests that will use mutations
+const _createEffectSuccessMock: MockedResponse = {
   request: {
     query: CREATE_EFFECT,
     variables: {
@@ -57,7 +60,7 @@ const createEffectSuccessMock: MockedResponse = {
   },
 };
 
-const createEffectErrorMock: MockedResponse = {
+const _createEffectErrorMock: MockedResponse = {
   request: {
     query: CREATE_EFFECT,
     variables: {
@@ -79,7 +82,7 @@ const createEffectErrorMock: MockedResponse = {
   error: new Error('Failed to create effect'),
 };
 
-const getEffectsMock: MockedResponse = {
+const _getEffectsMock: MockedResponse = {
   request: {
     query: GET_EFFECTS,
     variables: { projectId: 'project-1' },
