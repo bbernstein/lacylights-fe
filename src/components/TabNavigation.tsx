@@ -12,6 +12,7 @@ const tabs: Tab[] = [
   { name: "Dashboard", href: "/" },
   { name: "Fixtures", href: "/fixtures" },
   { name: "Looks", href: "/looks" },
+  { name: "Effects", href: "/effects" },
   { name: "Look Board", href: "/look-board" },
   { name: "Cue Lists", href: "/cue-lists" },
   { name: "Settings", href: "/settings" },

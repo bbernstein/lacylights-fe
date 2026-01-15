@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import BottomSheet from "./BottomSheet";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 
@@ -8,6 +9,21 @@ interface Look {
   id: string;
   name: string;
   description?: string;
+}
+
+interface Effect {
+  id: string;
+  name: string;
+  effectType: string;
+  waveform?: string;
+}
+
+interface CueEffect {
+  id: string;
+  effectId: string;
+  effect?: Effect | null;
+  intensity?: number | null;
+  speed?: number | null;
 }
 
 interface Cue {
@@ -21,6 +37,7 @@ interface Cue {
   fadeInTime: number;
   fadeOutTime: number;
   followTime?: number;
+  effects?: CueEffect[];
 }
 
 interface EditCueDialogProps {
@@ -28,6 +45,7 @@ interface EditCueDialogProps {
   onClose: () => void;
   cue: Cue;
   looks: Look[];
+  availableEffects?: Effect[];
   externalError?: string | null;
   onUpdate: (params: {
     cueId: string;
@@ -39,6 +57,8 @@ interface EditCueDialogProps {
     followTime?: number | null;
     action: "edit-look" | "stay";
   }) => void;
+  onAddEffect?: (effectId: string, intensity?: number, speed?: number) => void;
+  onRemoveEffect?: (effectId: string) => void;
 }
 
 /**
@@ -80,8 +100,11 @@ export default function EditCueDialog({
   onClose,
   cue,
   looks,
+  availableEffects = [],
   externalError,
   onUpdate,
+  onAddEffect,
+  onRemoveEffect,
 }: EditCueDialogProps) {
   const isMobile = useIsMobile();
   // Form state
@@ -93,6 +116,11 @@ export default function EditCueDialog({
   const [fadeOutTime, setFadeOutTime] = useState("");
   const [followTime, setFollowTime] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Effects state
+  const [showEffectsPanel, setShowEffectsPanel] = useState(false);
+  const [selectedEffectToAdd, setSelectedEffectToAdd] = useState("");
+  const [effectIntensity, setEffectIntensity] = useState(100);
+  const [effectSpeed, setEffectSpeed] = useState(1.0);
 
   // Initialize form when dialog opens
   useEffect(() => {
@@ -104,6 +132,10 @@ export default function EditCueDialog({
       setFadeOutTime(cue.fadeOutTime.toString());
       setFollowTime(cue.followTime ?? null);
       setShowAdvancedTiming(false);
+      setShowEffectsPanel(!!(cue.effects && cue.effects.length > 0));
+      setSelectedEffectToAdd("");
+      setEffectIntensity(100);
+      setEffectSpeed(1.0);
       setError(null);
     }
   }, [isOpen, cue]);
@@ -166,6 +198,10 @@ export default function EditCueDialog({
     setFadeOutTime("");
     setFollowTime(null);
     setShowAdvancedTiming(false);
+    setShowEffectsPanel(false);
+    setSelectedEffectToAdd("");
+    setEffectIntensity(100);
+    setEffectSpeed(1.0);
     setError(null);
     onClose();
   };
@@ -368,6 +404,204 @@ export default function EditCueDialog({
           </div>
         </div>
       )}
+
+      {/* Effects Section */}
+      <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setShowEffectsPanel(!showEffectsPanel)}
+            className="flex items-center space-x-2 min-h-[44px] touch-manipulation"
+          >
+            <svg
+              className={`w-4 h-4 text-purple-600 dark:text-purple-400 transition-transform ${
+                showEffectsPanel ? "rotate-90" : ""
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+            <svg
+              className="w-5 h-5 text-purple-600 dark:text-purple-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+            <span className="text-sm font-medium text-purple-800 dark:text-purple-200">
+              Effects {cue.effects && cue.effects.length > 0 && `(${cue.effects.length})`}
+            </span>
+          </button>
+          <Link
+            href="/effects"
+            className="text-xs text-purple-600 hover:text-purple-500 dark:text-purple-400 hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Manage Effects →
+          </Link>
+        </div>
+
+        {/* Current effects on this cue */}
+        {showEffectsPanel && (
+          <div className="mt-3 space-y-3">
+            {/* List of current effects */}
+            {cue.effects && cue.effects.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                  Current Effects:
+                </p>
+                {cue.effects.map((cueEffect) => (
+                  <div
+                    key={cueEffect.id}
+                    className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded border border-purple-200 dark:border-purple-700"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <svg
+                        className="w-4 h-4 text-purple-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 10V3L4 14h7v7l9-11h-7z"
+                        />
+                      </svg>
+                      <span className="text-sm text-gray-800 dark:text-gray-200">
+                        {cueEffect.effect?.name || "Unknown Effect"}
+                      </span>
+                      {cueEffect.intensity !== null && cueEffect.intensity !== undefined && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          ({cueEffect.intensity}%)
+                        </span>
+                      )}
+                    </div>
+                    {onRemoveEffect && (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveEffect(cueEffect.effectId)}
+                        className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                        title="Remove effect"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-purple-700 dark:text-purple-300">
+                No effects attached to this cue.
+              </p>
+            )}
+
+            {/* Add effect form */}
+            {onAddEffect && availableEffects.length > 0 && (
+              <div className="pt-3 border-t border-purple-200 dark:border-purple-700 space-y-3">
+                <p className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                  Add Effect:
+                </p>
+                <div className="flex flex-col space-y-2">
+                  <select
+                    value={selectedEffectToAdd}
+                    onChange={(e) => setSelectedEffectToAdd(e.target.value)}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm text-gray-900 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  >
+                    <option value="">Select an effect...</option>
+                    {availableEffects
+                      .filter(
+                        (effect) =>
+                          !cue.effects?.some((ce) => ce.effectId === effect.id)
+                      )
+                      .map((effect) => (
+                        <option key={effect.id} value={effect.id}>
+                          {effect.name} ({effect.effectType})
+                        </option>
+                      ))}
+                  </select>
+                  <div className="flex space-x-2">
+                    <div className="flex-1">
+                      <label className="block text-xs text-purple-600 dark:text-purple-400 mb-1">
+                        Intensity (%)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={effectIntensity}
+                        onChange={(e) => setEffectIntensity(Number(e.target.value))}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm text-gray-900 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs text-purple-600 dark:text-purple-400 mb-1">
+                        Speed
+                      </label>
+                      <input
+                        type="number"
+                        min="0.1"
+                        max="10"
+                        step="0.1"
+                        value={effectSpeed}
+                        onChange={(e) => setEffectSpeed(Number(e.target.value))}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm text-gray-900 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedEffectToAdd) {
+                        onAddEffect(selectedEffectToAdd, effectIntensity, effectSpeed);
+                        setSelectedEffectToAdd("");
+                        setEffectIntensity(100);
+                        setEffectSpeed(1.0);
+                      }
+                    }}
+                    disabled={!selectedEffectToAdd}
+                    className="w-full px-3 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
+                  >
+                    Add Effect
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {availableEffects.length === 0 && (
+              <p className="text-xs text-purple-600 dark:text-purple-400 italic">
+                No effects defined. Create effects in the Effects page first.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 

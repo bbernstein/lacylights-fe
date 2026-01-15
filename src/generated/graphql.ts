@@ -33,6 +33,37 @@ export type ApConfig = {
   readonly timeoutMinutes: Scalars['Int']['output'];
 };
 
+/** Status of an active effect at runtime. */
+export type ActiveEffectStatus = {
+  readonly __typename?: 'ActiveEffectStatus';
+  readonly effectId: Scalars['ID']['output'];
+  readonly effectName: Scalars['String']['output'];
+  readonly effectType: EffectType;
+  /** Current intensity (0-100) */
+  readonly intensity: Scalars['Float']['output'];
+  /** Whether the effect has completed */
+  readonly isComplete: Scalars['Boolean']['output'];
+  /** Current phase for waveforms (0-360) */
+  readonly phase: Scalars['Float']['output'];
+  readonly startTime: Scalars['String']['output'];
+};
+
+export type AddEffectToCueInput = {
+  readonly cueId: Scalars['ID']['input'];
+  readonly effectId: Scalars['ID']['input'];
+  readonly intensity?: InputMaybe<Scalars['Float']['input']>;
+  readonly onCueChange?: InputMaybe<TransitionBehavior>;
+  readonly speed?: InputMaybe<Scalars['Float']['input']>;
+};
+
+export type AddFixtureToEffectInput = {
+  readonly amplitudeScale?: InputMaybe<Scalars['Float']['input']>;
+  readonly effectId: Scalars['ID']['input'];
+  readonly effectOrder?: InputMaybe<Scalars['Int']['input']>;
+  readonly fixtureId: Scalars['ID']['input'];
+  readonly phaseOffset?: InputMaybe<Scalars['Float']['input']>;
+};
+
 export type ArtNetStatus = {
   readonly __typename?: 'ArtNetStatus';
   readonly broadcastAddress: Scalars['String']['output'];
@@ -230,6 +261,18 @@ export type ChannelValueInput = {
   readonly value: Scalars['Int']['input'];
 };
 
+/**
+ * How multiple effects combine their values.
+ * OVERRIDE - Higher priority effect completely replaces lower
+ * ADDITIVE - Effects add their values together
+ * MULTIPLY - Effects multiply their values together
+ */
+export enum CompositionMode {
+  Additive = 'ADDITIVE',
+  Multiply = 'MULTIPLY',
+  Override = 'OVERRIDE'
+}
+
 export type CreateChannelDefinitionInput = {
   readonly defaultValue: Scalars['Int']['input'];
   readonly fadeBehavior?: InputMaybe<FadeBehavior>;
@@ -260,6 +303,24 @@ export type CreateCueListInput = {
   readonly loop?: InputMaybe<Scalars['Boolean']['input']>;
   readonly name: Scalars['String']['input'];
   readonly projectId: Scalars['ID']['input'];
+};
+
+export type CreateEffectInput = {
+  readonly amplitude?: InputMaybe<Scalars['Float']['input']>;
+  readonly compositionMode?: InputMaybe<CompositionMode>;
+  readonly description?: InputMaybe<Scalars['String']['input']>;
+  readonly effectType: EffectType;
+  readonly fadeDuration?: InputMaybe<Scalars['Float']['input']>;
+  readonly frequency?: InputMaybe<Scalars['Float']['input']>;
+  readonly masterValue?: InputMaybe<Scalars['Float']['input']>;
+  readonly name: Scalars['String']['input'];
+  readonly offset?: InputMaybe<Scalars['Float']['input']>;
+  readonly onCueChange?: InputMaybe<TransitionBehavior>;
+  readonly phaseOffset?: InputMaybe<Scalars['Float']['input']>;
+  readonly priorityBand?: InputMaybe<PriorityBand>;
+  readonly prioritySub?: InputMaybe<Scalars['Int']['input']>;
+  readonly projectId: Scalars['ID']['input'];
+  readonly waveform?: InputMaybe<WaveformType>;
 };
 
 export type CreateFixtureDefinitionInput = {
@@ -327,6 +388,8 @@ export type Cue = {
   readonly cueList: CueList;
   readonly cueNumber: Scalars['Float']['output'];
   readonly easingType?: Maybe<EasingType>;
+  /** Effects associated with this cue */
+  readonly effects: ReadonlyArray<CueEffect>;
   readonly fadeInTime: Scalars['Float']['output'];
   readonly fadeOutTime: Scalars['Float']['output'];
   readonly followTime?: Maybe<Scalars['Float']['output']>;
@@ -336,6 +399,21 @@ export type Cue = {
   readonly notes?: Maybe<Scalars['String']['output']>;
   /** When true, this cue is skipped during playback but remains visible in the UI */
   readonly skip: Scalars['Boolean']['output'];
+};
+
+/** Links an effect to a cue with runtime parameters. */
+export type CueEffect = {
+  readonly __typename?: 'CueEffect';
+  readonly cueId: Scalars['ID']['output'];
+  readonly effect?: Maybe<Effect>;
+  readonly effectId: Scalars['ID']['output'];
+  readonly id: Scalars['ID']['output'];
+  /** Intensity override (0-100) */
+  readonly intensity: Scalars['Float']['output'];
+  /** Override effect's default cue change behavior */
+  readonly onCueChange?: Maybe<TransitionBehavior>;
+  /** Speed/frequency multiplier */
+  readonly speed: Scalars['Float']['output'];
 };
 
 export type CueList = {
@@ -444,6 +522,107 @@ export enum EasingType {
   EaseOutExponential = 'EASE_OUT_EXPONENTIAL',
   Linear = 'LINEAR',
   SCurve = 'S_CURVE'
+}
+
+/**
+ * Effect definition for DMX modulation.
+ * Effects can be waveform-based (LFO), crossfades, static values, or master faders.
+ */
+export type Effect = {
+  readonly __typename?: 'Effect';
+  /** Amplitude as percentage (0-100) */
+  readonly amplitude: Scalars['Float']['output'];
+  readonly compositionMode: CompositionMode;
+  readonly createdAt: Scalars['String']['output'];
+  readonly description?: Maybe<Scalars['String']['output']>;
+  readonly effectType: EffectType;
+  readonly fadeDuration?: Maybe<Scalars['Float']['output']>;
+  readonly fixtures: ReadonlyArray<EffectFixture>;
+  /** Frequency in Hz */
+  readonly frequency: Scalars['Float']['output'];
+  readonly id: Scalars['ID']['output'];
+  /** Master value for MASTER effects (0.0-1.0) */
+  readonly masterValue?: Maybe<Scalars['Float']['output']>;
+  readonly name: Scalars['String']['output'];
+  /** Offset/baseline as percentage (0-100) */
+  readonly offset: Scalars['Float']['output'];
+  readonly onCueChange: TransitionBehavior;
+  /** Phase offset in degrees (0-360) */
+  readonly phaseOffset: Scalars['Float']['output'];
+  readonly priorityBand: PriorityBand;
+  readonly prioritySub: Scalars['Int']['output'];
+  readonly projectId: Scalars['ID']['output'];
+  readonly updatedAt: Scalars['String']['output'];
+  /** Waveform type for WAVEFORM effects */
+  readonly waveform?: Maybe<WaveformType>;
+};
+
+/** Per-channel overrides within an EffectFixture. */
+export type EffectChannel = {
+  readonly __typename?: 'EffectChannel';
+  /** Per-channel amplitude multiplier (used when minValue/maxValue not set) */
+  readonly amplitudeScale?: Maybe<Scalars['Float']['output']>;
+  /** Channel offset from fixture start address */
+  readonly channelOffset?: Maybe<Scalars['Int']['output']>;
+  /** Channel type (INTENSITY, RED, etc.) */
+  readonly channelType?: Maybe<Scalars['String']['output']>;
+  readonly effectFixtureId: Scalars['ID']['output'];
+  /** Per-channel frequency multiplier */
+  readonly frequencyScale?: Maybe<Scalars['Float']['output']>;
+  readonly id: Scalars['ID']['output'];
+  /** Maximum value for oscillation (0-100%). When set with minValue, defines oscillation range. */
+  readonly maxValue?: Maybe<Scalars['Float']['output']>;
+  /** Minimum value for oscillation (0-100%). When set with maxValue, defines oscillation range. */
+  readonly minValue?: Maybe<Scalars['Float']['output']>;
+};
+
+/**
+ * Input for adding or updating a channel within an effect fixture.
+ * Target by offset OR type (not both).
+ */
+export type EffectChannelInput = {
+  /** Amplitude scale for this channel (0-200%). Ignored if minValue/maxValue are set. */
+  readonly amplitudeScale?: InputMaybe<Scalars['Float']['input']>;
+  /** Target by DMX offset (0-based). Null if targeting by type. */
+  readonly channelOffset?: InputMaybe<Scalars['Int']['input']>;
+  /** Target by channel type. Null if targeting by offset. */
+  readonly channelType?: InputMaybe<ChannelType>;
+  /** Frequency scale for this channel. Null uses effect's frequency. */
+  readonly frequencyScale?: InputMaybe<Scalars['Float']['input']>;
+  /** Maximum value for oscillation (0-100%). Use with minValue to define range. */
+  readonly maxValue?: InputMaybe<Scalars['Float']['input']>;
+  /** Minimum value for oscillation (0-100%). Use with maxValue to define range. */
+  readonly minValue?: InputMaybe<Scalars['Float']['input']>;
+};
+
+/** Links an effect to a fixture with per-fixture settings. */
+export type EffectFixture = {
+  readonly __typename?: 'EffectFixture';
+  /** Per-fixture amplitude multiplier */
+  readonly amplitudeScale?: Maybe<Scalars['Float']['output']>;
+  readonly channels: ReadonlyArray<EffectChannel>;
+  readonly effectId: Scalars['ID']['output'];
+  /** Order of this fixture in the effect */
+  readonly effectOrder?: Maybe<Scalars['Int']['output']>;
+  readonly fixture?: Maybe<FixtureInstance>;
+  readonly fixtureId: Scalars['ID']['output'];
+  readonly id: Scalars['ID']['output'];
+  /** Per-fixture phase offset in degrees */
+  readonly phaseOffset?: Maybe<Scalars['Float']['output']>;
+};
+
+/**
+ * Type of effect, determining its calculation behavior.
+ * WAVEFORM - LFO-based continuous modulation using waveforms
+ * CROSSFADE - Interpolates between channel states over time
+ * STATIC - Sets channels to fixed values without modulation
+ * MASTER - Multiplier effect for intensity scaling (grand master)
+ */
+export enum EffectType {
+  Crossfade = 'CROSSFADE',
+  Master = 'MASTER',
+  Static = 'STATIC',
+  Waveform = 'WAVEFORM'
 }
 
 export type ExportOptionsInput = {
@@ -889,9 +1068,35 @@ export type ModeChannel = {
   readonly offset: Scalars['Int']['output'];
 };
 
+/** Status of the modulator engine. */
+export type ModulatorStatus = {
+  readonly __typename?: 'ModulatorStatus';
+  readonly activeEffectCount: Scalars['Int']['output'];
+  readonly activeEffects: ReadonlyArray<ActiveEffectStatus>;
+  readonly blackoutIntensity: Scalars['Float']['output'];
+  readonly grandMasterValue: Scalars['Float']['output'];
+  /** Whether there's an active crossfade transition */
+  readonly hasActiveTransition: Scalars['Boolean']['output'];
+  readonly isBlackoutActive: Scalars['Boolean']['output'];
+  readonly isRunning: Scalars['Boolean']['output'];
+  /** Progress of the active transition (0-100) */
+  readonly transitionProgress: Scalars['Float']['output'];
+  readonly updateRateHz: Scalars['Int']['output'];
+};
+
 export type Mutation = {
   readonly __typename?: 'Mutation';
+  /** Activate the system blackout with optional fade time */
+  readonly activateBlackout: Scalars['Boolean']['output'];
+  /** Activate an effect with optional fade time */
+  readonly activateEffect: Scalars['Boolean']['output'];
   readonly activateLookFromBoard: Scalars['Boolean']['output'];
+  /** Add a channel to an effect fixture */
+  readonly addChannelToEffectFixture: EffectChannel;
+  /** Add an effect to a cue with runtime parameters */
+  readonly addEffectToCue: CueEffect;
+  /** Add a fixture to an effect with optional per-fixture settings */
+  readonly addFixtureToEffect: EffectFixture;
   readonly addFixturesToLook: Look;
   readonly addLookToBoard: LookBoardButton;
   readonly bulkCreateCueLists: ReadonlyArray<CueList>;
@@ -928,6 +1133,8 @@ export type Mutation = {
   readonly connectWiFi: WiFiConnectionResult;
   readonly createCue: Cue;
   readonly createCueList: CueList;
+  /** Create a new effect */
+  readonly createEffect: Effect;
   readonly createFixtureDefinition: FixtureDefinition;
   readonly createFixtureInstance: FixtureInstance;
   readonly createLook: Look;
@@ -935,6 +1142,8 @@ export type Mutation = {
   readonly createProject: Project;
   readonly deleteCue: Scalars['Boolean']['output'];
   readonly deleteCueList: Scalars['Boolean']['output'];
+  /** Delete an effect */
+  readonly deleteEffect: Scalars['Boolean']['output'];
   readonly deleteFixtureDefinition: Scalars['Boolean']['output'];
   readonly deleteFixtureInstance: Scalars['Boolean']['output'];
   readonly deleteLook: Scalars['Boolean']['output'];
@@ -954,6 +1163,14 @@ export type Mutation = {
   readonly nextCue: Scalars['Boolean']['output'];
   readonly playCue: Scalars['Boolean']['output'];
   readonly previousCue: Scalars['Boolean']['output'];
+  /** Release the system blackout with optional fade time */
+  readonly releaseBlackout: Scalars['Boolean']['output'];
+  /** Remove a channel from an effect fixture */
+  readonly removeChannelFromEffectFixture: Scalars['Boolean']['output'];
+  /** Remove an effect from a cue */
+  readonly removeEffectFromCue: Scalars['Boolean']['output'];
+  /** Remove a fixture from an effect */
+  readonly removeFixtureFromEffect: Scalars['Boolean']['output'];
   readonly removeFixturesFromLook: Look;
   readonly removeLookFromBoard: Scalars['Boolean']['output'];
   readonly reorderCues: Scalars['Boolean']['output'];
@@ -964,6 +1181,8 @@ export type Mutation = {
   readonly resumeCueList: Scalars['Boolean']['output'];
   readonly setArtNetEnabled: ArtNetStatus;
   readonly setChannelValue: Scalars['Boolean']['output'];
+  /** Set the grand master level (0.0-1.0) */
+  readonly setGrandMaster: Scalars['Boolean']['output'];
   readonly setLookLive: Scalars['Boolean']['output'];
   readonly setWiFiEnabled: WiFiStatus;
   readonly startAPMode: WiFiModeResult;
@@ -971,6 +1190,8 @@ export type Mutation = {
   readonly startPreviewSession: PreviewSession;
   readonly stopAPMode: WiFiModeResult;
   readonly stopCueList: Scalars['Boolean']['output'];
+  /** Stop an active effect with optional fade time */
+  readonly stopEffect: Scalars['Boolean']['output'];
   /** Toggle the skip status of a cue (skip=true means the cue is bypassed during playback) */
   readonly toggleCueSkip: Cue;
   /** Trigger an OFL import/update operation */
@@ -978,6 +1199,12 @@ export type Mutation = {
   readonly updateAllRepositories: ReadonlyArray<UpdateResult>;
   readonly updateCue: Cue;
   readonly updateCueList: CueList;
+  /** Update an existing effect */
+  readonly updateEffect: Effect;
+  /** Update an effect channel */
+  readonly updateEffectChannel: EffectChannel;
+  /** Update fixture-specific settings in an effect */
+  readonly updateEffectFixture: EffectFixture;
   readonly updateFadeUpdateRate: Scalars['Boolean']['output'];
   readonly updateFixtureDefinition: FixtureDefinition;
   readonly updateFixtureInstance: FixtureInstance;
@@ -995,10 +1222,37 @@ export type Mutation = {
 };
 
 
+export type MutationActivateBlackoutArgs = {
+  fadeTime?: InputMaybe<Scalars['Float']['input']>;
+};
+
+
+export type MutationActivateEffectArgs = {
+  effectId: Scalars['ID']['input'];
+  fadeTime?: InputMaybe<Scalars['Float']['input']>;
+};
+
+
 export type MutationActivateLookFromBoardArgs = {
   fadeTimeOverride?: InputMaybe<Scalars['Float']['input']>;
   lookBoardId: Scalars['ID']['input'];
   lookId: Scalars['ID']['input'];
+};
+
+
+export type MutationAddChannelToEffectFixtureArgs = {
+  effectFixtureId: Scalars['ID']['input'];
+  input: EffectChannelInput;
+};
+
+
+export type MutationAddEffectToCueArgs = {
+  input: AddEffectToCueInput;
+};
+
+
+export type MutationAddFixtureToEffectArgs = {
+  input: AddFixtureToEffectInput;
 };
 
 
@@ -1176,6 +1430,11 @@ export type MutationCreateCueListArgs = {
 };
 
 
+export type MutationCreateEffectArgs = {
+  input: CreateEffectInput;
+};
+
+
 export type MutationCreateFixtureDefinitionArgs = {
   input: CreateFixtureDefinitionInput;
 };
@@ -1207,6 +1466,11 @@ export type MutationDeleteCueArgs = {
 
 
 export type MutationDeleteCueListArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteEffectArgs = {
   id: Scalars['ID']['input'];
 };
 
@@ -1311,6 +1575,28 @@ export type MutationPreviousCueArgs = {
 };
 
 
+export type MutationReleaseBlackoutArgs = {
+  fadeTime?: InputMaybe<Scalars['Float']['input']>;
+};
+
+
+export type MutationRemoveChannelFromEffectFixtureArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationRemoveEffectFromCueArgs = {
+  cueId: Scalars['ID']['input'];
+  effectId: Scalars['ID']['input'];
+};
+
+
+export type MutationRemoveFixtureFromEffectArgs = {
+  effectId: Scalars['ID']['input'];
+  fixtureId: Scalars['ID']['input'];
+};
+
+
 export type MutationRemoveFixturesFromLookArgs = {
   fixtureIds: ReadonlyArray<Scalars['ID']['input']>;
   lookId: Scalars['ID']['input'];
@@ -1358,6 +1644,11 @@ export type MutationSetChannelValueArgs = {
 };
 
 
+export type MutationSetGrandMasterArgs = {
+  value: Scalars['Float']['input'];
+};
+
+
 export type MutationSetLookLiveArgs = {
   lookId: Scalars['ID']['input'];
 };
@@ -1390,6 +1681,12 @@ export type MutationStopCueListArgs = {
 };
 
 
+export type MutationStopEffectArgs = {
+  effectId: Scalars['ID']['input'];
+  fadeTime?: InputMaybe<Scalars['Float']['input']>;
+};
+
+
 export type MutationToggleCueSkipArgs = {
   cueId: Scalars['ID']['input'];
 };
@@ -1409,6 +1706,24 @@ export type MutationUpdateCueArgs = {
 export type MutationUpdateCueListArgs = {
   id: Scalars['ID']['input'];
   input: CreateCueListInput;
+};
+
+
+export type MutationUpdateEffectArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateEffectInput;
+};
+
+
+export type MutationUpdateEffectChannelArgs = {
+  id: Scalars['ID']['input'];
+  input: EffectChannelInput;
+};
+
+
+export type MutationUpdateEffectFixtureArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateEffectFixtureInput;
 };
 
 
@@ -1652,6 +1967,17 @@ export type PreviewSession = {
   readonly user: User;
 };
 
+/**
+ * Priority band determines effect processing order.
+ * Effects in higher bands (SYSTEM) override effects in lower bands (BASE).
+ */
+export enum PriorityBand {
+  Base = 'BASE',
+  Cue = 'CUE',
+  System = 'SYSTEM',
+  User = 'USER'
+}
+
 export type Project = {
   readonly __typename?: 'Project';
   readonly createdAt: Scalars['String']['output'];
@@ -1756,6 +2082,10 @@ export type Query = {
   readonly cuesByIds: ReadonlyArray<Cue>;
   readonly currentActiveLook?: Maybe<Look>;
   readonly dmxOutput: ReadonlyArray<Scalars['Int']['output']>;
+  /** Get a single effect by ID */
+  readonly effect?: Maybe<Effect>;
+  /** List all effects in a project */
+  readonly effects: ReadonlyArray<Effect>;
   readonly fixtureDefinition?: Maybe<FixtureDefinition>;
   readonly fixtureDefinitions: ReadonlyArray<FixtureDefinition>;
   readonly fixtureDefinitionsByIds: ReadonlyArray<FixtureDefinition>;
@@ -1775,6 +2105,8 @@ export type Query = {
   readonly lookUsage: LookUsage;
   readonly looks: LookPage;
   readonly looksByIds: ReadonlyArray<Look>;
+  /** Get the current status of the modulator engine */
+  readonly modulatorStatus: ModulatorStatus;
   readonly networkInterfaceOptions: ReadonlyArray<NetworkInterfaceOption>;
   /** Get the current status of any ongoing OFL import */
   readonly oflImportStatus: OflImportStatus;
@@ -1849,6 +2181,16 @@ export type QueryCuesByIdsArgs = {
 
 export type QueryDmxOutputArgs = {
   universe: Scalars['Int']['input'];
+};
+
+
+export type QueryEffectArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryEffectsArgs = {
+  projectId: Scalars['ID']['input'];
 };
 
 
@@ -2074,6 +2416,20 @@ export type SystemVersionInfo = {
   readonly versionManagementSupported: Scalars['Boolean']['output'];
 };
 
+/**
+ * How an effect behaves when a cue change occurs.
+ * FADE_OUT - Effect fades out when cue changes
+ * PERSIST - Effect persists across cue changes
+ * SNAP_OFF - Effect immediately stops when cue changes
+ * CROSSFADE_PARAMS - Effect parameters crossfade to new values
+ */
+export enum TransitionBehavior {
+  CrossfadeParams = 'CROSSFADE_PARAMS',
+  FadeOut = 'FADE_OUT',
+  Persist = 'PERSIST',
+  SnapOff = 'SNAP_OFF'
+}
+
 export type UniverseChannelMap = {
   readonly __typename?: 'UniverseChannelMap';
   readonly availableChannels: Scalars['Int']['output'];
@@ -2087,6 +2443,33 @@ export type UniverseOutput = {
   readonly __typename?: 'UniverseOutput';
   readonly channels: ReadonlyArray<Scalars['Int']['output']>;
   readonly universe: Scalars['Int']['output'];
+};
+
+/** Input for updating an effect fixture's settings. */
+export type UpdateEffectFixtureInput = {
+  /** Amplitude scale for this fixture (0-200%). */
+  readonly amplitudeScale?: InputMaybe<Scalars['Float']['input']>;
+  /** Order for auto-phase distribution. */
+  readonly effectOrder?: InputMaybe<Scalars['Int']['input']>;
+  /** Phase offset override for this fixture (degrees). */
+  readonly phaseOffset?: InputMaybe<Scalars['Float']['input']>;
+};
+
+export type UpdateEffectInput = {
+  readonly amplitude?: InputMaybe<Scalars['Float']['input']>;
+  readonly compositionMode?: InputMaybe<CompositionMode>;
+  readonly description?: InputMaybe<Scalars['String']['input']>;
+  readonly effectType?: InputMaybe<EffectType>;
+  readonly fadeDuration?: InputMaybe<Scalars['Float']['input']>;
+  readonly frequency?: InputMaybe<Scalars['Float']['input']>;
+  readonly masterValue?: InputMaybe<Scalars['Float']['input']>;
+  readonly name?: InputMaybe<Scalars['String']['input']>;
+  readonly offset?: InputMaybe<Scalars['Float']['input']>;
+  readonly onCueChange?: InputMaybe<TransitionBehavior>;
+  readonly phaseOffset?: InputMaybe<Scalars['Float']['input']>;
+  readonly priorityBand?: InputMaybe<PriorityBand>;
+  readonly prioritySub?: InputMaybe<Scalars['Int']['input']>;
+  readonly waveform?: InputMaybe<WaveformType>;
 };
 
 export type UpdateFixtureInstanceInput = {
@@ -2156,6 +2539,16 @@ export enum UserRole {
   User = 'USER'
 }
 
+/** Waveform type for LFO-based effects. */
+export enum WaveformType {
+  Cosine = 'COSINE',
+  Random = 'RANDOM',
+  Sawtooth = 'SAWTOOTH',
+  Sine = 'SINE',
+  Square = 'SQUARE',
+  Triangle = 'TRIANGLE'
+}
+
 export type WiFiConnectionResult = {
   readonly __typename?: 'WiFiConnectionResult';
   readonly connected: Scalars['Boolean']['output'];
@@ -2223,14 +2616,14 @@ export type GetProjectCueListsQueryVariables = Exact<{
 }>;
 
 
-export type GetProjectCueListsQuery = { readonly __typename?: 'Query', readonly project?: { readonly __typename?: 'Project', readonly id: string, readonly cueLists: ReadonlyArray<{ readonly __typename?: 'CueList', readonly id: string, readonly name: string, readonly description?: string | null, readonly loop: boolean, readonly createdAt: string, readonly updatedAt: string, readonly cues: ReadonlyArray<{ readonly __typename?: 'Cue', readonly id: string, readonly name: string, readonly cueNumber: number, readonly fadeInTime: number, readonly fadeOutTime: number, readonly followTime?: number | null, readonly notes?: string | null, readonly easingType?: EasingType | null, readonly skip: boolean, readonly look: { readonly __typename?: 'Look', readonly id: string, readonly name: string } }> }> } | null };
+export type GetProjectCueListsQuery = { readonly __typename?: 'Query', readonly project?: { readonly __typename?: 'Project', readonly id: string, readonly cueLists: ReadonlyArray<{ readonly __typename?: 'CueList', readonly id: string, readonly name: string, readonly description?: string | null, readonly loop: boolean, readonly createdAt: string, readonly updatedAt: string, readonly cues: ReadonlyArray<{ readonly __typename?: 'Cue', readonly id: string, readonly name: string, readonly cueNumber: number, readonly fadeInTime: number, readonly fadeOutTime: number, readonly followTime?: number | null, readonly notes?: string | null, readonly easingType?: EasingType | null, readonly skip: boolean, readonly look: { readonly __typename?: 'Look', readonly id: string, readonly name: string }, readonly effects: ReadonlyArray<{ readonly __typename?: 'CueEffect', readonly id: string, readonly effectId: string, readonly intensity: number, readonly speed: number, readonly effect?: { readonly __typename?: 'Effect', readonly id: string, readonly name: string, readonly effectType: EffectType, readonly waveform?: WaveformType | null } | null }> }> }> } | null };
 
 export type GetCueListQueryVariables = Exact<{
   id: Scalars['ID']['input'];
 }>;
 
 
-export type GetCueListQuery = { readonly __typename?: 'Query', readonly cueList?: { readonly __typename?: 'CueList', readonly id: string, readonly name: string, readonly description?: string | null, readonly loop: boolean, readonly createdAt: string, readonly updatedAt: string, readonly project: { readonly __typename?: 'Project', readonly id: string, readonly name: string }, readonly cues: ReadonlyArray<{ readonly __typename?: 'Cue', readonly id: string, readonly name: string, readonly cueNumber: number, readonly fadeInTime: number, readonly fadeOutTime: number, readonly followTime?: number | null, readonly notes?: string | null, readonly easingType?: EasingType | null, readonly skip: boolean, readonly look: { readonly __typename?: 'Look', readonly id: string, readonly name: string, readonly description?: string | null } }> } | null };
+export type GetCueListQuery = { readonly __typename?: 'Query', readonly cueList?: { readonly __typename?: 'CueList', readonly id: string, readonly name: string, readonly description?: string | null, readonly loop: boolean, readonly createdAt: string, readonly updatedAt: string, readonly project: { readonly __typename?: 'Project', readonly id: string, readonly name: string }, readonly cues: ReadonlyArray<{ readonly __typename?: 'Cue', readonly id: string, readonly name: string, readonly cueNumber: number, readonly fadeInTime: number, readonly fadeOutTime: number, readonly followTime?: number | null, readonly notes?: string | null, readonly easingType?: EasingType | null, readonly skip: boolean, readonly look: { readonly __typename?: 'Look', readonly id: string, readonly name: string, readonly description?: string | null }, readonly effects: ReadonlyArray<{ readonly __typename?: 'CueEffect', readonly id: string, readonly effectId: string, readonly intensity: number, readonly speed: number, readonly effect?: { readonly __typename?: 'Effect', readonly id: string, readonly name: string, readonly effectType: EffectType, readonly waveform?: WaveformType | null } | null }> }> } | null };
 
 export type CreateCueListMutationVariables = Exact<{
   input: CreateCueListInput;
@@ -2390,6 +2783,153 @@ export type CueListDataChangedSubscriptionVariables = Exact<{
 
 
 export type CueListDataChangedSubscription = { readonly __typename?: 'Subscription', readonly cueListDataChanged: { readonly __typename?: 'CueListDataChangedPayload', readonly cueListId: string, readonly changeType: CueListDataChangeType, readonly affectedCueIds?: ReadonlyArray<string> | null, readonly affectedLookId?: string | null, readonly newLookName?: string | null, readonly timestamp: string } };
+
+export type EffectFixtureFieldsFragment = { readonly __typename?: 'EffectFixture', readonly id: string, readonly effectId: string, readonly fixtureId: string, readonly phaseOffset?: number | null, readonly amplitudeScale?: number | null, readonly effectOrder?: number | null, readonly fixture?: { readonly __typename?: 'FixtureInstance', readonly id: string, readonly name: string, readonly universe: number, readonly startChannel: number, readonly manufacturer: string, readonly model: string, readonly type: FixtureType, readonly channels: ReadonlyArray<{ readonly __typename?: 'InstanceChannel', readonly id: string, readonly offset: number, readonly name: string, readonly type: ChannelType, readonly minValue: number, readonly maxValue: number, readonly defaultValue: number }> } | null, readonly channels: ReadonlyArray<{ readonly __typename?: 'EffectChannel', readonly id: string, readonly effectFixtureId: string, readonly channelOffset?: number | null, readonly channelType?: string | null, readonly amplitudeScale?: number | null, readonly frequencyScale?: number | null, readonly minValue?: number | null, readonly maxValue?: number | null }> };
+
+export type EffectFieldsFragment = { readonly __typename?: 'Effect', readonly id: string, readonly name: string, readonly description?: string | null, readonly projectId: string, readonly effectType: EffectType, readonly priorityBand: PriorityBand, readonly prioritySub: number, readonly compositionMode: CompositionMode, readonly onCueChange: TransitionBehavior, readonly fadeDuration?: number | null, readonly waveform?: WaveformType | null, readonly frequency: number, readonly amplitude: number, readonly offset: number, readonly phaseOffset: number, readonly masterValue?: number | null, readonly createdAt: string, readonly updatedAt: string };
+
+export type EffectWithFixturesFieldsFragment = { readonly __typename?: 'Effect', readonly id: string, readonly name: string, readonly description?: string | null, readonly projectId: string, readonly effectType: EffectType, readonly priorityBand: PriorityBand, readonly prioritySub: number, readonly compositionMode: CompositionMode, readonly onCueChange: TransitionBehavior, readonly fadeDuration?: number | null, readonly waveform?: WaveformType | null, readonly frequency: number, readonly amplitude: number, readonly offset: number, readonly phaseOffset: number, readonly masterValue?: number | null, readonly createdAt: string, readonly updatedAt: string, readonly fixtures: ReadonlyArray<{ readonly __typename?: 'EffectFixture', readonly id: string, readonly effectId: string, readonly fixtureId: string, readonly phaseOffset?: number | null, readonly amplitudeScale?: number | null, readonly effectOrder?: number | null, readonly fixture?: { readonly __typename?: 'FixtureInstance', readonly id: string, readonly name: string, readonly universe: number, readonly startChannel: number, readonly manufacturer: string, readonly model: string, readonly type: FixtureType, readonly channels: ReadonlyArray<{ readonly __typename?: 'InstanceChannel', readonly id: string, readonly offset: number, readonly name: string, readonly type: ChannelType, readonly minValue: number, readonly maxValue: number, readonly defaultValue: number }> } | null, readonly channels: ReadonlyArray<{ readonly __typename?: 'EffectChannel', readonly id: string, readonly effectFixtureId: string, readonly channelOffset?: number | null, readonly channelType?: string | null, readonly amplitudeScale?: number | null, readonly frequencyScale?: number | null, readonly minValue?: number | null, readonly maxValue?: number | null }> }> };
+
+export type GetEffectsQueryVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+}>;
+
+
+export type GetEffectsQuery = { readonly __typename?: 'Query', readonly effects: ReadonlyArray<{ readonly __typename?: 'Effect', readonly id: string, readonly name: string, readonly description?: string | null, readonly projectId: string, readonly effectType: EffectType, readonly priorityBand: PriorityBand, readonly prioritySub: number, readonly compositionMode: CompositionMode, readonly onCueChange: TransitionBehavior, readonly fadeDuration?: number | null, readonly waveform?: WaveformType | null, readonly frequency: number, readonly amplitude: number, readonly offset: number, readonly phaseOffset: number, readonly masterValue?: number | null, readonly createdAt: string, readonly updatedAt: string }> };
+
+export type GetEffectQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type GetEffectQuery = { readonly __typename?: 'Query', readonly effect?: { readonly __typename?: 'Effect', readonly id: string, readonly name: string, readonly description?: string | null, readonly projectId: string, readonly effectType: EffectType, readonly priorityBand: PriorityBand, readonly prioritySub: number, readonly compositionMode: CompositionMode, readonly onCueChange: TransitionBehavior, readonly fadeDuration?: number | null, readonly waveform?: WaveformType | null, readonly frequency: number, readonly amplitude: number, readonly offset: number, readonly phaseOffset: number, readonly masterValue?: number | null, readonly createdAt: string, readonly updatedAt: string, readonly fixtures: ReadonlyArray<{ readonly __typename?: 'EffectFixture', readonly id: string, readonly effectId: string, readonly fixtureId: string, readonly phaseOffset?: number | null, readonly amplitudeScale?: number | null, readonly effectOrder?: number | null, readonly fixture?: { readonly __typename?: 'FixtureInstance', readonly id: string, readonly name: string, readonly universe: number, readonly startChannel: number, readonly manufacturer: string, readonly model: string, readonly type: FixtureType, readonly channels: ReadonlyArray<{ readonly __typename?: 'InstanceChannel', readonly id: string, readonly offset: number, readonly name: string, readonly type: ChannelType, readonly minValue: number, readonly maxValue: number, readonly defaultValue: number }> } | null, readonly channels: ReadonlyArray<{ readonly __typename?: 'EffectChannel', readonly id: string, readonly effectFixtureId: string, readonly channelOffset?: number | null, readonly channelType?: string | null, readonly amplitudeScale?: number | null, readonly frequencyScale?: number | null, readonly minValue?: number | null, readonly maxValue?: number | null }> }> } | null };
+
+export type GetModulatorStatusQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetModulatorStatusQuery = { readonly __typename?: 'Query', readonly modulatorStatus: { readonly __typename?: 'ModulatorStatus', readonly isRunning: boolean, readonly updateRateHz: number, readonly activeEffectCount: number, readonly isBlackoutActive: boolean, readonly blackoutIntensity: number, readonly grandMasterValue: number, readonly hasActiveTransition: boolean, readonly transitionProgress: number, readonly activeEffects: ReadonlyArray<{ readonly __typename?: 'ActiveEffectStatus', readonly effectId: string, readonly effectName: string, readonly effectType: EffectType, readonly intensity: number, readonly phase: number, readonly isComplete: boolean, readonly startTime: string }> } };
+
+export type CreateEffectMutationVariables = Exact<{
+  input: CreateEffectInput;
+}>;
+
+
+export type CreateEffectMutation = { readonly __typename?: 'Mutation', readonly createEffect: { readonly __typename?: 'Effect', readonly id: string, readonly name: string, readonly description?: string | null, readonly projectId: string, readonly effectType: EffectType, readonly priorityBand: PriorityBand, readonly prioritySub: number, readonly compositionMode: CompositionMode, readonly onCueChange: TransitionBehavior, readonly fadeDuration?: number | null, readonly waveform?: WaveformType | null, readonly frequency: number, readonly amplitude: number, readonly offset: number, readonly phaseOffset: number, readonly masterValue?: number | null, readonly createdAt: string, readonly updatedAt: string } };
+
+export type UpdateEffectMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: UpdateEffectInput;
+}>;
+
+
+export type UpdateEffectMutation = { readonly __typename?: 'Mutation', readonly updateEffect: { readonly __typename?: 'Effect', readonly id: string, readonly name: string, readonly description?: string | null, readonly projectId: string, readonly effectType: EffectType, readonly priorityBand: PriorityBand, readonly prioritySub: number, readonly compositionMode: CompositionMode, readonly onCueChange: TransitionBehavior, readonly fadeDuration?: number | null, readonly waveform?: WaveformType | null, readonly frequency: number, readonly amplitude: number, readonly offset: number, readonly phaseOffset: number, readonly masterValue?: number | null, readonly createdAt: string, readonly updatedAt: string } };
+
+export type DeleteEffectMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteEffectMutation = { readonly __typename?: 'Mutation', readonly deleteEffect: boolean };
+
+export type AddFixtureToEffectMutationVariables = Exact<{
+  input: AddFixtureToEffectInput;
+}>;
+
+
+export type AddFixtureToEffectMutation = { readonly __typename?: 'Mutation', readonly addFixtureToEffect: { readonly __typename?: 'EffectFixture', readonly id: string, readonly effectId: string, readonly fixtureId: string, readonly phaseOffset?: number | null, readonly amplitudeScale?: number | null, readonly effectOrder?: number | null, readonly fixture?: { readonly __typename?: 'FixtureInstance', readonly id: string, readonly name: string, readonly universe: number, readonly startChannel: number, readonly manufacturer: string, readonly model: string, readonly type: FixtureType, readonly channels: ReadonlyArray<{ readonly __typename?: 'InstanceChannel', readonly id: string, readonly offset: number, readonly name: string, readonly type: ChannelType, readonly minValue: number, readonly maxValue: number, readonly defaultValue: number }> } | null, readonly channels: ReadonlyArray<{ readonly __typename?: 'EffectChannel', readonly id: string, readonly effectFixtureId: string, readonly channelOffset?: number | null, readonly channelType?: string | null, readonly amplitudeScale?: number | null, readonly frequencyScale?: number | null, readonly minValue?: number | null, readonly maxValue?: number | null }> } };
+
+export type RemoveFixtureFromEffectMutationVariables = Exact<{
+  effectId: Scalars['ID']['input'];
+  fixtureId: Scalars['ID']['input'];
+}>;
+
+
+export type RemoveFixtureFromEffectMutation = { readonly __typename?: 'Mutation', readonly removeFixtureFromEffect: boolean };
+
+export type UpdateEffectFixtureMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: UpdateEffectFixtureInput;
+}>;
+
+
+export type UpdateEffectFixtureMutation = { readonly __typename?: 'Mutation', readonly updateEffectFixture: { readonly __typename?: 'EffectFixture', readonly id: string, readonly effectId: string, readonly fixtureId: string, readonly phaseOffset?: number | null, readonly amplitudeScale?: number | null, readonly effectOrder?: number | null, readonly fixture?: { readonly __typename?: 'FixtureInstance', readonly id: string, readonly name: string, readonly universe: number, readonly startChannel: number, readonly manufacturer: string, readonly model: string, readonly type: FixtureType, readonly channels: ReadonlyArray<{ readonly __typename?: 'InstanceChannel', readonly id: string, readonly offset: number, readonly name: string, readonly type: ChannelType, readonly minValue: number, readonly maxValue: number, readonly defaultValue: number }> } | null, readonly channels: ReadonlyArray<{ readonly __typename?: 'EffectChannel', readonly id: string, readonly effectFixtureId: string, readonly channelOffset?: number | null, readonly channelType?: string | null, readonly amplitudeScale?: number | null, readonly frequencyScale?: number | null, readonly minValue?: number | null, readonly maxValue?: number | null }> } };
+
+export type EffectChannelFieldsFragment = { readonly __typename?: 'EffectChannel', readonly id: string, readonly effectFixtureId: string, readonly channelOffset?: number | null, readonly channelType?: string | null, readonly amplitudeScale?: number | null, readonly frequencyScale?: number | null, readonly minValue?: number | null, readonly maxValue?: number | null };
+
+export type AddChannelToEffectFixtureMutationVariables = Exact<{
+  effectFixtureId: Scalars['ID']['input'];
+  input: EffectChannelInput;
+}>;
+
+
+export type AddChannelToEffectFixtureMutation = { readonly __typename?: 'Mutation', readonly addChannelToEffectFixture: { readonly __typename?: 'EffectChannel', readonly id: string, readonly effectFixtureId: string, readonly channelOffset?: number | null, readonly channelType?: string | null, readonly amplitudeScale?: number | null, readonly frequencyScale?: number | null, readonly minValue?: number | null, readonly maxValue?: number | null } };
+
+export type UpdateEffectChannelMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: EffectChannelInput;
+}>;
+
+
+export type UpdateEffectChannelMutation = { readonly __typename?: 'Mutation', readonly updateEffectChannel: { readonly __typename?: 'EffectChannel', readonly id: string, readonly effectFixtureId: string, readonly channelOffset?: number | null, readonly channelType?: string | null, readonly amplitudeScale?: number | null, readonly frequencyScale?: number | null, readonly minValue?: number | null, readonly maxValue?: number | null } };
+
+export type RemoveChannelFromEffectFixtureMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type RemoveChannelFromEffectFixtureMutation = { readonly __typename?: 'Mutation', readonly removeChannelFromEffectFixture: boolean };
+
+export type AddEffectToCueMutationVariables = Exact<{
+  input: AddEffectToCueInput;
+}>;
+
+
+export type AddEffectToCueMutation = { readonly __typename?: 'Mutation', readonly addEffectToCue: { readonly __typename?: 'CueEffect', readonly id: string, readonly cueId: string, readonly effectId: string, readonly intensity: number, readonly speed: number, readonly onCueChange?: TransitionBehavior | null, readonly effect?: { readonly __typename?: 'Effect', readonly id: string, readonly name: string, readonly effectType: EffectType, readonly waveform?: WaveformType | null, readonly frequency: number } | null } };
+
+export type RemoveEffectFromCueMutationVariables = Exact<{
+  cueId: Scalars['ID']['input'];
+  effectId: Scalars['ID']['input'];
+}>;
+
+
+export type RemoveEffectFromCueMutation = { readonly __typename?: 'Mutation', readonly removeEffectFromCue: boolean };
+
+export type ActivateEffectMutationVariables = Exact<{
+  effectId: Scalars['ID']['input'];
+  fadeTime?: InputMaybe<Scalars['Float']['input']>;
+}>;
+
+
+export type ActivateEffectMutation = { readonly __typename?: 'Mutation', readonly activateEffect: boolean };
+
+export type StopEffectMutationVariables = Exact<{
+  effectId: Scalars['ID']['input'];
+  fadeTime?: InputMaybe<Scalars['Float']['input']>;
+}>;
+
+
+export type StopEffectMutation = { readonly __typename?: 'Mutation', readonly stopEffect: boolean };
+
+export type ActivateBlackoutMutationVariables = Exact<{
+  fadeTime?: InputMaybe<Scalars['Float']['input']>;
+}>;
+
+
+export type ActivateBlackoutMutation = { readonly __typename?: 'Mutation', readonly activateBlackout: boolean };
+
+export type ReleaseBlackoutMutationVariables = Exact<{
+  fadeTime?: InputMaybe<Scalars['Float']['input']>;
+}>;
+
+
+export type ReleaseBlackoutMutation = { readonly __typename?: 'Mutation', readonly releaseBlackout: boolean };
+
+export type SetGrandMasterMutationVariables = Exact<{
+  value: Scalars['Float']['input'];
+}>;
+
+
+export type SetGrandMasterMutation = { readonly __typename?: 'Mutation', readonly setGrandMaster: boolean };
 
 export type GetFixtureDefinitionsQueryVariables = Exact<{
   filter?: InputMaybe<FixtureDefinitionFilter>;
@@ -2969,12 +3509,16 @@ export type WiFiModeChangedSubscriptionVariables = Exact<{ [key: string]: never;
 
 export type WiFiModeChangedSubscription = { readonly __typename?: 'Subscription', readonly wifiModeChanged: WiFiMode };
 
+export const EffectFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Effect"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"effectType"}},{"kind":"Field","name":{"kind":"Name","value":"priorityBand"}},{"kind":"Field","name":{"kind":"Name","value":"prioritySub"}},{"kind":"Field","name":{"kind":"Name","value":"compositionMode"}},{"kind":"Field","name":{"kind":"Name","value":"onCueChange"}},{"kind":"Field","name":{"kind":"Name","value":"fadeDuration"}},{"kind":"Field","name":{"kind":"Name","value":"waveform"}},{"kind":"Field","name":{"kind":"Name","value":"frequency"}},{"kind":"Field","name":{"kind":"Name","value":"amplitude"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"phaseOffset"}},{"kind":"Field","name":{"kind":"Name","value":"masterValue"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode<EffectFieldsFragment, unknown>;
+export const EffectFixtureFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectFixtureFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EffectFixture"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectId"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureId"}},{"kind":"Field","name":{"kind":"Name","value":"fixture"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"universe"}},{"kind":"Field","name":{"kind":"Name","value":"startChannel"}},{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}},{"kind":"Field","name":{"kind":"Name","value":"defaultValue"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"phaseOffset"}},{"kind":"Field","name":{"kind":"Name","value":"amplitudeScale"}},{"kind":"Field","name":{"kind":"Name","value":"effectOrder"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectFixtureId"}},{"kind":"Field","name":{"kind":"Name","value":"channelOffset"}},{"kind":"Field","name":{"kind":"Name","value":"channelType"}},{"kind":"Field","name":{"kind":"Name","value":"amplitudeScale"}},{"kind":"Field","name":{"kind":"Name","value":"frequencyScale"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}}]}}]}}]} as unknown as DocumentNode<EffectFixtureFieldsFragment, unknown>;
+export const EffectWithFixturesFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectWithFixturesFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Effect"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"effectType"}},{"kind":"Field","name":{"kind":"Name","value":"priorityBand"}},{"kind":"Field","name":{"kind":"Name","value":"prioritySub"}},{"kind":"Field","name":{"kind":"Name","value":"compositionMode"}},{"kind":"Field","name":{"kind":"Name","value":"onCueChange"}},{"kind":"Field","name":{"kind":"Name","value":"fadeDuration"}},{"kind":"Field","name":{"kind":"Name","value":"waveform"}},{"kind":"Field","name":{"kind":"Name","value":"frequency"}},{"kind":"Field","name":{"kind":"Name","value":"amplitude"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"phaseOffset"}},{"kind":"Field","name":{"kind":"Name","value":"masterValue"}},{"kind":"Field","name":{"kind":"Name","value":"fixtures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EffectFixtureFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectFixtureFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EffectFixture"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectId"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureId"}},{"kind":"Field","name":{"kind":"Name","value":"fixture"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"universe"}},{"kind":"Field","name":{"kind":"Name","value":"startChannel"}},{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}},{"kind":"Field","name":{"kind":"Name","value":"defaultValue"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"phaseOffset"}},{"kind":"Field","name":{"kind":"Name","value":"amplitudeScale"}},{"kind":"Field","name":{"kind":"Name","value":"effectOrder"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectFixtureId"}},{"kind":"Field","name":{"kind":"Name","value":"channelOffset"}},{"kind":"Field","name":{"kind":"Name","value":"channelType"}},{"kind":"Field","name":{"kind":"Name","value":"amplitudeScale"}},{"kind":"Field","name":{"kind":"Name","value":"frequencyScale"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}}]}}]}}]} as unknown as DocumentNode<EffectWithFixturesFieldsFragment, unknown>;
+export const EffectChannelFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectChannelFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EffectChannel"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectFixtureId"}},{"kind":"Field","name":{"kind":"Name","value":"channelOffset"}},{"kind":"Field","name":{"kind":"Name","value":"channelType"}},{"kind":"Field","name":{"kind":"Name","value":"amplitudeScale"}},{"kind":"Field","name":{"kind":"Name","value":"frequencyScale"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}}]}}]} as unknown as DocumentNode<EffectChannelFieldsFragment, unknown>;
 export const OflImportStatsFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"OFLImportStatsFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"OFLImportStats"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"totalProcessed"}},{"kind":"Field","name":{"kind":"Name","value":"successfulImports"}},{"kind":"Field","name":{"kind":"Name","value":"failedImports"}},{"kind":"Field","name":{"kind":"Name","value":"skippedDuplicates"}},{"kind":"Field","name":{"kind":"Name","value":"updatedFixtures"}},{"kind":"Field","name":{"kind":"Name","value":"durationSeconds"}}]}}]} as unknown as DocumentNode<OflImportStatsFieldsFragment, unknown>;
 export const OflImportStatusFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"OFLImportStatusFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"OFLImportStatus"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"isImporting"}},{"kind":"Field","name":{"kind":"Name","value":"phase"}},{"kind":"Field","name":{"kind":"Name","value":"currentManufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"currentFixture"}},{"kind":"Field","name":{"kind":"Name","value":"totalFixtures"}},{"kind":"Field","name":{"kind":"Name","value":"importedCount"}},{"kind":"Field","name":{"kind":"Name","value":"failedCount"}},{"kind":"Field","name":{"kind":"Name","value":"skippedCount"}},{"kind":"Field","name":{"kind":"Name","value":"percentComplete"}},{"kind":"Field","name":{"kind":"Name","value":"startedAt"}},{"kind":"Field","name":{"kind":"Name","value":"completedAt"}},{"kind":"Field","name":{"kind":"Name","value":"estimatedSecondsRemaining"}},{"kind":"Field","name":{"kind":"Name","value":"errorMessage"}},{"kind":"Field","name":{"kind":"Name","value":"oflVersion"}},{"kind":"Field","name":{"kind":"Name","value":"usingBundledData"}}]}}]} as unknown as DocumentNode<OflImportStatusFieldsFragment, unknown>;
 export const OflFixtureUpdateFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"OFLFixtureUpdateFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"OFLFixtureUpdate"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fixtureKey"}},{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"changeType"}},{"kind":"Field","name":{"kind":"Name","value":"isInUse"}},{"kind":"Field","name":{"kind":"Name","value":"instanceCount"}},{"kind":"Field","name":{"kind":"Name","value":"currentHash"}},{"kind":"Field","name":{"kind":"Name","value":"newHash"}}]}}]} as unknown as DocumentNode<OflFixtureUpdateFieldsFragment, unknown>;
 export const TestConnectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"TestConnection"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}}]}}]} as unknown as DocumentNode<TestConnectionQuery, TestConnectionQueryVariables>;
-export const GetProjectCueListsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetProjectCueLists"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"project"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"cueLists"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"loop"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"cues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"cueNumber"}},{"kind":"Field","name":{"kind":"Name","value":"look"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"fadeInTime"}},{"kind":"Field","name":{"kind":"Name","value":"fadeOutTime"}},{"kind":"Field","name":{"kind":"Name","value":"followTime"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"easingType"}},{"kind":"Field","name":{"kind":"Name","value":"skip"}}]}}]}}]}}]}}]} as unknown as DocumentNode<GetProjectCueListsQuery, GetProjectCueListsQueryVariables>;
-export const GetCueListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetCueList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cueList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"loop"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"project"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"cues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"cueNumber"}},{"kind":"Field","name":{"kind":"Name","value":"look"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}}]}},{"kind":"Field","name":{"kind":"Name","value":"fadeInTime"}},{"kind":"Field","name":{"kind":"Name","value":"fadeOutTime"}},{"kind":"Field","name":{"kind":"Name","value":"followTime"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"easingType"}},{"kind":"Field","name":{"kind":"Name","value":"skip"}}]}}]}}]}}]} as unknown as DocumentNode<GetCueListQuery, GetCueListQueryVariables>;
+export const GetProjectCueListsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetProjectCueLists"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"project"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"cueLists"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"loop"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"cues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"cueNumber"}},{"kind":"Field","name":{"kind":"Name","value":"look"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"fadeInTime"}},{"kind":"Field","name":{"kind":"Name","value":"fadeOutTime"}},{"kind":"Field","name":{"kind":"Name","value":"followTime"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"easingType"}},{"kind":"Field","name":{"kind":"Name","value":"skip"}},{"kind":"Field","name":{"kind":"Name","value":"effects"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectId"}},{"kind":"Field","name":{"kind":"Name","value":"effect"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"effectType"}},{"kind":"Field","name":{"kind":"Name","value":"waveform"}}]}},{"kind":"Field","name":{"kind":"Name","value":"intensity"}},{"kind":"Field","name":{"kind":"Name","value":"speed"}}]}}]}}]}}]}}]}}]} as unknown as DocumentNode<GetProjectCueListsQuery, GetProjectCueListsQueryVariables>;
+export const GetCueListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetCueList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cueList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"loop"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"project"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"cues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"cueNumber"}},{"kind":"Field","name":{"kind":"Name","value":"look"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}}]}},{"kind":"Field","name":{"kind":"Name","value":"fadeInTime"}},{"kind":"Field","name":{"kind":"Name","value":"fadeOutTime"}},{"kind":"Field","name":{"kind":"Name","value":"followTime"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"easingType"}},{"kind":"Field","name":{"kind":"Name","value":"skip"}},{"kind":"Field","name":{"kind":"Name","value":"effects"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectId"}},{"kind":"Field","name":{"kind":"Name","value":"effect"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"effectType"}},{"kind":"Field","name":{"kind":"Name","value":"waveform"}}]}},{"kind":"Field","name":{"kind":"Name","value":"intensity"}},{"kind":"Field","name":{"kind":"Name","value":"speed"}}]}}]}}]}}]}}]} as unknown as DocumentNode<GetCueListQuery, GetCueListQueryVariables>;
 export const CreateCueListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateCueList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateCueListInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createCueList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"loop"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"cues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"cueNumber"}}]}}]}}]}}]} as unknown as DocumentNode<CreateCueListMutation, CreateCueListMutationVariables>;
 export const UpdateCueListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateCueList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateCueListInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateCueList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}},{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"loop"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"cues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"cueNumber"}}]}}]}}]}}]} as unknown as DocumentNode<UpdateCueListMutation, UpdateCueListMutationVariables>;
 export const DeleteCueListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteCueList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteCueList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode<DeleteCueListMutation, DeleteCueListMutationVariables>;
@@ -2997,6 +3541,25 @@ export const GetGlobalPlaybackStatusDocument = {"kind":"Document","definitions":
 export const GlobalPlaybackStatusUpdatedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"GlobalPlaybackStatusUpdated"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"globalPlaybackStatusUpdated"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"isPlaying"}},{"kind":"Field","name":{"kind":"Name","value":"isPaused"}},{"kind":"Field","name":{"kind":"Name","value":"isFading"}},{"kind":"Field","name":{"kind":"Name","value":"cueListId"}},{"kind":"Field","name":{"kind":"Name","value":"cueListName"}},{"kind":"Field","name":{"kind":"Name","value":"currentCueIndex"}},{"kind":"Field","name":{"kind":"Name","value":"cueCount"}},{"kind":"Field","name":{"kind":"Name","value":"currentCueName"}},{"kind":"Field","name":{"kind":"Name","value":"fadeProgress"}},{"kind":"Field","name":{"kind":"Name","value":"lastUpdated"}}]}}]}}]} as unknown as DocumentNode<GlobalPlaybackStatusUpdatedSubscription, GlobalPlaybackStatusUpdatedSubscriptionVariables>;
 export const ResumeCueListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResumeCueList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"cueListId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resumeCueList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"cueListId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"cueListId"}}}]}]}}]} as unknown as DocumentNode<ResumeCueListMutation, ResumeCueListMutationVariables>;
 export const CueListDataChangedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"CueListDataChanged"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"cueListId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cueListDataChanged"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"cueListId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"cueListId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cueListId"}},{"kind":"Field","name":{"kind":"Name","value":"changeType"}},{"kind":"Field","name":{"kind":"Name","value":"affectedCueIds"}},{"kind":"Field","name":{"kind":"Name","value":"affectedLookId"}},{"kind":"Field","name":{"kind":"Name","value":"newLookName"}},{"kind":"Field","name":{"kind":"Name","value":"timestamp"}}]}}]}}]} as unknown as DocumentNode<CueListDataChangedSubscription, CueListDataChangedSubscriptionVariables>;
+export const GetEffectsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetEffects"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"effects"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EffectFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Effect"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"effectType"}},{"kind":"Field","name":{"kind":"Name","value":"priorityBand"}},{"kind":"Field","name":{"kind":"Name","value":"prioritySub"}},{"kind":"Field","name":{"kind":"Name","value":"compositionMode"}},{"kind":"Field","name":{"kind":"Name","value":"onCueChange"}},{"kind":"Field","name":{"kind":"Name","value":"fadeDuration"}},{"kind":"Field","name":{"kind":"Name","value":"waveform"}},{"kind":"Field","name":{"kind":"Name","value":"frequency"}},{"kind":"Field","name":{"kind":"Name","value":"amplitude"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"phaseOffset"}},{"kind":"Field","name":{"kind":"Name","value":"masterValue"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode<GetEffectsQuery, GetEffectsQueryVariables>;
+export const GetEffectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetEffect"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"effect"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EffectWithFixturesFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectFixtureFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EffectFixture"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectId"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureId"}},{"kind":"Field","name":{"kind":"Name","value":"fixture"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"universe"}},{"kind":"Field","name":{"kind":"Name","value":"startChannel"}},{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}},{"kind":"Field","name":{"kind":"Name","value":"defaultValue"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"phaseOffset"}},{"kind":"Field","name":{"kind":"Name","value":"amplitudeScale"}},{"kind":"Field","name":{"kind":"Name","value":"effectOrder"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectFixtureId"}},{"kind":"Field","name":{"kind":"Name","value":"channelOffset"}},{"kind":"Field","name":{"kind":"Name","value":"channelType"}},{"kind":"Field","name":{"kind":"Name","value":"amplitudeScale"}},{"kind":"Field","name":{"kind":"Name","value":"frequencyScale"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectWithFixturesFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Effect"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"effectType"}},{"kind":"Field","name":{"kind":"Name","value":"priorityBand"}},{"kind":"Field","name":{"kind":"Name","value":"prioritySub"}},{"kind":"Field","name":{"kind":"Name","value":"compositionMode"}},{"kind":"Field","name":{"kind":"Name","value":"onCueChange"}},{"kind":"Field","name":{"kind":"Name","value":"fadeDuration"}},{"kind":"Field","name":{"kind":"Name","value":"waveform"}},{"kind":"Field","name":{"kind":"Name","value":"frequency"}},{"kind":"Field","name":{"kind":"Name","value":"amplitude"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"phaseOffset"}},{"kind":"Field","name":{"kind":"Name","value":"masterValue"}},{"kind":"Field","name":{"kind":"Name","value":"fixtures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EffectFixtureFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode<GetEffectQuery, GetEffectQueryVariables>;
+export const GetModulatorStatusDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetModulatorStatus"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"modulatorStatus"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"isRunning"}},{"kind":"Field","name":{"kind":"Name","value":"updateRateHz"}},{"kind":"Field","name":{"kind":"Name","value":"activeEffectCount"}},{"kind":"Field","name":{"kind":"Name","value":"activeEffects"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"effectId"}},{"kind":"Field","name":{"kind":"Name","value":"effectName"}},{"kind":"Field","name":{"kind":"Name","value":"effectType"}},{"kind":"Field","name":{"kind":"Name","value":"intensity"}},{"kind":"Field","name":{"kind":"Name","value":"phase"}},{"kind":"Field","name":{"kind":"Name","value":"isComplete"}},{"kind":"Field","name":{"kind":"Name","value":"startTime"}}]}},{"kind":"Field","name":{"kind":"Name","value":"isBlackoutActive"}},{"kind":"Field","name":{"kind":"Name","value":"blackoutIntensity"}},{"kind":"Field","name":{"kind":"Name","value":"grandMasterValue"}},{"kind":"Field","name":{"kind":"Name","value":"hasActiveTransition"}},{"kind":"Field","name":{"kind":"Name","value":"transitionProgress"}}]}}]}}]} as unknown as DocumentNode<GetModulatorStatusQuery, GetModulatorStatusQueryVariables>;
+export const CreateEffectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateEffect"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateEffectInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createEffect"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EffectFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Effect"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"effectType"}},{"kind":"Field","name":{"kind":"Name","value":"priorityBand"}},{"kind":"Field","name":{"kind":"Name","value":"prioritySub"}},{"kind":"Field","name":{"kind":"Name","value":"compositionMode"}},{"kind":"Field","name":{"kind":"Name","value":"onCueChange"}},{"kind":"Field","name":{"kind":"Name","value":"fadeDuration"}},{"kind":"Field","name":{"kind":"Name","value":"waveform"}},{"kind":"Field","name":{"kind":"Name","value":"frequency"}},{"kind":"Field","name":{"kind":"Name","value":"amplitude"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"phaseOffset"}},{"kind":"Field","name":{"kind":"Name","value":"masterValue"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode<CreateEffectMutation, CreateEffectMutationVariables>;
+export const UpdateEffectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateEffect"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateEffectInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateEffect"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}},{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EffectFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Effect"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"effectType"}},{"kind":"Field","name":{"kind":"Name","value":"priorityBand"}},{"kind":"Field","name":{"kind":"Name","value":"prioritySub"}},{"kind":"Field","name":{"kind":"Name","value":"compositionMode"}},{"kind":"Field","name":{"kind":"Name","value":"onCueChange"}},{"kind":"Field","name":{"kind":"Name","value":"fadeDuration"}},{"kind":"Field","name":{"kind":"Name","value":"waveform"}},{"kind":"Field","name":{"kind":"Name","value":"frequency"}},{"kind":"Field","name":{"kind":"Name","value":"amplitude"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"phaseOffset"}},{"kind":"Field","name":{"kind":"Name","value":"masterValue"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode<UpdateEffectMutation, UpdateEffectMutationVariables>;
+export const DeleteEffectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteEffect"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteEffect"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode<DeleteEffectMutation, DeleteEffectMutationVariables>;
+export const AddFixtureToEffectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AddFixtureToEffect"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"AddFixtureToEffectInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"addFixtureToEffect"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EffectFixtureFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectFixtureFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EffectFixture"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectId"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureId"}},{"kind":"Field","name":{"kind":"Name","value":"fixture"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"universe"}},{"kind":"Field","name":{"kind":"Name","value":"startChannel"}},{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}},{"kind":"Field","name":{"kind":"Name","value":"defaultValue"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"phaseOffset"}},{"kind":"Field","name":{"kind":"Name","value":"amplitudeScale"}},{"kind":"Field","name":{"kind":"Name","value":"effectOrder"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectFixtureId"}},{"kind":"Field","name":{"kind":"Name","value":"channelOffset"}},{"kind":"Field","name":{"kind":"Name","value":"channelType"}},{"kind":"Field","name":{"kind":"Name","value":"amplitudeScale"}},{"kind":"Field","name":{"kind":"Name","value":"frequencyScale"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}}]}}]}}]} as unknown as DocumentNode<AddFixtureToEffectMutation, AddFixtureToEffectMutationVariables>;
+export const RemoveFixtureFromEffectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RemoveFixtureFromEffect"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"effectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"fixtureId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"removeFixtureFromEffect"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"effectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"effectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"fixtureId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"fixtureId"}}}]}]}}]} as unknown as DocumentNode<RemoveFixtureFromEffectMutation, RemoveFixtureFromEffectMutationVariables>;
+export const UpdateEffectFixtureDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateEffectFixture"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateEffectFixtureInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateEffectFixture"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}},{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EffectFixtureFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectFixtureFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EffectFixture"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectId"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureId"}},{"kind":"Field","name":{"kind":"Name","value":"fixture"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"universe"}},{"kind":"Field","name":{"kind":"Name","value":"startChannel"}},{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}},{"kind":"Field","name":{"kind":"Name","value":"defaultValue"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"phaseOffset"}},{"kind":"Field","name":{"kind":"Name","value":"amplitudeScale"}},{"kind":"Field","name":{"kind":"Name","value":"effectOrder"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectFixtureId"}},{"kind":"Field","name":{"kind":"Name","value":"channelOffset"}},{"kind":"Field","name":{"kind":"Name","value":"channelType"}},{"kind":"Field","name":{"kind":"Name","value":"amplitudeScale"}},{"kind":"Field","name":{"kind":"Name","value":"frequencyScale"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}}]}}]}}]} as unknown as DocumentNode<UpdateEffectFixtureMutation, UpdateEffectFixtureMutationVariables>;
+export const AddChannelToEffectFixtureDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AddChannelToEffectFixture"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"effectFixtureId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"EffectChannelInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"addChannelToEffectFixture"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"effectFixtureId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"effectFixtureId"}}},{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EffectChannelFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectChannelFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EffectChannel"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectFixtureId"}},{"kind":"Field","name":{"kind":"Name","value":"channelOffset"}},{"kind":"Field","name":{"kind":"Name","value":"channelType"}},{"kind":"Field","name":{"kind":"Name","value":"amplitudeScale"}},{"kind":"Field","name":{"kind":"Name","value":"frequencyScale"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}}]}}]} as unknown as DocumentNode<AddChannelToEffectFixtureMutation, AddChannelToEffectFixtureMutationVariables>;
+export const UpdateEffectChannelDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateEffectChannel"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"EffectChannelInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateEffectChannel"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}},{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EffectChannelFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectChannelFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EffectChannel"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectFixtureId"}},{"kind":"Field","name":{"kind":"Name","value":"channelOffset"}},{"kind":"Field","name":{"kind":"Name","value":"channelType"}},{"kind":"Field","name":{"kind":"Name","value":"amplitudeScale"}},{"kind":"Field","name":{"kind":"Name","value":"frequencyScale"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}}]}}]} as unknown as DocumentNode<UpdateEffectChannelMutation, UpdateEffectChannelMutationVariables>;
+export const RemoveChannelFromEffectFixtureDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RemoveChannelFromEffectFixture"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"removeChannelFromEffectFixture"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode<RemoveChannelFromEffectFixtureMutation, RemoveChannelFromEffectFixtureMutationVariables>;
+export const AddEffectToCueDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AddEffectToCue"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"AddEffectToCueInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"addEffectToCue"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"cueId"}},{"kind":"Field","name":{"kind":"Name","value":"effectId"}},{"kind":"Field","name":{"kind":"Name","value":"effect"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"effectType"}},{"kind":"Field","name":{"kind":"Name","value":"waveform"}},{"kind":"Field","name":{"kind":"Name","value":"frequency"}}]}},{"kind":"Field","name":{"kind":"Name","value":"intensity"}},{"kind":"Field","name":{"kind":"Name","value":"speed"}},{"kind":"Field","name":{"kind":"Name","value":"onCueChange"}}]}}]}}]} as unknown as DocumentNode<AddEffectToCueMutation, AddEffectToCueMutationVariables>;
+export const RemoveEffectFromCueDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RemoveEffectFromCue"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"cueId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"effectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"removeEffectFromCue"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"cueId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"cueId"}}},{"kind":"Argument","name":{"kind":"Name","value":"effectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"effectId"}}}]}]}}]} as unknown as DocumentNode<RemoveEffectFromCueMutation, RemoveEffectFromCueMutationVariables>;
+export const ActivateEffectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ActivateEffect"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"effectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"fadeTime"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Float"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"activateEffect"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"effectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"effectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"fadeTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"fadeTime"}}}]}]}}]} as unknown as DocumentNode<ActivateEffectMutation, ActivateEffectMutationVariables>;
+export const StopEffectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"StopEffect"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"effectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"fadeTime"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Float"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"stopEffect"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"effectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"effectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"fadeTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"fadeTime"}}}]}]}}]} as unknown as DocumentNode<StopEffectMutation, StopEffectMutationVariables>;
+export const ActivateBlackoutDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ActivateBlackout"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"fadeTime"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Float"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"activateBlackout"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"fadeTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"fadeTime"}}}]}]}}]} as unknown as DocumentNode<ActivateBlackoutMutation, ActivateBlackoutMutationVariables>;
+export const ReleaseBlackoutDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ReleaseBlackout"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"fadeTime"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Float"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"releaseBlackout"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"fadeTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"fadeTime"}}}]}]}}]} as unknown as DocumentNode<ReleaseBlackoutMutation, ReleaseBlackoutMutationVariables>;
+export const SetGrandMasterDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"SetGrandMaster"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"value"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Float"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setGrandMaster"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"value"},"value":{"kind":"Variable","name":{"kind":"Name","value":"value"}}}]}]}}]} as unknown as DocumentNode<SetGrandMasterMutation, SetGrandMasterMutationVariables>;
 export const GetFixtureDefinitionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetFixtureDefinitions"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filter"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"FixtureDefinitionFilter"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fixtureDefinitions"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"filter"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filter"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"modes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"channelCount"}}]}}]}}]}}]} as unknown as DocumentNode<GetFixtureDefinitionsQuery, GetFixtureDefinitionsQueryVariables>;
 export const GetManufacturersDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetManufacturers"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"search"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fixtureDefinitions"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"filter"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"manufacturer"},"value":{"kind":"Variable","name":{"kind":"Name","value":"search"}}}]}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}}]}}]}}]} as unknown as DocumentNode<GetManufacturersQuery, GetManufacturersQueryVariables>;
 export const GetModelsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetModels"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"manufacturer"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"search"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fixtureDefinitions"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"filter"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"manufacturer"},"value":{"kind":"Variable","name":{"kind":"Name","value":"manufacturer"}}},{"kind":"ObjectField","name":{"kind":"Name","value":"model"},"value":{"kind":"Variable","name":{"kind":"Name","value":"search"}}}]}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"modes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"channelCount"}}]}}]}}]}}]} as unknown as DocumentNode<GetModelsQuery, GetModelsQueryVariables>;

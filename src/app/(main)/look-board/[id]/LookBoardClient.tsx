@@ -27,6 +27,7 @@ import {
 } from "@/lib/canvasUtils";
 import { getContrastingTextColor } from "@/utils/colorHelpers";
 import ContextMenu from "@/components/ContextMenu";
+import EffectsPanel from "@/components/EffectsPanel";
 
 // Grid configuration
 const GRID_SIZE = 10; // Fine grid for flexible button placement
@@ -2892,6 +2893,15 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
                 ]
           }
           onDismiss={dismissContextMenu}
+        />
+      )}
+
+      {/* Effects Panel - Available in Play mode */}
+      {mode === "play" && currentProject?.id && (
+        <EffectsPanel
+          projectId={currentProject.id}
+          position="right"
+          defaultCollapsed={true}
         />
       )}
     </div>

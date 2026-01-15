@@ -30,6 +30,11 @@ import {
   DUPLICATE_LOOK,
   ACTIVATE_LOOK,
 } from "@/graphql/looks";
+import {
+  GET_EFFECTS,
+  ADD_EFFECT_TO_CUE,
+  REMOVE_EFFECT_FROM_CUE,
+} from "@/graphql/effects";
 import { Cue, Look } from "@/types";
 import { convertCueIndexForLocalState, calculateNextCueNumber } from "@/utils/cueListHelpers";
 import { shouldIgnoreKeyboardEvent } from "@/utils/keyboardUtils";
@@ -530,6 +535,32 @@ const CueRow = React.forwardRef<
       skipIndicator = <SkipIndicator size="sm" className="ml-1" />;
     }
 
+    // Effects indicator - show lightning bolt if cue has effects
+    const effectsIndicator =
+      cue.effects && cue.effects.length > 0 ? (
+        <span
+          className="text-purple-400 flex items-center gap-0.5 ml-2"
+          title={`${cue.effects.length} effect${cue.effects.length > 1 ? "s" : ""} attached`}
+        >
+          <svg
+            className="w-3 h-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 10V3L4 14h7v7l9-11h-7z"
+            />
+          </svg>
+          {cue.effects.length > 1 && (
+            <span className="text-xs">×{cue.effects.length}</span>
+          )}
+        </span>
+      ) : null;
+
     const handleRowClick = () => {
       if (!editMode) {
         onJumpToCue(cue, index);
@@ -608,14 +639,17 @@ const CueRow = React.forwardRef<
           className={`px-3 py-3 text-sm font-medium ${textColorClass} ${skipTextClass}`}
           onClick={(e) => e.stopPropagation()}
         >
-          <EditableTextCell
-            value={cue.name}
-            onUpdate={(value) => onUpdateCue({ ...cue, name: value })}
-            disabled={!editMode}
-            fieldType="name"
-            cueIndex={index}
-            autoFocusFieldRef={autoFocusFieldRef}
-          />
+          <div className="flex items-center">
+            <EditableTextCell
+              value={cue.name}
+              onUpdate={(value) => onUpdateCue({ ...cue, name: value })}
+              disabled={!editMode}
+              fieldType="name"
+              cueIndex={index}
+              autoFocusFieldRef={autoFocusFieldRef}
+            />
+            {effectsIndicator}
+          </div>
         </td>
 
         <td
@@ -938,6 +972,32 @@ const CueCard = React.forwardRef<
     skipIndicator = <SkipIndicator size="sm" className="ml-1" />;
   }
 
+  // Effects indicator - show lightning bolt if cue has effects
+  const effectsIndicator =
+    cue.effects && cue.effects.length > 0 ? (
+      <span
+        className="text-purple-400 flex items-center gap-0.5 ml-2"
+        title={`${cue.effects.length} effect${cue.effects.length > 1 ? "s" : ""} attached`}
+      >
+        <svg
+          className="w-3 h-3"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M13 10V3L4 14h7v7l9-11h-7z"
+          />
+        </svg>
+        {cue.effects.length > 1 && (
+          <span className="text-xs">×{cue.effects.length}</span>
+        )}
+      </span>
+    ) : null;
+
   const handleRowClick = () => {
     if (!editMode) {
       onJumpToCue(cue, index);
@@ -1008,7 +1068,7 @@ const CueCard = React.forwardRef<
           </span>
           {skipIndicator}
           <div
-            className={`font-medium flex-1 ${skipTextClass}`}
+            className={`font-medium flex-1 flex items-center ${skipTextClass}`}
             onClick={(e) => e.stopPropagation()}
           >
             <EditableTextCell
@@ -1019,6 +1079,7 @@ const CueCard = React.forwardRef<
               cueIndex={index}
               autoFocusFieldRef={autoFocusFieldRef}
             />
+            {effectsIndicator}
           </div>
         </div>
         <div
@@ -1306,6 +1367,19 @@ export default function CueListUnifiedView({
     skip: !cueListData?.cueList?.project?.id,
   });
 
+  // Fetch effects for the Edit Cue dialog
+  const { data: effectsData } = useQuery(GET_EFFECTS, {
+    variables: { projectId: cueListData?.cueList?.project?.id || "" },
+    skip: !cueListData?.cueList?.project?.id,
+  });
+
+  const [addEffectToCue] = useMutation(ADD_EFFECT_TO_CUE, {
+    refetchQueries: [{ query: GET_CUE_LIST, variables: { id: cueListId } }],
+  });
+  const [removeEffectFromCue] = useMutation(REMOVE_EFFECT_FROM_CUE, {
+    refetchQueries: [{ query: GET_CUE_LIST, variables: { id: cueListId } }],
+  });
+
   // Memoize refetch configuration to avoid recreating on every render
   const refetchPlaybackStatus = useMemo(
     () => [{ query: GET_CUE_LIST_PLAYBACK_STATUS, variables: { cueListId } }],
@@ -1425,6 +1499,7 @@ export default function CueListUnifiedView({
   const cueList = cueListData?.cueList;
   const cues = useMemo(() => cueList?.cues || [], [cueList?.cues]);
   const looks = looksData?.project?.looks || [];
+  const availableEffects = effectsData?.effects || [];
   const currentCue =
     currentCueIndex >= 0 && currentCueIndex < cues.length
       ? cues[currentCueIndex]
@@ -1616,6 +1691,56 @@ export default function CueListUnifiedView({
   const handleTouchEnd = useCallback(() => {
     cancelLongPress();
   }, [cancelLongPress]);
+
+  // Keep editingCue in sync with cues data (for real-time effect updates)
+  useEffect(() => {
+    if (editingCue && cues.length > 0) {
+      const updatedCue = cues.find((c: Cue) => c.id === editingCue.id);
+      if (updatedCue && updatedCue !== editingCue) {
+        setEditingCue(updatedCue);
+      }
+    }
+  }, [cues, editingCue]);
+
+  // Handler for adding effect to cue
+  const handleAddEffectToCue = useCallback(
+    async (effectId: string, intensity?: number, speed?: number) => {
+      if (!editingCue) return;
+      try {
+        await addEffectToCue({
+          variables: {
+            input: {
+              cueId: editingCue.id,
+              effectId,
+              intensity: intensity ?? 100,
+              speed: speed ?? 1.0,
+            },
+          },
+        });
+      } catch (error) {
+        console.error("Failed to add effect to cue:", error);
+      }
+    },
+    [editingCue, addEffectToCue],
+  );
+
+  // Handler for removing effect from cue
+  const handleRemoveEffectFromCue = useCallback(
+    async (effectId: string) => {
+      if (!editingCue) return;
+      try {
+        await removeEffectFromCue({
+          variables: {
+            cueId: editingCue.id,
+            effectId,
+          },
+        });
+      } catch (error) {
+        console.error("Failed to remove effect from cue:", error);
+      }
+    },
+    [editingCue, removeEffectFromCue],
+  );
 
   const handleEditCue = useCallback(() => {
     if (!contextMenu) return;
@@ -2823,7 +2948,10 @@ export default function CueListUnifiedView({
           }}
           cue={editingCue}
           looks={looks}
+          availableEffects={availableEffects}
           onUpdate={handleEditCueDialogUpdate}
+          onAddEffect={handleAddEffectToCue}
+          onRemoveEffect={handleRemoveEffectFromCue}
         />
       )}
     </div>

@@ -56,3 +56,15 @@ export function extractCueListId(cueListIdProp: string): string {
   // Excludes /, ?, and # from the ID to handle query params and hash fragments
   return extractDynamicRouteId(cueListIdProp, /\/cue-lists\/([^\/\?#]+)/);
 }
+
+/**
+ * Extracts an effect ID from the URL when in static export mode.
+ * Pattern matches /effects/{effectId}/edit or /effects/{effectId}
+ *
+ * @param effectIdProp - The effect ID prop from Next.js
+ * @returns The extracted effect ID
+ */
+export function extractEffectId(effectIdProp: string): string {
+  // Excludes /, ?, and # from the ID to handle query params and hash fragments
+  return extractDynamicRouteId(effectIdProp, /\/effects\/([^\/\?#]+)/);
+}

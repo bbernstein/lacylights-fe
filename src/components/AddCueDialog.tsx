@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import BottomSheet from "./BottomSheet";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 
@@ -407,6 +408,40 @@ export default function AddCueDialog({
           </div>
         </div>
       )}
+
+      {/* Effects Section */}
+      <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <svg
+              className="w-5 h-5 text-purple-600 dark:text-purple-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+            <span className="text-sm font-medium text-purple-800 dark:text-purple-200">
+              Effects
+            </span>
+          </div>
+          <Link
+            href="/effects"
+            className="text-xs text-purple-600 hover:text-purple-500 dark:text-purple-400 hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Manage Effects →
+          </Link>
+        </div>
+        <p className="mt-2 text-xs text-purple-700 dark:text-purple-300">
+          Add LFO-based lighting effects to cues for dynamic animations. Create effects first in the Effects page, then attach them to cues.
+        </p>
+      </div>
     </div>
   );
 

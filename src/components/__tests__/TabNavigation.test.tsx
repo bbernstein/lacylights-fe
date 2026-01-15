@@ -34,6 +34,7 @@ describe('TabNavigation', () => {
       expect(screen.getByText('Dashboard')).toBeInTheDocument();
       expect(screen.getByText('Fixtures')).toBeInTheDocument();
       expect(screen.getByText('Looks')).toBeInTheDocument();
+      expect(screen.getByText('Effects')).toBeInTheDocument();
       expect(screen.getByText('Look Board')).toBeInTheDocument();
       expect(screen.getByText('Cue Lists')).toBeInTheDocument();
     });
@@ -46,12 +47,14 @@ describe('TabNavigation', () => {
       const dashboardLink = screen.getByRole('link', { name: 'Dashboard' });
       const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
       const looksLink = screen.getByRole('link', { name: 'Looks' });
+      const effectsLink = screen.getByRole('link', { name: 'Effects' });
       const lookBoardLink = screen.getByRole('link', { name: 'Look Board' });
       const cueListsLink = screen.getByRole('link', { name: 'Cue Lists' });
 
       expect(dashboardLink).toHaveAttribute('href', '/');
       expect(fixturesLink).toHaveAttribute('href', '/fixtures');
       expect(looksLink).toHaveAttribute('href', '/looks');
+      expect(effectsLink).toHaveAttribute('href', '/effects');
       expect(lookBoardLink).toHaveAttribute('href', '/look-board');
       expect(cueListsLink).toHaveAttribute('href', '/cue-lists');
     });
@@ -217,7 +220,7 @@ describe('TabNavigation', () => {
       render(<TabNavigation />);
 
       const links = screen.getAllByRole('link');
-      expect(links).toHaveLength(6); // Dashboard, Fixtures, Looks, Look Board, Cue Lists, Settings
+      expect(links).toHaveLength(7); // Dashboard, Fixtures, Looks, Effects, Look Board, Cue Lists, Settings
 
       links.forEach((link) => {
         expect(link).toHaveAttribute('href');
@@ -235,6 +238,7 @@ describe('TabNavigation', () => {
         { name: 'Dashboard', href: '/' },
         { name: 'Fixtures', href: '/fixtures' },
         { name: 'Looks', href: '/looks' },
+        { name: 'Effects', href: '/effects' },
         { name: 'Look Board', href: '/look-board' },
         { name: 'Cue Lists', href: '/cue-lists' },
         { name: 'Settings', href: '/settings' },
