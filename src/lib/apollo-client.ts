@@ -37,10 +37,10 @@ async function fetchRuntimeConfig(): Promise<{ graphqlUrl: string; graphqlWsUrl:
       console.warn('Failed to fetch runtime config, using defaults:', error);
     }
 
-    // Fallback to defaults if API fetch fails
+    // Fallback to env vars (baked at build time) or defaults if API fetch fails
     runtimeConfig = {
-      graphqlUrl: 'http://localhost:4000/graphql',
-      graphqlWsUrl: 'ws://localhost:4000/graphql',
+      graphqlUrl: process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:4000/graphql',
+      graphqlWsUrl: process.env.NEXT_PUBLIC_GRAPHQL_WS_URL || 'ws://localhost:4000/graphql',
     };
     return runtimeConfig;
   })();
@@ -57,8 +57,8 @@ function getGraphQLUrl(): string {
     return `${window.location.protocol}//${window.location.host}/graphql`;
   }
 
-  // Mac app or development: use cached config or default
-  return runtimeConfig?.graphqlUrl || 'http://localhost:4000/graphql';
+  // Mac app or development: use cached config, env vars, or default
+  return runtimeConfig?.graphqlUrl || process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:4000/graphql';
 }
 
 async function getWebSocketUrl(): Promise<string> {
@@ -72,7 +72,7 @@ async function getWebSocketUrl(): Promise<string> {
   if (!runtimeConfig) {
     await fetchRuntimeConfig();
   }
-  return runtimeConfig?.graphqlWsUrl || 'ws://localhost:4000/graphql';
+  return runtimeConfig?.graphqlWsUrl || process.env.NEXT_PUBLIC_GRAPHQL_WS_URL || 'ws://localhost:4000/graphql';
 }
 
 // Custom link that fetches config before making requests
