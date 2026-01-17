@@ -413,7 +413,9 @@ export default function AddFixtureModal({
       return;
     }
 
-    if (!selectedModeId) {
+    // Only require mode selection if the fixture has modes
+    const hasModes = selectedModelData && selectedModelData.modes.length > 0;
+    if (hasModes && !selectedModeId) {
       setError("Please select a fixture mode");
       return;
     }
@@ -756,6 +758,11 @@ export default function AddFixtureModal({
     </form>
   );
 
+  // Determine if form can be submitted
+  // Mode is only required if the fixture has modes to choose from
+  const hasModes = selectedModelData && selectedModelData.modes.length > 0;
+  const canSubmit = selectedDefinitionId && (!hasModes || selectedModeId);
+
   const footerContent = (
     <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'flex-row space-x-3 justify-end'}`}>
       {isMobile ? (
@@ -763,7 +770,7 @@ export default function AddFixtureModal({
           <button
             type="submit"
             form="add-fixture-form"
-            disabled={creating || !selectedDefinitionId || !selectedModeId}
+            disabled={creating || !canSubmit}
             className="w-full px-4 py-3 text-base font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
           >
             {creating
@@ -792,7 +799,7 @@ export default function AddFixtureModal({
           <button
             type="submit"
             form="add-fixture-form"
-            disabled={creating || !selectedDefinitionId || !selectedModeId}
+            disabled={creating || !canSubmit}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {creating

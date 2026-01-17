@@ -123,6 +123,50 @@ function routeRequest(req, res) {
     }
   }
 
+  // Handle /look-board/[id] dynamic routes (serves /look-board/__dynamic__/index.html)
+  const lookBoardMatch = decodedUrl.match(createDynamicRouteRegex('/look-board'));
+  if (lookBoardMatch) {
+    const filePath = path.join(OUT_DIR, 'look-board', '__dynamic__', 'index.html');
+    if (fs.existsSync(filePath)) {
+      console.log(`  → Serving look board dynamic route: ${filePath} (for ID: ${lookBoardMatch[1]})`);
+      serveFile(res, filePath);
+      return;
+    }
+  }
+
+  // Handle /looks/[lookId]/edit dynamic routes (serves /looks/__dynamic__/edit/index.html)
+  const looksEditMatch = decodedUrl.match(createDynamicRouteRegex('/looks', '/edit'));
+  if (looksEditMatch) {
+    const filePath = path.join(OUT_DIR, 'looks', '__dynamic__', 'edit', 'index.html');
+    if (fs.existsSync(filePath)) {
+      console.log(`  → Serving looks editor dynamic route: ${filePath} (for ID: ${looksEditMatch[1]})`);
+      serveFile(res, filePath);
+      return;
+    }
+  }
+
+  // Handle /effects/[effectId]/edit dynamic routes (serves /effects/__dynamic__/edit/index.html)
+  const effectsEditMatch = decodedUrl.match(createDynamicRouteRegex('/effects', '/edit'));
+  if (effectsEditMatch) {
+    const filePath = path.join(OUT_DIR, 'effects', '__dynamic__', 'edit', 'index.html');
+    if (fs.existsSync(filePath)) {
+      console.log(`  → Serving effects editor dynamic route: ${filePath} (for ID: ${effectsEditMatch[1]})`);
+      serveFile(res, filePath);
+      return;
+    }
+  }
+
+  // Handle /effects/[effectId] dynamic routes (serves /effects/__dynamic__/index.html)
+  const effectsMatch = decodedUrl.match(createDynamicRouteRegex('/effects'));
+  if (effectsMatch) {
+    const filePath = path.join(OUT_DIR, 'effects', '__dynamic__', 'index.html');
+    if (fs.existsSync(filePath)) {
+      console.log(`  → Serving effects dynamic route: ${filePath} (for ID: ${effectsMatch[1]})`);
+      serveFile(res, filePath);
+      return;
+    }
+  }
+
   // Handle /scenes/[sceneId]/edit dynamic routes (serves /scenes/__dynamic__/edit/index.html)
   // Match /scenes/123/edit but NOT /scenes/ or /scenes/123 or files with extensions
   const sceneEditMatch = decodedUrl.match(createDynamicRouteRegex('/scenes', '/edit'));

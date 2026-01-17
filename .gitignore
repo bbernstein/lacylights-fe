@@ -58,4 +58,7 @@ next-env.d.ts
 playwright-report/
 test-results/
 
+# E2E test build config tracking
+.e2e-build-config
+
 .claude/
