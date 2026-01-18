@@ -6,6 +6,7 @@ import { GET_PROJECT_FIXTURES } from "@/graphql/fixtures";
 import { GET_PROJECT_LOOKS } from "@/graphql/looks";
 import { GET_PROJECT_LOOK_BOARDS } from "@/graphql/lookBoards";
 import { GET_PROJECT_CUE_LISTS } from "@/graphql/cueLists";
+import { GET_EFFECTS } from "@/graphql/effects";
 import { GET_SYSTEM_INFO } from "@/graphql/settings";
 import {
   GET_GLOBAL_PLAYBACK_STATUS,
@@ -159,6 +160,25 @@ const mockCueLists = [
   },
 ];
 
+const mockEffects = [
+  {
+    id: "effect-1",
+    name: "Pulsing Red",
+    effectType: "WAVEFORM",
+    waveform: "SINE",
+  },
+  {
+    id: "effect-2",
+    name: "Color Fade",
+    effectType: "CROSSFADE",
+  },
+  {
+    id: "effect-3",
+    name: "Master Dim",
+    effectType: "MASTER",
+  },
+];
+
 const mockSystemInfo = {
   artnetBroadcastAddress: "192.168.1.255",
   artnetEnabled: true,
@@ -193,6 +213,7 @@ const createMocks = (
     looks?: typeof mockLooks;
     lookBoards?: typeof mockLookBoards;
     cueLists?: typeof mockCueLists;
+    effects?: typeof mockEffects;
     systemInfo?: typeof mockSystemInfo;
     playbackStatus?: typeof mockPlaybackStatus;
   } = {},
@@ -247,6 +268,17 @@ const createMocks = (
           id: "project-1",
           cueLists: options.cueLists ?? mockCueLists,
         },
+      },
+    },
+  },
+  {
+    request: {
+      query: GET_EFFECTS,
+      variables: { projectId: "project-1" },
+    },
+    result: {
+      data: {
+        effects: options.effects ?? mockEffects,
       },
     },
   },
@@ -329,6 +361,7 @@ describe("DashboardPage", () => {
       });
 
       expect(screen.getByTestId("looks-card")).toBeInTheDocument();
+      expect(screen.getByTestId("effects-card")).toBeInTheDocument();
       expect(screen.getByTestId("look-boards-card")).toBeInTheDocument();
       expect(screen.getByTestId("cue-lists-card")).toBeInTheDocument();
       expect(screen.getByTestId("settings-card")).toBeInTheDocument();
@@ -741,6 +774,10 @@ describe("DashboardPage", () => {
         "href",
         "/looks",
       );
+      expect(screen.getByRole("link", { name: "Effects" })).toHaveAttribute(
+        "href",
+        "/effects",
+      );
       expect(
         screen.getByRole("link", { name: "Look Boards" }),
       ).toHaveAttribute("href", "/look-board");
@@ -771,7 +808,7 @@ describe("DashboardPage", () => {
       });
 
       const viewAllLinks = screen.getAllByText(/View all/);
-      expect(viewAllLinks).toHaveLength(5);
+      expect(viewAllLinks).toHaveLength(6);
     });
   });
 

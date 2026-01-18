@@ -8,6 +8,7 @@ import { GET_PROJECT_FIXTURES } from "@/graphql/fixtures";
 import { GET_PROJECT_LOOKS } from "@/graphql/looks";
 import { GET_PROJECT_LOOK_BOARDS } from "@/graphql/lookBoards";
 import { GET_PROJECT_CUE_LISTS } from "@/graphql/cueLists";
+import { GET_EFFECTS } from "@/graphql/effects";
 import { GET_SYSTEM_INFO } from "@/graphql/settings";
 import { useGlobalPlaybackStatus } from "@/hooks/useGlobalPlaybackStatus";
 import {
@@ -17,6 +18,7 @@ import {
   CueList,
   FixtureType,
   SystemInfo,
+  Effect,
 } from "@/types";
 
 /**
@@ -137,6 +139,15 @@ export default function DashboardPage() {
     skip: !projectId,
   });
 
+  const {
+    data: effectsData,
+    loading: effectsLoading,
+    error: effectsError,
+  } = useQuery(GET_EFFECTS, {
+    variables: { projectId },
+    skip: !projectId,
+  });
+
   const { data: systemInfoData } = useQuery(GET_SYSTEM_INFO);
   const { playbackStatus } = useGlobalPlaybackStatus();
 
@@ -156,6 +167,10 @@ export default function DashboardPage() {
   const cueLists = useMemo<CueList[]>(
     () => cueListsData?.project?.cueLists || [],
     [cueListsData?.project?.cueLists],
+  );
+  const effects = useMemo<Effect[]>(
+    () => effectsData?.effects || [],
+    [effectsData?.effects],
   );
   const systemInfo: SystemInfo | undefined = systemInfoData?.systemInfo;
 
@@ -191,11 +206,12 @@ export default function DashboardPage() {
     fixturesLoading ||
     looksLoading ||
     lookBoardsLoading ||
-    cueListsLoading;
+    cueListsLoading ||
+    effectsLoading;
 
   // Error state
   const hasError =
-    fixturesError || looksError || lookBoardsError || cueListsError;
+    fixturesError || looksError || lookBoardsError || cueListsError || effectsError;
 
   if (projectLoading) {
     return (
@@ -222,7 +238,7 @@ export default function DashboardPage() {
         <p className="text-red-800 dark:text-red-200">
           Error loading data:{" "}
           {
-            (fixturesError || looksError || lookBoardsError || cueListsError)
+            (fixturesError || looksError || lookBoardsError || cueListsError || effectsError)
               ?.message
           }
         </p>
@@ -317,6 +333,50 @@ export default function DashboardPage() {
             ) : (
               <p className="text-sm text-gray-400 dark:text-gray-500 italic">
                 No looks created
+              </p>
+            )}
+          </DashboardCard>
+
+          {/* Effects Card */}
+          <DashboardCard
+            title="Effects"
+            href="/effects"
+            count={effects.length}
+            countLabel={
+              effects.length === 1 ? "1 effect" : `${effects.length} effects`
+            }
+            testId="effects-card"
+          >
+            {effects.length > 0 ? (
+              <ul className="space-y-1">
+                {effects.slice(0, 6).map((effect) => (
+                  <li
+                    key={effect.id}
+                    className="text-sm text-gray-600 dark:text-gray-300 truncate flex items-center gap-2"
+                  >
+                    <span
+                      className={`inline-block w-2 h-2 rounded-full ${
+                        effect.effectType === "WAVEFORM"
+                          ? "bg-purple-500"
+                          : effect.effectType === "CROSSFADE"
+                            ? "bg-blue-500"
+                            : effect.effectType === "MASTER"
+                              ? "bg-yellow-500"
+                              : "bg-gray-400"
+                      }`}
+                    />
+                    {effect.name}
+                  </li>
+                ))}
+                {effects.length > 6 && (
+                  <li className="text-sm text-gray-400 dark:text-gray-500">
+                    +{effects.length - 6} more...
+                  </li>
+                )}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+                No effects created
               </p>
             )}
           </DashboardCard>
