@@ -133,8 +133,7 @@ export function OperationHistoryPanel({ isOpen, onClose }: OperationHistoryPanel
     if (isOpen && projectId) {
       refetch();
     }
-  // Note: refetch has a stable reference from Apollo Client, but we include it for completeness
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, projectId]);
 
   // Handle Escape key to close panel
@@ -203,6 +202,15 @@ export function OperationHistoryPanel({ isOpen, onClose }: OperationHistoryPanel
           ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}
         `}
         onClick={onClose}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onClose();
+          }
+        }}
+        role="button"
+        aria-label="Close history panel"
+        tabIndex={isOpen ? 0 : -1}
       />
 
       {/* Panel */}
@@ -212,6 +220,8 @@ export function OperationHistoryPanel({ isOpen, onClose }: OperationHistoryPanel
           shadow-xl z-50 transform transition-transform
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}
         `}
+        role="complementary"
+        aria-label="Operation history panel"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
@@ -250,7 +260,11 @@ export function OperationHistoryPanel({ isOpen, onClose }: OperationHistoryPanel
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {loading ? (
-            <div className="flex items-center justify-center h-32">
+            <div
+              className="flex items-center justify-center h-32"
+              role="status"
+              aria-label="Loading history"
+            >
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
             </div>
           ) : operations.length === 0 ? (

@@ -14,7 +14,7 @@ const IGNORED_TAGS = ['INPUT', 'TEXTAREA', 'SELECT'];
  *
  * Shortcuts:
  * - Cmd+Z (Mac) / Ctrl+Z (Windows/Linux): Undo
- * - Cmd+Shift+Z (Mac) / Ctrl+Y (Windows/Linux): Redo
+ * - Cmd+Shift+Z (Mac) / Ctrl+Shift+Z or Ctrl+Y (Windows/Linux): Redo
  *
  * Shortcuts are ignored when:
  * - Focus is on an input, textarea, or select element

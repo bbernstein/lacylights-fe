@@ -261,7 +261,8 @@ describe('useUndoRedoKeyboard', () => {
   // The core behavior (checking canUndo/canRedo and isLoading before calling undo/redo)
   // is verified through code inspection - the hook only calls undo() when canUndo is true,
   // redo() when canRedo is true, and neither when isLoading is true.
-  // These conditions are enforced at lines 57, 65, and 41 in useUndoRedoKeyboard.ts
+  // These conditions are enforced inside useUndoRedoKeyboard.ts where the hook checks
+  // these flags before invoking undo() or redo().
 
   describe('Event listener cleanup', () => {
     beforeEach(() => {
