@@ -120,6 +120,15 @@ describe('UndoRedoContext', () => {
     });
 
     it('should return context with default values when no project selected', async () => {
+      // Create a mock project that will be returned when ProjectContext auto-creates one
+      const autoCreatedProject = {
+        id: 'auto-created-project',
+        name: 'Default Project',
+        description: 'Automatically created project',
+        createdAt: '2023-01-01T12:00:00Z',
+        updatedAt: '2023-01-01T12:00:00Z',
+      };
+
       const mocks = [
         {
           request: {
@@ -128,6 +137,20 @@ describe('UndoRedoContext', () => {
           result: {
             data: {
               projects: [],
+            },
+          },
+        },
+        // ProjectContext will try to create a default project when none exist
+        {
+          request: {
+            query: CREATE_PROJECT,
+            variables: {
+              input: { name: 'Default Project', description: 'Automatically created project' },
+            },
+          },
+          result: {
+            data: {
+              createProject: autoCreatedProject,
             },
           },
         },
@@ -142,6 +165,7 @@ describe('UndoRedoContext', () => {
 
       const { result } = renderHook(() => useUndoRedo(), { wrapper });
 
+      // Initial state should still be default values before any project is auto-created
       expect(result.current.canUndo).toBe(false);
       expect(result.current.canRedo).toBe(false);
       expect(result.current.undoDescription).toBeNull();
@@ -236,6 +260,15 @@ describe('UndoRedoContext', () => {
     });
 
     it('should return false when no project is selected', async () => {
+      // Create a mock project that will be returned when ProjectContext auto-creates one
+      const autoCreatedProject = {
+        id: 'auto-created-project',
+        name: 'Default Project',
+        description: 'Automatically created project',
+        createdAt: '2023-01-01T12:00:00Z',
+        updatedAt: '2023-01-01T12:00:00Z',
+      };
+
       const mocks = [
         {
           request: {
@@ -244,6 +277,20 @@ describe('UndoRedoContext', () => {
           result: {
             data: {
               projects: [],
+            },
+          },
+        },
+        // ProjectContext will try to create a default project when none exist
+        {
+          request: {
+            query: CREATE_PROJECT,
+            variables: {
+              input: { name: 'Default Project', description: 'Automatically created project' },
+            },
+          },
+          result: {
+            data: {
+              createProject: autoCreatedProject,
             },
           },
         },
