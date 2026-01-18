@@ -66,8 +66,9 @@ export function useUndoRedoKeyboard(): void {
         (event.shiftKey && event.key.toLowerCase() === 'z') ||
         (!isMac && event.key === 'y')
       ) {
+        // Always prevent default to avoid browser's native redo behavior
+        event.preventDefault();
         if (canRedo) {
-          event.preventDefault();
           redo();
         }
         return;
@@ -75,8 +76,9 @@ export function useUndoRedoKeyboard(): void {
 
       // Undo: Cmd+Z (Mac) or Ctrl+Z (Windows/Linux)
       if (event.key.toLowerCase() === 'z' && !event.shiftKey) {
+        // Always prevent default to avoid browser's native undo behavior
+        event.preventDefault();
         if (canUndo) {
-          event.preventDefault();
           undo();
         }
         return;

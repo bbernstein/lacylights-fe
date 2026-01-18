@@ -52,7 +52,7 @@ function MainLayoutContent({ children }: { children: ReactNode }) {
                     aria-label="View operation history"
                   >
                     <ClockIcon className="h-5 w-5" />
-                    <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity">
                       History
                     </span>
                   </button>
