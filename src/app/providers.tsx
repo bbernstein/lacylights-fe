@@ -6,6 +6,7 @@ import { ProjectProvider } from '@/contexts/ProjectContext';
 import { FocusModeProvider } from '@/contexts/FocusModeContext';
 import { UserModeProvider } from '@/contexts/UserModeContext';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
+import { UndoRedoProvider } from '@/contexts/UndoRedoContext';
 import { useEffect } from 'react';
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -46,7 +47,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <UserModeProvider>
           <FocusModeProvider>
             <ProjectProvider>
-              {children}
+              <UndoRedoProvider>
+                {children}
+              </UndoRedoProvider>
             </ProjectProvider>
           </FocusModeProvider>
         </UserModeProvider>
