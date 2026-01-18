@@ -129,31 +129,42 @@ describe('UndoRedoContext', () => {
         updatedAt: '2023-01-01T12:00:00Z',
       };
 
+      // Create reusable mocks
+      const emptyProjectsMock = {
+        request: {
+          query: GET_PROJECTS,
+        },
+        result: {
+          data: {
+            projects: [],
+          },
+        },
+      };
+
+      const createProjectMock = {
+        request: {
+          query: CREATE_PROJECT,
+          variables: {
+            input: { name: 'Default Project', description: 'Automatically created project' },
+          },
+        },
+        result: {
+          data: {
+            createProject: autoCreatedProject,
+          },
+        },
+      };
+
       const mocks = [
-        {
-          request: {
-            query: GET_PROJECTS,
-          },
-          result: {
-            data: {
-              projects: [],
-            },
-          },
-        },
+        // Initial and potential refetch calls
+        emptyProjectsMock,
+        emptyProjectsMock,
+        emptyProjectsMock,
         // ProjectContext will try to create a default project when none exist
-        {
-          request: {
-            query: CREATE_PROJECT,
-            variables: {
-              input: { name: 'Default Project', description: 'Automatically created project' },
-            },
-          },
-          result: {
-            data: {
-              createProject: autoCreatedProject,
-            },
-          },
-        },
+        // Add multiple mocks for potential retries
+        createProjectMock,
+        createProjectMock,
+        createProjectMock,
       ];
 
       const wrapper = ({ children }: { children: React.ReactNode }) =>
@@ -281,6 +292,21 @@ describe('UndoRedoContext', () => {
         },
       };
 
+      // Create reusable mock for CREATE_PROJECT calls
+      const createProjectMock = {
+        request: {
+          query: CREATE_PROJECT,
+          variables: {
+            input: { name: 'Default Project', description: 'Automatically created project' },
+          },
+        },
+        result: {
+          data: {
+            createProject: autoCreatedProject,
+          },
+        },
+      };
+
       const mocks = [
         // Initial GET_PROJECTS call
         emptyProjectsMock,
@@ -288,19 +314,10 @@ describe('UndoRedoContext', () => {
         emptyProjectsMock,
         emptyProjectsMock,
         // ProjectContext will try to create a default project when none exist
-        {
-          request: {
-            query: CREATE_PROJECT,
-            variables: {
-              input: { name: 'Default Project', description: 'Automatically created project' },
-            },
-          },
-          result: {
-            data: {
-              createProject: autoCreatedProject,
-            },
-          },
-        },
+        // Add multiple mocks for potential retries
+        createProjectMock,
+        createProjectMock,
+        createProjectMock,
       ];
 
       const wrapper = ({ children }: { children: React.ReactNode }) =>
