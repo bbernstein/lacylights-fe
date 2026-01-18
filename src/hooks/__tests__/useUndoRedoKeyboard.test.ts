@@ -33,7 +33,7 @@ describe('useUndoRedoKeyboard', () => {
     // Remove userAgentData if it was mocked
     if (originalUserAgentData === undefined) {
       // It wasn't originally there, remove our mock
-      delete (navigator as Record<string, unknown>).userAgentData;
+      delete (navigator as unknown as Record<string, unknown>).userAgentData;
     } else {
       Object.defineProperty(navigator, 'userAgentData', originalUserAgentData);
     }
