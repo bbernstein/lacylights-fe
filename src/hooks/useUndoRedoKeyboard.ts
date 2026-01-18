@@ -63,8 +63,7 @@ export function useUndoRedoKeyboard(): void {
       // Redo: Cmd+Shift+Z (Mac) or Ctrl+Shift+Z or Ctrl+Y (Windows/Linux)
       // Note: event.key is uppercase 'Z' when Shift is pressed, so we use toLowerCase()
       if (
-        (isMac && event.shiftKey && event.key.toLowerCase() === 'z') ||
-        (!isMac && event.shiftKey && event.key.toLowerCase() === 'z') ||
+        (event.shiftKey && event.key.toLowerCase() === 'z') ||
         (!isMac && event.key === 'y')
       ) {
         if (canRedo) {
@@ -75,7 +74,7 @@ export function useUndoRedoKeyboard(): void {
       }
 
       // Undo: Cmd+Z (Mac) or Ctrl+Z (Windows/Linux)
-      if (event.key === 'z' && !event.shiftKey) {
+      if (event.key.toLowerCase() === 'z' && !event.shiftKey) {
         if (canUndo) {
           event.preventDefault();
           undo();

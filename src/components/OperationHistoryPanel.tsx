@@ -276,17 +276,16 @@ export function OperationHistoryPanel({ isOpen, onClose }: OperationHistoryPanel
           ) : (
             <ul className="space-y-2">
               {operations.map((operation) => {
-                const isCurrent = operation.isCurrent;
                 const isInFuture = operation.sequence > currentSequence;
 
                 return (
                   <li key={operation.id}>
                     <button
                       onClick={() => handleJumpToOperation(operation.id)}
-                      disabled={jumpLoading || isCurrent}
+                      disabled={jumpLoading || operation.isCurrent}
                       className={`
                         w-full text-left p-3 rounded-lg transition-colors
-                        ${isCurrent
+                        ${operation.isCurrent
                           ? 'bg-blue-50 border-2 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700'
                           : isInFuture
                             ? 'bg-gray-50 text-gray-400 hover:bg-gray-100 dark:bg-gray-700/50 dark:text-gray-500 dark:hover:bg-gray-700'
@@ -299,7 +298,7 @@ export function OperationHistoryPanel({ isOpen, onClose }: OperationHistoryPanel
                         <div className="flex-1 min-w-0">
                           <p className={`
                             font-medium truncate
-                            ${isCurrent
+                            ${operation.isCurrent
                               ? 'text-blue-700 dark:text-blue-300'
                               : isInFuture
                                 ? 'text-gray-400 dark:text-gray-500'
@@ -330,7 +329,7 @@ export function OperationHistoryPanel({ isOpen, onClose }: OperationHistoryPanel
                           {formatTimestamp(operation.createdAt)}
                         </span>
                       </div>
-                      {isCurrent && (
+                      {operation.isCurrent && (
                         <div className="mt-2 text-xs text-blue-600 dark:text-blue-400 font-medium">
                           Current state
                         </div>
