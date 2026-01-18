@@ -80,6 +80,11 @@ export function UndoRedoProvider({ children }: UndoRedoProviderProps) {
           });
         }
       },
+      onError: (error) => {
+        // Handle subscription errors to avoid silent failures and stale UI state
+        // eslint-disable-next-line no-console
+        console.error('OPERATION_HISTORY_CHANGED subscription error:', error);
+      },
     }
   );
 

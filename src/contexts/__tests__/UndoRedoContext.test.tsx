@@ -36,7 +36,7 @@ const mockUndoResult = {
     id: 'op-123',
     description: 'Update look "Warm Wash"',
     operationType: 'UPDATE',
-    entityType: 'LOOK',
+    entityType: 'Look', // UndoEntityType uses PascalCase values
     sequence: 4,
   },
 };
@@ -49,7 +49,7 @@ const mockRedoResult = {
     id: 'op-123',
     description: 'Update look "Warm Wash"',
     operationType: 'UPDATE',
-    entityType: 'LOOK',
+    entityType: 'Look', // UndoEntityType uses PascalCase values
     sequence: 5,
   },
 };
