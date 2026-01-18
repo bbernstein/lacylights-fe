@@ -269,17 +269,24 @@ describe('UndoRedoContext', () => {
         updatedAt: '2023-01-01T12:00:00Z',
       };
 
-      const mocks = [
-        {
-          request: {
-            query: GET_PROJECTS,
-          },
-          result: {
-            data: {
-              projects: [],
-            },
+      // Create reusable mocks for GET_PROJECTS refetch calls
+      const emptyProjectsMock = {
+        request: {
+          query: GET_PROJECTS,
+        },
+        result: {
+          data: {
+            projects: [],
           },
         },
+      };
+
+      const mocks = [
+        // Initial GET_PROJECTS call
+        emptyProjectsMock,
+        // Additional GET_PROJECTS mocks for potential refetch calls
+        emptyProjectsMock,
+        emptyProjectsMock,
         // ProjectContext will try to create a default project when none exist
         {
           request: {
@@ -323,17 +330,24 @@ describe('UndoRedoContext', () => {
         redoDescription: 'Update look "Warm Wash"',
       };
 
-      const mocks = [
-        {
-          request: {
-            query: GET_PROJECTS,
-          },
-          result: {
-            data: {
-              projects: [mockProject],
-            },
+      // Create a reusable GET_PROJECTS mock for refetch calls
+      const getProjectsMock = {
+        request: {
+          query: GET_PROJECTS,
+        },
+        result: {
+          data: {
+            projects: [mockProject],
           },
         },
+      };
+
+      const mocks = [
+        // Initial GET_PROJECTS call
+        getProjectsMock,
+        // Additional GET_PROJECTS mocks for potential refetch calls
+        getProjectsMock,
+        getProjectsMock,
         // Handle race condition where ProjectContext might try to create a default project
         // before the GET_PROJECTS mock returns
         {
