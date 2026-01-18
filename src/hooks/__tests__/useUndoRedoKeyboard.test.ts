@@ -16,24 +16,48 @@ jest.mock('@/contexts/UndoRedoContext', () => ({
 }));
 
 describe('useUndoRedoKeyboard', () => {
-  let originalPlatform: PropertyDescriptor | undefined;
+  let originalUserAgent: PropertyDescriptor | undefined;
+  let originalUserAgentData: PropertyDescriptor | undefined;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    originalPlatform = Object.getOwnPropertyDescriptor(navigator, 'platform');
+    originalUserAgent = Object.getOwnPropertyDescriptor(navigator, 'userAgent');
+    originalUserAgentData = Object.getOwnPropertyDescriptor(navigator, 'userAgentData');
   });
 
   afterEach(() => {
-    if (originalPlatform) {
-      Object.defineProperty(navigator, 'platform', originalPlatform);
+    // Restore userAgent
+    if (originalUserAgent) {
+      Object.defineProperty(navigator, 'userAgent', originalUserAgent);
+    }
+    // Remove userAgentData if it was mocked
+    if (originalUserAgentData === undefined) {
+      // It wasn't originally there, remove our mock
+      delete (navigator as Record<string, unknown>).userAgentData;
+    } else {
+      Object.defineProperty(navigator, 'userAgentData', originalUserAgentData);
     }
   });
 
   const mockPlatform = (platform: string) => {
-    Object.defineProperty(navigator, 'platform', {
-      value: platform,
+    // Mock both userAgent and userAgentData for comprehensive coverage
+    const isMac = platform.toLowerCase().includes('mac');
+
+    // Mock userAgent (fallback method)
+    Object.defineProperty(navigator, 'userAgent', {
+      value: isMac
+        ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+        : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       configurable: true,
     });
+
+    // Mock userAgentData (modern method) - only add if we're simulating a modern browser
+    if (platform === 'MacIntel' || platform === 'Win32') {
+      Object.defineProperty(navigator, 'userAgentData', {
+        value: { platform: isMac ? 'macOS' : 'Windows' },
+        configurable: true,
+      });
+    }
   };
 
   const createKeyboardEvent = (key: string, options: Partial<KeyboardEventInit> = {}) => {

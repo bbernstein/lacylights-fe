@@ -38,7 +38,22 @@ export function useUndoRedoKeyboard(): void {
         return;
       }
 
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      // Detect macOS: prefer userAgentData (modern), fallback to userAgent (legacy)
+      // navigator.platform is deprecated but some browsers may still need it as fallback
+      const isMac = (() => {
+        // Modern approach using userAgentData (Chrome 90+, Edge 90+)
+        if (typeof navigator !== 'undefined' && 'userAgentData' in navigator) {
+          const uaData = navigator.userAgentData as { platform?: string } | undefined;
+          if (uaData?.platform) {
+            return uaData.platform.toLowerCase().includes('mac');
+          }
+        }
+        // Fallback to userAgent for broader browser support
+        if (typeof navigator !== 'undefined' && navigator.userAgent) {
+          return /macintosh|mac os x/i.test(navigator.userAgent);
+        }
+        return false;
+      })();
       const modifierKey = isMac ? event.metaKey : event.ctrlKey;
 
       if (!modifierKey) {

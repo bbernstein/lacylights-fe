@@ -83,18 +83,24 @@ export function UndoRedoProvider({ children }: UndoRedoProviderProps) {
     }
   );
 
-  // Undo mutation
+  // Undo mutation - uses refetchQueries as function to ensure projectId is current
   const [undoMutation, { loading: undoLoading }] = useMutation<UndoMutation>(UNDO, {
-    refetchQueries: [
-      { query: GET_UNDO_REDO_STATUS, variables: { projectId } },
-    ],
+    refetchQueries: (result) => {
+      // Get projectId from mutation result for reliable refetching
+      const pid = result.data?.undo?.operation?.projectId ?? projectId;
+      if (!pid) return [];
+      return [{ query: GET_UNDO_REDO_STATUS, variables: { projectId: pid } }];
+    },
   });
 
-  // Redo mutation
+  // Redo mutation - uses refetchQueries as function to ensure projectId is current
   const [redoMutation, { loading: redoLoading }] = useMutation<RedoMutation>(REDO, {
-    refetchQueries: [
-      { query: GET_UNDO_REDO_STATUS, variables: { projectId } },
-    ],
+    refetchQueries: (result) => {
+      // Get projectId from mutation result for reliable refetching
+      const pid = result.data?.redo?.operation?.projectId ?? projectId;
+      if (!pid) return [];
+      return [{ query: GET_UNDO_REDO_STATUS, variables: { projectId: pid } }];
+    },
   });
 
   // Track last operation message
