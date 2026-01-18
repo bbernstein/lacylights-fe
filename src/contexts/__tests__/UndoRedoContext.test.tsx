@@ -4,7 +4,7 @@ import React from 'react';
 import { UndoRedoProvider, useUndoRedo } from '../UndoRedoContext';
 import { ProjectProvider } from '../ProjectContext';
 import { GET_UNDO_REDO_STATUS, UNDO, REDO, OPERATION_HISTORY_CHANGED } from '@/graphql/undoRedo';
-import { GET_PROJECTS } from '@/graphql/projects';
+import { GET_PROJECTS, CREATE_PROJECT } from '@/graphql/projects';
 
 const mockProjectId = 'test-project-123';
 
@@ -284,6 +284,21 @@ describe('UndoRedoContext', () => {
           result: {
             data: {
               projects: [mockProject],
+            },
+          },
+        },
+        // Handle race condition where ProjectContext might try to create a default project
+        // before the GET_PROJECTS mock returns
+        {
+          request: {
+            query: CREATE_PROJECT,
+            variables: {
+              input: { name: 'Default Project', description: 'Automatically created project' },
+            },
+          },
+          result: {
+            data: {
+              createProject: mockProject,
             },
           },
         },

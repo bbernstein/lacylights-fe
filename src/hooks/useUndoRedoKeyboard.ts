@@ -25,14 +25,10 @@ export function useUndoRedoKeyboard(): void {
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
-      // Don't trigger if we're in an input field
+      // Don't trigger if we're in an input field or content-editable element
       const target = event.target as HTMLElement;
       if (target && target.tagName) {
-        if (
-          IGNORED_TAGS.includes(target.tagName) ||
-          target.isContentEditable ||
-          (target.getAttribute && target.getAttribute('contenteditable') === 'true')
-        ) {
+        if (IGNORED_TAGS.includes(target.tagName) || target.isContentEditable) {
           return;
         }
       }
@@ -49,9 +45,11 @@ export function useUndoRedoKeyboard(): void {
         return;
       }
 
-      // Redo: Cmd+Shift+Z (Mac) or Ctrl+Y (Windows/Linux)
+      // Redo: Cmd+Shift+Z (Mac) or Ctrl+Shift+Z or Ctrl+Y (Windows/Linux)
+      // Note: event.key is uppercase 'Z' when Shift is pressed, so we use toLowerCase()
       if (
-        (isMac && event.shiftKey && event.key === 'z') ||
+        (isMac && event.shiftKey && event.key.toLowerCase() === 'z') ||
+        (!isMac && event.shiftKey && event.key.toLowerCase() === 'z') ||
         (!isMac && event.key === 'y')
       ) {
         if (canRedo) {

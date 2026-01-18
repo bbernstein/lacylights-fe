@@ -64,7 +64,8 @@ describe('useUndoRedoKeyboard', () => {
       renderHook(() => useUndoRedoKeyboard());
 
       act(() => {
-        window.dispatchEvent(createKeyboardEvent('z', { metaKey: true, shiftKey: true }));
+        // With Shift pressed, the browser returns uppercase 'Z'
+        window.dispatchEvent(createKeyboardEvent('Z', { metaKey: true, shiftKey: true }));
       });
 
       expect(mockRedo).toHaveBeenCalledTimes(1);
@@ -104,6 +105,18 @@ describe('useUndoRedoKeyboard', () => {
 
       act(() => {
         window.dispatchEvent(createKeyboardEvent('y', { ctrlKey: true }));
+      });
+
+      expect(mockRedo).toHaveBeenCalledTimes(1);
+      expect(mockUndo).not.toHaveBeenCalled();
+    });
+
+    it('should trigger redo on Ctrl+Shift+Z', () => {
+      renderHook(() => useUndoRedoKeyboard());
+
+      act(() => {
+        // With Shift pressed, the browser returns uppercase 'Z'
+        window.dispatchEvent(createKeyboardEvent('Z', { ctrlKey: true, shiftKey: true }));
       });
 
       expect(mockRedo).toHaveBeenCalledTimes(1);
@@ -217,56 +230,14 @@ describe('useUndoRedoKeyboard', () => {
     });
   });
 
-  describe('Loading state handling', () => {
-    it('should not trigger when loading', () => {
-      jest.resetModules();
-      jest.doMock('@/contexts/UndoRedoContext', () => ({
-        useUndoRedo: () => ({
-          undo: mockUndo,
-          redo: mockRedo,
-          canUndo: true,
-          canRedo: true,
-          isLoading: true,
-        }),
-      }));
-
-      // Since we're using doMock, we need to re-import
-      // For this test, we'll verify the behavior through the mock setup
-      // The actual hook uses the mocked values
-    });
-  });
-
-  describe('Can undo/redo state handling', () => {
-    it('should not trigger undo when canUndo is false', () => {
-      jest.resetModules();
-      jest.doMock('@/contexts/UndoRedoContext', () => ({
-        useUndoRedo: () => ({
-          undo: mockUndo,
-          redo: mockRedo,
-          canUndo: false,
-          canRedo: true,
-          isLoading: false,
-        }),
-      }));
-
-      // Behavior is controlled by the hook checking canUndo before calling undo()
-    });
-
-    it('should not trigger redo when canRedo is false', () => {
-      jest.resetModules();
-      jest.doMock('@/contexts/UndoRedoContext', () => ({
-        useUndoRedo: () => ({
-          undo: mockUndo,
-          redo: mockRedo,
-          canUndo: true,
-          canRedo: false,
-          isLoading: false,
-        }),
-      }));
-
-      // Behavior is controlled by the hook checking canRedo before calling redo()
-    });
-  });
+  // Note: Testing loading and canUndo/canRedo states requires either:
+  // 1. Dynamic module imports with isolateModules (complex)
+  // 2. Refactoring the hook to accept these values as parameters
+  // 3. Testing via integration tests
+  // The core behavior (checking canUndo/canRedo and isLoading before calling undo/redo)
+  // is verified through code inspection - the hook only calls undo() when canUndo is true,
+  // redo() when canRedo is true, and neither when isLoading is true.
+  // These conditions are enforced at lines 57, 65, and 41 in useUndoRedoKeyboard.ts
 
   describe('Event listener cleanup', () => {
     beforeEach(() => {

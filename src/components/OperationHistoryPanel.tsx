@@ -122,6 +122,20 @@ export function OperationHistoryPanel({ isOpen, onClose }: OperationHistoryPanel
     }
   }, [isOpen, projectId, refetch]);
 
+  // Handle Escape key to close panel
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isOpen, onClose]);
+
   const handleJumpToOperation = async (operationId: string) => {
     if (!projectId || jumpLoading) return;
 

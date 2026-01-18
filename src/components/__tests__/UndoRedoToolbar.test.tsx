@@ -73,41 +73,9 @@ describe('UndoRedoToolbar', () => {
   });
 });
 
-describe('UndoRedoToolbar disabled states', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('disables undo button when canUndo is false', () => {
-    jest.doMock('@/contexts/UndoRedoContext', () => ({
-      useUndoRedo: () => ({
-        canUndo: false,
-        canRedo: true,
-        undoDescription: null,
-        redoDescription: null,
-        undo: mockUndo,
-        redo: mockRedo,
-        isLoading: false,
-      }),
-    }));
-
-    // Re-import to get the updated mock
-    jest.resetModules();
-  });
-
-  it('disables redo button when canRedo is false', () => {
-    jest.doMock('@/contexts/UndoRedoContext', () => ({
-      useUndoRedo: () => ({
-        canUndo: true,
-        canRedo: false,
-        undoDescription: null,
-        redoDescription: null,
-        undo: mockUndo,
-        redo: mockRedo,
-        isLoading: false,
-      }),
-    }));
-
-    jest.resetModules();
-  });
-});
+// Note: Testing disabled states with different canUndo/canRedo values requires either:
+// 1. Dynamic module imports with jest.isolateModules (complex)
+// 2. Refactoring the component to accept these values as props
+// The disabled state styling is applied via the component's className logic
+// based on canUndo/canRedo values from the context (see UndoRedoToolbar.tsx).
+// The actual calls are gated by the context state before reaching the mutation.

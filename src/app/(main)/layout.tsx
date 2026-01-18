@@ -47,11 +47,14 @@ function MainLayoutContent({ children }: { children: ReactNode }) {
                   {/* History panel toggle */}
                   <button
                     onClick={() => setIsHistoryOpen(true)}
-                    className="p-2 rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+                    className="relative group p-2 rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
                     title="View history"
                     aria-label="View operation history"
                   >
                     <ClockIcon className="h-5 w-5" />
+                    <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                      History
+                    </span>
                   </button>
                   <ProjectSelector />
                 </div>
