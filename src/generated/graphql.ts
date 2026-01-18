@@ -1128,6 +1128,8 @@ export type Mutation = {
   /** Cancel an ongoing OFL import */
   readonly cancelOFLImport: Scalars['Boolean']['output'];
   readonly cancelPreviewSession: Scalars['Boolean']['output'];
+  /** Clear all operation history for a project */
+  readonly clearOperationHistory: Scalars['Boolean']['output'];
   readonly cloneLook: Look;
   readonly commitPreviewSession: Scalars['Boolean']['output'];
   readonly connectWiFi: WiFiConnectionResult;
@@ -1160,9 +1162,13 @@ export type Mutation = {
   readonly importProject: ImportResult;
   readonly importProjectFromQLC: QlcImportResult;
   readonly initializePreviewWithLook: Scalars['Boolean']['output'];
+  /** Jump to a specific operation in history */
+  readonly jumpToOperation: UndoRedoResult;
   readonly nextCue: Scalars['Boolean']['output'];
   readonly playCue: Scalars['Boolean']['output'];
   readonly previousCue: Scalars['Boolean']['output'];
+  /** Redo the last undone operation for a project */
+  readonly redo: UndoRedoResult;
   /** Release the system blackout with optional fade time */
   readonly releaseBlackout: Scalars['Boolean']['output'];
   /** Remove a channel from an effect fixture */
@@ -1196,6 +1202,8 @@ export type Mutation = {
   readonly toggleCueSkip: Cue;
   /** Trigger an OFL import/update operation */
   readonly triggerOFLImport: OflImportResult;
+  /** Undo the last operation for a project */
+  readonly undo: UndoRedoResult;
   readonly updateAllRepositories: ReadonlyArray<UpdateResult>;
   readonly updateCue: Cue;
   readonly updateCueList: CueList;
@@ -1403,6 +1411,12 @@ export type MutationCancelPreviewSessionArgs = {
 };
 
 
+export type MutationClearOperationHistoryArgs = {
+  confirmClear: Scalars['Boolean']['input'];
+  projectId: Scalars['ID']['input'];
+};
+
+
 export type MutationCloneLookArgs = {
   lookId: Scalars['ID']['input'];
   newName: Scalars['String']['input'];
@@ -1557,6 +1571,12 @@ export type MutationInitializePreviewWithLookArgs = {
 };
 
 
+export type MutationJumpToOperationArgs = {
+  operationId: Scalars['ID']['input'];
+  projectId: Scalars['ID']['input'];
+};
+
+
 export type MutationNextCueArgs = {
   cueListId: Scalars['ID']['input'];
   fadeInTime?: InputMaybe<Scalars['Float']['input']>;
@@ -1572,6 +1592,11 @@ export type MutationPlayCueArgs = {
 export type MutationPreviousCueArgs = {
   cueListId: Scalars['ID']['input'];
   fadeInTime?: InputMaybe<Scalars['Float']['input']>;
+};
+
+
+export type MutationRedoArgs = {
+  projectId: Scalars['ID']['input'];
 };
 
 
@@ -1694,6 +1719,11 @@ export type MutationToggleCueSkipArgs = {
 
 export type MutationTriggerOflImportArgs = {
   options?: InputMaybe<OflImportOptionsInput>;
+};
+
+
+export type MutationUndoArgs = {
+  projectId: Scalars['ID']['input'];
 };
 
 
@@ -1948,6 +1978,50 @@ export type OflUpdateCheckResult = {
   readonly oflVersion: Scalars['String']['output'];
 };
 
+/** Represents a recorded operation in the undo/redo history. */
+export type Operation = {
+  readonly __typename?: 'Operation';
+  readonly createdAt: Scalars['String']['output'];
+  readonly description: Scalars['String']['output'];
+  readonly entityId: Scalars['ID']['output'];
+  readonly entityType: UndoEntityType;
+  readonly id: Scalars['ID']['output'];
+  readonly operationType: OperationType;
+  readonly projectId: Scalars['ID']['output'];
+  /** JSON array of related entity IDs for bulk operations */
+  readonly relatedIds?: Maybe<ReadonlyArray<Scalars['ID']['output']>>;
+  readonly sequence: Scalars['Int']['output'];
+};
+
+/** Paginated operation history for a project. */
+export type OperationHistoryPage = {
+  readonly __typename?: 'OperationHistoryPage';
+  readonly currentSequence: Scalars['Int']['output'];
+  readonly operations: ReadonlyArray<OperationSummary>;
+  readonly pagination: PaginationInfo;
+};
+
+/** Summary view of an operation for history display. */
+export type OperationSummary = {
+  readonly __typename?: 'OperationSummary';
+  readonly createdAt: Scalars['String']['output'];
+  readonly description: Scalars['String']['output'];
+  readonly entityType: UndoEntityType;
+  readonly id: Scalars['ID']['output'];
+  /** True if this operation is at the current position in history */
+  readonly isCurrent: Scalars['Boolean']['output'];
+  readonly operationType: OperationType;
+  readonly sequence: Scalars['Int']['output'];
+};
+
+/** Type of operation recorded for undo/redo. */
+export enum OperationType {
+  Bulk = 'BULK',
+  Create = 'CREATE',
+  Delete = 'DELETE',
+  Update = 'UPDATE'
+}
+
 export type PaginationInfo = {
   readonly __typename?: 'PaginationInfo';
   readonly hasMore: Scalars['Boolean']['output'];
@@ -2110,6 +2184,10 @@ export type Query = {
   readonly networkInterfaceOptions: ReadonlyArray<NetworkInterfaceOption>;
   /** Get the current status of any ongoing OFL import */
   readonly oflImportStatus: OflImportStatus;
+  /** Get a specific operation by ID */
+  readonly operation?: Maybe<Operation>;
+  /** Get paginated operation history for a project */
+  readonly operationHistory: OperationHistoryPage;
   readonly previewSession?: Maybe<PreviewSession>;
   readonly project?: Maybe<Project>;
   readonly projects: ReadonlyArray<Project>;
@@ -2123,6 +2201,8 @@ export type Query = {
   readonly suggestChannelAssignment: ChannelAssignmentSuggestion;
   readonly systemInfo: SystemInfo;
   readonly systemVersions: SystemVersionInfo;
+  /** Get current undo/redo status for a project */
+  readonly undoRedoStatus: UndoRedoStatus;
   readonly wifiMode: WiFiMode;
   readonly wifiNetworks: ReadonlyArray<WiFiNetwork>;
   readonly wifiStatus: WiFiStatus;
@@ -2287,6 +2367,18 @@ export type QueryLooksByIdsArgs = {
 };
 
 
+export type QueryOperationArgs = {
+  operationId: Scalars['ID']['input'];
+};
+
+
+export type QueryOperationHistoryArgs = {
+  page?: InputMaybe<Scalars['Int']['input']>;
+  perPage?: InputMaybe<Scalars['Int']['input']>;
+  projectId: Scalars['ID']['input'];
+};
+
+
 export type QueryPreviewSessionArgs = {
   sessionId: Scalars['ID']['input'];
 };
@@ -2338,6 +2430,11 @@ export type QuerySuggestChannelAssignmentArgs = {
 };
 
 
+export type QueryUndoRedoStatusArgs = {
+  projectId: Scalars['ID']['input'];
+};
+
+
 export type QueryWifiNetworksArgs = {
   deduplicate?: InputMaybe<Scalars['Boolean']['input']>;
   rescan?: InputMaybe<Scalars['Boolean']['input']>;
@@ -2370,6 +2467,8 @@ export type Subscription = {
   readonly globalPlaybackStatusUpdated: GlobalPlaybackStatus;
   /** Real-time updates during OFL import */
   readonly oflImportProgress: OflImportStatus;
+  /** Real-time updates when operation history changes (after undo/redo or new operations) */
+  readonly operationHistoryChanged: UndoRedoStatus;
   readonly previewSessionUpdated: PreviewSession;
   readonly projectUpdated: Project;
   readonly systemInfoUpdated: SystemInfo;
@@ -2390,6 +2489,11 @@ export type SubscriptionCueListPlaybackUpdatedArgs = {
 
 export type SubscriptionDmxOutputChangedArgs = {
   universe?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type SubscriptionOperationHistoryChangedArgs = {
+  projectId: Scalars['ID']['input'];
 };
 
 
@@ -2429,6 +2533,42 @@ export enum TransitionBehavior {
   Persist = 'PERSIST',
   SnapOff = 'SNAP_OFF'
 }
+
+/** Type of entity being operated on. */
+export enum UndoEntityType {
+  Cue = 'Cue',
+  CueList = 'CueList',
+  Effect = 'Effect',
+  FixtureInstance = 'FixtureInstance',
+  Look = 'Look',
+  LookBoard = 'LookBoard',
+  LookBoardButton = 'LookBoardButton',
+  Project = 'Project'
+}
+
+/** Result of an undo or redo operation. */
+export type UndoRedoResult = {
+  readonly __typename?: 'UndoRedoResult';
+  readonly message?: Maybe<Scalars['String']['output']>;
+  readonly operation?: Maybe<Operation>;
+  /** ID of the entity that was restored */
+  readonly restoredEntityId?: Maybe<Scalars['ID']['output']>;
+  readonly success: Scalars['Boolean']['output'];
+};
+
+/** Current status of undo/redo for a project. */
+export type UndoRedoStatus = {
+  readonly __typename?: 'UndoRedoStatus';
+  readonly canRedo: Scalars['Boolean']['output'];
+  readonly canUndo: Scalars['Boolean']['output'];
+  readonly currentSequence: Scalars['Int']['output'];
+  readonly projectId: Scalars['ID']['output'];
+  /** Description of what would be redone */
+  readonly redoDescription?: Maybe<Scalars['String']['output']>;
+  readonly totalOperations: Scalars['Int']['output'];
+  /** Description of what would be undone */
+  readonly undoDescription?: Maybe<Scalars['String']['output']>;
+};
 
 export type UniverseChannelMap = {
   readonly __typename?: 'UniverseChannelMap';
@@ -3393,6 +3533,66 @@ export type SetArtNetEnabledMutationVariables = Exact<{
 
 export type SetArtNetEnabledMutation = { readonly __typename?: 'Mutation', readonly setArtNetEnabled: { readonly __typename?: 'ArtNetStatus', readonly enabled: boolean, readonly broadcastAddress: string } };
 
+export type GetUndoRedoStatusQueryVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+}>;
+
+
+export type GetUndoRedoStatusQuery = { readonly __typename?: 'Query', readonly undoRedoStatus: { readonly __typename?: 'UndoRedoStatus', readonly projectId: string, readonly canUndo: boolean, readonly canRedo: boolean, readonly currentSequence: number, readonly totalOperations: number, readonly undoDescription?: string | null, readonly redoDescription?: string | null } };
+
+export type GetOperationHistoryQueryVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+  page?: InputMaybe<Scalars['Int']['input']>;
+  perPage?: InputMaybe<Scalars['Int']['input']>;
+}>;
+
+
+export type GetOperationHistoryQuery = { readonly __typename?: 'Query', readonly operationHistory: { readonly __typename?: 'OperationHistoryPage', readonly currentSequence: number, readonly operations: ReadonlyArray<{ readonly __typename?: 'OperationSummary', readonly id: string, readonly description: string, readonly operationType: OperationType, readonly entityType: UndoEntityType, readonly sequence: number, readonly createdAt: string, readonly isCurrent: boolean }>, readonly pagination: { readonly __typename?: 'PaginationInfo', readonly total: number, readonly page: number, readonly perPage: number, readonly totalPages: number, readonly hasMore: boolean } } };
+
+export type GetOperationQueryVariables = Exact<{
+  operationId: Scalars['ID']['input'];
+}>;
+
+
+export type GetOperationQuery = { readonly __typename?: 'Query', readonly operation?: { readonly __typename?: 'Operation', readonly id: string, readonly projectId: string, readonly operationType: OperationType, readonly entityType: UndoEntityType, readonly entityId: string, readonly description: string, readonly sequence: number, readonly createdAt: string, readonly relatedIds?: ReadonlyArray<string> | null } | null };
+
+export type UndoMutationVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+}>;
+
+
+export type UndoMutation = { readonly __typename?: 'Mutation', readonly undo: { readonly __typename?: 'UndoRedoResult', readonly success: boolean, readonly message?: string | null, readonly restoredEntityId?: string | null, readonly operation?: { readonly __typename?: 'Operation', readonly id: string, readonly description: string, readonly operationType: OperationType, readonly entityType: UndoEntityType, readonly sequence: number } | null } };
+
+export type RedoMutationVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+}>;
+
+
+export type RedoMutation = { readonly __typename?: 'Mutation', readonly redo: { readonly __typename?: 'UndoRedoResult', readonly success: boolean, readonly message?: string | null, readonly restoredEntityId?: string | null, readonly operation?: { readonly __typename?: 'Operation', readonly id: string, readonly description: string, readonly operationType: OperationType, readonly entityType: UndoEntityType, readonly sequence: number } | null } };
+
+export type JumpToOperationMutationVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+  operationId: Scalars['ID']['input'];
+}>;
+
+
+export type JumpToOperationMutation = { readonly __typename?: 'Mutation', readonly jumpToOperation: { readonly __typename?: 'UndoRedoResult', readonly success: boolean, readonly message?: string | null, readonly restoredEntityId?: string | null, readonly operation?: { readonly __typename?: 'Operation', readonly id: string, readonly description: string, readonly operationType: OperationType, readonly entityType: UndoEntityType, readonly sequence: number } | null } };
+
+export type ClearOperationHistoryMutationVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+  confirmClear: Scalars['Boolean']['input'];
+}>;
+
+
+export type ClearOperationHistoryMutation = { readonly __typename?: 'Mutation', readonly clearOperationHistory: boolean };
+
+export type OperationHistoryChangedSubscriptionVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+}>;
+
+
+export type OperationHistoryChangedSubscription = { readonly __typename?: 'Subscription', readonly operationHistoryChanged: { readonly __typename?: 'UndoRedoStatus', readonly projectId: string, readonly canUndo: boolean, readonly canRedo: boolean, readonly currentSequence: number, readonly totalOperations: number, readonly undoDescription?: string | null, readonly redoDescription?: string | null } };
+
 export type GetSystemVersionsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -3625,6 +3825,14 @@ export const GetSystemInfoDocument = {"kind":"Document","definitions":[{"kind":"
 export const GetNetworkInterfaceOptionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetNetworkInterfaceOptions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"networkInterfaceOptions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"address"}},{"kind":"Field","name":{"kind":"Name","value":"broadcast"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"interfaceType"}}]}}]}}]} as unknown as DocumentNode<GetNetworkInterfaceOptionsQuery, GetNetworkInterfaceOptionsQueryVariables>;
 export const SystemInfoUpdatedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"SystemInfoUpdated"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"systemInfoUpdated"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"artnetBroadcastAddress"}},{"kind":"Field","name":{"kind":"Name","value":"artnetEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"fadeUpdateRateHz"}}]}}]}}]} as unknown as DocumentNode<SystemInfoUpdatedSubscription, SystemInfoUpdatedSubscriptionVariables>;
 export const SetArtNetEnabledDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"SetArtNetEnabled"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"enabled"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Boolean"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"fadeTime"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Float"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setArtNetEnabled"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"enabled"},"value":{"kind":"Variable","name":{"kind":"Name","value":"enabled"}}},{"kind":"Argument","name":{"kind":"Name","value":"fadeTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"fadeTime"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"broadcastAddress"}}]}}]}}]} as unknown as DocumentNode<SetArtNetEnabledMutation, SetArtNetEnabledMutationVariables>;
+export const GetUndoRedoStatusDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetUndoRedoStatus"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"undoRedoStatus"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"canUndo"}},{"kind":"Field","name":{"kind":"Name","value":"canRedo"}},{"kind":"Field","name":{"kind":"Name","value":"currentSequence"}},{"kind":"Field","name":{"kind":"Name","value":"totalOperations"}},{"kind":"Field","name":{"kind":"Name","value":"undoDescription"}},{"kind":"Field","name":{"kind":"Name","value":"redoDescription"}}]}}]}}]} as unknown as DocumentNode<GetUndoRedoStatusQuery, GetUndoRedoStatusQueryVariables>;
+export const GetOperationHistoryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetOperationHistory"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"page"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"perPage"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"operationHistory"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"page"},"value":{"kind":"Variable","name":{"kind":"Name","value":"page"}}},{"kind":"Argument","name":{"kind":"Name","value":"perPage"},"value":{"kind":"Variable","name":{"kind":"Name","value":"perPage"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"operations"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"operationType"}},{"kind":"Field","name":{"kind":"Name","value":"entityType"}},{"kind":"Field","name":{"kind":"Name","value":"sequence"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"isCurrent"}}]}},{"kind":"Field","name":{"kind":"Name","value":"pagination"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"page"}},{"kind":"Field","name":{"kind":"Name","value":"perPage"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}},{"kind":"Field","name":{"kind":"Name","value":"hasMore"}}]}},{"kind":"Field","name":{"kind":"Name","value":"currentSequence"}}]}}]}}]} as unknown as DocumentNode<GetOperationHistoryQuery, GetOperationHistoryQueryVariables>;
+export const GetOperationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetOperation"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"operationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"operation"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"operationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"operationId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"operationType"}},{"kind":"Field","name":{"kind":"Name","value":"entityType"}},{"kind":"Field","name":{"kind":"Name","value":"entityId"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"sequence"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"relatedIds"}}]}}]}}]} as unknown as DocumentNode<GetOperationQuery, GetOperationQueryVariables>;
+export const UndoDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"Undo"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"undo"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"restoredEntityId"}},{"kind":"Field","name":{"kind":"Name","value":"operation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"operationType"}},{"kind":"Field","name":{"kind":"Name","value":"entityType"}},{"kind":"Field","name":{"kind":"Name","value":"sequence"}}]}}]}}]}}]} as unknown as DocumentNode<UndoMutation, UndoMutationVariables>;
+export const RedoDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"Redo"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"redo"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"restoredEntityId"}},{"kind":"Field","name":{"kind":"Name","value":"operation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"operationType"}},{"kind":"Field","name":{"kind":"Name","value":"entityType"}},{"kind":"Field","name":{"kind":"Name","value":"sequence"}}]}}]}}]}}]} as unknown as DocumentNode<RedoMutation, RedoMutationVariables>;
+export const JumpToOperationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"JumpToOperation"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"operationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"jumpToOperation"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"operationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"operationId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"restoredEntityId"}},{"kind":"Field","name":{"kind":"Name","value":"operation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"operationType"}},{"kind":"Field","name":{"kind":"Name","value":"entityType"}},{"kind":"Field","name":{"kind":"Name","value":"sequence"}}]}}]}}]}}]} as unknown as DocumentNode<JumpToOperationMutation, JumpToOperationMutationVariables>;
+export const ClearOperationHistoryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ClearOperationHistory"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"confirmClear"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Boolean"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"clearOperationHistory"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"confirmClear"},"value":{"kind":"Variable","name":{"kind":"Name","value":"confirmClear"}}}]}]}}]} as unknown as DocumentNode<ClearOperationHistoryMutation, ClearOperationHistoryMutationVariables>;
+export const OperationHistoryChangedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"OperationHistoryChanged"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"operationHistoryChanged"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"canUndo"}},{"kind":"Field","name":{"kind":"Name","value":"canRedo"}},{"kind":"Field","name":{"kind":"Name","value":"currentSequence"}},{"kind":"Field","name":{"kind":"Name","value":"totalOperations"}},{"kind":"Field","name":{"kind":"Name","value":"undoDescription"}},{"kind":"Field","name":{"kind":"Name","value":"redoDescription"}}]}}]}}]} as unknown as DocumentNode<OperationHistoryChangedSubscription, OperationHistoryChangedSubscriptionVariables>;
 export const GetSystemVersionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSystemVersions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"systemVersions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"versionManagementSupported"}},{"kind":"Field","name":{"kind":"Name","value":"repositories"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"repository"}},{"kind":"Field","name":{"kind":"Name","value":"installed"}},{"kind":"Field","name":{"kind":"Name","value":"latest"}},{"kind":"Field","name":{"kind":"Name","value":"updateAvailable"}}]}},{"kind":"Field","name":{"kind":"Name","value":"lastChecked"}}]}}]}}]} as unknown as DocumentNode<GetSystemVersionsQuery, GetSystemVersionsQueryVariables>;
 export const GetAvailableVersionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetAvailableVersions"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"repository"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"availableVersions"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"repository"},"value":{"kind":"Variable","name":{"kind":"Name","value":"repository"}}}]}]}}]} as unknown as DocumentNode<GetAvailableVersionsQuery, GetAvailableVersionsQueryVariables>;
 export const UpdateRepositoryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateRepository"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"repository"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"version"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateRepository"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"repository"},"value":{"kind":"Variable","name":{"kind":"Name","value":"repository"}}},{"kind":"Argument","name":{"kind":"Name","value":"version"},"value":{"kind":"Variable","name":{"kind":"Name","value":"version"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"repository"}},{"kind":"Field","name":{"kind":"Name","value":"previousVersion"}},{"kind":"Field","name":{"kind":"Name","value":"newVersion"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"error"}}]}}]}}]} as unknown as DocumentNode<UpdateRepositoryMutation, UpdateRepositoryMutationVariables>;
