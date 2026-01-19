@@ -65,8 +65,9 @@ const createMockProvider = (mocks: MockedResponse[]) => {
   return TestProvider;
 };
 
-const createBaseMocks = (): MockedResponse[] => [
-  {
+const createBaseMocks = (): MockedResponse[] => {
+  // Create reusable mocks for multiple potential calls
+  const getProjectsMock = {
     request: {
       query: GET_PROJECTS,
     },
@@ -75,8 +76,9 @@ const createBaseMocks = (): MockedResponse[] => [
         projects: [mockProject],
       },
     },
-  },
-  {
+  };
+
+  const getUndoRedoStatusMock = {
     request: {
       query: GET_UNDO_REDO_STATUS,
       variables: { projectId: mockProjectId },
@@ -86,8 +88,9 @@ const createBaseMocks = (): MockedResponse[] => [
         undoRedoStatus: mockUndoRedoStatus,
       },
     },
-  },
-  {
+  };
+
+  const subscriptionMock = {
     request: {
       query: OPERATION_HISTORY_CHANGED,
       variables: { projectId: mockProjectId },
@@ -97,8 +100,23 @@ const createBaseMocks = (): MockedResponse[] => [
         operationHistoryChanged: mockUndoRedoStatus,
       },
     },
-  },
-];
+  };
+
+  return [
+    // Multiple GET_PROJECTS mocks for initial + potential refetch calls
+    getProjectsMock,
+    getProjectsMock,
+    getProjectsMock,
+    // Multiple status query mocks for initial + potential refetch calls
+    getUndoRedoStatusMock,
+    getUndoRedoStatusMock,
+    getUndoRedoStatusMock,
+    // Multiple subscription mocks
+    subscriptionMock,
+    subscriptionMock,
+    subscriptionMock,
+  ];
+};
 
 describe('UndoRedoContext', () => {
   beforeEach(() => {
@@ -359,14 +377,39 @@ describe('UndoRedoContext', () => {
         },
       };
 
+      // Create reusable mocks for status and subscription
+      const statusMock = {
+        request: {
+          query: GET_UNDO_REDO_STATUS,
+          variables: { projectId: mockProjectId },
+        },
+        result: {
+          data: {
+            undoRedoStatus: statusWithRedo,
+          },
+        },
+      };
+
+      const subscriptionMock = {
+        request: {
+          query: OPERATION_HISTORY_CHANGED,
+          variables: { projectId: mockProjectId },
+        },
+        result: {
+          data: {
+            operationHistoryChanged: statusWithRedo,
+          },
+        },
+      };
+
       const mocks = [
-        // Initial GET_PROJECTS call
+        // Multiple GET_PROJECTS mocks for initial + potential refetch calls
         getProjectsMock,
-        // Additional GET_PROJECTS mocks for potential refetch calls
+        getProjectsMock,
+        getProjectsMock,
         getProjectsMock,
         getProjectsMock,
         // Handle race condition where ProjectContext might try to create a default project
-        // before the GET_PROJECTS mock returns
         {
           request: {
             query: CREATE_PROJECT,
@@ -380,28 +423,14 @@ describe('UndoRedoContext', () => {
             },
           },
         },
-        {
-          request: {
-            query: GET_UNDO_REDO_STATUS,
-            variables: { projectId: mockProjectId },
-          },
-          result: {
-            data: {
-              undoRedoStatus: statusWithRedo,
-            },
-          },
-        },
-        {
-          request: {
-            query: OPERATION_HISTORY_CHANGED,
-            variables: { projectId: mockProjectId },
-          },
-          result: {
-            data: {
-              operationHistoryChanged: statusWithRedo,
-            },
-          },
-        },
+        // Multiple status mocks for initial + potential refetch calls
+        statusMock,
+        statusMock,
+        statusMock,
+        // Multiple subscription mocks
+        subscriptionMock,
+        subscriptionMock,
+        subscriptionMock,
         {
           request: {
             query: REDO,
@@ -413,7 +442,7 @@ describe('UndoRedoContext', () => {
             },
           },
         },
-        // Refetch after mutation
+        // Refetch after mutation - additional status mocks
         {
           request: {
             query: GET_UNDO_REDO_STATUS,
