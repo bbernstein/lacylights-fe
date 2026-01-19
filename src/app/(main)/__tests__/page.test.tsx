@@ -162,20 +162,67 @@ const mockCueLists = [
 
 const mockEffects = [
   {
+    __typename: "Effect",
     id: "effect-1",
     name: "Pulsing Red",
+    description: "",
+    projectId: "project-1",
     effectType: "WAVEFORM",
+    priorityBand: 0,
+    prioritySub: 0,
+    compositionMode: "ADDITIVE",
+    onCueChange: "IGNORE",
+    fadeDuration: 1,
     waveform: "SINE",
+    frequency: 1,
+    amplitude: 1,
+    offset: 0,
+    phaseOffset: 0,
+    masterValue: 1,
+    createdAt: "2024-01-01",
+    updatedAt: "2024-01-01",
   },
   {
+    __typename: "Effect",
     id: "effect-2",
     name: "Color Fade",
+    description: "",
+    projectId: "project-1",
     effectType: "CROSSFADE",
+    priorityBand: 0,
+    prioritySub: 0,
+    compositionMode: "ADDITIVE",
+    onCueChange: "IGNORE",
+    fadeDuration: 1,
+    waveform: null,
+    frequency: null,
+    amplitude: null,
+    offset: null,
+    phaseOffset: null,
+    masterValue: null,
+    createdAt: "2024-01-01",
+    updatedAt: "2024-01-01",
   },
   {
+    __typename: "Effect",
     id: "effect-3",
     name: "Master Dim",
+    description: "",
+    projectId: "project-1",
     effectType: "MASTER",
+    priorityBand: 0,
+    prioritySub: 0,
+    compositionMode: "ADDITIVE",
+    onCueChange: "IGNORE",
+    fadeDuration: 1,
+    waveform: null,
+    frequency: null,
+    amplitude: null,
+    offset: null,
+    phaseOffset: null,
+    masterValue: 0.5,
+    createdAt: "2024-01-01",
+    updatedAt: "2024-01-01",
   },
 ];
 
@@ -553,6 +600,215 @@ describe("DashboardPage", () => {
       expect(looksCard).toHaveTextContent("+2 more...");
       // Should NOT show looks beyond 8
       expect(looksCard).not.toHaveTextContent("Look 9");
+    });
+  });
+
+  describe("effects card", () => {
+    it("displays effect count and names", async () => {
+      const mocks = createMocks();
+
+      render(
+        <MockedProvider
+          mocks={[...mocks, createSubscriptionMock()]}
+          addTypename={false}
+        >
+          <DashboardPage />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("effects-card")).toBeInTheDocument();
+      });
+
+      const effectsCard = screen.getByTestId("effects-card");
+      expect(effectsCard).toHaveTextContent("3");
+      expect(effectsCard).toHaveTextContent("Pulsing Red");
+      expect(effectsCard).toHaveTextContent("Color Fade");
+      expect(effectsCard).toHaveTextContent("Master Dim");
+    });
+
+    it("shows empty state when no effects", async () => {
+      const mocks = createMocks({ effects: [] });
+
+      render(
+        <MockedProvider
+          mocks={[...mocks, createSubscriptionMock()]}
+          addTypename={false}
+        >
+          <DashboardPage />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("effects-card")).toBeInTheDocument();
+      });
+
+      expect(screen.getByText("No effects created")).toBeInTheDocument();
+    });
+
+    it("truncates effects list and shows '+X more' when more than 6 effects", async () => {
+      const manyEffects = Array.from({ length: 8 }, (_, i) => ({
+        __typename: "Effect",
+        id: `effect-${i + 1}`,
+        name: `Effect ${i + 1}`,
+        description: "",
+        projectId: "project-1",
+        effectType: "WAVEFORM",
+        priorityBand: 0,
+        prioritySub: 0,
+        compositionMode: "ADDITIVE",
+        onCueChange: "IGNORE",
+        fadeDuration: 1,
+        waveform: "SINE",
+        frequency: 1,
+        amplitude: 1,
+        offset: 0,
+        phaseOffset: 0,
+        masterValue: 1,
+        createdAt: "2024-01-01",
+        updatedAt: "2024-01-01",
+      }));
+
+      const mocks = createMocks({ effects: manyEffects });
+
+      render(
+        <MockedProvider
+          mocks={[...mocks, createSubscriptionMock()]}
+          addTypename={false}
+        >
+          <DashboardPage />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("effects-card")).toBeInTheDocument();
+      });
+
+      const effectsCard = screen.getByTestId("effects-card");
+      // Should show count and first 6 effects
+      expect(effectsCard).toHaveTextContent("8");
+      expect(effectsCard).toHaveTextContent("Effect 1");
+      expect(effectsCard).toHaveTextContent("Effect 6");
+      // Should show "+2 more..." for remaining effects
+      expect(effectsCard).toHaveTextContent("+2 more...");
+      // Should NOT show effects beyond 6
+      expect(effectsCard).not.toHaveTextContent("Effect 7");
+    });
+
+    it("displays color-coded effect type indicators", async () => {
+      const effectsWithTypes = [
+        {
+          __typename: "Effect",
+          id: "effect-waveform",
+          name: "Wave Effect",
+          description: "",
+          projectId: "project-1",
+          effectType: "WAVEFORM",
+          priorityBand: 0,
+          prioritySub: 0,
+          compositionMode: "ADDITIVE",
+          onCueChange: "IGNORE",
+          fadeDuration: 1,
+          waveform: "SINE",
+          frequency: 1,
+          amplitude: 1,
+          offset: 0,
+          phaseOffset: 0,
+          masterValue: 1,
+          createdAt: "2024-01-01",
+          updatedAt: "2024-01-01",
+        },
+        {
+          __typename: "Effect",
+          id: "effect-crossfade",
+          name: "Fade Effect",
+          description: "",
+          projectId: "project-1",
+          effectType: "CROSSFADE",
+          priorityBand: 0,
+          prioritySub: 0,
+          compositionMode: "ADDITIVE",
+          onCueChange: "IGNORE",
+          fadeDuration: 1,
+          waveform: null,
+          frequency: null,
+          amplitude: null,
+          offset: null,
+          phaseOffset: null,
+          masterValue: null,
+          createdAt: "2024-01-01",
+          updatedAt: "2024-01-01",
+        },
+        {
+          __typename: "Effect",
+          id: "effect-master",
+          name: "Master Effect",
+          description: "",
+          projectId: "project-1",
+          effectType: "MASTER",
+          priorityBand: 0,
+          prioritySub: 0,
+          compositionMode: "ADDITIVE",
+          onCueChange: "IGNORE",
+          fadeDuration: 1,
+          waveform: null,
+          frequency: null,
+          amplitude: null,
+          offset: null,
+          phaseOffset: null,
+          masterValue: 0.5,
+          createdAt: "2024-01-01",
+          updatedAt: "2024-01-01",
+        },
+        {
+          __typename: "Effect",
+          id: "effect-static",
+          name: "Static Effect",
+          description: "",
+          projectId: "project-1",
+          effectType: "STATIC",
+          priorityBand: 0,
+          prioritySub: 0,
+          compositionMode: "ADDITIVE",
+          onCueChange: "IGNORE",
+          fadeDuration: 1,
+          waveform: null,
+          frequency: null,
+          amplitude: null,
+          offset: null,
+          phaseOffset: null,
+          masterValue: null,
+          createdAt: "2024-01-01",
+          updatedAt: "2024-01-01",
+        },
+      ];
+
+      const mocks = createMocks({ effects: effectsWithTypes });
+
+      render(
+        <MockedProvider
+          mocks={[...mocks, createSubscriptionMock()]}
+          addTypename={false}
+        >
+          <DashboardPage />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("effects-card")).toBeInTheDocument();
+      });
+
+      const effectsCard = screen.getByTestId("effects-card");
+
+      // Check that all effect types are displayed
+      expect(effectsCard).toHaveTextContent("Wave Effect");
+      expect(effectsCard).toHaveTextContent("Fade Effect");
+      expect(effectsCard).toHaveTextContent("Master Effect");
+      expect(effectsCard).toHaveTextContent("Static Effect");
+
+      // Check color indicators exist (purple for WAVEFORM, blue for CROSSFADE, yellow for MASTER, gray for STATIC)
+      const indicators = effectsCard.querySelectorAll(".rounded-full");
+      expect(indicators.length).toBe(4);
     });
   });
 
