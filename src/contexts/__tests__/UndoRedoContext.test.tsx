@@ -66,7 +66,7 @@ const createMockProvider = (mocks: MockedResponse[]) => {
 };
 
 const createBaseMocks = (): MockedResponse[] => {
-  // Create reusable GET_PROJECTS mock for multiple potential refetch calls
+  // Create reusable mocks for multiple potential calls
   const getProjectsMock = {
     request: {
       query: GET_PROJECTS,
@@ -78,12 +78,7 @@ const createBaseMocks = (): MockedResponse[] => {
     },
   };
 
-  return [
-    // Initial GET_PROJECTS call plus potential refetch calls
-    getProjectsMock,
-    getProjectsMock,
-    getProjectsMock,
-    {
+  const getUndoRedoStatusMock = {
     request: {
       query: GET_UNDO_REDO_STATUS,
       variables: { projectId: mockProjectId },
@@ -93,8 +88,9 @@ const createBaseMocks = (): MockedResponse[] => {
         undoRedoStatus: mockUndoRedoStatus,
       },
     },
-  },
-  {
+  };
+
+  const subscriptionMock = {
     request: {
       query: OPERATION_HISTORY_CHANGED,
       variables: { projectId: mockProjectId },
@@ -104,7 +100,21 @@ const createBaseMocks = (): MockedResponse[] => {
         operationHistoryChanged: mockUndoRedoStatus,
       },
     },
-  },
+  };
+
+  return [
+    // Multiple GET_PROJECTS mocks for initial + potential refetch calls
+    getProjectsMock,
+    getProjectsMock,
+    getProjectsMock,
+    // Multiple status query mocks for initial + potential refetch calls
+    getUndoRedoStatusMock,
+    getUndoRedoStatusMock,
+    getUndoRedoStatusMock,
+    // Multiple subscription mocks
+    subscriptionMock,
+    subscriptionMock,
+    subscriptionMock,
   ];
 };
 
