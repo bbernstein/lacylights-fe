@@ -364,6 +364,8 @@ export default function DashboardPage() {
                               ? "bg-yellow-500"
                               : "bg-gray-400"
                       }`}
+                      aria-label={`${effect.effectType} effect`}
+                      role="img"
                     />
                     {effect.name}
                   </li>
