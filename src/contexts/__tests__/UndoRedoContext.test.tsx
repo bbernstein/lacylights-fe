@@ -65,8 +65,9 @@ const createMockProvider = (mocks: MockedResponse[]) => {
   return TestProvider;
 };
 
-const createBaseMocks = (): MockedResponse[] => [
-  {
+const createBaseMocks = (): MockedResponse[] => {
+  // Create reusable GET_PROJECTS mock for multiple potential refetch calls
+  const getProjectsMock = {
     request: {
       query: GET_PROJECTS,
     },
@@ -75,8 +76,14 @@ const createBaseMocks = (): MockedResponse[] => [
         projects: [mockProject],
       },
     },
-  },
-  {
+  };
+
+  return [
+    // Initial GET_PROJECTS call plus potential refetch calls
+    getProjectsMock,
+    getProjectsMock,
+    getProjectsMock,
+    {
     request: {
       query: GET_UNDO_REDO_STATUS,
       variables: { projectId: mockProjectId },
@@ -98,7 +105,8 @@ const createBaseMocks = (): MockedResponse[] => [
       },
     },
   },
-];
+  ];
+};
 
 describe('UndoRedoContext', () => {
   beforeEach(() => {
