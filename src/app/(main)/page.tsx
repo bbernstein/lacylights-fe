@@ -18,8 +18,8 @@ import {
   CueList,
   FixtureType,
   SystemInfo,
-  Effect,
 } from "@/types";
+import { Effect, EffectType } from "@/generated/graphql";
 
 /**
  * Format fixture type for display
@@ -356,11 +356,11 @@ export default function DashboardPage() {
                   >
                     <span
                       className={`inline-block w-2 h-2 rounded-full ${
-                        effect.effectType === "WAVEFORM"
+                        effect.effectType === EffectType.Waveform
                           ? "bg-purple-500"
-                          : effect.effectType === "CROSSFADE"
+                          : effect.effectType === EffectType.Crossfade
                             ? "bg-blue-500"
-                            : effect.effectType === "MASTER"
+                            : effect.effectType === EffectType.Master
                               ? "bg-yellow-500"
                               : "bg-gray-400"
                       }`}
