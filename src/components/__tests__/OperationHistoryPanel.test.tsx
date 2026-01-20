@@ -152,11 +152,12 @@ describe('OperationHistoryPanel', () => {
     });
   });
 
-  it('highlights current operation', async () => {
+  it('highlights current operation with marker', async () => {
     renderWithProviders(<OperationHistoryPanel isOpen={true} onClose={mockOnClose} />);
 
     await waitFor(() => {
-      expect(screen.getByText('Current state')).toBeInTheDocument();
+      // The current operation has a ▸ marker
+      expect(screen.getByText('▸')).toBeInTheDocument();
     });
   });
 
