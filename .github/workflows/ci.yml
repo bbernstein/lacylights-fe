@@ -106,6 +106,7 @@ jobs:
     - name: Upload coverage reports
       uses: codecov/codecov-action@v5
       if: matrix.node-version == '24.x'
+      continue-on-error: true
       with:
         file: ./coverage/lcov.info
         fail_ci_if_error: false
