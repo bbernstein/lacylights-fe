@@ -221,13 +221,11 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
   });
 
   // Subscribe to look board data changes for real-time updates (undo/redo)
+  // The hook automatically refetches data when changes occur
   const handleLookBoardDataChange = useCallback(
-    (changeType: EntityDataChangeType, affectedButtonIds?: string[]) => {
-      console.log(
-        `Look board changed: ${changeType}`,
-        affectedButtonIds ? `buttons: ${affectedButtonIds.join(", ")}` : ""
-      );
-      // The hook automatically refetches data, but we can optionally show a notification here
+    (_changeType: EntityDataChangeType, _affectedButtonIds?: string[]) => {
+      // The hook automatically refetches data, so no action needed here
+      // This callback could be used to show toast notifications if desired
     },
     []
   );

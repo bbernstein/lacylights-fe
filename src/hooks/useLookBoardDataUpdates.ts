@@ -44,7 +44,7 @@ export function useLookBoardDataUpdates({
     });
 
     // Call the optional callback
-    onDataChange?.(changeType, affectedButtonIds ?? undefined);
+    onDataChange?.(changeType, affectedButtonIds);
   }, [client, lookBoardId, onDataChange]);
 
   useSubscription(LOOK_BOARD_DATA_CHANGED_SUBSCRIPTION, {
