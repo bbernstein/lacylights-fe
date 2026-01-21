@@ -51,7 +51,9 @@ const LONG_PRESS_DURATION = 500; // ms - time to trigger long-press
 const DRAG_THRESHOLD = 10; // pixels - movement threshold to start drag (screen pixels)
 const TAP_THRESHOLD = 300; // ms - max time for a tap
 
-// Grid snap size in canvas pixels (NOT screen pixels - appears larger/smaller with zoom)
+// Grid snap size in canvas pixels (NOT screen pixels - appears larger/smaller with zoom).
+// Intentionally finer than the visual grid (50px) to allow precise fixture placement
+// while still preventing sub-pixel positioning. The visual grid serves as alignment reference.
 const GRID_SIZE = 8;
 
 // Helper to convert hex color to normalized RGB values
@@ -263,13 +265,19 @@ export default function LayoutCanvas({
               dbY !== savedPos.y ||
               dbRotation !== (savedPos.rotation ?? 0);
 
-            // Check if local position has unsaved changes
+            // Check if local position has unsaved changes (user is actively dragging).
+            // This prevents undo/redo from overwriting user's in-progress drag.
+            // The comparison uses savedPositions (last synced to database) as the baseline:
+            // - If currentPos === savedPos: no local changes, safe to accept database update
+            // - If currentPos !== savedPos: user has unsaved changes, preserve their work
             const hasLocalChanges =
               currentPos.x !== savedPos.x ||
               currentPos.y !== savedPos.y ||
               (currentPos.rotation ?? 0) !== (savedPos.rotation ?? 0);
 
-            // Update if database changed AND we don't have local unsaved changes
+            // Update local state only if:
+            // 1. Database changed (from undo/redo or another client)
+            // 2. User doesn't have local unsaved changes (not mid-drag)
             if (dbChanged && !hasLocalChanges) {
               const newPosition: FixturePosition = {
                 fixtureId: fixture.id,
