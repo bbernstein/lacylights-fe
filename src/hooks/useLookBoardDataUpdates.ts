@@ -33,22 +33,27 @@ export function useLookBoardDataUpdates({
     }
 
     // Refetch the look board data to get the latest state
-    // Use client.query with network-only policy to force a fresh fetch
+    // Use network-only fetchPolicy to bypass Apollo cache and get fresh server data.
+    // This is intentional for undo/redo operations where we need the authoritative state.
     client.query({
       query: GET_LOOK_BOARD,
       variables: { id: lookBoardId },
       fetchPolicy: 'network-only',
+    }).then(() => {
+      // Call the optional callback after successful refetch
+      onDataChange?.(changeType, affectedButtonIds);
     }).catch((error) => {
       // Log error but don't throw - the subscription will continue and retry on next change
       console.error('Failed to refetch look board data:', error);
+      // Still call the callback on error so consumers know a change occurred
+      onDataChange?.(changeType, affectedButtonIds);
     });
-
-    // Call the optional callback
-    onDataChange?.(changeType, affectedButtonIds);
   }, [client, lookBoardId, onDataChange]);
 
   useSubscription(LOOK_BOARD_DATA_CHANGED_SUBSCRIPTION, {
     variables: { projectId },
+    // Skip subscription when projectId is empty to avoid unnecessary WebSocket connections
+    skip: !projectId,
     shouldResubscribe: true,
     onData: ({ data }) => {
       if (data?.data?.lookBoardDataChanged) {

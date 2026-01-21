@@ -21,22 +21,27 @@ export function useLookDataUpdates({ projectId, onDataChange }: UseLookDataUpdat
     const { changeType, lookId } = payload;
 
     // Refetch the project looks to get the latest state
-    // Use client.query with network-only policy to force a fresh fetch
+    // Use network-only fetchPolicy to bypass Apollo cache and get fresh server data.
+    // This is intentional for undo/redo operations where we need the authoritative state.
     client.query({
       query: GET_PROJECT_LOOKS,
       variables: { projectId },
       fetchPolicy: 'network-only',
+    }).then(() => {
+      // Call the optional callback after successful refetch
+      onDataChange?.(changeType, lookId);
     }).catch((error) => {
       // Log error but don't throw - the subscription will continue and retry on next change
       console.error('Failed to refetch looks data:', error);
+      // Still call the callback on error so consumers know a change occurred
+      onDataChange?.(changeType, lookId);
     });
-
-    // Call the optional callback
-    onDataChange?.(changeType, lookId);
   }, [client, projectId, onDataChange]);
 
   useSubscription(LOOK_DATA_CHANGED_SUBSCRIPTION, {
     variables: { projectId },
+    // Skip subscription when projectId is empty to avoid unnecessary WebSocket connections
+    skip: !projectId,
     shouldResubscribe: true,
     onData: ({ data }) => {
       if (data?.data?.lookDataChanged) {

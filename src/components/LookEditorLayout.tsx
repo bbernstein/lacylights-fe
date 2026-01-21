@@ -278,7 +278,8 @@ export default function LookEditorLayout({
   const look = lookData?.look;
 
   // Subscribe to fixture data changes for real-time updates (e.g., from undo/redo)
-  // This triggers a refetch of the look data when fixture positions change
+  // This triggers a refetch of the look data when fixture positions change.
+  // The hook's skip option handles empty projectId during initial load.
   useFixtureDataUpdates({
     projectId: look?.project?.id || '',
     lookId: look?.id,

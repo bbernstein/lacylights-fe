@@ -15,7 +15,7 @@ import { GET_PROJECT_LOOKS } from "@/graphql/looks";
 import { useProject } from "@/contexts/ProjectContext";
 import { useFocusMode } from "@/contexts/FocusModeContext";
 import { useUserMode } from "@/contexts/UserModeContext";
-import { LookBoardButton, EntityDataChangeType } from "@/types";
+import { LookBoardButton } from "@/types";
 import {
   screenToCanvas,
   clamp,
@@ -221,19 +221,12 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
   });
 
   // Subscribe to look board data changes for real-time updates (undo/redo)
-  // The hook automatically refetches data when changes occur
-  const handleLookBoardDataChange = useCallback(
-    (_changeType: EntityDataChangeType, _affectedButtonIds?: string[]) => {
-      // The hook automatically refetches data, so no action needed here
-      // This callback could be used to show toast notifications if desired
-    },
-    []
-  );
-
+  // The hook automatically refetches data when changes occur.
+  // The hook's skip option handles empty projectId, so no conditional needed here.
   useLookBoardDataUpdates({
     lookBoardId: boardId,
     projectId: currentProject?.id || "",
-    onDataChange: currentProject?.id ? handleLookBoardDataChange : undefined,
+    // onDataChange is optional - could be used for toast notifications if desired
   });
 
   const [updateBoard] = useMutation(UPDATE_LOOK_BOARD, {

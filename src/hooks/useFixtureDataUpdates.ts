@@ -23,25 +23,33 @@ export function useFixtureDataUpdates({ projectId, lookId, onDataChange }: UseFi
   const handleUpdate = useCallback((payload: FixtureDataChangedPayload) => {
     const { changeType, fixtureIds } = payload;
 
-    // Refetch the look data to get the latest fixture positions
-    // Use client.query with network-only policy to force a fresh fetch
+    // Refetch the look data to get the latest fixture positions when lookId is provided.
+    // Use network-only fetchPolicy to bypass Apollo cache and get fresh server data.
+    // This is intentional for undo/redo operations where we need the authoritative state.
     if (lookId) {
       client.query({
         query: GET_LOOK,
         variables: { id: lookId },
         fetchPolicy: 'network-only',
+      }).then(() => {
+        // Call the optional callback after successful refetch
+        onDataChange?.(changeType, fixtureIds);
       }).catch((error) => {
         // Log error but don't throw - the subscription will continue and retry on next change
         console.error('Failed to refetch look data for fixture updates:', error);
+        // Still call the callback on error so consumers know a change occurred
+        onDataChange?.(changeType, fixtureIds);
       });
+    } else {
+      // No lookId provided, just notify via callback immediately
+      onDataChange?.(changeType, fixtureIds);
     }
-
-    // Call the optional callback
-    onDataChange?.(changeType, fixtureIds);
   }, [client, lookId, onDataChange]);
 
   useSubscription(FIXTURE_DATA_CHANGED_SUBSCRIPTION, {
     variables: { projectId },
+    // Skip subscription when projectId is empty to avoid unnecessary WebSocket connections
+    skip: !projectId,
     shouldResubscribe: true,
     onData: ({ data }) => {
       if (data?.data?.fixtureDataChanged) {
