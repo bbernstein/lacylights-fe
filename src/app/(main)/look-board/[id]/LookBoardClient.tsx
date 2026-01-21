@@ -25,6 +25,7 @@ import {
   Rect,
   ButtonPosition,
 } from "@/lib/canvasUtils";
+import { useLookBoardDataUpdates } from "@/hooks/useLookBoardDataUpdates";
 import { getContrastingTextColor } from "@/utils/colorHelpers";
 import ContextMenu from "@/components/ContextMenu";
 import EffectsPanel from "@/components/EffectsPanel";
@@ -217,6 +218,15 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
   const { data: looksData } = useQuery(GET_PROJECT_LOOKS, {
     variables: { projectId: currentProject?.id },
     skip: !currentProject?.id,
+  });
+
+  // Subscribe to look board data changes for real-time updates (undo/redo)
+  // The hook automatically refetches data when changes occur.
+  // The hook's skip option handles empty projectId, so no conditional needed here.
+  useLookBoardDataUpdates({
+    lookBoardId: boardId,
+    projectId: currentProject?.id || "",
+    // onDataChange is optional - could be used for toast notifications if desired
   });
 
   const [updateBoard] = useMutation(UPDATE_LOOK_BOARD, {

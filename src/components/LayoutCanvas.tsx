@@ -15,6 +15,7 @@ import {
   isNormalizedCoordinate,
   clampToCanvas,
   calculateAutoLayoutPositions,
+  snapToGrid,
 } from "@/lib/layoutCanvasUtils";
 
 interface LayoutCanvasProps {
@@ -47,8 +48,13 @@ const ZOOM_SPEED = 0.1;
 
 // Touch gesture thresholds
 const LONG_PRESS_DURATION = 500; // ms - time to trigger long-press
-const DRAG_THRESHOLD = 10; // pixels - movement threshold to start drag
+const DRAG_THRESHOLD = 10; // pixels - movement threshold to start drag (screen pixels)
 const TAP_THRESHOLD = 300; // ms - max time for a tap
+
+// Grid snap size in canvas pixels (NOT screen pixels - appears larger/smaller with zoom).
+// Intentionally finer than the visual grid (50px) to allow precise fixture placement
+// while still preventing sub-pixel positioning. The visual grid serves as alignment reference.
+const GRID_SIZE = 8;
 
 // Helper to convert hex color to normalized RGB values
 function hexToNormalizedRGB(hex: string) {
@@ -113,6 +119,9 @@ export default function LayoutCanvas({
   // Track initialized fixture IDs to preserve positions across re-renders
   const initializedFixtureIds = useRef<Set<string>>(new Set());
 
+  // Track "saved" positions (what's in database) to detect changes for efficient saves
+  const savedPositions = useRef<Map<string, FixturePosition>>(new Map());
+
   // Interaction state
   const [isPanning, setIsPanning] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -124,6 +133,8 @@ export default function LayoutCanvas({
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(
     null,
   );
+  // Track whether mouse drag threshold has been exceeded (to prevent accidental movement)
+  const [isMouseDragStarted, setIsMouseDragStarted] = useState(false);
   const [dragOffset, setDragOffset] = useState<
     Map<string, { x: number; y: number }>
   >(new Map());
@@ -192,12 +203,20 @@ export default function LayoutCanvas({
     if (fixtures.length === 0) {
       setFixturePositions(new Map());
       initializedFixtureIds.current = new Set();
+      savedPositions.current = new Map();
       return;
+    }
+
+    // Clean up savedPositions for removed fixtures
+    const currentFixtureIds = new Set(fixtures.map((f) => f.id));
+    for (const [fixtureId] of savedPositions.current) {
+      if (!currentFixtureIds.has(fixtureId)) {
+        savedPositions.current.delete(fixtureId);
+      }
     }
 
     setFixturePositions((prevPositions) => {
       const positions = new Map(prevPositions); // Start with existing positions
-      const currentFixtureIds = new Set(fixtures.map((f) => f.id));
 
       // Remove positions for fixtures that no longer exist
       for (const [fixtureId] of positions) {
@@ -220,9 +239,77 @@ export default function LayoutCanvas({
       );
       let autoLayoutIndex = 0;
 
+      // Track whether any database-triggered position update occurred
+      // Used to determine if we need to recompute hasUnsavedChanges after processing
+      let hadDatabaseUpdate = false;
+
       fixtures.forEach((fixture) => {
-        // Skip if already initialized (preserve existing position in state)
+        // Check if already initialized
         if (initializedFixtureIds.current.has(fixture.id)) {
+          // For already-initialized fixtures, check if database position changed
+          // This handles undo/redo updates from the backend
+          const currentPos = positions.get(fixture.id);
+          const savedPos = savedPositions.current.get(fixture.id);
+
+          if (
+            fixture.layoutX !== null &&
+            fixture.layoutX !== undefined &&
+            fixture.layoutY !== null &&
+            fixture.layoutY !== undefined &&
+            savedPos &&
+            currentPos
+          ) {
+            // Check if database position differs from what we last saved
+            const dbX = fixture.layoutX;
+            const dbY = fixture.layoutY;
+            const dbRotation = fixture.layoutRotation ?? 0;
+
+            const dbChanged =
+              dbX !== savedPos.x ||
+              dbY !== savedPos.y ||
+              dbRotation !== (savedPos.rotation ?? 0);
+
+            // Check if local position has unsaved changes (user is actively dragging).
+            // This prevents undo/redo from overwriting user's in-progress drag.
+            // The comparison uses savedPositions (last synced to database) as the baseline:
+            // - If currentPos === savedPos: no local changes, safe to accept database update
+            // - If currentPos !== savedPos: user has unsaved changes, preserve their work
+            const hasLocalChanges =
+              currentPos.x !== savedPos.x ||
+              currentPos.y !== savedPos.y ||
+              (currentPos.rotation ?? 0) !== (savedPos.rotation ?? 0);
+
+            // Check if database position now matches current local position.
+            // This can happen when undo/redo reverts database to match user's current layout.
+            const dbMatchesCurrent =
+              currentPos.x === dbX &&
+              currentPos.y === dbY &&
+              (currentPos.rotation ?? 0) === dbRotation;
+
+            // Update local state only if:
+            // 1. Database changed (from undo/redo or another client)
+            // 2a. User doesn't have local unsaved changes (not mid-drag), OR
+            // 2b. Database now matches current local position (clear stale "unsaved" indication)
+            if (dbChanged) {
+              hadDatabaseUpdate = true;
+              if (!hasLocalChanges) {
+                // No local changes: accept database update into both positions and savedPositions
+                const newPosition: FixturePosition = {
+                  fixtureId: fixture.id,
+                  x: dbX,
+                  y: dbY,
+                  rotation: dbRotation,
+                };
+                positions.set(fixture.id, newPosition);
+                savedPositions.current.set(fixture.id, { ...newPosition });
+              } else if (dbMatchesCurrent) {
+                // Local position already matches database: update savedPositions to clear
+                // stale "unsaved" state without overwriting user's current position
+                savedPositions.current.set(fixture.id, { ...currentPos });
+              }
+              // If hasLocalChanges && !dbMatchesCurrent: preserve user's unsaved work
+            }
+          }
           return;
         }
 
@@ -270,12 +357,15 @@ export default function LayoutCanvas({
             y = clamped.y;
           }
 
-          positions.set(fixture.id, {
+          const position: FixturePosition = {
             fixtureId: fixture.id,
             x,
             y,
             rotation: fixture.layoutRotation ?? 0,
-          });
+          };
+          positions.set(fixture.id, position);
+          // Track this as the saved position (from database)
+          savedPositions.current.set(fixture.id, { ...position });
         } else {
           // Use auto-layout for new fixtures without saved positions (pixel coordinates)
           const autoPos = autoLayoutPositions[autoLayoutIndex] || { x: canvasWidth / 2, y: canvasHeight / 2 };
@@ -285,6 +375,8 @@ export default function LayoutCanvas({
             y: autoPos.y,
             rotation: 0,
           });
+          // Note: auto-layout positions are NOT added to savedPositions
+          // They will be tracked as unsaved changes
 
           autoLayoutIndex++;
         }
@@ -292,6 +384,32 @@ export default function LayoutCanvas({
         // Mark this fixture as initialized
         initializedFixtureIds.current.add(fixture.id);
       });
+
+      // After processing all fixtures, if there was a database update, recompute
+      // hasUnsavedChanges by comparing current positions with savedPositions.
+      // This ensures the Save button state is correct after undo/redo operations.
+      // Only recompute when database updates occurred to avoid interfering with
+      // initial auto-layout (which intentionally creates unsaved positions).
+      if (hadDatabaseUpdate) {
+        let anyUnsavedChanges = false;
+        for (const [fixtureId, pos] of positions) {
+          const savedPos = savedPositions.current.get(fixtureId);
+          if (!savedPos) {
+            // New fixture without saved position = unsaved change
+            anyUnsavedChanges = true;
+            break;
+          }
+          if (
+            pos.x !== savedPos.x ||
+            pos.y !== savedPos.y ||
+            (pos.rotation ?? 0) !== (savedPos.rotation ?? 0)
+          ) {
+            anyUnsavedChanges = true;
+            break;
+          }
+        }
+        setHasUnsavedChanges(anyUnsavedChanges);
+      }
 
       return positions;
     });
@@ -757,8 +875,9 @@ export default function LayoutCanvas({
         onFixtureClick(clickedFixture);
       }
 
-      // Start dragging
+      // Prepare for dragging (actual drag starts after threshold is exceeded)
       setIsDragging(true);
+      setIsMouseDragStarted(false); // Reset threshold tracking
       setDraggedFixtures(fixturesToDrag);
       setDragStart({ x, y });
 
@@ -810,6 +929,18 @@ export default function LayoutCanvas({
         y: e.clientY - panStart.y,
       }));
     } else if (isDragging && dragStart) {
+      // Check if drag threshold has been exceeded (prevents accidental movement on click)
+      if (!isMouseDragStarted) {
+        const deltaX = Math.abs(x - dragStart.x);
+        const deltaY = Math.abs(y - dragStart.y);
+        if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
+          setIsMouseDragStarted(true);
+        } else {
+          // Threshold not yet exceeded, don't move fixtures
+          return;
+        }
+      }
+
       // Drag fixtures
       const newPositions = new Map(fixturePositions);
 
@@ -824,8 +955,11 @@ export default function LayoutCanvas({
         // Convert to pixel coordinates (virtual canvas)
         const pixelPos = screenToPosition(newCanvasX, newCanvasY);
 
+        // Apply snap-to-grid (in canvas pixel coordinates - appears larger/smaller with zoom)
+        const snapped = snapToGrid(pixelPos.x, pixelPos.y, GRID_SIZE);
+
         // Clamp to canvas bounds (pixel coordinates)
-        const clamped = clampToCanvas(pixelPos.x, pixelPos.y, canvasWidth, canvasHeight);
+        const clamped = clampToCanvas(snapped.x, snapped.y, canvasWidth, canvasHeight);
 
         const existingPos = newPositions.get(fixtureId);
         if (existingPos) {
@@ -851,8 +985,8 @@ export default function LayoutCanvas({
 
   // Handle mouse up (stop panning, dragging, or marquee selection)
   const handleMouseUp = () => {
-    // Track if we were dragging to auto-save positions
-    const wasDragging = isDragging && draggedFixtures.size > 0;
+    // Track if we were actually dragging (threshold exceeded) to auto-save positions
+    const wasDragging = isDragging && isMouseDragStarted && draggedFixtures.size > 0;
 
     // Handle marquee selection completion
     if (isMarqueeSelecting && marqueeStart && marqueeCurrent) {
@@ -891,6 +1025,7 @@ export default function LayoutCanvas({
 
     setIsPanning(false);
     setIsDragging(false);
+    setIsMouseDragStarted(false);
     setDraggedFixtures(new Set());
     setDragStart(null);
     setDragOffset(new Map());
@@ -1188,8 +1323,11 @@ export default function LayoutCanvas({
           // Convert to pixel coordinates (virtual canvas)
           const pixelPos = screenToPosition(newCanvasX, newCanvasY);
 
+          // Apply snap-to-grid (in canvas pixel coordinates - appears larger/smaller with zoom)
+          const snapped = snapToGrid(pixelPos.x, pixelPos.y, GRID_SIZE);
+
           // Clamp to canvas bounds (pixel coordinates)
-          const clamped = clampToCanvas(pixelPos.x, pixelPos.y, canvasWidth, canvasHeight);
+          const clamped = clampToCanvas(snapped.x, snapped.y, canvasWidth, canvasHeight);
 
           const existingPos = newPositions.get(fixtureId);
           if (existingPos) {
@@ -1403,21 +1541,55 @@ export default function LayoutCanvas({
     }
   }, [fixturePositions.size, handleFitToView]);
 
-  // Save layout positions to database
+  // Save layout positions to database (only sends changed positions)
   const handleSaveLayout = async () => {
     setIsSaving(true);
 
     try {
-      // Convert fixturePositions Map to array format expected by mutation
-      const positions = Array.from(fixturePositions.values()).map((pos) => ({
-        fixtureId: pos.fixtureId,
-        layoutX: pos.x,
-        layoutY: pos.y,
-        layoutRotation: pos.rotation ?? 0,
-      }));
+      // Find positions that have actually changed from saved state
+      const changedPositions: Array<{
+        fixtureId: string;
+        layoutX: number;
+        layoutY: number;
+        layoutRotation: number;
+      }> = [];
+
+      fixturePositions.forEach((pos) => {
+        const saved = savedPositions.current.get(pos.fixtureId);
+        // Position changed if: no saved position, or x/y/rotation differs
+        const hasChanged = !saved ||
+          pos.x !== saved.x ||
+          pos.y !== saved.y ||
+          (pos.rotation ?? 0) !== (saved.rotation ?? 0);
+
+        if (hasChanged) {
+          changedPositions.push({
+            fixtureId: pos.fixtureId,
+            layoutX: pos.x,
+            layoutY: pos.y,
+            layoutRotation: pos.rotation ?? 0,
+          });
+        }
+      });
+
+      // Skip if no changes
+      if (changedPositions.length === 0) {
+        setHasUnsavedChanges(false);
+        return;
+      }
 
       await updateFixturePositions({
-        variables: { positions },
+        variables: { positions: changedPositions },
+      });
+
+      // Update savedPositions to reflect the new saved state
+      changedPositions.forEach((pos) => {
+        savedPositions.current.set(pos.fixtureId, {
+          fixtureId: pos.fixtureId,
+          x: pos.layoutX,
+          y: pos.layoutY,
+          rotation: pos.layoutRotation,
+        });
       });
 
       setHasUnsavedChanges(false);

@@ -281,6 +281,39 @@ export interface CueListDataChangedPayload {
   timestamp: string;
 }
 
+/** Types of entity changes for undo/redo real-time updates */
+export type EntityDataChangeType = 'CREATED' | 'UPDATED' | 'DELETED';
+
+/** Payload for look data change notifications (undo/redo) */
+export interface LookDataChangedPayload {
+  lookId: string;
+  projectId: string;
+  changeType: EntityDataChangeType;
+  /** Timestamp of the change */
+  timestamp: string;
+}
+
+/** Payload for look board data change notifications (undo/redo) */
+export interface LookBoardDataChangedPayload {
+  lookBoardId: string;
+  projectId: string;
+  changeType: EntityDataChangeType;
+  /** Affected button IDs (for button-specific changes) */
+  affectedButtonIds?: string[];
+  /** Timestamp of the change */
+  timestamp: string;
+}
+
+/** Payload for fixture data change notifications (undo/redo of positions) */
+export interface FixtureDataChangedPayload {
+  /** The affected fixture IDs */
+  fixtureIds: string[];
+  projectId: string;
+  changeType: EntityDataChangeType;
+  /** Timestamp of the change */
+  timestamp: string;
+}
+
 export interface UniverseOutput {
   universe: number;
   channels: number[];

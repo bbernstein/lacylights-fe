@@ -21,6 +21,7 @@ import LookEditorMobileToolbar from "./LookEditorMobileToolbar";
 import LookEditorBottomActions from "./LookEditorBottomActions";
 import { sparseToDense, denseToSparse } from "@/utils/channelConversion";
 import { useUndoStack, UndoDelta, UndoAction } from "@/hooks/useUndoStack";
+import { useFixtureDataUpdates } from "@/hooks/useFixtureDataUpdates";
 import {
   DEFAULT_CANVAS_WIDTH,
   DEFAULT_CANVAS_HEIGHT,
@@ -275,6 +276,14 @@ export default function LookEditorLayout({
   );
 
   const look = lookData?.look;
+
+  // Subscribe to fixture data changes for real-time updates (e.g., from undo/redo)
+  // This triggers a refetch of the look data when fixture positions change.
+  // The hook's skip option handles empty projectId during initial load.
+  useFixtureDataUpdates({
+    projectId: look?.project?.id || '',
+    lookId: look?.id,
+  });
 
   // Cache converted sparse-to-dense values to avoid repeated conversions
   const serverDenseValues = useMemo(() => {

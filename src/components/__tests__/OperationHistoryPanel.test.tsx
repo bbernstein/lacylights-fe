@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import React from 'react';
 import { OperationHistoryPanel } from '../OperationHistoryPanel';
-import { GET_OPERATION_HISTORY, JUMP_TO_OPERATION, CLEAR_OPERATION_HISTORY } from '@/graphql/undoRedo';
+import { GET_OPERATION_HISTORY, JUMP_TO_OPERATION, CLEAR_OPERATION_HISTORY, OPERATION_HISTORY_CHANGED } from '@/graphql/undoRedo';
 import { OperationType, UndoEntityType } from '@/generated/graphql';
 
 // Mock the ProjectContext
@@ -81,6 +81,27 @@ const createMocks = (operations = mockOperations): MockedResponse[] => [
     result: {
       data: {
         clearOperationHistory: true,
+      },
+    },
+  },
+  // Mock the subscription - Apollo MockedProvider handles subscriptions by default
+  // with a no-op. We just need to include a mock to prevent warnings.
+  {
+    request: {
+      query: OPERATION_HISTORY_CHANGED,
+      variables: { projectId: mockProjectId },
+    },
+    result: {
+      data: {
+        operationHistoryChanged: {
+          projectId: mockProjectId,
+          canUndo: true,
+          canRedo: false,
+          currentSequence: 2,
+          totalOperations: 2,
+          undoDescription: 'Undo update',
+          redoDescription: null,
+        },
       },
     },
   },

@@ -326,9 +326,11 @@ describe('UndoRedoContext', () => {
       };
 
       const mocks = [
-        // Initial GET_PROJECTS call
+        // Initial and additional GET_PROJECTS mocks for potential concurrent or sequential refetch calls
         emptyProjectsMock,
-        // Additional GET_PROJECTS mocks for potential refetch calls
+        emptyProjectsMock,
+        emptyProjectsMock,
+        emptyProjectsMock,
         emptyProjectsMock,
         emptyProjectsMock,
         // ProjectContext will try to create a default project when none exist
