@@ -147,10 +147,10 @@ render(
 - Run against static build for consistency
 
 ### Coverage Requirements
-- Lines: 61%
+- Lines: 62%
 - Functions: 56%
-- Branches: 51%
-- Statements: 60%
+- Branches: 52%
+- Statements: 61%
 
 ## CI/CD
 
