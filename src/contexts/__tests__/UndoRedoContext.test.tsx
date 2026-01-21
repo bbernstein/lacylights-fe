@@ -326,8 +326,7 @@ describe('UndoRedoContext', () => {
       };
 
       const mocks = [
-        // Initial GET_PROJECTS call and additional mocks for potential refetch calls
-        // Apollo's MockedProvider can have timing issues requiring more mocks
+        // Initial and additional GET_PROJECTS mocks for potential concurrent or sequential refetch calls
         emptyProjectsMock,
         emptyProjectsMock,
         emptyProjectsMock,

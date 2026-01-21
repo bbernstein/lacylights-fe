@@ -568,4 +568,52 @@ describe('useLookBoardDataUpdates', () => {
       );
     });
   });
+
+  describe('Skip condition', () => {
+    it('should skip subscription when projectId is empty', async () => {
+      const onDataChange = jest.fn();
+      let subscriptionSkipped = true;
+
+      const mocks: MockedResponse[] = [
+        {
+          request: {
+            query: LOOK_BOARD_DATA_CHANGED_SUBSCRIPTION,
+            variables: { projectId: '' },
+          },
+          result: () => {
+            subscriptionSkipped = false;
+            return {
+              data: {
+                lookBoardDataChanged: {
+                  projectId: '',
+                  changeType: 'UPDATED',
+                  lookBoardId: 'board-123',
+                  affectedButtonIds: [],
+                },
+              },
+            };
+          },
+        },
+      ];
+
+      renderHook(
+        () =>
+          useLookBoardDataUpdates({
+            lookBoardId: 'board-123',
+            projectId: '',
+            onDataChange,
+          }),
+        {
+          wrapper: createMockProvider(mocks),
+        }
+      );
+
+      // Wait a bit to ensure subscription would have been established if not skipped
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Subscription should have been skipped
+      expect(subscriptionSkipped).toBe(true);
+      expect(onDataChange).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -541,4 +541,51 @@ describe('useFixtureDataUpdates', () => {
       expect(queryCalled).toBe(false);
     });
   });
+
+  describe('Skip condition', () => {
+    it('should skip subscription when projectId is empty', async () => {
+      const onDataChange = jest.fn();
+      let subscriptionSkipped = true;
+
+      const mocks: MockedResponse[] = [
+        {
+          request: {
+            query: FIXTURE_DATA_CHANGED_SUBSCRIPTION,
+            variables: { projectId: '' },
+          },
+          result: () => {
+            subscriptionSkipped = false;
+            return {
+              data: {
+                fixtureDataChanged: {
+                  projectId: '',
+                  changeType: 'UPDATED',
+                  fixtureIds: ['fixture-123'],
+                },
+              },
+            };
+          },
+        },
+      ];
+
+      renderHook(
+        () =>
+          useFixtureDataUpdates({
+            projectId: '',
+            lookId: 'look-123',
+            onDataChange,
+          }),
+        {
+          wrapper: createMockProvider(mocks),
+        }
+      );
+
+      // Wait a bit to ensure subscription would have been established if not skipped
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Subscription should have been skipped
+      expect(subscriptionSkipped).toBe(true);
+      expect(onDataChange).not.toHaveBeenCalled();
+    });
+  });
 });

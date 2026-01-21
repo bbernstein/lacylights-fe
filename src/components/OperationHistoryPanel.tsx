@@ -91,7 +91,10 @@ export function OperationHistoryPanel({ isOpen, onClose }: OperationHistoryPanel
       skip: !projectId || !isOpen,
       onData: () => {
         // Refetch the operation history when changes occur (e.g., undo/redo via keyboard)
-        refetch();
+        // Check refetch exists before calling - it may not be available if query hasn't executed yet
+        if (refetch) {
+          refetch();
+        }
       },
       onError: (error) => {
         console.error('Operation history subscription error:', error);
