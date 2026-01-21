@@ -326,9 +326,12 @@ describe('UndoRedoContext', () => {
       };
 
       const mocks = [
-        // Initial GET_PROJECTS call
+        // Initial GET_PROJECTS call and additional mocks for potential refetch calls
+        // Apollo's MockedProvider can have timing issues requiring more mocks
         emptyProjectsMock,
-        // Additional GET_PROJECTS mocks for potential refetch calls
+        emptyProjectsMock,
+        emptyProjectsMock,
+        emptyProjectsMock,
         emptyProjectsMock,
         emptyProjectsMock,
         // ProjectContext will try to create a default project when none exist
