@@ -239,6 +239,10 @@ export default function LayoutCanvas({
       );
       let autoLayoutIndex = 0;
 
+      // Track whether any database-triggered position update occurred
+      // Used to determine if we need to recompute hasUnsavedChanges after processing
+      let hadDatabaseUpdate = false;
+
       fixtures.forEach((fixture) => {
         // Check if already initialized
         if (initializedFixtureIds.current.has(fixture.id)) {
@@ -287,6 +291,7 @@ export default function LayoutCanvas({
             // 2a. User doesn't have local unsaved changes (not mid-drag), OR
             // 2b. Database now matches current local position (clear stale "unsaved" indication)
             if (dbChanged) {
+              hadDatabaseUpdate = true;
               if (!hasLocalChanges) {
                 // No local changes: accept database update into both positions and savedPositions
                 const newPosition: FixturePosition = {
@@ -379,6 +384,32 @@ export default function LayoutCanvas({
         // Mark this fixture as initialized
         initializedFixtureIds.current.add(fixture.id);
       });
+
+      // After processing all fixtures, if there was a database update, recompute
+      // hasUnsavedChanges by comparing current positions with savedPositions.
+      // This ensures the Save button state is correct after undo/redo operations.
+      // Only recompute when database updates occurred to avoid interfering with
+      // initial auto-layout (which intentionally creates unsaved positions).
+      if (hadDatabaseUpdate) {
+        let anyUnsavedChanges = false;
+        for (const [fixtureId, pos] of positions) {
+          const savedPos = savedPositions.current.get(fixtureId);
+          if (!savedPos) {
+            // New fixture without saved position = unsaved change
+            anyUnsavedChanges = true;
+            break;
+          }
+          if (
+            pos.x !== savedPos.x ||
+            pos.y !== savedPos.y ||
+            (pos.rotation ?? 0) !== (savedPos.rotation ?? 0)
+          ) {
+            anyUnsavedChanges = true;
+            break;
+          }
+        }
+        setHasUnsavedChanges(anyUnsavedChanges);
+      }
 
       return positions;
     });
