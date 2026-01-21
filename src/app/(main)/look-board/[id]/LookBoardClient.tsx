@@ -15,7 +15,7 @@ import { GET_PROJECT_LOOKS } from "@/graphql/looks";
 import { useProject } from "@/contexts/ProjectContext";
 import { useFocusMode } from "@/contexts/FocusModeContext";
 import { useUserMode } from "@/contexts/UserModeContext";
-import { LookBoardButton } from "@/types";
+import { LookBoardButton, EntityDataChangeType } from "@/types";
 import {
   screenToCanvas,
   clamp,
@@ -25,6 +25,7 @@ import {
   Rect,
   ButtonPosition,
 } from "@/lib/canvasUtils";
+import { useLookBoardDataUpdates } from "@/hooks/useLookBoardDataUpdates";
 import { getContrastingTextColor } from "@/utils/colorHelpers";
 import ContextMenu from "@/components/ContextMenu";
 import EffectsPanel from "@/components/EffectsPanel";
@@ -217,6 +218,24 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
   const { data: looksData } = useQuery(GET_PROJECT_LOOKS, {
     variables: { projectId: currentProject?.id },
     skip: !currentProject?.id,
+  });
+
+  // Subscribe to look board data changes for real-time updates (undo/redo)
+  const handleLookBoardDataChange = useCallback(
+    (changeType: EntityDataChangeType, affectedButtonIds?: string[]) => {
+      console.log(
+        `Look board changed: ${changeType}`,
+        affectedButtonIds ? `buttons: ${affectedButtonIds.join(", ")}` : ""
+      );
+      // The hook automatically refetches data, but we can optionally show a notification here
+    },
+    []
+  );
+
+  useLookBoardDataUpdates({
+    lookBoardId: boardId,
+    projectId: currentProject?.id || "",
+    onDataChange: currentProject?.id ? handleLookBoardDataChange : undefined,
   });
 
   const [updateBoard] = useMutation(UPDATE_LOOK_BOARD, {

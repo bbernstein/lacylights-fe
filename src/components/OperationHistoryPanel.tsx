@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery, useMutation, useSubscription } from '@apollo/client';
 import { XMarkIcon, ClockIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { GET_OPERATION_HISTORY, JUMP_TO_OPERATION, CLEAR_OPERATION_HISTORY } from '@/graphql/undoRedo';
+import { GET_OPERATION_HISTORY, JUMP_TO_OPERATION, CLEAR_OPERATION_HISTORY, OPERATION_HISTORY_CHANGED } from '@/graphql/undoRedo';
 import {
   GetOperationHistoryQuery,
   JumpToOperationMutation,
   ClearOperationHistoryMutation,
+  OperationHistoryChangedSubscription,
 } from '@/generated/graphql';
 import { useProject } from '@/contexts/ProjectContext';
 import BottomSheet from './BottomSheet';
@@ -80,6 +81,22 @@ export function OperationHistoryPanel({ isOpen, onClose }: OperationHistoryPanel
 
   const [clearHistory, { loading: clearLoading }] = useMutation<ClearOperationHistoryMutation>(
     CLEAR_OPERATION_HISTORY
+  );
+
+  // Subscribe to real-time updates when panel is open
+  useSubscription<OperationHistoryChangedSubscription>(
+    OPERATION_HISTORY_CHANGED,
+    {
+      variables: { projectId: projectId || '' },
+      skip: !projectId || !isOpen,
+      onData: () => {
+        // Refetch the operation history when changes occur (e.g., undo/redo via keyboard)
+        refetch();
+      },
+      onError: (error) => {
+        console.error('Operation history subscription error:', error);
+      },
+    }
   );
 
   // Refetch when panel opens

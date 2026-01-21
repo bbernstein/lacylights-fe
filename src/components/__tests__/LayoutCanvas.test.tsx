@@ -1473,4 +1473,270 @@ describe("LayoutCanvas", () => {
       });
     });
   });
+
+  describe("database position sync (undo/redo support)", () => {
+    it("updates fixture position when database position changes via props", async () => {
+      // Initial fixture at position (500, 500)
+      const initialFixture: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "sync-test-fixture",
+        name: "Sync Test",
+        layoutX: 500,
+        layoutY: 500,
+        layoutRotation: 0,
+      };
+
+      const { rerender } = renderWithApollo(
+        <LayoutCanvas
+          fixtures={[initialFixture]}
+          fixtureValues={new Map([["sync-test-fixture", [255, 128, 64, 200]]])}
+          canvasWidth={2000}
+          canvasHeight={2000}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(mockContext.fillRect).toHaveBeenCalled();
+      });
+
+      const initialCallCount = mockContext.fillRect.mock.calls.length;
+
+      // Simulate database position change (e.g., from undo operation)
+      const updatedFixture: FixtureInstance = {
+        ...initialFixture,
+        layoutX: 800, // New position from undo
+        layoutY: 700,
+      };
+
+      rerender(
+        <MockedProvider mocks={mocks} addTypename={false}>
+          <LayoutCanvas
+            fixtures={[updatedFixture]}
+            fixtureValues={new Map([["sync-test-fixture", [255, 128, 64, 200]]])}
+            canvasWidth={2000}
+            canvasHeight={2000}
+          />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        // Canvas should redraw with new position
+        expect(mockContext.fillRect.mock.calls.length).toBeGreaterThan(initialCallCount);
+      });
+    });
+
+    it("accepts database position updates after initial render without unsaved changes", async () => {
+      // Fixture starts with saved database position
+      const fixture: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "db-sync-fixture",
+        name: "DB Sync Fixture",
+        layoutX: 300,
+        layoutY: 400,
+        layoutRotation: 0,
+      };
+
+      const { rerender } = renderWithApollo(
+        <LayoutCanvas
+          fixtures={[fixture]}
+          fixtureValues={new Map([["db-sync-fixture", [255, 0, 0, 255]]])}
+          canvasWidth={2000}
+          canvasHeight={2000}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(mockContext.fillRect).toHaveBeenCalled();
+      });
+
+      // Save button should be disabled (no changes)
+      const saveButton = screen.getByRole("button", { name: /Save Layout/i });
+      expect(saveButton).toBeDisabled();
+
+      // Now update fixture with new database position (simulates undo/redo)
+      const updatedFixture: FixtureInstance = {
+        ...fixture,
+        layoutX: 600, // Changed by undo
+        layoutY: 500,
+      };
+
+      rerender(
+        <MockedProvider mocks={mocks} addTypename={false}>
+          <LayoutCanvas
+            fixtures={[updatedFixture]}
+            fixtureValues={new Map([["db-sync-fixture", [255, 0, 0, 255]]])}
+            canvasWidth={2000}
+            canvasHeight={2000}
+          />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        // Save button should still be disabled since this is a DB update, not user change
+        expect(saveButton).toBeDisabled();
+      });
+    });
+
+    it("handles multiple fixture position updates from database", async () => {
+      // Two fixtures with saved positions
+      const fixture1: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "multi-sync-1",
+        name: "Multi Sync 1",
+        layoutX: 200,
+        layoutY: 200,
+        layoutRotation: 0,
+      };
+
+      const fixture2: FixtureInstance = {
+        ...mockFixtures[1],
+        id: "multi-sync-2",
+        name: "Multi Sync 2",
+        layoutX: 400,
+        layoutY: 400,
+        layoutRotation: 0,
+      };
+
+      const { rerender } = renderWithApollo(
+        <LayoutCanvas
+          fixtures={[fixture1, fixture2]}
+          fixtureValues={new Map([
+            ["multi-sync-1", [255, 0, 0, 255]],
+            ["multi-sync-2", [0, 255, 0, 255]],
+          ])}
+          canvasWidth={2000}
+          canvasHeight={2000}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(mockContext.fillRect).toHaveBeenCalled();
+      });
+
+      const callCountBefore = mockContext.fillRect.mock.calls.length;
+
+      // Update both fixtures (simulates bulk undo)
+      const updated1: FixtureInstance = { ...fixture1, layoutX: 600, layoutY: 300 };
+      const updated2: FixtureInstance = { ...fixture2, layoutX: 800, layoutY: 500 };
+
+      rerender(
+        <MockedProvider mocks={mocks} addTypename={false}>
+          <LayoutCanvas
+            fixtures={[updated1, updated2]}
+            fixtureValues={new Map([
+              ["multi-sync-1", [255, 0, 0, 255]],
+              ["multi-sync-2", [0, 255, 0, 255]],
+            ])}
+            canvasWidth={2000}
+            canvasHeight={2000}
+          />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        // Canvas should redraw with both fixtures at new positions
+        expect(mockContext.fillRect.mock.calls.length).toBeGreaterThan(callCountBefore);
+      });
+    });
+
+    it("handles rotation changes from database", async () => {
+      const fixture: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "rotation-sync-fixture",
+        name: "Rotation Sync",
+        layoutX: 500,
+        layoutY: 500,
+        layoutRotation: 0,
+      };
+
+      const { rerender } = renderWithApollo(
+        <LayoutCanvas
+          fixtures={[fixture]}
+          fixtureValues={new Map([["rotation-sync-fixture", [255, 128, 0, 255]]])}
+          canvasWidth={2000}
+          canvasHeight={2000}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(mockContext.fillRect).toHaveBeenCalled();
+      });
+
+      // Update rotation from database (simulates undo of rotation change)
+      const updatedFixture: FixtureInstance = {
+        ...fixture,
+        layoutRotation: 45, // Changed by undo
+      };
+
+      rerender(
+        <MockedProvider mocks={mocks} addTypename={false}>
+          <LayoutCanvas
+            fixtures={[updatedFixture]}
+            fixtureValues={new Map([["rotation-sync-fixture", [255, 128, 0, 255]]])}
+            canvasWidth={2000}
+            canvasHeight={2000}
+          />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        // Canvas should redraw with rotation transform
+        expect(mockContext.save).toHaveBeenCalled();
+        expect(mockContext.restore).toHaveBeenCalled();
+      });
+    });
+
+    it("rerenders when fixture positions are restored via subscription refetch", async () => {
+      // This tests the scenario where useFixtureDataUpdates triggers a refetch
+      // and the component receives updated fixture data through props
+      const fixture: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "refetch-fixture",
+        name: "Refetch Fixture",
+        layoutX: 100,
+        layoutY: 100,
+        layoutRotation: 0,
+      };
+
+      const { rerender } = renderWithApollo(
+        <LayoutCanvas
+          fixtures={[fixture]}
+          fixtureValues={new Map([["refetch-fixture", [0, 0, 255, 255]]])}
+          canvasWidth={2000}
+          canvasHeight={2000}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(mockContext.fillRect).toHaveBeenCalled();
+      });
+
+      // Simulate refetch result with restored position
+      const restoredFixture: FixtureInstance = {
+        ...fixture,
+        layoutX: 1000, // Position restored by undo
+        layoutY: 1000,
+      };
+
+      rerender(
+        <MockedProvider mocks={mocks} addTypename={false}>
+          <LayoutCanvas
+            fixtures={[restoredFixture]}
+            fixtureValues={new Map([["refetch-fixture", [0, 0, 255, 255]]])}
+            canvasWidth={2000}
+            canvasHeight={2000}
+          />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        // Canvas should have redrawn
+        expect(mockContext.fillRect.mock.calls.length).toBeGreaterThan(5);
+      });
+
+      // Save button should still be disabled (DB update, not user change)
+      const saveButton = screen.getByRole("button", { name: /Save Layout/i });
+      expect(saveButton).toBeDisabled();
+    });
+  });
 });
