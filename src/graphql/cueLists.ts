@@ -342,3 +342,23 @@ export const CUE_LIST_DATA_CHANGED_SUBSCRIPTION = gql`
     }
   }
 `;
+
+export const GET_CUES_WITH_LOOK_INFO = gql`
+  query GetCuesWithLookInfo($cueListId: ID!) {
+    cuesWithLookInfo(cueListId: $cueListId) {
+      cues {
+        cueId
+        cueNumber
+        cueName
+        lookId
+        lookName
+        otherCueNumbers
+      }
+      orphanLooks {
+        id
+        name
+        description
+      }
+    }
+  }
+`;

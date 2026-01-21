@@ -1,98 +1,90 @@
 import { generateUUID } from '../uuid';
 
 describe('generateUUID', () => {
-  describe('with native crypto.randomUUID support', () => {
-    it('should generate a valid UUID when crypto.randomUUID is available', () => {
-      // In JSDOM environment, crypto.randomUUID should be available
-      const uuid = generateUUID();
+  it('generates a valid UUID v4 format', () => {
+    const uuid = generateUUID();
+    // UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    expect(uuid).toMatch(uuidRegex);
+  });
 
-      // UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  it('generates unique UUIDs on each call', () => {
+    const uuid1 = generateUUID();
+    const uuid2 = generateUUID();
+    const uuid3 = generateUUID();
 
-      expect(uuid).toMatch(uuidRegex);
-      expect(uuid).toHaveLength(36);
-    });
+    expect(uuid1).not.toBe(uuid2);
+    expect(uuid2).not.toBe(uuid3);
+    expect(uuid1).not.toBe(uuid3);
+  });
 
-    it('should generate unique UUIDs with native crypto', () => {
-      const uuid1 = generateUUID();
-      const uuid2 = generateUUID();
+  it('generates UUIDs with correct length', () => {
+    const uuid = generateUUID();
+    expect(uuid.length).toBe(36); // 32 hex chars + 4 dashes
+  });
 
-      expect(uuid1).not.toBe(uuid2);
-      expect(uuid1).toHaveLength(36);
-      expect(uuid2).toHaveLength(36);
-    });
+  it('generates many unique UUIDs without collision', () => {
+    const uuids = new Set<string>();
+    const count = 1000;
+
+    for (let i = 0; i < count; i++) {
+      uuids.add(generateUUID());
+    }
+
+    expect(uuids.size).toBe(count);
   });
 
   describe('fallback implementation', () => {
-    beforeEach(() => {
-      // Remove crypto.randomUUID to test fallback
+    it('uses fallback when crypto.randomUUID is not available', () => {
+      // Store original crypto
       const originalCrypto = global.crypto;
-      global.crypto = {
-        ...originalCrypto,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        randomUUID: undefined as any,
-      };
-    });
 
-    it('should generate a valid UUID v4 format', () => {
-      const uuid = generateUUID();
-
-      // UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-      expect(uuid).toMatch(uuidRegex);
-    });
-
-    it('should generate unique UUIDs', () => {
-      const uuid1 = generateUUID();
-      const uuid2 = generateUUID();
-
-      expect(uuid1).not.toBe(uuid2);
-    });
-
-    it('should always have 4 in the third group (version 4)', () => {
-      const uuid = generateUUID();
-      const thirdGroup = uuid.split('-')[2];
-
-      expect(thirdGroup[0]).toBe('4');
-    });
-
-    it('should have variant bits (8, 9, a, or b) in the fourth group', () => {
-      const uuid = generateUUID();
-      const fourthGroup = uuid.split('-')[3];
-
-      const firstChar = fourthGroup[0].toLowerCase();
-      expect(['8', '9', 'a', 'b']).toContain(firstChar);
-    });
-
-    it('should generate 36-character string including hyphens', () => {
-      const uuid = generateUUID();
-
-      expect(uuid).toHaveLength(36);
-      expect(uuid.split('-')).toHaveLength(5);
-    });
-
-    it('should only contain valid hex characters and hyphens', () => {
-      const uuid = generateUUID();
-      const validChars = /^[0-9a-f-]+$/i;
-
-      expect(uuid).toMatch(validChars);
-    });
-  });
-
-  describe('when crypto is undefined', () => {
-    it('should use fallback when crypto is not defined', () => {
-      const originalCrypto = global.crypto;
-      (global as { crypto: Crypto | undefined }).crypto = undefined;
+      // Mock crypto without randomUUID
+      Object.defineProperty(global, 'crypto', {
+        value: {
+          getRandomValues: originalCrypto?.getRandomValues,
+        },
+        writable: true,
+        configurable: true,
+      });
 
       const uuid = generateUUID();
 
-      // Should still generate valid UUID
+      // Should still generate valid UUID v4 format
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       expect(uuid).toMatch(uuidRegex);
 
-      // Restore
-      global.crypto = originalCrypto;
+      // Restore original crypto
+      Object.defineProperty(global, 'crypto', {
+        value: originalCrypto,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it('uses fallback when crypto is undefined', () => {
+      // Store original crypto
+      const originalCrypto = global.crypto;
+
+      // Remove crypto entirely
+      Object.defineProperty(global, 'crypto', {
+        value: undefined,
+        writable: true,
+        configurable: true,
+      });
+
+      const uuid = generateUUID();
+
+      // Should still generate valid UUID v4 format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      expect(uuid).toMatch(uuidRegex);
+
+      // Restore original crypto
+      Object.defineProperty(global, 'crypto', {
+        value: originalCrypto,
+        writable: true,
+        configurable: true,
+      });
     });
   });
 });

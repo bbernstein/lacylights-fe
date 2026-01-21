@@ -17,6 +17,7 @@ import ChannelListEditor from "./ChannelListEditor";
 import LayoutCanvas from "./LayoutCanvas";
 import MultiSelectControls from "./MultiSelectControls";
 import UnsavedChangesModal from "./UnsavedChangesModal";
+import CopyFixturesToLooksModal from "./CopyFixturesToLooksModal";
 import LookEditorMobileToolbar from "./LookEditorMobileToolbar";
 import LookEditorBottomActions from "./LookEditorBottomActions";
 import { sparseToDense, denseToSparse } from "@/utils/channelConversion";
@@ -225,6 +226,9 @@ export default function LookEditorLayout({
   const [pendingAction, setPendingAction] = useState<"close" | "switch" | null>(
     null,
   );
+
+  // Copy to other looks modal state
+  const [showCopyToLooksModal, setShowCopyToLooksModal] = useState(false);
 
   // Fetch look data for both modes (shared state)
   const {
@@ -1294,6 +1298,35 @@ export default function LookEditorLayout({
     setPendingAction(null);
   }, []);
 
+  // Handle copy to other looks button click
+  const handleCopyToOtherLooks = useCallback(() => {
+    if (selectedFixtureIds.size === 0) {
+      return;
+    }
+    setShowCopyToLooksModal(true);
+  }, [selectedFixtureIds.size]);
+
+  // Handle copy to other looks success
+  const handleCopyToLooksSuccess = useCallback(
+    (result: { lookCount: number; cueCount: number }) => {
+      setShowCopyToLooksModal(false);
+      // Toast notification could be added here
+      console.log(`Copied fixtures to ${result.lookCount} looks (${result.cueCount} cues affected)`);
+    },
+    []
+  );
+
+  // Build fixture names map for copy modal
+  const fixtureNamesMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (look) {
+      look.fixtureValues.forEach((fv: FixtureValue) => {
+        map.set(fv.fixture.id, fv.fixture.name);
+      });
+    }
+    return map;
+  }, [look]);
+
   return (
     <div className="fixed inset-0 bg-gray-900 flex flex-col">
       {/* Mobile toolbar */}
@@ -1485,6 +1518,32 @@ export default function LookEditorLayout({
                     </svg>
                   </button>
                 </div>
+
+                {/* Copy to Other Looks button - only show when fixtures selected */}
+                {selectedFixtureIds.size > 0 && (
+                  <button
+                    onClick={handleCopyToOtherLooks}
+                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 rounded-md transition-colors"
+                    title="Copy selected fixtures to other looks"
+                  >
+                    <svg
+                      className="w-4 h-4 lg:mr-1.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      role="img"
+                      aria-label="Copy to other looks"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                    <span className="hidden lg:inline">Copy to Looks</span>
+                  </button>
+                )}
 
                 {/* Save button with dirty/status indicator */}
                 <button
@@ -1719,6 +1778,23 @@ export default function LookEditorLayout({
         onCancel={handleModalCancel}
         saveInProgress={saveStatus === "saving"}
       />
+
+      {/* Copy to other looks modal */}
+      {look && (
+        <CopyFixturesToLooksModal
+          isOpen={showCopyToLooksModal}
+          onClose={() => setShowCopyToLooksModal(false)}
+          projectId={look.project?.id || ""}
+          sourceLookId={lookId}
+          fixtureIds={Array.from(selectedFixtureIds)}
+          fixtureNames={fixtureNamesMap}
+          fixtureValues={fixtureValues}
+          activeChannels={activeChannels}
+          cueListId={cueListId}
+          returnCueNumber={returnCueNumber}
+          onSuccess={handleCopyToLooksSuccess}
+        />
+      )}
     </div>
   );
 }

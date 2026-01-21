@@ -268,3 +268,28 @@ export const DMX_OUTPUT_CHANGED = gql`
     }
   }
 `;
+
+export const COPY_FIXTURES_TO_LOOKS = gql`
+  mutation CopyFixturesToLooks($input: CopyFixturesToLooksInput!) {
+    copyFixturesToLooks(input: $input) {
+      updatedLookCount
+      affectedCueCount
+      operationId
+      updatedLooks {
+        id
+        name
+        updatedAt
+        fixtureValues {
+          fixture {
+            id
+            name
+          }
+          channels {
+            offset
+            value
+          }
+        }
+      }
+    }
+  }
+`;
