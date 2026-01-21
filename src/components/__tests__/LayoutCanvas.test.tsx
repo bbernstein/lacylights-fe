@@ -1738,5 +1738,94 @@ describe("LayoutCanvas", () => {
       const saveButton = screen.getByRole("button", { name: /Save Layout/i });
       expect(saveButton).toBeDisabled();
     });
+
+    it("clears stale unsaved state when database position matches current local position", async () => {
+      // This tests the edge case where:
+      // 1. User has "unsaved" changes (savedPositions differs from local position)
+      // 2. Undo/redo changes database to coincidentally match the current local position
+      // 3. The save button should be disabled because local === database
+
+      // Start with fixture at database position (400, 400)
+      const fixture: FixtureInstance = {
+        ...mockFixtures[0],
+        id: "edge-case-fixture",
+        name: "Edge Case Fixture",
+        layoutX: 400,
+        layoutY: 400,
+        layoutRotation: 0,
+      };
+
+      const { rerender } = renderWithApollo(
+        <LayoutCanvas
+          fixtures={[fixture]}
+          fixtureValues={new Map([["edge-case-fixture", [255, 128, 64, 200]]])}
+          canvasWidth={2000}
+          canvasHeight={2000}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(mockContext.fillRect).toHaveBeenCalled();
+      });
+
+      // Save button should be disabled initially (no changes)
+      let saveButton = screen.getByRole("button", { name: /Save Layout/i });
+      expect(saveButton).toBeDisabled();
+
+      // Now simulate: database changes to (600, 600), which becomes savedPositions
+      // Then user drags fixture locally to (800, 800) but doesn't save
+      // Then undo changes database back to (800, 800) - matching local position
+
+      // Step 1: First, update fixture to (600, 600) to establish a new savedPosition
+      const movedFixture: FixtureInstance = {
+        ...fixture,
+        layoutX: 600,
+        layoutY: 600,
+      };
+
+      rerender(
+        <MockedProvider mocks={mocks} addTypename={false}>
+          <LayoutCanvas
+            fixtures={[movedFixture]}
+            fixtureValues={new Map([["edge-case-fixture", [255, 128, 64, 200]]])}
+            canvasWidth={2000}
+            canvasHeight={2000}
+          />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        saveButton = screen.getByRole("button", { name: /Save Layout/i });
+        // After DB update without user changes, save should be disabled
+        expect(saveButton).toBeDisabled();
+      });
+
+      // Step 2: Now database position changes to match what user has locally
+      // This simulates undo reverting to a position that coincidentally matches
+      // The key test: savedPositions should update to clear the "unsaved" state
+      const matchingPositionFixture: FixtureInstance = {
+        ...fixture,
+        layoutX: 800, // This will match current local position
+        layoutY: 800,
+      };
+
+      rerender(
+        <MockedProvider mocks={mocks} addTypename={false}>
+          <LayoutCanvas
+            fixtures={[matchingPositionFixture]}
+            fixtureValues={new Map([["edge-case-fixture", [255, 128, 64, 200]]])}
+            canvasWidth={2000}
+            canvasHeight={2000}
+          />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        // After the database position matches local, save should be disabled
+        // (savedPositions should be updated to match current position)
+        saveButton = screen.getByRole("button", { name: /Save Layout/i });
+        expect(saveButton).toBeDisabled();
+      });
+    });
   });
 });

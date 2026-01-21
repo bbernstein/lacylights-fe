@@ -275,18 +275,34 @@ export default function LayoutCanvas({
               currentPos.y !== savedPos.y ||
               (currentPos.rotation ?? 0) !== (savedPos.rotation ?? 0);
 
+            // Check if database position now matches current local position.
+            // This can happen when undo/redo reverts database to match user's current layout.
+            const dbMatchesCurrent =
+              currentPos.x === dbX &&
+              currentPos.y === dbY &&
+              (currentPos.rotation ?? 0) === dbRotation;
+
             // Update local state only if:
             // 1. Database changed (from undo/redo or another client)
-            // 2. User doesn't have local unsaved changes (not mid-drag)
-            if (dbChanged && !hasLocalChanges) {
-              const newPosition: FixturePosition = {
-                fixtureId: fixture.id,
-                x: dbX,
-                y: dbY,
-                rotation: dbRotation,
-              };
-              positions.set(fixture.id, newPosition);
-              savedPositions.current.set(fixture.id, { ...newPosition });
+            // 2a. User doesn't have local unsaved changes (not mid-drag), OR
+            // 2b. Database now matches current local position (clear stale "unsaved" indication)
+            if (dbChanged) {
+              if (!hasLocalChanges) {
+                // No local changes: accept database update into both positions and savedPositions
+                const newPosition: FixturePosition = {
+                  fixtureId: fixture.id,
+                  x: dbX,
+                  y: dbY,
+                  rotation: dbRotation,
+                };
+                positions.set(fixture.id, newPosition);
+                savedPositions.current.set(fixture.id, { ...newPosition });
+              } else if (dbMatchesCurrent) {
+                // Local position already matches database: update savedPositions to clear
+                // stale "unsaved" state without overwriting user's current position
+                savedPositions.current.set(fixture.id, { ...currentPos });
+              }
+              // If hasLocalChanges && !dbMatchesCurrent: preserve user's unsaved work
             }
           }
           return;
