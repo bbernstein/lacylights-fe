@@ -390,8 +390,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!user) return false;
     // Admins have all permissions
     if (user.role === UserRole.ADMIN) return true;
-    // Check explicit permissions
-    return user.permissions.includes(permission);
+    // Check explicit permissions (safely handle undefined permissions)
+    return user.permissions?.includes(permission) ?? false;
   }, [user]);
 
   /**
