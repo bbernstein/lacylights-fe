@@ -4,6 +4,7 @@ import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient, Client } from 'graphql-ws';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { WEBSOCKET_CONFIG } from '@/constants/websocket';
+import { DEVICE_ID_KEY } from '@/lib/device';
 
 // Runtime configuration cache
 let runtimeConfig: { graphqlUrl: string; graphqlWsUrl: string } | null = null;
@@ -86,6 +87,10 @@ const configLink = setContext(async (_, { headers }) => {
 
 const httpLink = createHttpLink({
   uri: () => getGraphQLUrl(),
+  // Include credentials for cookie-based authentication
+  // The server sets HTTP-only cookies for JWT tokens which are more secure than localStorage
+  // We keep Bearer token support as fallback for compatibility
+  credentials: 'include',
 });
 
 /**
@@ -103,8 +108,11 @@ function createWsClient(): void {
     lazy: true, // Don't connect until first subscription
     connectionParams: () => {
       const token = localStorage.getItem('token');
+      const deviceId = localStorage.getItem(DEVICE_ID_KEY);
       return {
         authorization: token ? `Bearer ${token}` : '',
+        // Include device fingerprint for device-based authentication
+        ...(deviceId && { 'X-Device-Fingerprint': deviceId }),
       };
     },
     // Reconnection configuration for stale connections
@@ -272,8 +280,27 @@ const authLink = setContext((_, { headers }) => {
   }
 });
 
+/**
+ * Device link that adds the X-Device-Fingerprint header for device-based authentication.
+ * This allows the backend to identify and authorize specific devices without requiring
+ * user login credentials.
+ */
+const deviceLink = setContext((_, { headers }) => {
+  // Get the device fingerprint from local storage
+  const deviceId = typeof window !== 'undefined' ? localStorage.getItem(DEVICE_ID_KEY) : null;
+
+  // Return the headers with device fingerprint if available
+  return {
+    headers: {
+      ...headers,
+      ...(deviceId && { 'X-Device-Fingerprint': deviceId }),
+    }
+  };
+});
+
 // Use split link to route subscriptions to WebSocket and queries/mutations to HTTP
 // Uses dynamicWsLink so we can swap the underlying wsLink on reconnection
+// Link chain: configLink -> authLink -> deviceLink -> httpLink
 const splitLink = typeof window !== 'undefined' && wsLink ? split(
   ({ query }) => {
     const definition = getMainDefinition(query);
@@ -283,8 +310,8 @@ const splitLink = typeof window !== 'undefined' && wsLink ? split(
     );
   },
   dynamicWsLink,
-  from([configLink, authLink, httpLink]),
-) : from([configLink, authLink, httpLink]);
+  from([configLink, authLink, deviceLink, httpLink]),
+) : from([configLink, authLink, deviceLink, httpLink]);
 
 const apolloClient = new ApolloClient({
   link: splitLink,
