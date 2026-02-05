@@ -266,5 +266,35 @@ describe('UserMenu', () => {
         expect(mockPush).toHaveBeenCalledWith('/login');
       });
     });
+
+    it('still redirects to login even if logoutAll fails', async () => {
+      // Setup before rendering
+      mockLogoutAll.mockRejectedValueOnce(new Error('Logout all failed'));
+
+      mockUseAuth.mockReturnValue({
+        ...baseAuthContext,
+        user: adminUser,
+        isAuthenticated: true,
+        isAdmin: true,
+      });
+
+      render(<UserMenu />);
+
+      // Open dropdown
+      await userEvent.click(screen.getByRole('button', { name: /user menu/i }));
+
+      // Wait for dropdown to be visible
+      await waitFor(() => {
+        expect(screen.getByText('Sign Out All Devices')).toBeInTheDocument();
+      });
+
+      // Click Sign Out All Devices - this should still redirect even though logoutAll throws
+      await userEvent.click(screen.getByText('Sign Out All Devices'));
+
+      // Should still redirect to login
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith('/login');
+      });
+    });
   });
 });

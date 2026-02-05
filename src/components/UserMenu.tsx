@@ -97,12 +97,16 @@ export default function UserMenu() {
   // Get user initials for avatar
   const getInitials = () => {
     if (user?.name) {
-      return user.name
+      const initials = user.name
         .split(' ')
+        .filter((n: string) => n.length > 0)
         .map((n: string) => n[0])
         .join('')
         .toUpperCase()
         .slice(0, 2);
+      if (initials) {
+        return initials;
+      }
     }
     if (user?.email) {
       return user.email[0].toUpperCase();
