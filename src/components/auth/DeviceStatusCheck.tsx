@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useQuery } from '@apollo/client';
 import { CHECK_DEVICE_AUTHORIZATION } from '@/graphql/auth';
 import {
@@ -50,6 +50,17 @@ export default function DeviceStatusCheck({
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [manualRefreshing, setManualRefreshing] = useState(false);
 
+  // Store callbacks in refs to avoid re-running effect when callback references change
+  // This follows React best practices for callback props in useEffect dependencies
+  const onApprovedRef = useRef(onApproved);
+  const onRevokedRef = useRef(onRevoked);
+
+  // Keep refs up to date with latest callbacks
+  useEffect(() => {
+    onApprovedRef.current = onApproved;
+    onRevokedRef.current = onRevoked;
+  }, [onApproved, onRevoked]);
+
   const { data, loading, error, refetch } = useQuery(CHECK_DEVICE_AUTHORIZATION, {
     variables: { fingerprint: deviceId },
     skip: !deviceId,
@@ -75,13 +86,15 @@ export default function DeviceStatusCheck({
 
       if (result.isAuthorized) {
         setStatus('approved');
-        onApproved?.();
+        // Use ref to call latest callback without adding to dependencies
+        onApprovedRef.current?.();
       } else if (result.isPending) {
         setStatus('pending');
       } else if (result.device) {
         // Device exists but not authorized and not pending - revoked
         setStatus('revoked');
-        onRevoked?.();
+        // Use ref to call latest callback without adding to dependencies
+        onRevokedRef.current?.();
       } else {
         // Device not found
         setStatus('unknown');
@@ -89,7 +102,7 @@ export default function DeviceStatusCheck({
     }
 
     setManualRefreshing(false);
-  }, [data, loading, error, onApproved, onRevoked, status, manualRefreshing]);
+  }, [data, loading, error, status, manualRefreshing]);
 
   const handleRefresh = useCallback(async () => {
     setManualRefreshing(true);
