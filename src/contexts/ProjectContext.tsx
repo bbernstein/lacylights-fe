@@ -1,9 +1,10 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECTS, CREATE_PROJECT } from '@/graphql/projects';
 import { Project } from '@/types';
+import { useGroup } from '@/contexts/GroupContext';
 
 interface ProjectContextType {
   currentProject: Project | null;
@@ -12,7 +13,7 @@ interface ProjectContextType {
   error: Error | null;
   selectProject: (project: Project) => void;
   selectProjectById: (projectId: string) => void;
-  createNewProject: (name: string, description?: string) => Promise<void>;
+  createNewProject: (name: string, description?: string, groupId?: string) => Promise<void>;
   selectedProjectId: string | null;
   refetchAndGet: () => Promise<Project[]>;
   refetchAndSelectById: (projectId: string) => Promise<void>;
@@ -22,7 +23,10 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  
+  const { activeGroup } = useGroup();
+  const prevGroupIdRef = useRef<string | null | undefined>(undefined);
+  const autoCreateAttemptedRef = useRef(false);
+
   const { data, loading, error, refetch: refetchQuery } = useQuery(GET_PROJECTS);
   const [createProject] = useMutation(CREATE_PROJECT);
 
@@ -33,12 +37,18 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     return result.data?.projects || [];
   }, [refetchQuery]);
 
-  const createNewProject = useCallback(async (name: string, description?: string) => {
+  const createNewProject = useCallback(async (name: string, description?: string, groupId?: string) => {
     try {
+      const input: { name: string; description?: string; groupId?: string } = { name, description };
+      // Use provided groupId, or fall back to active group
+      if (groupId) {
+        input.groupId = groupId;
+      } else if (activeGroup) {
+        input.groupId = activeGroup.id;
+      }
+
       const result = await createProject({
-        variables: {
-          input: { name, description }
-        }
+        variables: { input }
       });
 
       await refetchAndGet();
@@ -51,14 +61,15 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       // Error handled by UI error states
       throw err;
     }
-  }, [createProject, refetchAndGet]);
+  }, [createProject, refetchAndGet, activeGroup]);
 
   // Auto-select first project or create one if none exist
   useEffect(() => {
     if (!loading && !currentProject && projects.length > 0) {
       setCurrentProject(projects[0]);
-    } else if (!loading && projects.length === 0 && !error) {
+    } else if (!loading && projects.length === 0 && !error && !autoCreateAttemptedRef.current) {
       // Auto-create a default project if none exist
+      autoCreateAttemptedRef.current = true;
       createNewProject('Default Project', 'Automatically created project');
     }
   }, [loading, projects, currentProject, error, createNewProject]);
@@ -84,6 +95,16 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }
   }, [refetchAndGet]);
 
+
+  // Refetch projects when active group changes (backend auto-filters by group)
+  useEffect(() => {
+    const currentGroupId = activeGroup?.id ?? null;
+    if (prevGroupIdRef.current !== undefined && prevGroupIdRef.current !== currentGroupId) {
+      setCurrentProject(null);
+      refetchQuery();
+    }
+    prevGroupIdRef.current = currentGroupId;
+  }, [activeGroup?.id, refetchQuery]);
 
   // Try to restore project from localStorage
   useEffect(() => {

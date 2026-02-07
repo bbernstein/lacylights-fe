@@ -5,6 +5,7 @@ import { useMutation, useQuery } from '@apollo/client';
 import { TrashIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '@/graphql/projects';
 import { useProject } from '@/contexts/ProjectContext';
+import { useGroup } from '@/contexts/GroupContext';
 import { Project } from '@/types';
 import ImportExportButtons from './ImportExportButtons';
 import BottomSheet from './BottomSheet';
@@ -18,10 +19,12 @@ interface ProjectManagementModalProps {
 export default function ProjectManagementModal({ isOpen, onClose }: ProjectManagementModalProps) {
   const isMobile = useIsMobile();
   const { refetchAndSelectById, selectProjectById, selectedProjectId } = useProject();
+  const { groups, activeGroup } = useGroup();
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
   const [isCreating, setIsCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
+  const [newProjectGroupId, setNewProjectGroupId] = useState('');
   const [editingProject, setEditingProject] = useState<{id: string, name: string, description: string} | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,21 +114,27 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     if (!newProjectName.trim()) return;
 
     setError(null);
-    
+
+    const input: { name: string; description?: string; groupId?: string } = {
+      name: newProjectName.trim(),
+      description: newProjectDescription.trim(),
+    };
+    // Use explicitly selected group, or fall back to active group
+    const groupId = newProjectGroupId || activeGroup?.id;
+    if (groupId) {
+      input.groupId = groupId;
+    }
+
     const result = await createProject({
-      variables: {
-        input: {
-          name: newProjectName.trim(),
-          description: newProjectDescription.trim()
-        }
-      }
+      variables: { input }
     });
-    
+
     await refetch();
     setIsCreating(false);
     setNewProjectName('');
     setNewProjectDescription('');
-    
+    setNewProjectGroupId('');
+
     // Select the newly created project
     if (result.data?.createProject?.id) {
       selectProjectById(result.data.createProject.id);
@@ -232,6 +241,24 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
             className="w-full px-3 py-2 bg-gray-600 text-white rounded mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-base"
             rows={2}
           />
+          {groups.length > 1 && (
+            <select
+              value={newProjectGroupId}
+              onChange={(e) => setNewProjectGroupId(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-600 text-white rounded mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+            >
+              <option value="">
+                {activeGroup ? `${activeGroup.name}${activeGroup.isPersonal ? ' (Personal)' : ''} (current)` : 'Select group...'}
+              </option>
+              {groups
+                .filter((g) => g.id !== activeGroup?.id)
+                .map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}{g.isPersonal ? ' (Personal)' : ''}
+                  </option>
+                ))}
+            </select>
+          )}
           <div className={`flex gap-2 ${isMobile ? 'flex-col' : ''}`}>
             <button
               onClick={handleCreateProject}
@@ -308,7 +335,14 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
                   </div>
                 ) : (
                   <div>
-                    <div className="text-white font-medium truncate">{project.name}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-white font-medium truncate">{project.name}</div>
+                      {project.group && groups.length > 1 && (
+                        <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-600 text-gray-300">
+                          {project.group.name}{project.group.isPersonal ? ' (Personal)' : ''}
+                        </span>
+                      )}
+                    </div>
                     {project.description && (
                       <div className="text-gray-400 text-sm truncate">{project.description}</div>
                     )}

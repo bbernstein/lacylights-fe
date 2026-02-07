@@ -6,6 +6,19 @@ import { ProjectProvider } from '../ProjectContext';
 import { GET_UNDO_REDO_STATUS, UNDO, REDO, OPERATION_HISTORY_CHANGED } from '@/graphql/undoRedo';
 import { GET_PROJECTS, CREATE_PROJECT } from '@/graphql/projects';
 
+// Mock GroupContext - ProjectContext depends on useGroup()
+jest.mock('../GroupContext', () => ({
+  useGroup: jest.fn(() => ({
+    activeGroup: { id: 'group-1', name: 'Personal', isPersonal: true },
+    groups: [{ id: 'group-1', name: 'Personal', isPersonal: true }],
+    loading: false,
+    selectGroup: jest.fn(),
+    selectGroupById: jest.fn(),
+    refetchGroups: jest.fn(),
+  })),
+  GroupProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 const mockProjectId = 'test-project-123';
 
 const mockProject = {
@@ -163,7 +176,7 @@ describe('UndoRedoContext', () => {
         request: {
           query: CREATE_PROJECT,
           variables: {
-            input: { name: 'Default Project', description: 'Automatically created project' },
+            input: { name: 'Default Project', description: 'Automatically created project', groupId: 'group-1' },
           },
         },
         result: {
@@ -315,7 +328,7 @@ describe('UndoRedoContext', () => {
         request: {
           query: CREATE_PROJECT,
           variables: {
-            input: { name: 'Default Project', description: 'Automatically created project' },
+            input: { name: 'Default Project', description: 'Automatically created project', groupId: 'group-1' },
           },
         },
         result: {
@@ -416,7 +429,7 @@ describe('UndoRedoContext', () => {
           request: {
             query: CREATE_PROJECT,
             variables: {
-              input: { name: 'Default Project', description: 'Automatically created project' },
+              input: { name: 'Default Project', description: 'Automatically created project', groupId: 'group-1' },
             },
           },
           result: {

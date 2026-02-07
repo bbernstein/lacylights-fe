@@ -75,8 +75,44 @@ export const USER_GROUP_FRAGMENT = gql`
     description
     permissions
     memberCount
+    isPersonal
     createdAt
     updatedAt
+  }
+`;
+
+export const GROUP_MEMBER_FRAGMENT = gql`
+  fragment GroupMemberFields on GroupMember {
+    id
+    user {
+      id
+      email
+      name
+      role
+    }
+    role
+    joinedAt
+  }
+`;
+
+export const GROUP_INVITATION_FRAGMENT = gql`
+  fragment GroupInvitationFields on GroupInvitation {
+    id
+    group {
+      id
+      name
+      isPersonal
+    }
+    email
+    invitedBy {
+      id
+      email
+      name
+    }
+    role
+    status
+    expiresAt
+    createdAt
   }
 `;
 
@@ -340,7 +376,11 @@ export const REGISTER_DEVICE = gql`
   ${DEVICE_FRAGMENT}
   mutation RegisterDevice($fingerprint: String!, $name: String!) {
     registerDevice(fingerprint: $fingerprint, name: $name) {
-      ...DeviceFields
+      success
+      device {
+        ...DeviceFields
+      }
+      message
     }
   }
 `;
@@ -422,17 +462,24 @@ export const DELETE_USER_GROUP = gql`
   }
 `;
 
-/** Add a user to a group (admin only) */
+/** Add a user to a group (group admin or system admin) */
 export const ADD_USER_TO_GROUP = gql`
-  mutation AddUserToGroup($userId: ID!, $groupId: ID!) {
-    addUserToGroup(userId: $userId, groupId: $groupId)
+  mutation AddUserToGroup($userId: ID!, $groupId: ID!, $role: GroupMemberRole) {
+    addUserToGroup(userId: $userId, groupId: $groupId, role: $role)
   }
 `;
 
-/** Remove a user from a group (admin only) */
+/** Remove a user from a group (group admin or system admin) */
 export const REMOVE_USER_FROM_GROUP = gql`
   mutation RemoveUserFromGroup($userId: ID!, $groupId: ID!) {
     removeUserFromGroup(userId: $userId, groupId: $groupId)
+  }
+`;
+
+/** Update a group member's role (group admin or system admin) */
+export const UPDATE_GROUP_MEMBER_ROLE = gql`
+  mutation UpdateGroupMemberRole($userId: ID!, $groupId: ID!, $role: GroupMemberRole!) {
+    updateGroupMemberRole(userId: $userId, groupId: $groupId, role: $role)
   }
 `;
 
@@ -463,8 +510,11 @@ export const UPDATE_DEVICE = gql`
 
 /** Revoke a device's authorization (admin only) */
 export const REVOKE_DEVICE = gql`
+  ${DEVICE_FRAGMENT}
   mutation RevokeDevice($id: ID!) {
-    revokeDevice(id: $id)
+    revokeDevice(id: $id) {
+      ...DeviceFields
+    }
   }
 `;
 
@@ -497,5 +547,78 @@ export const UPDATE_AUTH_SETTINGS = gql`
     updateAuthSettings(input: $input) {
       ...AuthSettingsFields
     }
+  }
+`;
+
+// =============================================================================
+// GROUP QUERIES (for non-admin users)
+// =============================================================================
+
+/** Get groups the current user belongs to */
+export const GET_MY_GROUPS = gql`
+  ${USER_GROUP_FRAGMENT}
+  ${GROUP_MEMBER_FRAGMENT}
+  query GetMyGroups {
+    myGroups {
+      ...UserGroupFields
+      members {
+        ...GroupMemberFields
+      }
+    }
+  }
+`;
+
+/** Get pending invitations for the current user */
+export const GET_MY_INVITATIONS = gql`
+  ${GROUP_INVITATION_FRAGMENT}
+  query GetMyInvitations {
+    myInvitations {
+      ...GroupInvitationFields
+    }
+  }
+`;
+
+/** Get invitations for a group (group admin or system admin) */
+export const GET_GROUP_INVITATIONS = gql`
+  ${GROUP_INVITATION_FRAGMENT}
+  query GetGroupInvitations($groupId: ID!) {
+    groupInvitations(groupId: $groupId) {
+      ...GroupInvitationFields
+    }
+  }
+`;
+
+// =============================================================================
+// INVITATION MUTATIONS
+// =============================================================================
+
+/** Invite a user by email to join a group */
+export const INVITE_TO_GROUP = gql`
+  ${GROUP_INVITATION_FRAGMENT}
+  mutation InviteToGroup($groupId: ID!, $email: String!, $role: GroupMemberRole) {
+    inviteToGroup(groupId: $groupId, email: $email, role: $role) {
+      ...GroupInvitationFields
+    }
+  }
+`;
+
+/** Accept a group invitation */
+export const ACCEPT_INVITATION = gql`
+  mutation AcceptInvitation($invitationId: ID!) {
+    acceptInvitation(invitationId: $invitationId)
+  }
+`;
+
+/** Decline a group invitation */
+export const DECLINE_INVITATION = gql`
+  mutation DeclineInvitation($invitationId: ID!) {
+    declineInvitation(invitationId: $invitationId)
+  }
+`;
+
+/** Cancel a pending group invitation (group admin or system admin) */
+export const CANCEL_INVITATION = gql`
+  mutation CancelInvitation($invitationId: ID!) {
+    cancelInvitation(invitationId: $invitationId)
   }
 `;

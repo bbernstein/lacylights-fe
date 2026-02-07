@@ -10,6 +10,12 @@ export const GET_PROJECTS = gql`
       updatedAt
       layoutCanvasWidth
       layoutCanvasHeight
+      groupId
+      group {
+        id
+        name
+        isPersonal
+      }
     }
   }
 `;
@@ -24,6 +30,12 @@ export const GET_PROJECT = gql`
       updatedAt
       layoutCanvasWidth
       layoutCanvasHeight
+      groupId
+      group {
+        id
+        name
+        isPersonal
+      }
       fixtures {
         id
         name
@@ -49,6 +61,12 @@ export const CREATE_PROJECT = gql`
       description
       createdAt
       updatedAt
+      groupId
+      group {
+        id
+        name
+        isPersonal
+      }
     }
   }
 `;

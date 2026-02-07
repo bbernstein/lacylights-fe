@@ -2,6 +2,27 @@ import React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import { UserModeProvider, useUserMode } from '../UserModeContext';
 
+// Mock the AuthContext to provide default values (auth disabled)
+const mockUseAuth = jest.fn();
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => mockUseAuth(),
+}));
+
+// Default auth mock values (auth disabled)
+const defaultAuthMock = {
+  user: null,
+  isAuthenticated: false,
+  isAuthEnabled: false,
+  isLoading: false,
+  login: jest.fn(),
+  logout: jest.fn(),
+  logoutAll: jest.fn(),
+  refresh: jest.fn(),
+  register: jest.fn(),
+  hasPermission: () => false,
+  isAdmin: false,
+};
+
 // Mock localStorage
 const mockLocalStorage = {
   getItem: jest.fn(),
@@ -25,6 +46,8 @@ function TestComponent() {
     canEditContent,
     canPlayback,
     canView,
+    isModeLocked,
+    selectableModes,
   } = useUserMode();
 
   return (
@@ -34,6 +57,8 @@ function TestComponent() {
       <div data-testid="canEditContent">{canEditContent ? 'yes' : 'no'}</div>
       <div data-testid="canPlayback">{canPlayback ? 'yes' : 'no'}</div>
       <div data-testid="canView">{canView ? 'yes' : 'no'}</div>
+      <div data-testid="isModeLocked">{isModeLocked ? 'yes' : 'no'}</div>
+      <div data-testid="selectableModes">{selectableModes.join(',')}</div>
       <button data-testid="set-admin" onClick={() => setMode('admin')}>
         Set Admin
       </button>
@@ -54,6 +79,7 @@ describe('UserModeContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockLocalStorage.getItem.mockReturnValue(null);
+    mockUseAuth.mockReturnValue(defaultAuthMock);
   });
 
   describe('UserModeProvider', () => {
@@ -320,6 +346,133 @@ describe('UserModeContext', () => {
         expect(screen.getByTestId('mode')).toHaveTextContent(validMode);
         unmount();
       }
+    });
+  });
+
+  describe('Auth integration', () => {
+    it('forces admin mode when user is an authenticated admin', () => {
+      mockUseAuth.mockReturnValue({
+        ...defaultAuthMock,
+        isAuthEnabled: true,
+        isAuthenticated: true,
+        user: { role: 'ADMIN' },
+        isAdmin: true,
+      });
+
+      render(
+        <UserModeProvider>
+          <TestComponent />
+        </UserModeProvider>
+      );
+
+      expect(screen.getByTestId('mode')).toHaveTextContent('admin');
+      expect(screen.getByTestId('canManageUsers')).toHaveTextContent('yes');
+      expect(screen.getByTestId('isModeLocked')).toHaveTextContent('yes');
+      expect(screen.getByTestId('selectableModes')).toHaveTextContent('');
+    });
+
+    it('prevents mode change when user is an admin', () => {
+      mockUseAuth.mockReturnValue({
+        ...defaultAuthMock,
+        isAuthEnabled: true,
+        isAuthenticated: true,
+        user: { role: 'ADMIN' },
+        isAdmin: true,
+      });
+
+      render(
+        <UserModeProvider>
+          <TestComponent />
+        </UserModeProvider>
+      );
+
+      // Try to change mode
+      act(() => {
+        screen.getByTestId('set-watcher').click();
+      });
+
+      // Mode should still be admin
+      expect(screen.getByTestId('mode')).toHaveTextContent('admin');
+    });
+
+    it('allows mode selection for non-admin authenticated users', () => {
+      mockUseAuth.mockReturnValue({
+        ...defaultAuthMock,
+        isAuthEnabled: true,
+        isAuthenticated: true,
+        user: { role: 'USER' },
+        isAdmin: false,
+      });
+
+      render(
+        <UserModeProvider>
+          <TestComponent />
+        </UserModeProvider>
+      );
+
+      // Default should be editor
+      expect(screen.getByTestId('mode')).toHaveTextContent('editor');
+      expect(screen.getByTestId('isModeLocked')).toHaveTextContent('no');
+      // Non-admin users get editor,watcher (AVAILABLE_MODES without admin)
+      expect(screen.getByTestId('selectableModes')).toHaveTextContent('editor,watcher');
+
+      // Should be able to change to watcher
+      act(() => {
+        screen.getByTestId('set-watcher').click();
+      });
+
+      expect(screen.getByTestId('mode')).toHaveTextContent('watcher');
+    });
+
+    it('prevents non-admin users from setting admin mode', () => {
+      mockUseAuth.mockReturnValue({
+        ...defaultAuthMock,
+        isAuthEnabled: true,
+        isAuthenticated: true,
+        user: { role: 'USER' },
+        isAdmin: false,
+      });
+
+      render(
+        <UserModeProvider>
+          <TestComponent />
+        </UserModeProvider>
+      );
+
+      // Try to set admin mode
+      act(() => {
+        screen.getByTestId('set-admin').click();
+      });
+
+      // Mode should still be editor (the default)
+      expect(screen.getByTestId('mode')).toHaveTextContent('editor');
+    });
+
+    it('allows all mode selection when auth is disabled', () => {
+      mockUseAuth.mockReturnValue({
+        ...defaultAuthMock,
+        isAuthEnabled: false,
+        isAuthenticated: false,
+        user: null,
+        isAdmin: false,
+      });
+
+      render(
+        <UserModeProvider>
+          <TestComponent />
+        </UserModeProvider>
+      );
+
+      expect(screen.getByTestId('isModeLocked')).toHaveTextContent('no');
+      // When auth is disabled, show AVAILABLE_MODES (editor,watcher)
+      expect(screen.getByTestId('selectableModes')).toHaveTextContent('editor,watcher');
+
+      // Should be able to set admin mode when auth is disabled
+      act(() => {
+        screen.getByTestId('set-admin').click();
+      });
+
+      expect(screen.getByTestId('mode')).toHaveTextContent('admin');
     });
   });
 });

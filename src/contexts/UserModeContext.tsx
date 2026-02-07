@@ -13,8 +13,11 @@ import {
   UserPermissions,
   DEFAULT_USER_MODE,
   ALL_MODES,
+  AVAILABLE_MODES,
   getPermissionsForMode,
 } from '@/types/userMode';
+import { useAuth } from './AuthContext';
+import { UserRole } from '@/types';
 
 const STORAGE_KEY = 'lacylights-user-mode';
 
@@ -26,6 +29,10 @@ interface UserModeContextType extends UserPermissions {
   mode: UserMode;
   /** Set the user mode */
   setMode: (mode: UserMode) => void;
+  /** Whether the mode is locked (cannot be changed, e.g., for admin users) */
+  isModeLocked: boolean;
+  /** Available modes the user can select from */
+  selectableModes: UserMode[];
 }
 
 const UserModeContext = createContext<UserModeContextType | undefined>(
@@ -49,6 +56,13 @@ function isValidUserMode(value: string | null): value is UserMode {
  * Manages the current user mode and persists it to localStorage.
  * Provides permission helpers derived from the current mode.
  *
+ * When authentication is enabled:
+ * - Admin users are forced to 'admin' mode and cannot change it
+ * - Regular users can select from non-admin modes
+ *
+ * When authentication is disabled:
+ * - Uses localStorage-based mode selection (original behavior)
+ *
  * @example
  * ```tsx
  * <UserModeProvider>
@@ -57,14 +71,45 @@ function isValidUserMode(value: string | null): value is UserMode {
  * ```
  */
 export function UserModeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setModeState] = useState<UserMode>(DEFAULT_USER_MODE);
+  const { isAuthEnabled, isAuthenticated, user } = useAuth();
+  const [localMode, setLocalMode] = useState<UserMode>(DEFAULT_USER_MODE);
+
+  // Determine if the current user is an admin (when auth is enabled)
+  const isAdmin = isAuthEnabled && isAuthenticated && user?.role === UserRole.ADMIN;
+
+  // Determine if mode is locked (admin users can't change their mode)
+  const isModeLocked = isAdmin;
+
+  // Determine available modes for selection
+  const selectableModes = useMemo<UserMode[]>(() => {
+    if (!isAuthEnabled) {
+      // Auth disabled: use the default available modes
+      return AVAILABLE_MODES;
+    }
+    if (isAdmin) {
+      // Admin: mode is locked, no selection available
+      return [];
+    }
+    // Regular authenticated user: can select non-admin modes
+    return AVAILABLE_MODES.filter((m) => m !== 'admin');
+  }, [isAuthEnabled, isAdmin]);
+
+  // Compute effective mode based on auth state
+  const mode = useMemo<UserMode>(() => {
+    if (isAdmin) {
+      // Admin users are forced to 'admin' mode
+      return 'admin';
+    }
+    // Use local mode for non-admin users
+    return localMode;
+  }, [isAdmin, localMode]);
 
   // Load mode from localStorage on mount
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (isValidUserMode(stored)) {
-        setModeState(stored);
+        setLocalMode(stored);
       }
     } catch {
       // localStorage may not be available (SSR, privacy mode, etc.)
@@ -73,13 +118,21 @@ export function UserModeProvider({ children }: { children: React.ReactNode }) {
 
   // Set mode and persist to localStorage
   const setMode = useCallback((newMode: UserMode) => {
-    setModeState(newMode);
+    // Prevent changing mode if locked (admin users with auth enabled)
+    if (isModeLocked) {
+      return;
+    }
+    // Prevent selecting admin mode if auth is enabled and user is not an admin
+    if (newMode === 'admin' && isAuthEnabled && !isAdmin) {
+      return;
+    }
+    setLocalMode(newMode);
     try {
       localStorage.setItem(STORAGE_KEY, newMode);
     } catch {
       // localStorage may not be available
     }
-  }, []);
+  }, [isModeLocked, isAuthEnabled, isAdmin]);
 
   // Compute permissions from current mode
   const permissions = useMemo(() => getPermissionsForMode(mode), [mode]);
@@ -88,9 +141,11 @@ export function UserModeProvider({ children }: { children: React.ReactNode }) {
     () => ({
       mode,
       setMode,
+      isModeLocked,
+      selectableModes,
       ...permissions,
     }),
-    [mode, setMode, permissions]
+    [mode, setMode, isModeLocked, selectableModes, permissions]
   );
 
   return (
@@ -103,18 +158,24 @@ export function UserModeProvider({ children }: { children: React.ReactNode }) {
 /**
  * Hook to access user mode state and permissions.
  *
- * @returns The current mode, setMode function, and permission booleans
+ * @returns The current mode, setMode function, permission booleans,
+ *          isModeLocked flag, and selectableModes array
  * @throws Error if used outside UserModeProvider
  *
  * @example
  * ```tsx
  * function MyComponent() {
- *   const { mode, canPlayback, canEditContent } = useUserMode();
+ *   const { mode, canPlayback, canEditContent, isModeLocked, selectableModes } = useUserMode();
  *
  *   return (
- *     <button disabled={!canPlayback}>
- *       Play
- *     </button>
+ *     <div>
+ *       <button disabled={!canPlayback}>Play</button>
+ *       {!isModeLocked && (
+ *         <select>
+ *           {selectableModes.map(m => <option key={m}>{m}</option>)}
+ *         </select>
+ *       )}
+ *     </div>
  *   );
  * }
  * ```
