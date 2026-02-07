@@ -14,6 +14,7 @@ export default function GroupsPage() {
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDescription, setNewGroupDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data, loading } = useQuery(GET_MY_GROUPS, {
     skip: !isAuthEnabled || !isAuthenticated,
@@ -42,8 +43,9 @@ export default function GroupsPage() {
   const groups: UserGroup[] = data?.myGroups || [];
 
   const handleCreate = async () => {
-    if (!newGroupName.trim()) return;
+    if (!newGroupName.trim() || isSubmitting) return;
     setError(null);
+    setIsSubmitting(true);
     try {
       await createGroup({
         variables: {
@@ -63,6 +65,8 @@ export default function GroupsPage() {
       } else {
         setError(message);
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -108,14 +112,15 @@ export default function GroupsPage() {
           <div className="flex gap-2">
             <button
               onClick={handleCreate}
-              disabled={!newGroupName.trim()}
+              disabled={!newGroupName.trim() || isSubmitting}
               className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50"
             >
-              Create
+              {isSubmitting ? 'Creating...' : 'Create'}
             </button>
             <button
-              onClick={() => { setIsCreating(false); setNewGroupName(''); setNewGroupDescription(''); }}
-              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+              onClick={() => { setIsCreating(false); setNewGroupName(''); setNewGroupDescription(''); setError(null); }}
+              disabled={isSubmitting}
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
