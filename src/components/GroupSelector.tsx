@@ -32,8 +32,8 @@ export default function GroupSelector() {
     };
   }, [handleKeyDown]);
 
-  // Only render if user has 2+ groups
-  if (groups.length < 2 || !activeGroup) {
+  // Only render if user has groups
+  if (groups.length === 0 || !activeGroup) {
     return null;
   }
 

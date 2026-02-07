@@ -33,15 +33,26 @@ describe('GroupSelector', () => {
     useGroup.mockReturnValue(mockUseGroup);
   });
 
-  it('renders nothing when user has fewer than 2 groups', () => {
+  it('renders nothing when user has no groups', () => {
+    useGroup.mockReturnValue({
+      ...mockUseGroup,
+      activeGroup: null,
+      groups: [],
+    });
+
+    const { container } = render(<GroupSelector />);
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('renders group selector when user has 1 group', () => {
     useGroup.mockReturnValue({
       ...mockUseGroup,
       activeGroup: personalGroup,
       groups: [personalGroup],
     });
 
-    const { container } = render(<GroupSelector />);
-    expect(container.innerHTML).toBe('');
+    render(<GroupSelector />);
+    expect(screen.getByText('My Personal (Personal)')).toBeInTheDocument();
   });
 
   it('renders nothing when no active group', () => {
