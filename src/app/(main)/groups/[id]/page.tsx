@@ -200,7 +200,7 @@ export default function GroupDetailPage() {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded text-red-200 text-sm">
+        <div className="mb-4 p-3 bg-red-100 dark:bg-red-500/20 border border-red-500 rounded text-red-700 dark:text-red-200 text-sm">
           {error}
         </div>
       )}
