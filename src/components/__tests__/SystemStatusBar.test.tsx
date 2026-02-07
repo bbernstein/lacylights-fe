@@ -26,6 +26,23 @@ jest.mock('@/hooks/usePageVisibility', () => ({
   usePageVisibility: jest.fn(() => true),
 }));
 
+// Mock the AuthContext to provide default values (auth disabled)
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: null,
+    isAuthenticated: false,
+    isAuthEnabled: false,
+    isLoading: false,
+    login: jest.fn(),
+    logout: jest.fn(),
+    logoutAll: jest.fn(),
+    refresh: jest.fn(),
+    register: jest.fn(),
+    hasPermission: () => false,
+    isAdmin: false,
+  }),
+}));
+
 const mockSystemInfoEnabled = {
   artnetEnabled: true,
   artnetBroadcastAddress: '192.168.1.255',

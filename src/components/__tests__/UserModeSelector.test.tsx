@@ -4,6 +4,23 @@ import UserModeSelector from '../UserModeSelector';
 import { UserModeProvider, useUserMode } from '@/contexts/UserModeContext';
 import { AVAILABLE_MODES, USER_MODE_LABELS } from '@/types/userMode';
 
+// Mock the AuthContext to provide default values (auth disabled)
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: null,
+    isAuthenticated: false,
+    isAuthEnabled: false,
+    isLoading: false,
+    login: jest.fn(),
+    logout: jest.fn(),
+    logoutAll: jest.fn(),
+    refresh: jest.fn(),
+    register: jest.fn(),
+    hasPermission: () => false,
+    isAdmin: false,
+  }),
+}));
+
 // Mock localStorage
 const mockLocalStorage = {
   getItem: jest.fn<string | null, [string]>(() => null),

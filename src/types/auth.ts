@@ -58,6 +58,20 @@ export interface AuthUser {
   permissions: string[];
 }
 
+/** Role within a group */
+export enum GroupMemberRole {
+  MEMBER = 'MEMBER',
+  GROUP_ADMIN = 'GROUP_ADMIN',
+}
+
+/** Status of a group invitation */
+export enum InvitationStatus {
+  PENDING = 'PENDING',
+  ACCEPTED = 'ACCEPTED',
+  DECLINED = 'DECLINED',
+  EXPIRED = 'EXPIRED',
+}
+
 /** User group for permission management */
 export interface UserGroup {
   id: string;
@@ -67,8 +81,49 @@ export interface UserGroup {
   permissions: string[];
   /** Number of members in this group */
   memberCount: number;
+  /** Whether this is a personal group auto-created for a user */
+  isPersonal: boolean;
+  /** Members of this group */
+  members?: GroupMember[];
+  /** Projects owned by this group */
+  projects?: { id: string; name: string }[];
+  /** Devices assigned to this group */
+  devices?: { id: string; name: string }[];
   createdAt: string;
   updatedAt: string;
+}
+
+/** A member within a group */
+export interface GroupMember {
+  id: string;
+  user: {
+    id: string;
+    email: string;
+    name?: string;
+    role: UserRole;
+  };
+  role: GroupMemberRole;
+  joinedAt: string;
+}
+
+/** An invitation to join a group */
+export interface GroupInvitation {
+  id: string;
+  group: {
+    id: string;
+    name: string;
+    isPersonal: boolean;
+  };
+  email: string;
+  invitedBy: {
+    id: string;
+    email: string;
+    name?: string;
+  };
+  role: GroupMemberRole;
+  status: InvitationStatus;
+  expiresAt: string;
+  createdAt: string;
 }
 
 /** User session information */

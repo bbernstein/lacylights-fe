@@ -12,6 +12,13 @@ export interface Project {
   // 2D Layout canvas dimensions (for fixture positioning)
   layoutCanvasWidth: number;
   layoutCanvasHeight: number;
+  // Group ownership
+  groupId?: string;
+  group?: {
+    id: string;
+    name: string;
+    isPersonal: boolean;
+  };
 }
 
 export interface FixtureDefinition {

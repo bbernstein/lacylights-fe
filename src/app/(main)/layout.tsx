@@ -6,11 +6,13 @@ import { ClockIcon } from '@heroicons/react/24/outline';
 import { Providers } from '../providers';
 import TabNavigation from '@/components/TabNavigation';
 import MobileNav from '@/components/MobileNav';
+import GroupSelector from '@/components/GroupSelector';
 import ProjectSelector from '@/components/ProjectSelector';
 import SystemStatusBar from '@/components/SystemStatusBar';
 import { UndoRedoToolbar } from '@/components/UndoRedoToolbar';
 import { OperationHistoryPanel } from '@/components/OperationHistoryPanel';
 import UserMenu from '@/components/UserMenu';
+import InvitationBadge from '@/components/InvitationBadge';
 import { useFocusMode } from '@/contexts/FocusModeContext';
 import { useUndoRedoKeyboard } from '@/hooks/useUndoRedoKeyboard';
 
@@ -57,7 +59,9 @@ function MainLayoutContent({ children }: { children: ReactNode }) {
                       History
                     </span>
                   </button>
+                  <InvitationBadge />
                   <UserMenu />
+                  <GroupSelector />
                   <ProjectSelector />
                 </div>
               </div>

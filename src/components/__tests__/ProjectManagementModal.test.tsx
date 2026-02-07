@@ -22,6 +22,18 @@ jest.mock('../../contexts/ProjectContext', () => ({
   useProject: jest.fn(),
 }));
 
+// Mock the useGroup hook
+jest.mock('../../contexts/GroupContext', () => ({
+  useGroup: jest.fn(() => ({
+    activeGroup: { id: 'group-1', name: 'Personal', isPersonal: true },
+    groups: [{ id: 'group-1', name: 'Personal', isPersonal: true }],
+    loading: false,
+    selectGroup: jest.fn(),
+    selectGroupById: jest.fn(),
+    refetchGroups: jest.fn(),
+  })),
+}));
+
 const mockProjects = [
   {
     id: 'project-1',

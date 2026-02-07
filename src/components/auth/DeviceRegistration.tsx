@@ -57,11 +57,13 @@ export default function DeviceRegistration({ onComplete, compact = false }: Devi
 
   const [registerDevice, { loading: registering }] = useMutation(REGISTER_DEVICE, {
     onCompleted: (data) => {
-      if (data?.registerDevice) {
+      if (data?.registerDevice?.success) {
         setDeviceName(deviceName.trim());
         setExistingName(deviceName.trim());
         setIsRegistered(true);
         setError(null);
+      } else if (data?.registerDevice?.message) {
+        setError(`Registration failed: ${data.registerDevice.message}`);
       }
     },
     onError: (err) => {

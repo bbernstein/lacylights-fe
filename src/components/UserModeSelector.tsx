@@ -5,7 +5,6 @@ import {
   UserMode,
   USER_MODE_LABELS,
   USER_MODE_DESCRIPTIONS,
-  AVAILABLE_MODES,
 } from '@/types/userMode';
 
 interface UserModeSelectorProps {
@@ -63,10 +62,31 @@ const MODE_STYLES: Record<
 /**
  * Compact mode selector for the status bar.
  * Displays as a dropdown-style selector with minimal footprint.
+ * When mode is locked (admin users), shows a read-only badge.
  */
 function CompactSelector({ className = '' }: { className?: string }) {
-  const { mode, setMode } = useUserMode();
+  const { mode, setMode, isModeLocked, selectableModes } = useUserMode();
   const style = MODE_STYLES[mode];
+
+  // If mode is locked, show a static badge instead of a selector
+  if (isModeLocked) {
+    return (
+      <div
+        className={`
+          inline-flex items-center gap-1
+          text-xs font-medium
+          px-2 py-1 rounded-md
+          border ${style.border} ${style.bg} ${style.text}
+          ${className}
+        `}
+        title={`Mode: ${USER_MODE_LABELS[mode]} - ${USER_MODE_DESCRIPTIONS[mode]}`}
+        aria-label={`User mode: ${USER_MODE_LABELS[mode]}`}
+      >
+        <span aria-hidden="true">{style.icon}</span>
+        <span>{USER_MODE_LABELS[mode]}</span>
+      </div>
+    );
+  }
 
   return (
     <div className={`relative inline-block ${className}`}>
@@ -84,7 +104,7 @@ function CompactSelector({ className = '' }: { className?: string }) {
         title={`Current mode: ${USER_MODE_LABELS[mode]} - ${USER_MODE_DESCRIPTIONS[mode]}`}
         aria-label="Select user mode"
       >
-        {AVAILABLE_MODES.map((m) => (
+        {selectableModes.map((m) => (
           <option key={m} value={m}>
             {USER_MODE_LABELS[m]}
           </option>
@@ -119,9 +139,57 @@ function CompactSelector({ className = '' }: { className?: string }) {
 /**
  * Expanded mode selector for settings page.
  * Shows all modes with descriptions and radio-style selection.
+ * When mode is locked (admin users), shows a read-only display.
  */
 function ExpandedSelector({ className = '' }: { className?: string }) {
-  const { mode, setMode } = useUserMode();
+  const { mode, setMode, isModeLocked, selectableModes } = useUserMode();
+  const currentStyle = MODE_STYLES[mode];
+
+  // If mode is locked, show a read-only card
+  if (isModeLocked) {
+    return (
+      <div className={`space-y-2 ${className}`}>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          User Mode
+        </label>
+        <div
+          className={`
+            p-3 rounded-lg border-2
+            ${currentStyle.border} ${currentStyle.bg}
+          `}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-lg" aria-hidden="true">
+              {currentStyle.icon}
+            </span>
+            <div className="flex-1">
+              <div className={`font-medium ${currentStyle.text}`}>
+                {USER_MODE_LABELS[mode]}
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                {USER_MODE_DESCRIPTIONS[mode]}
+              </div>
+            </div>
+            <svg
+              className={`w-5 h-5 ${currentStyle.text}`}
+              fill="currentColor"
+              viewBox="0 0 20 20"
+              aria-hidden="true"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+          Mode is determined by your account role and cannot be changed.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className={`space-y-2 ${className}`}>
@@ -129,7 +197,7 @@ function ExpandedSelector({ className = '' }: { className?: string }) {
         User Mode
       </label>
       <div className="space-y-2">
-        {AVAILABLE_MODES.map((m) => {
+        {selectableModes.map((m) => {
           const style = MODE_STYLES[m];
           const isSelected = mode === m;
 
