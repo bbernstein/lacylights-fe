@@ -117,8 +117,11 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
 
     const input: { name: string; description?: string; groupId?: string } = {
       name: newProjectName.trim(),
-      description: newProjectDescription.trim(),
     };
+    const trimmedDescription = newProjectDescription.trim();
+    if (trimmedDescription) {
+      input.description = trimmedDescription;
+    }
     // Use explicitly selected group, or fall back to active group
     const groupId = newProjectGroupId || activeGroup?.id;
     if (groupId) {

@@ -16,27 +16,32 @@ import {
   GET_MY_GROUPS,
 } from '@/graphql/auth';
 import { useAuth } from '@/contexts/AuthContext';
-import type { GroupMember, GroupInvitation, GroupMemberRole } from '@/types/auth';
+import { GroupMemberRole } from '@/types/auth';
+import type { GroupMember, GroupInvitation } from '@/types/auth';
 
 export default function GroupDetailPage() {
   const params = useParams();
   const groupId = params.id as string;
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, isAuthEnabled, isAuthenticated, user } = useAuth();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<GroupMemberRole>('MEMBER' as GroupMemberRole);
+  const [inviteRole, setInviteRole] = useState<GroupMemberRole>(GroupMemberRole.MEMBER);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const shouldFetch = isAuthEnabled && isAuthenticated;
+
   const { data: groupData, loading } = useQuery(GET_USER_GROUP, {
     variables: { id: groupId },
+    skip: !shouldFetch,
   });
 
   const { data: invitationsData } = useQuery(GET_GROUP_INVITATIONS, {
     variables: { groupId },
+    skip: !shouldFetch,
   });
 
   const [updateGroup] = useMutation(UPDATE_USER_GROUP, {
@@ -232,8 +237,8 @@ export default function GroupDetailPage() {
                 onChange={(e) => setInviteRole(e.target.value as GroupMemberRole)}
                 className="px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
               >
-                <option value="MEMBER">Member</option>
-                <option value="GROUP_ADMIN">Admin</option>
+                <option value={GroupMemberRole.MEMBER}>Member</option>
+                <option value={GroupMemberRole.GROUP_ADMIN}>Admin</option>
               </select>
               <button
                 onClick={handleInvite}
@@ -274,8 +279,8 @@ export default function GroupDetailPage() {
                       onChange={(e) => handleRoleChange(member.user.id, e.target.value as GroupMemberRole)}
                       className="px-2 py-1 bg-gray-700 text-white rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="MEMBER">Member</option>
-                      <option value="GROUP_ADMIN">Admin</option>
+                      <option value={GroupMemberRole.MEMBER}>Member</option>
+                      <option value={GroupMemberRole.GROUP_ADMIN}>Admin</option>
                     </select>
                     <button
                       onClick={() => handleRemoveMember(member.user.id)}

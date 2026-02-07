@@ -77,11 +77,18 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check if auth is enabled (from cookie set by client after initial check)
+  // Check if auth is enabled (from cookie set by client after initial check).
+  //
+  // Design note: When the cookie is absent (fresh session/first visit), we allow
+  // access because the client-side AuthContext will query the backend to determine
+  // if auth is enabled and set this cookie. If we defaulted to "auth enabled" when
+  // absent, it would redirect users to login before the client can check, breaking
+  // instances where auth is disabled entirely. The client-side AuthContext provides
+  // the actual auth enforcement after the cookie is established.
   const authEnabledCookie = request.cookies.get(AUTH_ENABLED_COOKIE);
   const isAuthEnabled = authEnabledCookie?.value === 'true';
 
-  // If auth is not enabled, allow all routes
+  // If auth is not enabled (cookie absent or not 'true'), allow all routes
   if (!isAuthEnabled) {
     return NextResponse.next();
   }

@@ -29,6 +29,8 @@ interface DeviceAuthCode {
   code: string;
   expiresAt: string;
   deviceId: string;
+  /** Total TTL in seconds, captured at creation time for progress bar accuracy */
+  initialTtlSeconds?: number;
 }
 
 interface DeviceManagementModalProps {
@@ -63,7 +65,10 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
   const [createDeviceAuthCode, { loading: generatingCode }] = useMutation(CREATE_DEVICE_AUTH_CODE, {
     onError: (err) => setError(`Failed to generate auth code: ${err.message}`),
     onCompleted: (data) => {
-      setAuthCode(data.createDeviceAuthCode);
+      const code = data.createDeviceAuthCode;
+      // Capture the initial TTL for accurate progress bar rendering
+      const initialTtl = Math.max(0, Math.floor((new Date(code.expiresAt).getTime() - Date.now()) / 1000));
+      setAuthCode({ ...code, initialTtlSeconds: initialTtl });
     },
   });
 
@@ -230,7 +235,7 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
             <div
               className="bg-blue-500 h-1.5 rounded-full transition-all duration-1000"
-              style={{ width: `${(timeRemaining / 900) * 100}%` }}
+              style={{ width: `${(timeRemaining / (authCode.initialTtlSeconds || 900)) * 100}%` }}
             />
           </div>
           <button

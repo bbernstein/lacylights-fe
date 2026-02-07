@@ -14,8 +14,10 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const { isAuthenticated, isAuthEnabled, isLoading } = useAuth();
 
-  // Get redirect URL from query params or default to home
-  const redirectTo = searchParams.get('redirect') || '/';
+  // Get redirect URL from query params or default to home.
+  // Only allow relative paths starting with '/' to prevent open redirects.
+  const rawRedirect = searchParams.get('redirect') || '/';
+  const redirectTo = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/';
 
   // Redirect if already authenticated or auth is disabled
   useEffect(() => {

@@ -101,6 +101,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     const currentGroupId = activeGroup?.id ?? null;
     if (prevGroupIdRef.current !== undefined && prevGroupIdRef.current !== currentGroupId) {
       setCurrentProject(null);
+      // Reset auto-create guard so a new group with zero projects can trigger auto-create
+      autoCreateAttemptedRef.current = false;
       refetchQuery();
     }
     prevGroupIdRef.current = currentGroupId;

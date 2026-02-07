@@ -125,7 +125,10 @@ const createMocks = () => [
     },
     result: {
       data: {
-        revokeDevice: true,
+        revokeDevice: {
+          ...mockDevices[0],
+          isAuthorized: false,
+        },
       },
     },
   },
