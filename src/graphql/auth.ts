@@ -220,12 +220,16 @@ export const GET_USER_GROUPS = gql`
   }
 `;
 
-/** Get a user group by ID (admin only) */
+/** Get a user group by ID with members (admin or group member) */
 export const GET_USER_GROUP = gql`
   ${USER_GROUP_FRAGMENT}
+  ${GROUP_MEMBER_FRAGMENT}
   query GetUserGroup($id: ID!) {
     userGroup(id: $id) {
       ...UserGroupFields
+      members {
+        ...GroupMemberFields
+      }
     }
   }
 `;

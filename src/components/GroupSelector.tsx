@@ -1,12 +1,18 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useGroup } from '@/contexts/GroupContext';
 
 export default function GroupSelector() {
   const { activeGroup, groups, selectGroup } = useGroup();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (event.key === 'Escape' && isOpen) {
+      setIsOpen(false);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -19,10 +25,12 @@ export default function GroupSelector() {
     }
 
     document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [handleKeyDown]);
 
   // Only render if user has 2+ groups
   if (groups.length < 2 || !activeGroup) {
@@ -35,6 +43,10 @@ export default function GroupSelector() {
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-controls={isOpen ? 'group-selector-dropdown' : undefined}
+        aria-label={`Active group: ${activeGroup.name}${activeGroup.isPersonal ? ' (Personal)' : ''}`}
       >
         <span className="hidden md:inline">Group:</span>
         <span className="font-semibold">
@@ -47,7 +59,7 @@ export default function GroupSelector() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-10 mt-2 w-56 rounded-md bg-white dark:bg-gray-700 shadow-lg ring-1 ring-black ring-opacity-5">
+        <div id="group-selector-dropdown" role="listbox" className="absolute right-0 z-10 mt-2 w-56 rounded-md bg-white dark:bg-gray-700 shadow-lg ring-1 ring-black ring-opacity-5">
           <div className="py-1">
             {groups.map((group) => (
               <button

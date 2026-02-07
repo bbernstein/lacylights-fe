@@ -112,4 +112,65 @@ describe('GroupSelector', () => {
 
     expect(screen.getByText('(Personal)')).toBeInTheDocument();
   });
+
+  describe('accessibility', () => {
+    it('has aria-haspopup and aria-expanded attributes', () => {
+      useGroup.mockReturnValue({
+        ...mockUseGroup,
+        activeGroup: personalGroup,
+        groups: [personalGroup, teamGroup],
+      });
+
+      render(<GroupSelector />);
+
+      const button = screen.getByRole('button');
+      expect(button).toHaveAttribute('aria-haspopup', 'listbox');
+      expect(button).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('updates aria-expanded when dropdown is open', () => {
+      useGroup.mockReturnValue({
+        ...mockUseGroup,
+        activeGroup: personalGroup,
+        groups: [personalGroup, teamGroup],
+      });
+
+      render(<GroupSelector />);
+
+      const button = screen.getByRole('button');
+      fireEvent.click(button);
+      expect(button).toHaveAttribute('aria-expanded', 'true');
+      expect(button).toHaveAttribute('aria-controls', 'group-selector-dropdown');
+    });
+
+    it('closes dropdown on Escape key', () => {
+      useGroup.mockReturnValue({
+        ...mockUseGroup,
+        activeGroup: personalGroup,
+        groups: [personalGroup, teamGroup],
+      });
+
+      render(<GroupSelector />);
+
+      const button = screen.getByRole('button');
+      fireEvent.click(button);
+      expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    });
+
+    it('has an accessible label for the active group', () => {
+      useGroup.mockReturnValue({
+        ...mockUseGroup,
+        activeGroup: personalGroup,
+        groups: [personalGroup, teamGroup],
+      });
+
+      render(<GroupSelector />);
+
+      const button = screen.getByRole('button');
+      expect(button).toHaveAttribute('aria-label', 'Active group: My Personal (Personal)');
+    });
+  });
 });

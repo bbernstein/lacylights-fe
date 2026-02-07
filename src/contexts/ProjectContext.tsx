@@ -70,7 +70,10 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     } else if (!loading && projects.length === 0 && !error && !autoCreateAttemptedRef.current) {
       // Auto-create a default project if none exist
       autoCreateAttemptedRef.current = true;
-      createNewProject('Default Project', 'Automatically created project');
+      void createNewProject('Default Project', 'Automatically created project').catch(() => {
+        // Allow retry on failure by resetting the guard
+        autoCreateAttemptedRef.current = false;
+      });
     }
   }, [loading, projects, currentProject, error, createNewProject]);
 

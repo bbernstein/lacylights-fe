@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { EnvelopeIcon } from '@heroicons/react/24/outline';
 import {
   GET_MY_INVITATIONS,
   ACCEPT_INVITATION,
   DECLINE_INVITATION,
-  GET_MY_GROUPS,
 } from '@/graphql/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGroup } from '@/contexts/GroupContext';
@@ -26,12 +25,16 @@ export default function InvitationBadge() {
     pollInterval: 60000, // Poll every minute for new invitations
   });
 
-  const [acceptInvitation] = useMutation(ACCEPT_INVITATION, {
-    refetchQueries: [{ query: GET_MY_INVITATIONS }, { query: GET_MY_GROUPS }],
-  });
+  const [acceptInvitation] = useMutation(ACCEPT_INVITATION);
   const [declineInvitation] = useMutation(DECLINE_INVITATION, {
     refetchQueries: [{ query: GET_MY_INVITATIONS }],
   });
+
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (event.key === 'Escape' && isOpen) {
+      setIsOpen(false);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -40,8 +43,12 @@ export default function InvitationBadge() {
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleKeyDown]);
 
   const invitations: GroupInvitation[] = data?.myInvitations || [];
 
@@ -52,8 +59,9 @@ export default function InvitationBadge() {
   const handleAccept = async (invitationId: string) => {
     try {
       await acceptInvitation({ variables: { invitationId } });
-      await refetchGroups();
-      await refetch();
+      // Single refetch strategy: refetch groups (which includes the newly joined group)
+      // and invitations (to remove the accepted one) in parallel
+      await Promise.all([refetchGroups(), refetch()]);
     } catch (error) {
       console.error('Failed to accept invitation:', error);
     }
@@ -75,6 +83,9 @@ export default function InvitationBadge() {
         className="relative p-2 rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
         title="Group invitations"
         aria-label="Group invitations"
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        aria-controls={isOpen ? 'invitation-dropdown' : undefined}
       >
         <EnvelopeIcon className="h-5 w-5" />
         <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-xs text-white font-medium">
@@ -83,7 +94,7 @@ export default function InvitationBadge() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-10 mt-2 w-80 rounded-md bg-white dark:bg-gray-700 shadow-lg ring-1 ring-black ring-opacity-5">
+        <div id="invitation-dropdown" role="menu" className="absolute right-0 z-10 mt-2 w-80 rounded-md bg-white dark:bg-gray-700 shadow-lg ring-1 ring-black ring-opacity-5">
           <div className="p-3">
             <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
               Group Invitations

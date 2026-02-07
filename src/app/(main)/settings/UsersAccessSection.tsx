@@ -26,9 +26,15 @@ export default function UsersAccessSection() {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isDeviceModalOpen, setIsDeviceModalOpen] = useState(false);
 
-  // Fetch auth settings
+  // Determine if this section should be shown
+  // Show if:
+  // 1. User has canManageUsers permission (auth enabled, admin user)
+  // 2. Auth is disabled AND user is in admin mode (allows enabling auth)
+  const shouldShow = canManageUsers || (!isAuthEnabled && mode === 'admin');
+
+  // Fetch auth settings (only when section will render and auth is enabled)
   const { data: authSettingsData } = useQuery(GET_AUTH_SETTINGS, {
-    skip: !isAuthEnabled, // Only fetch when auth is enabled
+    skip: !isAuthEnabled || !shouldShow,
   });
 
   // Fetch users list (only when auth is enabled and user can manage)
@@ -45,12 +51,6 @@ export default function UsersAccessSection() {
   const [updateAuthSettings, { loading: updating }] = useMutation(UPDATE_AUTH_SETTINGS, {
     refetchQueries: [{ query: GET_AUTH_SETTINGS }],
   });
-
-  // Determine if this section should be shown
-  // Show if:
-  // 1. User has canManageUsers permission (auth enabled, admin user)
-  // 2. Auth is disabled AND user is in admin mode (allows enabling auth)
-  const shouldShow = canManageUsers || (!isAuthEnabled && mode === 'admin');
 
   if (!shouldShow) {
     return null;

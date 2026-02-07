@@ -24,8 +24,10 @@ const EXCLUDED_PATTERNS = [
 ];
 
 /**
- * Cookie name for the auth token.
- * This must match the cookie name set by the backend.
+ * Cookie name for the session indicator.
+ * This is a simple session flag set client-side (not a JWT) to indicate
+ * the user has an active session. Actual auth validation happens server-side
+ * on each GraphQL request via the Authorization header.
  */
 const AUTH_TOKEN_COOKIE = 'lacylights_token';
 
@@ -58,7 +60,7 @@ function isPublicRoute(pathname: string): boolean {
  * The auth check uses a two-cookie approach:
  * 1. `lacylights_auth_enabled` - Set by the client after checking with the server
  *    if auth is globally enabled. If not set or 'false', all routes are accessible.
- * 2. `lacylights_token` - The actual JWT token set by the backend on login.
+ * 2. `lacylights_token` - A session indicator cookie set by the client on login.
  *    If auth is enabled and this cookie is missing, redirect to login.
  *
  * This middleware is intentionally lightweight and defers detailed auth checks
@@ -97,10 +99,11 @@ export function middleware(request: NextRequest) {
   const tokenCookie = request.cookies.get(AUTH_TOKEN_COOKIE);
   const hasToken = !!tokenCookie?.value;
 
-  // If no token, redirect to login with return URL
+  // If no token, redirect to login with return URL (preserving query string)
   if (!hasToken) {
     const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
+    const returnPath = pathname + request.nextUrl.search;
+    loginUrl.searchParams.set('redirect', returnPath);
     return NextResponse.redirect(loginUrl);
   }
 

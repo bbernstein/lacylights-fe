@@ -39,9 +39,17 @@ export default function GroupDetailPage() {
     skip: !shouldFetch,
   });
 
+  // Determine group admin status from loaded data for conditional query skip.
+  // System admins always have admin access; otherwise check membership role.
+  const group = groupData?.userGroup;
+  const members: GroupMember[] = group?.members || [];
+  const currentMember = members.find((m: GroupMember) => m.user.id === user?.id);
+  const isGroupAdmin = isAdmin || currentMember?.role === 'GROUP_ADMIN';
+
+  // Only fetch invitations if user has admin access (avoids auth errors for non-admins)
   const { data: invitationsData } = useQuery(GET_GROUP_INVITATIONS, {
     variables: { groupId },
-    skip: !shouldFetch,
+    skip: !shouldFetch || !isGroupAdmin,
   });
 
   const [updateGroup] = useMutation(UPDATE_USER_GROUP, {
@@ -73,18 +81,12 @@ export default function GroupDetailPage() {
     return <div className="text-gray-400 text-center py-8">Loading group...</div>;
   }
 
-  const group = groupData?.userGroup;
   if (!group) {
     return <div className="text-gray-400 text-center py-8">Group not found.</div>;
   }
 
-  const members: GroupMember[] = group.members || [];
   const invitations: GroupInvitation[] = invitationsData?.groupInvitations || [];
   const pendingInvitations = invitations.filter((i: GroupInvitation) => i.status === 'PENDING');
-
-  // Check if current user is group admin or system admin
-  const currentMember = members.find((m: GroupMember) => m.user.id === user?.id);
-  const isGroupAdmin = isAdmin || currentMember?.role === 'GROUP_ADMIN';
 
   const handleUpdateGroup = async () => {
     setError(null);
@@ -209,7 +211,7 @@ export default function GroupDetailPage() {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Members ({members.length})
           </h3>
-          {isGroupAdmin && (
+          {isGroupAdmin && !group.isPersonal && (
             <button
               onClick={() => setShowInviteForm(true)}
               className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
@@ -272,7 +274,7 @@ export default function GroupDetailPage() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {isGroupAdmin && member.user.id !== user?.id ? (
+                {isGroupAdmin && !group.isPersonal && member.user.id !== user?.id ? (
                   <>
                     <select
                       value={member.role}

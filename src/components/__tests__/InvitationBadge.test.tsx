@@ -235,4 +235,64 @@ describe('InvitationBadge', () => {
 
     consoleSpy.mockRestore();
   });
+
+  describe('accessibility', () => {
+    it('has aria-haspopup and aria-expanded attributes', async () => {
+      const { useAuth } = require('@/contexts/AuthContext');
+      useAuth.mockReturnValue({ isAuthEnabled: true, isAuthenticated: true });
+
+      const mocks = [
+        {
+          request: { query: GET_MY_INVITATIONS },
+          result: { data: { myInvitations: mockInvitations } },
+        },
+      ];
+
+      render(
+        <MockedProvider mocks={mocks} addTypename={true}>
+          <InvitationBadge />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('2')).toBeInTheDocument();
+      });
+
+      const button = screen.getByLabelText('Group invitations');
+      expect(button).toHaveAttribute('aria-haspopup', 'true');
+      expect(button).toHaveAttribute('aria-expanded', 'false');
+
+      fireEvent.click(button);
+      expect(button).toHaveAttribute('aria-expanded', 'true');
+      expect(button).toHaveAttribute('aria-controls', 'invitation-dropdown');
+    });
+
+    it('closes dropdown on Escape key', async () => {
+      const { useAuth } = require('@/contexts/AuthContext');
+      useAuth.mockReturnValue({ isAuthEnabled: true, isAuthenticated: true });
+
+      const mocks = [
+        {
+          request: { query: GET_MY_INVITATIONS },
+          result: { data: { myInvitations: mockInvitations } },
+        },
+      ];
+
+      render(
+        <MockedProvider mocks={mocks} addTypename={true}>
+          <InvitationBadge />
+        </MockedProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('2')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByLabelText('Group invitations'));
+      expect(screen.getByText('Group Invitations')).toBeInTheDocument();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByText('Group Invitations')).not.toBeInTheDocument();
+    });
+  });
 });
