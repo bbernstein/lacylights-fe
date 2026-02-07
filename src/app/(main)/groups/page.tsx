@@ -21,7 +21,6 @@ export default function GroupsPage() {
 
   const [createGroup] = useMutation(CREATE_USER_GROUP, {
     refetchQueries: [{ query: GET_MY_GROUPS }],
-    onError: (err) => setError(err.message),
   });
 
   if (!isAuthEnabled) {
@@ -45,17 +44,26 @@ export default function GroupsPage() {
   const handleCreate = async () => {
     if (!newGroupName.trim()) return;
     setError(null);
-    await createGroup({
-      variables: {
-        input: {
-          name: newGroupName.trim(),
-          description: newGroupDescription.trim() || undefined,
+    try {
+      await createGroup({
+        variables: {
+          input: {
+            name: newGroupName.trim(),
+            description: newGroupDescription.trim() || undefined,
+          },
         },
-      },
-    });
-    setIsCreating(false);
-    setNewGroupName('');
-    setNewGroupDescription('');
+      });
+      setIsCreating(false);
+      setNewGroupName('');
+      setNewGroupDescription('');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create group';
+      if (message.includes('UNIQUE constraint failed')) {
+        setError(`A group named "${newGroupName.trim()}" already exists.`);
+      } else {
+        setError(message);
+      }
+    }
   };
 
   return (
