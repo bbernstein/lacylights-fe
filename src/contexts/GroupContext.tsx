@@ -1,12 +1,28 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useQuery } from '@apollo/client';
 import { GET_MY_GROUPS } from '@/graphql/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import type { UserGroup } from '@/types/auth';
 
 const ACTIVE_GROUP_KEY = 'activeGroupId';
+
+function safeGetItem(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSetItem(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Silently fail (e.g., quota exceeded, private browsing)
+  }
+}
 
 interface GroupContextType {
   activeGroup: UserGroup | null;
@@ -36,7 +52,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
 
   const selectGroup = useCallback((group: UserGroup) => {
     setActiveGroup(group);
-    localStorage.setItem(ACTIVE_GROUP_KEY, group.id);
+    safeSetItem(ACTIVE_GROUP_KEY, group.id);
   }, []);
 
   const selectGroupById = useCallback((groupId: string) => {
@@ -52,33 +68,44 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     }
   }, [refetch, shouldFetchGroups]);
 
+  // Track the active group ID in a ref to avoid re-running the effect when activeGroup changes
+  const activeGroupIdRef = useRef<string | null>(null);
+
+  // Keep the ref in sync with state
+  useEffect(() => {
+    activeGroupIdRef.current = activeGroup?.id ?? null;
+  }, [activeGroup]);
+
   // Auto-select group when groups load
   useEffect(() => {
     if (!shouldFetchGroups || loading || groups.length === 0) {
       if (!shouldFetchGroups) {
         setActiveGroup(null);
+        activeGroupIdRef.current = null;
       }
       return;
     }
 
     // If we already have an active group that's still in the list, keep it
-    if (activeGroup && groups.find((g) => g.id === activeGroup.id)) {
+    if (activeGroupIdRef.current && groups.find((g) => g.id === activeGroupIdRef.current)) {
       return;
     }
 
     // Try to restore from localStorage
-    const storedGroupId = localStorage.getItem(ACTIVE_GROUP_KEY);
+    const storedGroupId = safeGetItem(ACTIVE_GROUP_KEY);
     if (storedGroupId) {
       const storedGroup = groups.find((g) => g.id === storedGroupId);
       if (storedGroup) {
         setActiveGroup(storedGroup);
+        activeGroupIdRef.current = storedGroup.id;
         return;
       }
     }
 
     // Default: pick the first group
     setActiveGroup(groups[0]);
-  }, [groups, loading, shouldFetchGroups, activeGroup]);
+    activeGroupIdRef.current = groups[0].id;
+  }, [groups, loading, shouldFetchGroups]);
 
   const value = useMemo(
     () => ({

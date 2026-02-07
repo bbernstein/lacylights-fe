@@ -50,13 +50,21 @@ export default function InvitationBadge() {
   }
 
   const handleAccept = async (invitationId: string) => {
-    await acceptInvitation({ variables: { invitationId } });
-    await refetchGroups();
-    await refetch();
+    try {
+      await acceptInvitation({ variables: { invitationId } });
+      await refetchGroups();
+      await refetch();
+    } catch (error) {
+      console.error('Failed to accept invitation:', error);
+    }
   };
 
   const handleDecline = async (invitationId: string) => {
-    await declineInvitation({ variables: { invitationId } });
+    try {
+      await declineInvitation({ variables: { invitationId } });
+    } catch (error) {
+      console.error('Failed to decline invitation:', error);
+    }
   };
 
   return (

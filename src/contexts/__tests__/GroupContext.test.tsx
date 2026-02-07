@@ -276,6 +276,64 @@ describe('GroupContext', () => {
     });
   });
 
+  describe('localStorage error handling', () => {
+    it('falls back to first group when localStorage.getItem throws', async () => {
+      mockLocalStorage.getItem.mockImplementation(() => {
+        throw new Error('localStorage is disabled');
+      });
+
+      const mocks = [
+        {
+          request: { query: GET_MY_GROUPS },
+          result: { data: { myGroups: mockGroups } },
+        },
+      ];
+
+      render(
+        React.createElement(
+          createMockProvider(mocks),
+          null,
+          React.createElement(GroupProvider, null, React.createElement(TestComponent)),
+        ),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('active-group')).toHaveTextContent('Personal');
+      });
+    });
+
+    it('still selects group when localStorage.setItem throws', async () => {
+      mockLocalStorage.setItem.mockImplementation(() => {
+        throw new Error('QuotaExceededError');
+      });
+
+      const mocks = [
+        {
+          request: { query: GET_MY_GROUPS },
+          result: { data: { myGroups: mockGroups } },
+        },
+      ];
+
+      render(
+        React.createElement(
+          createMockProvider(mocks),
+          null,
+          React.createElement(GroupProvider, null, React.createElement(TestComponent)),
+        ),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('active-group')).toHaveTextContent('Personal');
+      });
+
+      act(() => {
+        screen.getByTestId('select-group-2').click();
+      });
+
+      expect(screen.getByTestId('active-group')).toHaveTextContent('Team Alpha');
+    });
+  });
+
   describe('useGroup hook', () => {
     it('throws error when used outside GroupProvider', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
