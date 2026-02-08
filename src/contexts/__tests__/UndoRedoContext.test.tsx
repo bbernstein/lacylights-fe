@@ -83,6 +83,7 @@ const createBaseMocks = (): MockedResponse[] => {
   const getProjectsMock = {
     request: {
       query: GET_PROJECTS,
+      variables: { groupId: 'group-1' },
     },
     result: {
       data: {
@@ -164,6 +165,7 @@ describe('UndoRedoContext', () => {
       const emptyProjectsMock = {
         request: {
           query: GET_PROJECTS,
+          variables: { groupId: 'group-1' },
         },
         result: {
           data: {
@@ -315,6 +317,7 @@ describe('UndoRedoContext', () => {
       const emptyProjectsMock = {
         request: {
           query: GET_PROJECTS,
+          variables: { groupId: 'group-1' },
         },
         result: {
           data: {
@@ -384,6 +387,7 @@ describe('UndoRedoContext', () => {
       const getProjectsMock = {
         request: {
           query: GET_PROJECTS,
+          variables: { groupId: 'group-1' },
         },
         result: {
           data: {

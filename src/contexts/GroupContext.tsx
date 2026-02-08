@@ -6,6 +6,16 @@ import { GET_MY_GROUPS } from '@/graphql/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import type { UserGroup } from '@/types/auth';
 
+export const UNASSIGNED_GROUP: UserGroup = {
+  id: 'unassigned',
+  name: 'Unassigned',
+  isPersonal: false,
+  permissions: [],
+  memberCount: 0,
+  createdAt: '',
+  updatedAt: '',
+};
+
 const ACTIVE_GROUP_KEY = 'activeGroupId';
 
 function safeGetItem(key: string): string | null {
@@ -27,6 +37,7 @@ function safeSetItem(key: string, value: string): void {
 interface GroupContextType {
   activeGroup: UserGroup | null;
   groups: UserGroup[];
+  selectableGroups: UserGroup[];
   loading: boolean;
   selectGroup: (group: UserGroup) => void;
   selectGroupById: (groupId: string) => void;
@@ -36,7 +47,7 @@ interface GroupContextType {
 const GroupContext = createContext<GroupContextType | undefined>(undefined);
 
 export function GroupProvider({ children }: { children: React.ReactNode }) {
-  const { isAuthEnabled, isAuthenticated } = useAuth();
+  const { isAuthEnabled, isAuthenticated, isAdmin } = useAuth();
   const [activeGroup, setActiveGroup] = useState<UserGroup | null>(null);
 
   const shouldFetchGroups = isAuthEnabled && isAuthenticated;
@@ -50,17 +61,24 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     return data?.myGroups || [];
   }, [data?.myGroups, shouldFetchGroups]);
 
+  const selectableGroups: UserGroup[] = useMemo(() => {
+    if (isAdmin) {
+      return [...groups, UNASSIGNED_GROUP];
+    }
+    return groups;
+  }, [groups, isAdmin]);
+
   const selectGroup = useCallback((group: UserGroup) => {
     setActiveGroup(group);
     safeSetItem(ACTIVE_GROUP_KEY, group.id);
   }, []);
 
   const selectGroupById = useCallback((groupId: string) => {
-    const group = groups.find((g) => g.id === groupId);
+    const group = selectableGroups.find((g) => g.id === groupId);
     if (group) {
       selectGroup(group);
     }
-  }, [groups, selectGroup]);
+  }, [selectableGroups, selectGroup]);
 
   const refetchGroups = useCallback(async () => {
     if (shouldFetchGroups) {
@@ -87,14 +105,14 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     }
 
     // If we already have an active group that's still in the list, keep it
-    if (activeGroupIdRef.current && groups.find((g) => g.id === activeGroupIdRef.current)) {
+    if (activeGroupIdRef.current && selectableGroups.find((g) => g.id === activeGroupIdRef.current)) {
       return;
     }
 
-    // Try to restore from localStorage
+    // Try to restore from localStorage (search selectableGroups so "unassigned" can be restored)
     const storedGroupId = safeGetItem(ACTIVE_GROUP_KEY);
     if (storedGroupId) {
-      const storedGroup = groups.find((g) => g.id === storedGroupId);
+      const storedGroup = selectableGroups.find((g) => g.id === storedGroupId);
       if (storedGroup) {
         setActiveGroup(storedGroup);
         activeGroupIdRef.current = storedGroup.id;
@@ -105,18 +123,19 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     // Default: pick the first group
     setActiveGroup(groups[0]);
     activeGroupIdRef.current = groups[0].id;
-  }, [groups, loading, shouldFetchGroups]);
+  }, [groups, selectableGroups, loading, shouldFetchGroups]);
 
   const value = useMemo(
     () => ({
       activeGroup,
       groups,
+      selectableGroups,
       loading: shouldFetchGroups ? loading : false,
       selectGroup,
       selectGroupById,
       refetchGroups,
     }),
-    [activeGroup, groups, loading, shouldFetchGroups, selectGroup, selectGroupById, refetchGroups],
+    [activeGroup, groups, selectableGroups, loading, shouldFetchGroups, selectGroup, selectGroupById, refetchGroups],
   );
 
   return (

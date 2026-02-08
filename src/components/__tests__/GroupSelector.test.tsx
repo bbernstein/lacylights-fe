@@ -12,6 +12,7 @@ const mockSelectGroup = jest.fn();
 const mockUseGroup = {
   activeGroup: null as any, // eslint-disable-line @typescript-eslint/no-explicit-any
   groups: [] as any[], // eslint-disable-line @typescript-eslint/no-explicit-any
+  selectableGroups: [] as any[], // eslint-disable-line @typescript-eslint/no-explicit-any
   loading: false,
   selectGroup: mockSelectGroup,
   selectGroupById: jest.fn(),
@@ -33,26 +34,16 @@ describe('GroupSelector', () => {
     useGroup.mockReturnValue(mockUseGroup);
   });
 
-  it('renders nothing when user has no groups', () => {
-    useGroup.mockReturnValue({
-      ...mockUseGroup,
-      activeGroup: null,
-      groups: [],
-    });
-
-    const { container } = render(<GroupSelector />);
-    expect(container.innerHTML).toBe('');
-  });
-
-  it('renders group selector when user has 1 group', () => {
+  it('renders nothing when user has fewer than 2 selectable groups', () => {
     useGroup.mockReturnValue({
       ...mockUseGroup,
       activeGroup: personalGroup,
       groups: [personalGroup],
+      selectableGroups: [personalGroup],
     });
 
-    render(<GroupSelector />);
-    expect(screen.getByText('My Personal (Personal)')).toBeInTheDocument();
+    const { container } = render(<GroupSelector />);
+    expect(container.innerHTML).toBe('');
   });
 
   it('renders nothing when no active group', () => {
@@ -60,28 +51,31 @@ describe('GroupSelector', () => {
       ...mockUseGroup,
       activeGroup: null,
       groups: [personalGroup, teamGroup],
+      selectableGroups: [personalGroup, teamGroup],
     });
 
     const { container } = render(<GroupSelector />);
     expect(container.innerHTML).toBe('');
   });
 
-  it('renders group selector when user has 2+ groups', () => {
+  it('renders group selector when user has 2+ selectable groups', () => {
     useGroup.mockReturnValue({
       ...mockUseGroup,
       activeGroup: personalGroup,
       groups: [personalGroup, teamGroup],
+      selectableGroups: [personalGroup, teamGroup],
     });
 
     render(<GroupSelector />);
     expect(screen.getByText('My Personal (Personal)')).toBeInTheDocument();
   });
 
-  it('opens dropdown on click and shows all groups', () => {
+  it('opens dropdown on click and shows all selectable groups', () => {
     useGroup.mockReturnValue({
       ...mockUseGroup,
       activeGroup: personalGroup,
       groups: [personalGroup, teamGroup],
+      selectableGroups: [personalGroup, teamGroup],
     });
 
     render(<GroupSelector />);
@@ -96,6 +90,7 @@ describe('GroupSelector', () => {
       ...mockUseGroup,
       activeGroup: personalGroup,
       groups: [personalGroup, teamGroup],
+      selectableGroups: [personalGroup, teamGroup],
     });
 
     render(<GroupSelector />);
@@ -103,8 +98,8 @@ describe('GroupSelector', () => {
     fireEvent.click(screen.getByRole('button'));
 
     // Click Team Alpha in the dropdown
-    const buttons = screen.getAllByRole('button');
-    const teamButton = buttons.find(b => b.textContent?.includes('Team Alpha'));
+    const menuItems = screen.getAllByRole('menuitem');
+    const teamButton = menuItems.find(b => b.textContent?.includes('Team Alpha'));
     expect(teamButton).toBeDefined();
     fireEvent.click(teamButton!);
 
@@ -116,6 +111,7 @@ describe('GroupSelector', () => {
       ...mockUseGroup,
       activeGroup: teamGroup,
       groups: [personalGroup, teamGroup],
+      selectableGroups: [personalGroup, teamGroup],
     });
 
     render(<GroupSelector />);
@@ -124,18 +120,34 @@ describe('GroupSelector', () => {
     expect(screen.getByText('(Personal)')).toBeInTheDocument();
   });
 
+  it('shows Unassigned option for admin users', () => {
+    const unassignedGroup = { id: 'unassigned', name: 'Unassigned', isPersonal: false, permissions: [], memberCount: 0, createdAt: '', updatedAt: '' };
+    useGroup.mockReturnValue({
+      ...mockUseGroup,
+      activeGroup: personalGroup,
+      groups: [personalGroup],
+      selectableGroups: [personalGroup, unassignedGroup],
+    });
+
+    render(<GroupSelector />);
+    fireEvent.click(screen.getByRole('button'));
+
+    expect(screen.getByText('Unassigned')).toBeInTheDocument();
+  });
+
   describe('accessibility', () => {
     it('has aria-haspopup and aria-expanded attributes', () => {
       useGroup.mockReturnValue({
         ...mockUseGroup,
         activeGroup: personalGroup,
         groups: [personalGroup, teamGroup],
+        selectableGroups: [personalGroup, teamGroup],
       });
 
       render(<GroupSelector />);
 
       const button = screen.getByRole('button');
-      expect(button).toHaveAttribute('aria-haspopup', 'listbox');
+      expect(button).toHaveAttribute('aria-haspopup', 'menu');
       expect(button).toHaveAttribute('aria-expanded', 'false');
     });
 
@@ -144,6 +156,7 @@ describe('GroupSelector', () => {
         ...mockUseGroup,
         activeGroup: personalGroup,
         groups: [personalGroup, teamGroup],
+        selectableGroups: [personalGroup, teamGroup],
       });
 
       render(<GroupSelector />);
@@ -159,16 +172,17 @@ describe('GroupSelector', () => {
         ...mockUseGroup,
         activeGroup: personalGroup,
         groups: [personalGroup, teamGroup],
+        selectableGroups: [personalGroup, teamGroup],
       });
 
       render(<GroupSelector />);
 
       const button = screen.getByRole('button');
       fireEvent.click(button);
-      expect(screen.getByRole('listbox')).toBeInTheDocument();
+      expect(screen.getByRole('menu')).toBeInTheDocument();
 
       fireEvent.keyDown(document, { key: 'Escape' });
-      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
 
     it('has an accessible label for the active group', () => {
@@ -176,6 +190,7 @@ describe('GroupSelector', () => {
         ...mockUseGroup,
         activeGroup: personalGroup,
         groups: [personalGroup, teamGroup],
+        selectableGroups: [personalGroup, teamGroup],
       });
 
       render(<GroupSelector />);

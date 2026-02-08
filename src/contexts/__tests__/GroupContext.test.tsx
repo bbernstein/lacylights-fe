@@ -67,13 +67,14 @@ const mockGroups = [
 
 // Test component that uses the GroupContext
 function TestComponent() {
-  const { activeGroup, groups, loading, selectGroup, selectGroupById } = useGroup();
+  const { activeGroup, groups, selectableGroups, loading, selectGroup, selectGroupById } = useGroup();
 
   return (
     <div>
       <div data-testid="loading">{loading ? 'Loading' : 'Not Loading'}</div>
       <div data-testid="active-group">{activeGroup ? activeGroup.name : 'No Group'}</div>
       <div data-testid="groups-count">{groups.length}</div>
+      <div data-testid="selectable-groups-count">{selectableGroups.length}</div>
       <button
         data-testid="select-group-2"
         onClick={() => selectGroupById('group-2')}
@@ -331,6 +332,60 @@ describe('GroupContext', () => {
       });
 
       expect(screen.getByTestId('active-group')).toHaveTextContent('Team Alpha');
+    });
+  });
+
+  describe('selectableGroups', () => {
+    it('equals groups for non-admin users', async () => {
+      const mocks = [
+        {
+          request: { query: GET_MY_GROUPS },
+          result: { data: { myGroups: mockGroups } },
+        },
+      ];
+
+      await act(async () => {
+        render(
+          React.createElement(
+            createMockProvider(mocks),
+            null,
+            React.createElement(GroupProvider, null, React.createElement(TestComponent)),
+          ),
+        );
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('groups-count')).toHaveTextContent('2');
+        // Non-admin: selectableGroups should equal groups (no "Unassigned")
+        expect(screen.getByTestId('selectable-groups-count')).toHaveTextContent('2');
+      });
+    });
+
+    it('includes Unassigned group for admin users', async () => {
+      useAuth.mockReturnValue({ ...mockAuth, isAdmin: true });
+
+      const mocks = [
+        {
+          request: { query: GET_MY_GROUPS },
+          result: { data: { myGroups: mockGroups } },
+        },
+      ];
+
+      await act(async () => {
+        render(
+          React.createElement(
+            createMockProvider(mocks),
+            null,
+            React.createElement(GroupProvider, null, React.createElement(TestComponent)),
+          ),
+        );
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('groups-count')).toHaveTextContent('2');
+        // Admin: selectableGroups should include the extra "Unassigned" group
+        expect(screen.getByTestId('selectable-groups-count')).toHaveTextContent('3');
+      });
     });
   });
 

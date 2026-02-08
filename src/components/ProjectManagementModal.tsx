@@ -6,6 +6,7 @@ import { TrashIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '@/graphql/projects';
 import { useProject } from '@/contexts/ProjectContext';
 import { useGroup } from '@/contexts/GroupContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Project } from '@/types';
 import ImportExportButtons from './ImportExportButtons';
 import BottomSheet from './BottomSheet';
@@ -20,29 +21,33 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   const isMobile = useIsMobile();
   const { refetchAndSelectById, selectProjectById, selectedProjectId } = useProject();
   const { groups, activeGroup } = useGroup();
+  const { isAdmin } = useAuth();
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
   const [isCreating, setIsCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [newProjectGroupId, setNewProjectGroupId] = useState('');
-  const [editingProject, setEditingProject] = useState<{id: string, name: string, description: string} | null>(null);
+  const [editingProject, setEditingProject] = useState<{id: string, name: string, description: string, groupId: string} | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { data, loading, refetch } = useQuery(GET_PROJECTS);
+  const groupIdVar = activeGroup?.id ?? undefined;
+  const { data, loading, refetch } = useQuery(GET_PROJECTS, {
+    variables: { groupId: groupIdVar },
+  });
   const [createProject] = useMutation(CREATE_PROJECT, {
-    refetchQueries: [{ query: GET_PROJECTS }],
+    refetchQueries: [{ query: GET_PROJECTS, variables: { groupId: groupIdVar } }],
     onError: (error) => {
       setError(`Failed to create project: ${error.message}`);
     },
   });
   const [deleteProject] = useMutation(DELETE_PROJECT, {
-    refetchQueries: [{ query: GET_PROJECTS }],
+    refetchQueries: [{ query: GET_PROJECTS, variables: { groupId: groupIdVar } }],
     onError: (error) => {
       setError(`Failed to delete project: ${error.message}`);
     },
   });
   const [updateProject] = useMutation(UPDATE_PROJECT, {
-    refetchQueries: [{ query: GET_PROJECTS }],
+    refetchQueries: [{ query: GET_PROJECTS, variables: { groupId: groupIdVar } }],
     onError: (error) => {
       setError(`Failed to update project: ${error.message}`);
     },
@@ -148,7 +153,8 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     setEditingProject({
       id: project.id,
       name: project.name,
-      description: project.description || ''
+      description: project.description || '',
+      groupId: project.groupId ?? '',
     });
   };
 
@@ -156,17 +162,25 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     if (!editingProject || !editingProject.name.trim()) return;
 
     setError(null);
-    
+
+    const input: { name: string; description: string; groupId?: string | null } = {
+      name: editingProject.name.trim(),
+      description: editingProject.description.trim(),
+    };
+    // Include groupId: empty string means clear (null), otherwise set to selected group
+    if (editingProject.groupId === '') {
+      input.groupId = null;
+    } else {
+      input.groupId = editingProject.groupId;
+    }
+
     const _result = await updateProject({
       variables: {
         id: editingProject.id,
-        input: {
-          name: editingProject.name.trim(),
-          description: editingProject.description.trim()
-        }
+        input,
       }
     });
-    
+
     await refetch();
     setEditingProject(null);
   };
@@ -320,6 +334,22 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
                       rows={2}
                       placeholder="Description (optional)"
                     />
+                    {groups.length > 1 && (
+                      <select
+                        value={editingProject.groupId}
+                        onChange={(e) => setEditingProject({...editingProject, groupId: e.target.value})}
+                        className="w-full px-2 py-1 bg-gray-600 text-white rounded text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {isAdmin && (
+                          <option value="">Unassigned</option>
+                        )}
+                        {groups.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.name}{g.isPersonal ? ' (Personal)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <div className={`flex gap-2 ${isMobile ? 'flex-col' : ''}`}>
                       <button
                         onClick={handleUpdateProject}

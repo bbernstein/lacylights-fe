@@ -143,7 +143,7 @@ describe('ProjectContext', () => {
     it('provides initial loading state', () => {
       const mocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: mockProjects } },
         },
       ];
@@ -168,7 +168,7 @@ describe('ProjectContext', () => {
     it('loads projects and auto-selects first project', async () => {
       const mocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: mockProjects } },
         },
       ];
@@ -197,7 +197,7 @@ describe('ProjectContext', () => {
       const error = new Error('Failed to fetch projects');
       const mocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           error,
         },
       ];
@@ -223,7 +223,7 @@ describe('ProjectContext', () => {
     it('creates default project when no projects exist', async () => {
       const mocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: [] } },
         },
         {
@@ -236,7 +236,7 @@ describe('ProjectContext', () => {
           result: { data: { createProject: newProject } },
         },
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: [newProject] } },
         },
       ];
@@ -266,7 +266,7 @@ describe('ProjectContext', () => {
 
       const mocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: mockProjects } },
         },
       ];
@@ -294,7 +294,7 @@ describe('ProjectContext', () => {
 
       const mocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: mockProjects } },
         },
       ];
@@ -321,7 +321,7 @@ describe('ProjectContext', () => {
     it('allows manual project selection', async () => {
       const mocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: mockProjects } },
         },
       ];
@@ -353,7 +353,7 @@ describe('ProjectContext', () => {
     it('allows project selection by ID', async () => {
       const mocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: mockProjects } },
         },
       ];
@@ -385,7 +385,7 @@ describe('ProjectContext', () => {
     it('handles selection of non-existent project ID gracefully', async () => {
       const mocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: mockProjects } },
         },
       ];
@@ -416,7 +416,7 @@ describe('ProjectContext', () => {
     it('creates new project successfully', async () => {
       const mocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: mockProjects } },
         },
         {
@@ -429,7 +429,7 @@ describe('ProjectContext', () => {
           result: { data: { createProject: newProject } },
         },
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: [...mockProjects, newProject] } },
         },
       ];
@@ -464,7 +464,7 @@ describe('ProjectContext', () => {
       const createError = new Error('Failed to create project');
       const mocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: mockProjects } },
         },
         {
@@ -514,7 +514,7 @@ describe('ProjectContext', () => {
     it('provides all required context values', async () => {
       const mocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: mockProjects } },
         },
       ];
@@ -550,7 +550,7 @@ describe('ProjectContext', () => {
     it('saves selected project to localStorage', async () => {
       const mocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: mockProjects } },
         },
       ];
@@ -583,7 +583,7 @@ describe('ProjectContext', () => {
 
       const mocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: mockProjects } },
         },
       ];

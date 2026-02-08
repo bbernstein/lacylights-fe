@@ -1,8 +1,8 @@
 import { gql } from '@apollo/client';
 
 export const GET_PROJECTS = gql`
-  query GetProjects {
-    projects {
+  query GetProjects($groupId: ID) {
+    projects(groupId: $groupId) {
       id
       name
       description
@@ -78,6 +78,12 @@ export const UPDATE_PROJECT = gql`
       name
       description
       updatedAt
+      groupId
+      group {
+        id
+        name
+        isPersonal
+      }
     }
   }
 `;

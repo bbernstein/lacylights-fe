@@ -27,10 +27,20 @@ jest.mock('../../contexts/GroupContext', () => ({
   useGroup: jest.fn(() => ({
     activeGroup: { id: 'group-1', name: 'Personal', isPersonal: true },
     groups: [{ id: 'group-1', name: 'Personal', isPersonal: true }],
+    selectableGroups: [{ id: 'group-1', name: 'Personal', isPersonal: true }],
     loading: false,
     selectGroup: jest.fn(),
     selectGroupById: jest.fn(),
     refetchGroups: jest.fn(),
+  })),
+}));
+
+// Mock the useAuth hook
+jest.mock('../../contexts/AuthContext', () => ({
+  useAuth: jest.fn(() => ({
+    isAdmin: false,
+    isAuthEnabled: true,
+    isAuthenticated: true,
   })),
 }));
 
@@ -41,6 +51,8 @@ const mockProjects = [
     description: 'First test project',
     createdAt: '2023-01-01T12:00:00Z',
     updatedAt: '2023-01-01T12:00:00Z',
+    groupId: 'group-1',
+    group: { id: 'group-1', name: 'Personal', isPersonal: true },
     __typename: 'Project',
   },
   {
@@ -49,6 +61,8 @@ const mockProjects = [
     description: 'Second test project',
     createdAt: '2023-01-02T12:00:00Z',
     updatedAt: '2023-01-02T12:00:00Z',
+    groupId: 'group-1',
+    group: { id: 'group-1', name: 'Personal', isPersonal: true },
     __typename: 'Project',
   },
 ];
@@ -73,6 +87,7 @@ const createMocks = () => [
   {
     request: {
       query: GET_PROJECTS,
+      variables: { groupId: 'group-1' },
     },
     result: {
       data: {
@@ -98,6 +113,8 @@ const createMocks = () => [
           description: 'New project description',
           createdAt: '2023-01-03T12:00:00Z',
           updatedAt: '2023-01-03T12:00:00Z',
+          groupId: 'group-1',
+          group: { id: 'group-1', name: 'Personal', isPersonal: true },
           __typename: 'Project',
         },
       },
@@ -122,6 +139,7 @@ const createMocks = () => [
         input: {
           name: 'Updated Project',
           description: 'Updated description',
+          groupId: 'group-1',
         },
       },
     },
@@ -131,8 +149,9 @@ const createMocks = () => [
           id: 'project-1',
           name: 'Updated Project',
           description: 'Updated description',
-          createdAt: '2023-01-01T12:00:00Z',
           updatedAt: '2023-01-03T12:00:00Z',
+          groupId: 'group-1',
+          group: { id: 'group-1', name: 'Personal', isPersonal: true },
           __typename: 'Project',
         },
       },
@@ -172,7 +191,7 @@ describe('ProjectManagementModal', () => {
     it('shows loading state initially', () => {
       const loadingMocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           delay: 1000,
           result: { data: { projects: [] } },
         },
@@ -303,7 +322,7 @@ describe('ProjectManagementModal', () => {
     it('handles project loading errors gracefully', async () => {
       const errorMocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           error: new Error('Network error'),
         },
       ];
@@ -365,7 +384,7 @@ describe('ProjectManagementModal', () => {
     it('handles empty project list', async () => {
       const emptyMocks = [
         {
-          request: { query: GET_PROJECTS },
+          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
           result: { data: { projects: [] } },
         },
       ];

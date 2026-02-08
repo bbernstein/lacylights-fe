@@ -27,7 +27,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const prevGroupIdRef = useRef<string | null | undefined>(undefined);
   const autoCreateAttemptedRef = useRef(false);
 
-  const { data, loading, error, refetch: refetchQuery } = useQuery(GET_PROJECTS);
+  const { data, loading, error, refetch: refetchQuery } = useQuery(GET_PROJECTS, {
+    variables: { groupId: activeGroup?.id ?? undefined },
+  });
   const [createProject] = useMutation(CREATE_PROJECT);
 
   const projects = useMemo(() => data?.projects || [], [data?.projects]);
