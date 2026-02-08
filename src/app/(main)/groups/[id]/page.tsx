@@ -44,7 +44,7 @@ export default function GroupDetailPage() {
   const group = groupData?.userGroup;
   const members: GroupMember[] = group?.members || [];
   const currentMember = members.find((m: GroupMember) => m.user.id === user?.id);
-  const isGroupAdmin = isAdmin || currentMember?.role === 'GROUP_ADMIN';
+  const isGroupAdmin = isAdmin || currentMember?.role === GroupMemberRole.GROUP_ADMIN;
 
   // Only fetch invitations if user has admin access (avoids auth errors for non-admins)
   const { data: invitationsData } = useQuery(GET_GROUP_INVITATIONS, {
@@ -90,39 +90,59 @@ export default function GroupDetailPage() {
 
   const handleUpdateGroup = async () => {
     setError(null);
-    await updateGroup({
-      variables: {
-        id: groupId,
-        input: { name: editName.trim(), description: editDescription.trim() || undefined },
-      },
-    });
-    setIsEditing(false);
+    try {
+      await updateGroup({
+        variables: {
+          id: groupId,
+          input: { name: editName.trim(), description: editDescription.trim() || undefined },
+        },
+      });
+      setIsEditing(false);
+    } catch {
+      // Error is handled by the mutation's onError option via setError
+    }
   };
 
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return;
     setError(null);
-    await inviteToGroup({
-      variables: { groupId, email: inviteEmail.trim(), role: inviteRole },
-    });
-    setInviteEmail('');
-    setShowInviteForm(false);
+    try {
+      await inviteToGroup({
+        variables: { groupId, email: inviteEmail.trim(), role: inviteRole },
+      });
+      setInviteEmail('');
+      setShowInviteForm(false);
+    } catch {
+      // Error is handled by the mutation's onError option via setError
+    }
   };
 
   const handleCancelInvitation = async (invitationId: string) => {
     setError(null);
-    await cancelInvitation({ variables: { invitationId } });
+    try {
+      await cancelInvitation({ variables: { invitationId } });
+    } catch {
+      // Error is handled by the mutation's onError option via setError
+    }
   };
 
   const handleRoleChange = async (userId: string, role: GroupMemberRole) => {
     setError(null);
-    await updateMemberRole({ variables: { userId, groupId, role } });
+    try {
+      await updateMemberRole({ variables: { userId, groupId, role } });
+    } catch {
+      // Error is handled by the mutation's onError option via setError
+    }
   };
 
   const handleRemoveMember = async (userId: string) => {
     if (!confirm('Remove this member from the group?')) return;
     setError(null);
-    await removeMember({ variables: { userId, groupId } });
+    try {
+      await removeMember({ variables: { userId, groupId } });
+    } catch {
+      // Error is handled by the mutation's onError option via setError
+    }
   };
 
   return (
@@ -294,7 +314,7 @@ export default function GroupDetailPage() {
                   </>
                 ) : (
                   <span className="text-xs px-2 py-1 bg-gray-700 text-gray-300 rounded">
-                    {member.role === 'GROUP_ADMIN' ? 'Admin' : 'Member'}
+                    {member.role === GroupMemberRole.GROUP_ADMIN ? 'Admin' : 'Member'}
                   </span>
                 )}
               </div>
@@ -318,7 +338,7 @@ export default function GroupDetailPage() {
                 <div>
                   <span className="text-white">{invitation.email}</span>
                   <span className="text-gray-400 text-sm ml-2">
-                    as {invitation.role === 'GROUP_ADMIN' ? 'Admin' : 'Member'}
+                    as {invitation.role === GroupMemberRole.GROUP_ADMIN ? 'Admin' : 'Member'}
                   </span>
                   <span className="text-gray-500 text-xs ml-2">
                     expires {new Date(invitation.expiresAt).toLocaleDateString()}

@@ -138,7 +138,7 @@ export default function GroupsPage() {
             <Link
               key={group.id}
               href={`/groups/${group.id}`}
-              className="block p-4 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors"
+              className="block p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
             >
               <div className="flex items-center gap-3">
                 <UserGroupIcon className="h-8 w-8 text-gray-400 shrink-0" />

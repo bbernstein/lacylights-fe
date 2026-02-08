@@ -5,7 +5,7 @@ import { useMutation, useQuery } from '@apollo/client';
 import { TrashIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '@/graphql/projects';
 import { useProject } from '@/contexts/ProjectContext';
-import { useGroup } from '@/contexts/GroupContext';
+import { useGroup, getGroupIdForQuery } from '@/contexts/GroupContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Project } from '@/types';
 import ImportExportButtons from './ImportExportButtons';
@@ -30,7 +30,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   const [editingProject, setEditingProject] = useState<{id: string, name: string, description: string, groupId: string} | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const groupIdVar = activeGroup?.id ?? undefined;
+  const groupIdVar = getGroupIdForQuery(activeGroup);
   const { data, loading, refetch } = useQuery(GET_PROJECTS, {
     variables: { groupId: groupIdVar },
   });

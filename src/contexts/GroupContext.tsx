@@ -6,8 +6,10 @@ import { GET_MY_GROUPS } from '@/graphql/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import type { UserGroup } from '@/types/auth';
 
+export const UNASSIGNED_GROUP_ID = 'unassigned';
+
 export const UNASSIGNED_GROUP: UserGroup = {
-  id: 'unassigned',
+  id: UNASSIGNED_GROUP_ID,
   name: 'Unassigned',
   isPersonal: false,
   permissions: [],
@@ -15,6 +17,15 @@ export const UNASSIGNED_GROUP: UserGroup = {
   createdAt: '',
   updatedAt: '',
 };
+
+/**
+ * Returns the groupId suitable for GraphQL queries.
+ * Translates the 'unassigned' sentinel to undefined (no filter / null on backend).
+ */
+export function getGroupIdForQuery(group: UserGroup | null): string | undefined {
+  if (!group || group.id === UNASSIGNED_GROUP_ID) return undefined;
+  return group.id;
+}
 
 const ACTIVE_GROUP_KEY = 'activeGroupId';
 

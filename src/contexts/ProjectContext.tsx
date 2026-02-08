@@ -4,7 +4,8 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECTS, CREATE_PROJECT } from '@/graphql/projects';
 import { Project } from '@/types';
-import { useGroup } from '@/contexts/GroupContext';
+import { useGroup, getGroupIdForQuery } from '@/contexts/GroupContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ProjectContextType {
   currentProject: Project | null;
@@ -24,11 +25,13 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const { activeGroup } = useGroup();
+  const { isAuthEnabled } = useAuth();
   const prevGroupIdRef = useRef<string | null | undefined>(undefined);
   const autoCreateAttemptedRef = useRef(false);
 
+  const groupIdForQuery = getGroupIdForQuery(activeGroup);
   const { data, loading, error, refetch: refetchQuery } = useQuery(GET_PROJECTS, {
-    variables: { groupId: activeGroup?.id ?? undefined },
+    variables: { groupId: groupIdForQuery },
   });
   const [createProject] = useMutation(CREATE_PROJECT);
 
@@ -42,11 +45,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const createNewProject = useCallback(async (name: string, description?: string, groupId?: string) => {
     try {
       const input: { name: string; description?: string; groupId?: string } = { name, description };
-      // Use provided groupId, or fall back to active group
+      // Use provided groupId, or fall back to active group (translating sentinel)
       if (groupId) {
         input.groupId = groupId;
-      } else if (activeGroup) {
-        input.groupId = activeGroup.id;
+      } else {
+        const resolvedGroupId = getGroupIdForQuery(activeGroup);
+        if (resolvedGroupId) {
+          input.groupId = resolvedGroupId;
+        }
       }
 
       const result = await createProject({
@@ -69,15 +75,17 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loading && !currentProject && projects.length > 0) {
       setCurrentProject(projects[0]);
-    } else if (!loading && projects.length === 0 && !error && !autoCreateAttemptedRef.current) {
+    } else if (!loading && projects.length === 0 && !error && !autoCreateAttemptedRef.current
+      && (!isAuthEnabled || activeGroup)) {
       // Auto-create a default project if none exist
+      // When auth is enabled, wait for activeGroup so the project gets a groupId
       autoCreateAttemptedRef.current = true;
       void createNewProject('Default Project', 'Automatically created project').catch(() => {
         // Allow retry on failure by resetting the guard
         autoCreateAttemptedRef.current = false;
       });
     }
-  }, [loading, projects, currentProject, error, createNewProject]);
+  }, [loading, projects, currentProject, error, createNewProject, isAuthEnabled, activeGroup]);
 
   const selectProject = (project: Project) => {
     setCurrentProject(project);
@@ -101,17 +109,17 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }, [refetchAndGet]);
 
 
-  // Refetch projects when active group changes (backend auto-filters by group)
+  // Reset project state when active group changes
+  // (Apollo automatically re-runs the query when groupIdForQuery variable changes)
   useEffect(() => {
     const currentGroupId = activeGroup?.id ?? null;
     if (prevGroupIdRef.current !== undefined && prevGroupIdRef.current !== currentGroupId) {
       setCurrentProject(null);
       // Reset auto-create guard so a new group with zero projects can trigger auto-create
       autoCreateAttemptedRef.current = false;
-      refetchQuery();
     }
     prevGroupIdRef.current = currentGroupId;
-  }, [activeGroup?.id, refetchQuery]);
+  }, [activeGroup?.id]);
 
   // Try to restore project from localStorage
   useEffect(() => {

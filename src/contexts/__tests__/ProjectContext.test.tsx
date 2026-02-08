@@ -4,6 +4,18 @@ import { MockedProvider } from '@apollo/client/testing';
 import { ProjectProvider, useProject } from '../ProjectContext';
 import { GET_PROJECTS, CREATE_PROJECT } from '../../graphql/projects';
 
+// Mock AuthContext - ProjectContext depends on useAuth()
+jest.mock('../AuthContext', () => ({
+  useAuth: jest.fn(() => ({
+    isAuthEnabled: false,
+    isAuthenticated: false,
+    isAdmin: false,
+    user: null,
+    login: jest.fn(),
+    logout: jest.fn(),
+  })),
+}));
+
 // Mock GroupContext - ProjectContext depends on useGroup()
 jest.mock('../GroupContext', () => ({
   useGroup: jest.fn(() => ({
@@ -15,6 +27,7 @@ jest.mock('../GroupContext', () => ({
     refetchGroups: jest.fn(),
   })),
   GroupProvider: ({ children }: { children: React.ReactNode }) => children,
+  getGroupIdForQuery: jest.fn((group: any) => group?.id === 'unassigned' ? undefined : group?.id), // eslint-disable-line @typescript-eslint/no-explicit-any
 }));
 
 // Mock localStorage

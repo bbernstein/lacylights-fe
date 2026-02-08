@@ -33,6 +33,7 @@ jest.mock('../../contexts/GroupContext', () => ({
     selectGroupById: jest.fn(),
     refetchGroups: jest.fn(),
   })),
+  getGroupIdForQuery: jest.fn((group: any) => group?.id === 'unassigned' ? undefined : group?.id), // eslint-disable-line @typescript-eslint/no-explicit-any
 }));
 
 // Mock the useAuth hook

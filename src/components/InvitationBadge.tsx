@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { EnvelopeIcon } from '@heroicons/react/24/outline';
 import {
@@ -30,15 +30,16 @@ export default function InvitationBadge() {
     refetchQueries: [{ query: GET_MY_INVITATIONS }],
   });
 
-  const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (event.key === 'Escape' && isOpen) {
-      setIsOpen(false);
-    }
-  }, [isOpen]);
-
   useEffect(() => {
+    if (!isOpen) return;
+
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
         setIsOpen(false);
       }
     }
@@ -48,7 +49,7 @@ export default function InvitationBadge() {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [handleKeyDown]);
+  }, [isOpen]);
 
   const invitations: GroupInvitation[] = data?.myInvitations || [];
 
