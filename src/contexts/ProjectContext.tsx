@@ -32,6 +32,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const groupIdForQuery = getGroupIdForQuery(activeGroup);
   const { data, loading, error, refetch: refetchQuery } = useQuery(GET_PROJECTS, {
     variables: { groupId: groupIdForQuery },
+    // When auth is enabled, skip until activeGroup resolves so we don't fire
+    // an initial query with undefined groupId that returns all projects.
+    skip: isAuthEnabled && !activeGroup,
   });
   const [createProject] = useMutation(CREATE_PROJECT);
 

@@ -127,8 +127,8 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     if (trimmedDescription) {
       input.description = trimmedDescription;
     }
-    // Use explicitly selected group, or fall back to active group
-    const groupId = newProjectGroupId || activeGroup?.id;
+    // Use explicitly selected group, or fall back to active group (translating sentinel)
+    const groupId = newProjectGroupId || getGroupIdForQuery(activeGroup);
     if (groupId) {
       input.groupId = groupId;
     }

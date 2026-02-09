@@ -70,8 +70,9 @@ export default function UsersAccessSection() {
           },
         },
       });
-      // The page will re-render when auth status changes
-      // User will need to log in with the default admin credentials
+      // Reload so AuthContext re-reads the new auth state from the backend.
+      // The user will be prompted to log in with the default admin credentials.
+      window.location.reload();
     } catch (err) {
       setEnableError(err instanceof Error ? err.message : 'Failed to enable authentication');
     }
