@@ -5,7 +5,7 @@ import { useMutation, useQuery } from '@apollo/client';
 import { TrashIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '@/graphql/projects';
 import { useProject } from '@/contexts/ProjectContext';
-import { useGroup } from '@/contexts/GroupContext';
+import { useGroup, UNASSIGNED_GROUP_ID } from '@/contexts/GroupContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Project } from '@/types';
 import ImportExportButtons from './ImportExportButtons';
@@ -127,7 +127,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     // Use explicitly selected group, or fall back to active group
     // (skip sentinel 'unassigned' - backend treats absence of groupId as unassigned)
     const groupId = newProjectGroupId || activeGroup?.id;
-    if (groupId && groupId !== 'unassigned') {
+    if (groupId && groupId !== UNASSIGNED_GROUP_ID) {
       input.groupId = groupId;
     }
 
