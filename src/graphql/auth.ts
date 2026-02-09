@@ -65,6 +65,11 @@ export const DEVICE_FRAGMENT = gql`
       email
       name
     }
+    groups {
+      id
+      name
+      isPersonal
+    }
   }
 `;
 
@@ -624,5 +629,23 @@ export const DECLINE_INVITATION = gql`
 export const CANCEL_INVITATION = gql`
   mutation CancelInvitation($invitationId: ID!) {
     cancelInvitation(invitationId: $invitationId)
+  }
+`;
+
+// =============================================================================
+// DEVICE-GROUP MUTATIONS
+// =============================================================================
+
+/** Add a device to a group (admin only) */
+export const ADD_DEVICE_TO_GROUP = gql`
+  mutation AddDeviceToGroup($deviceId: ID!, $groupId: ID!) {
+    addDeviceToGroup(deviceId: $deviceId, groupId: $groupId)
+  }
+`;
+
+/** Remove a device from a group (admin only) */
+export const REMOVE_DEVICE_FROM_GROUP = gql`
+  mutation RemoveDeviceFromGroup($deviceId: ID!, $groupId: ID!) {
+    removeDeviceFromGroup(deviceId: $deviceId, groupId: $groupId)
   }
 `;

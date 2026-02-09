@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { PencilIcon, KeyIcon, XCircleIcon, ClipboardIcon, CheckIcon } from '@heroicons/react/24/outline';
-import { GET_DEVICES, UPDATE_DEVICE, CREATE_DEVICE_AUTH_CODE, REVOKE_DEVICE } from '@/graphql/auth';
+import { GET_DEVICES, UPDATE_DEVICE, CREATE_DEVICE_AUTH_CODE, REVOKE_DEVICE, ADD_DEVICE_TO_GROUP, REMOVE_DEVICE_FROM_GROUP } from '@/graphql/auth';
 import BottomSheet from './BottomSheet';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import { useGroup } from '@/contexts/GroupContext';
 import { DeviceRole } from '@/types/auth';
 
 interface Device {
@@ -23,6 +24,11 @@ interface Device {
     email: string;
     name?: string;
   };
+  groups?: {
+    id: string;
+    name: string;
+    isPersonal: boolean;
+  }[];
 }
 
 interface DeviceAuthCode {
@@ -74,6 +80,16 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
 
   const [revokeDevice, { loading: revoking }] = useMutation(REVOKE_DEVICE, {
     onError: (err) => setError(`Failed to revoke device: ${err.message}`),
+    onCompleted: () => refetch(),
+  });
+
+  const { groups: allGroups } = useGroup();
+  const [addDeviceToGroup] = useMutation(ADD_DEVICE_TO_GROUP, {
+    onError: (err) => setError(`Failed to add device to group: ${err.message}`),
+    onCompleted: () => refetch(),
+  });
+  const [removeDeviceFromGroup] = useMutation(REMOVE_DEVICE_FROM_GROUP, {
+    onError: (err) => setError(`Failed to remove device from group: ${err.message}`),
     onCompleted: () => refetch(),
   });
 
@@ -281,6 +297,28 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
                       <option value={DeviceRole.OPERATOR}>Operator</option>
                       <option value={DeviceRole.DESIGNER}>Designer</option>
                     </select>
+                    <div>
+                      <label htmlFor={`add-group-${device.id}`} className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Add to group</label>
+                      <select
+                        id={`add-group-${device.id}`}
+                        aria-label="Add to group"
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            addDeviceToGroup({ variables: { deviceId: device.id, groupId: e.target.value } });
+                            e.target.value = '';
+                          }
+                        }}
+                        className="w-full px-2 py-1 bg-white dark:bg-gray-600 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-500 rounded text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        defaultValue=""
+                      >
+                        <option value="" disabled>Select a group...</option>
+                        {allGroups
+                          .filter(g => !device.groups?.some(dg => dg.id === g.id))
+                          .map(g => (
+                            <option key={g.id} value={g.id}>{g.name}{g.isPersonal ? ' (Personal)' : ''}</option>
+                          ))}
+                      </select>
+                    </div>
                     <div className={`flex gap-2 ${isMobile ? 'flex-col' : ''}`}>
                       <button
                         onClick={handleUpdateDevice}
@@ -322,6 +360,23 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
                     {device.defaultUser && (
                       <div className="text-gray-500 dark:text-gray-500 text-xs mt-1">
                         Default user: {device.defaultUser.name || device.defaultUser.email}
+                      </div>
+                    )}
+                    {device.groups && device.groups.length > 0 && (
+                      <div className="text-gray-500 dark:text-gray-500 text-xs mt-1 flex flex-wrap gap-1 items-center">
+                        Groups:
+                        {device.groups.map(g => (
+                          <span key={g.id} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
+                            {g.name}{g.isPersonal && ' (Personal)'}
+                            <button
+                              onClick={() => removeDeviceFromGroup({ variables: { deviceId: device.id, groupId: g.id } })}
+                              className="text-gray-400 hover:text-red-500 transition-colors"
+                              title={`Remove from ${g.name}`}
+                            >
+                              &times;
+                            </button>
+                          </span>
+                        ))}
                       </div>
                     )}
                   </div>

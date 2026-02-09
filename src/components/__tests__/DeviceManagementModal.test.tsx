@@ -2,7 +2,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
 import DeviceManagementModal from '../DeviceManagementModal';
-import { GET_DEVICES, UPDATE_DEVICE, CREATE_DEVICE_AUTH_CODE, REVOKE_DEVICE } from '../../graphql/auth';
+import { GET_DEVICES, UPDATE_DEVICE, CREATE_DEVICE_AUTH_CODE, REVOKE_DEVICE, ADD_DEVICE_TO_GROUP, REMOVE_DEVICE_FROM_GROUP } from '../../graphql/auth';
 import { DeviceRole } from '../../types/auth';
 
 // Mock heroicons
@@ -18,6 +18,23 @@ jest.mock('@heroicons/react/24/outline', () => ({
 // Mock useIsMobile hook
 jest.mock('@/hooks/useMediaQuery', () => ({
   useIsMobile: jest.fn(() => false),
+}));
+
+// Mock useGroup
+jest.mock('@/contexts/GroupContext', () => ({
+  useGroup: jest.fn(() => ({
+    activeGroup: { id: 'group-1', name: 'Personal', isPersonal: true },
+    groups: [
+      { id: 'group-1', name: 'Personal', isPersonal: true },
+      { id: 'group-2', name: 'Team Alpha', isPersonal: false },
+      { id: 'group-3', name: 'Team Beta', isPersonal: false },
+    ],
+    selectableGroups: [],
+    loading: false,
+    selectGroup: jest.fn(),
+    selectGroupById: jest.fn(),
+    refetchGroups: jest.fn(),
+  })),
 }));
 
 const mockDevices = [
@@ -36,6 +53,9 @@ const mockDevices = [
       email: 'operator@test.com',
       name: 'Stage Operator',
     },
+    groups: [
+      { id: 'group-1', name: 'Personal', isPersonal: true },
+    ],
     __typename: 'Device',
   },
   {
@@ -49,6 +69,7 @@ const mockDevices = [
     createdAt: '2023-01-02T10:00:00Z',
     updatedAt: '2023-01-02T10:00:00Z',
     defaultUser: null,
+    groups: [],
     __typename: 'Device',
   },
   {
@@ -62,6 +83,10 @@ const mockDevices = [
     createdAt: '2023-01-03T10:00:00Z',
     updatedAt: '2023-01-03T14:00:00Z',
     defaultUser: null,
+    groups: [
+      { id: 'group-1', name: 'Personal', isPersonal: true },
+      { id: 'group-2', name: 'Team Alpha', isPersonal: false },
+    ],
     __typename: 'Device',
   },
 ];
@@ -134,7 +159,8 @@ const createMocks = () => [
   },
 ];
 
-const renderWithProvider = (mocks = createMocks(), props = {}) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const renderWithProvider = (mocks: any[] = createMocks(), props = {}) => {
   return render(
     <MockedProvider mocks={mocks} addTypename={false}>
       <DeviceManagementModal {...defaultProps} {...props} />
@@ -262,9 +288,9 @@ describe('DeviceManagementModal', () => {
       const editButtons = screen.getAllByTitle('Edit device');
       await userEvent.click(editButtons[0]);
 
-      // Should show input field and role selector
+      // Should show input field and role selector (plus add-to-group dropdown)
       expect(screen.getByPlaceholderText('Device name')).toBeInTheDocument();
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getAllByRole('combobox').length).toBeGreaterThanOrEqual(1);
     });
 
     it('populates edit form with device data', async () => {
@@ -417,6 +443,195 @@ describe('DeviceManagementModal', () => {
       await waitFor(() => {
         // Backstage Tablet has no lastSeenAt, should still render
         expect(screen.getByText('Backstage Tablet')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('device-group GraphQL operations', () => {
+    it('exports ADD_DEVICE_TO_GROUP mutation', () => {
+      expect(ADD_DEVICE_TO_GROUP).toBeDefined();
+    });
+
+    it('exports REMOVE_DEVICE_FROM_GROUP mutation', () => {
+      expect(REMOVE_DEVICE_FROM_GROUP).toBeDefined();
+    });
+  });
+
+  describe('device-group assignment display', () => {
+    it('displays group badges for devices with groups', async () => {
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByText('Front of House iPad')).toBeInTheDocument();
+      });
+
+      // Device 1 has group "Personal" (isPersonal)
+      expect(screen.getAllByText(/Personal \(Personal\)/).length).toBeGreaterThan(0);
+    });
+
+    it('shows multiple group badges for a device in multiple groups', async () => {
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByText('Lighting Booth Computer')).toBeInTheDocument();
+      });
+
+      // Device 3 has Personal and Team Alpha groups
+      expect(screen.getAllByText('Team Alpha').length).toBeGreaterThan(0);
+    });
+
+    it('does not show groups section for device with no groups', async () => {
+      const singleDeviceMock = [
+        {
+          request: { query: GET_DEVICES },
+          result: {
+            data: {
+              devices: [{
+                ...mockDevices[1],
+                groups: [],
+              }],
+            },
+          },
+        },
+      ];
+
+      renderWithProvider(singleDeviceMock);
+
+      await waitFor(() => {
+        expect(screen.getByText('Backstage Tablet')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByText('Groups:')).not.toBeInTheDocument();
+    });
+
+    it('shows remove-from-group button for each group badge', async () => {
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByText('Lighting Booth Computer')).toBeInTheDocument();
+      });
+
+      // Device 3 has 2 groups, so there should be remove buttons for each
+      const removeButtons = screen.getAllByTitle(/Remove from/);
+      expect(removeButtons.length).toBeGreaterThan(0);
+    });
+
+    it('calls removeDeviceFromGroup mutation when remove button is clicked', async () => {
+      // Use a single device to avoid ambiguity with multiple "Remove from Personal" buttons
+      const singleDevice = {
+        ...mockDevices[0],
+        groups: [{ id: 'group-1', name: 'Personal', isPersonal: true }],
+      };
+      const removeCalled = jest.fn();
+      const mocks = [
+        {
+          request: { query: GET_DEVICES },
+          result: { data: { devices: [singleDevice] } },
+        },
+        {
+          request: {
+            query: REMOVE_DEVICE_FROM_GROUP,
+            variables: { deviceId: 'device-1', groupId: 'group-1' },
+          },
+          result: () => {
+            removeCalled();
+            return { data: { removeDeviceFromGroup: true } };
+          },
+        },
+        {
+          request: { query: GET_DEVICES },
+          result: { data: { devices: [singleDevice] } },
+        },
+      ];
+
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getByText('Front of House iPad')).toBeInTheDocument();
+      });
+
+      const removeButton = screen.getByTitle('Remove from Personal');
+      fireEvent.click(removeButton);
+
+      await waitFor(() => {
+        expect(removeCalled).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('device-group assignment editing', () => {
+    it('shows add-to-group dropdown in edit mode', async () => {
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByText('Front of House iPad')).toBeInTheDocument();
+      });
+
+      const editButtons = screen.getAllByTitle('Edit device');
+      fireEvent.click(editButtons[0]);
+
+      expect(screen.getByText('Select a group...')).toBeInTheDocument();
+    });
+
+    it('filters out already-assigned groups from dropdown', async () => {
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByText('Front of House iPad')).toBeInTheDocument();
+      });
+
+      // Edit device 1 (has group-1 "Personal" assigned)
+      const editButtons = screen.getAllByTitle('Edit device');
+      fireEvent.click(editButtons[0]);
+
+      // Get all options in the add-to-group select
+      const addGroupSelect = screen.getByLabelText('Add to group');
+      const options = addGroupSelect.querySelectorAll('option');
+      const optionTexts = Array.from(options).map(o => o.textContent);
+
+      // Should NOT include "Personal (Personal)" since it's already assigned
+      expect(optionTexts).not.toContain('Personal (Personal)');
+      // Should include unassigned groups
+      expect(optionTexts).toContain('Team Alpha');
+      expect(optionTexts).toContain('Team Beta');
+    });
+
+    it('calls addDeviceToGroup mutation when group is selected', async () => {
+      const addCalled = jest.fn();
+      const mocks = [
+        ...createMocks(),
+        {
+          request: {
+            query: ADD_DEVICE_TO_GROUP,
+            variables: { deviceId: 'device-1', groupId: 'group-2' },
+          },
+          result: () => {
+            addCalled();
+            return { data: { addDeviceToGroup: true } };
+          },
+        },
+        {
+          request: { query: GET_DEVICES },
+          result: { data: { devices: mockDevices } },
+        },
+      ];
+
+      renderWithProvider(mocks);
+
+      await waitFor(() => {
+        expect(screen.getByText('Front of House iPad')).toBeInTheDocument();
+      });
+
+      // Enter edit mode for device 1
+      const editButtons = screen.getAllByTitle('Edit device');
+      fireEvent.click(editButtons[0]);
+
+      // Select "Team Alpha" from the dropdown
+      const addGroupSelect = screen.getByLabelText('Add to group');
+      fireEvent.change(addGroupSelect, { target: { value: 'group-2' } });
+
+      await waitFor(() => {
+        expect(addCalled).toHaveBeenCalled();
       });
     });
   });
