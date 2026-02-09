@@ -88,7 +88,6 @@ const createMocks = () => [
   {
     request: {
       query: GET_PROJECTS,
-      variables: { groupId: 'group-1' },
     },
     result: {
       data: {
@@ -192,7 +191,7 @@ describe('ProjectManagementModal', () => {
     it('shows loading state initially', () => {
       const loadingMocks = [
         {
-          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
+          request: { query: GET_PROJECTS },
           delay: 1000,
           result: { data: { projects: [] } },
         },
@@ -323,7 +322,7 @@ describe('ProjectManagementModal', () => {
     it('handles project loading errors gracefully', async () => {
       const errorMocks = [
         {
-          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
+          request: { query: GET_PROJECTS },
           error: new Error('Network error'),
         },
       ];
@@ -385,7 +384,7 @@ describe('ProjectManagementModal', () => {
     it('handles empty project list', async () => {
       const emptyMocks = [
         {
-          request: { query: GET_PROJECTS, variables: { groupId: 'group-1' } },
+          request: { query: GET_PROJECTS },
           result: { data: { projects: [] } },
         },
       ];

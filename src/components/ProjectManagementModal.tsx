@@ -5,7 +5,7 @@ import { useMutation, useQuery } from '@apollo/client';
 import { TrashIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '@/graphql/projects';
 import { useProject } from '@/contexts/ProjectContext';
-import { useGroup, getGroupIdForQuery } from '@/contexts/GroupContext';
+import { useGroup } from '@/contexts/GroupContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Project } from '@/types';
 import ImportExportButtons from './ImportExportButtons';
@@ -30,24 +30,21 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   const [editingProject, setEditingProject] = useState<{id: string, name: string, description: string, groupId: string} | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const groupIdVar = getGroupIdForQuery(activeGroup);
-  const { data, loading, refetch } = useQuery(GET_PROJECTS, {
-    variables: { groupId: groupIdVar },
-  });
+  const { data, loading, refetch } = useQuery(GET_PROJECTS);
   const [createProject] = useMutation(CREATE_PROJECT, {
-    refetchQueries: [{ query: GET_PROJECTS, variables: { groupId: groupIdVar } }],
+    refetchQueries: [{ query: GET_PROJECTS }],
     onError: (error) => {
       setError(`Failed to create project: ${error.message}`);
     },
   });
   const [deleteProject] = useMutation(DELETE_PROJECT, {
-    refetchQueries: [{ query: GET_PROJECTS, variables: { groupId: groupIdVar } }],
+    refetchQueries: [{ query: GET_PROJECTS }],
     onError: (error) => {
       setError(`Failed to delete project: ${error.message}`);
     },
   });
   const [updateProject] = useMutation(UPDATE_PROJECT, {
-    refetchQueries: [{ query: GET_PROJECTS, variables: { groupId: groupIdVar } }],
+    refetchQueries: [{ query: GET_PROJECTS }],
     onError: (error) => {
       setError(`Failed to update project: ${error.message}`);
     },
@@ -127,9 +124,10 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     if (trimmedDescription) {
       input.description = trimmedDescription;
     }
-    // Use explicitly selected group, or fall back to active group (translating sentinel)
-    const groupId = newProjectGroupId || getGroupIdForQuery(activeGroup);
-    if (groupId) {
+    // Use explicitly selected group, or fall back to active group
+    // (skip sentinel 'unassigned' - backend treats absence of groupId as unassigned)
+    const groupId = newProjectGroupId || activeGroup?.id;
+    if (groupId && groupId !== 'unassigned') {
       input.groupId = groupId;
     }
 

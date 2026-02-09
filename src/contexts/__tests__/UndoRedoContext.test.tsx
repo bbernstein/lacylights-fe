@@ -30,6 +30,7 @@ jest.mock('../GroupContext', () => ({
   })),
   GroupProvider: ({ children }: { children: React.ReactNode }) => children,
   getGroupIdForQuery: jest.fn((group: any) => group?.id === 'unassigned' ? undefined : group?.id), // eslint-disable-line @typescript-eslint/no-explicit-any
+  UNASSIGNED_GROUP_ID: 'unassigned',
 }));
 
 const mockProjectId = 'test-project-123';
@@ -42,6 +43,7 @@ const mockProject = {
   updatedAt: '2023-01-01T12:00:00Z',
   layoutCanvasWidth: 2000,
   layoutCanvasHeight: 2000,
+  groupId: 'group-1',
 };
 
 const mockUndoRedoStatus = {
@@ -96,7 +98,6 @@ const createBaseMocks = (): MockedResponse[] => {
   const getProjectsMock = {
     request: {
       query: GET_PROJECTS,
-      variables: { groupId: 'group-1' },
     },
     result: {
       data: {
@@ -178,8 +179,7 @@ describe('UndoRedoContext', () => {
       const emptyProjectsMock = {
         request: {
           query: GET_PROJECTS,
-          variables: { groupId: 'group-1' },
-        },
+            },
         result: {
           data: {
             projects: [],
@@ -330,8 +330,7 @@ describe('UndoRedoContext', () => {
       const emptyProjectsMock = {
         request: {
           query: GET_PROJECTS,
-          variables: { groupId: 'group-1' },
-        },
+            },
         result: {
           data: {
             projects: [],
@@ -400,8 +399,7 @@ describe('UndoRedoContext', () => {
       const getProjectsMock = {
         request: {
           query: GET_PROJECTS,
-          variables: { groupId: 'group-1' },
-        },
+            },
         result: {
           data: {
             projects: [mockProject],

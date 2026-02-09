@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECTS, CREATE_PROJECT } from '@/graphql/projects';
 import { Project } from '@/types';
-import { useGroup, getGroupIdForQuery } from '@/contexts/GroupContext';
+import { useGroup, getGroupIdForQuery, UNASSIGNED_GROUP_ID } from '@/contexts/GroupContext';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ProjectContextType {
@@ -29,16 +29,21 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const prevGroupIdRef = useRef<string | null | undefined>(undefined);
   const autoCreateAttemptedRef = useRef(false);
 
-  const groupIdForQuery = getGroupIdForQuery(activeGroup);
-  const { data, loading, error, refetch: refetchQuery } = useQuery(GET_PROJECTS, {
-    variables: { groupId: groupIdForQuery },
-    // When auth is enabled, skip until activeGroup resolves so we don't fire
-    // an initial query with undefined groupId that returns all projects.
-    skip: isAuthEnabled && !activeGroup,
-  });
+  // Backend filters by auth context (user's accessible groups).
+  // No groupId variable needed - we filter client-side by activeGroup.
+  const { data, loading, error, refetch: refetchQuery } = useQuery(GET_PROJECTS);
   const [createProject] = useMutation(CREATE_PROJECT);
 
-  const projects = useMemo(() => data?.projects || [], [data?.projects]);
+  // Client-side filter: show only projects matching the active group
+  const projects = useMemo(() => {
+    const allProjects: Project[] = data?.projects || [];
+    if (!activeGroup) return allProjects;
+    // "Unassigned" sentinel: show projects with no group
+    if (activeGroup.id === UNASSIGNED_GROUP_ID) {
+      return allProjects.filter((p) => !p.groupId);
+    }
+    return allProjects.filter((p) => p.groupId === activeGroup.id);
+  }, [data?.projects, activeGroup]);
 
   const refetchAndGet = useCallback(async () => {
     const result = await refetchQuery();
@@ -111,9 +116,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }
   }, [refetchAndGet]);
 
-
-  // Reset project state when active group changes
-  // (Apollo automatically re-runs the query when groupIdForQuery variable changes)
+  // Reset project selection when active group changes
   useEffect(() => {
     const currentGroupId = activeGroup?.id ?? null;
     if (prevGroupIdRef.current !== undefined && prevGroupIdRef.current !== currentGroupId) {
