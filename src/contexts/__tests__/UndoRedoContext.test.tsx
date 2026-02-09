@@ -6,6 +6,33 @@ import { ProjectProvider } from '../ProjectContext';
 import { GET_UNDO_REDO_STATUS, UNDO, REDO, OPERATION_HISTORY_CHANGED } from '@/graphql/undoRedo';
 import { GET_PROJECTS, CREATE_PROJECT } from '@/graphql/projects';
 
+// Mock AuthContext - ProjectContext depends on useAuth()
+jest.mock('../AuthContext', () => ({
+  useAuth: jest.fn(() => ({
+    isAuthEnabled: false,
+    isAuthenticated: false,
+    isAdmin: false,
+    user: null,
+    login: jest.fn(),
+    logout: jest.fn(),
+  })),
+}));
+
+// Mock GroupContext - ProjectContext depends on useGroup()
+jest.mock('../GroupContext', () => ({
+  useGroup: jest.fn(() => ({
+    activeGroup: { id: 'group-1', name: 'Personal', isPersonal: true },
+    groups: [{ id: 'group-1', name: 'Personal', isPersonal: true }],
+    loading: false,
+    selectGroup: jest.fn(),
+    selectGroupById: jest.fn(),
+    refetchGroups: jest.fn(),
+  })),
+  GroupProvider: ({ children }: { children: React.ReactNode }) => children,
+  getGroupIdForQuery: jest.fn((group: any) => group?.id === 'unassigned' ? undefined : group?.id), // eslint-disable-line @typescript-eslint/no-explicit-any
+  UNASSIGNED_GROUP_ID: 'unassigned',
+}));
+
 const mockProjectId = 'test-project-123';
 
 const mockProject = {
@@ -16,6 +43,7 @@ const mockProject = {
   updatedAt: '2023-01-01T12:00:00Z',
   layoutCanvasWidth: 2000,
   layoutCanvasHeight: 2000,
+  groupId: 'group-1',
 };
 
 const mockUndoRedoStatus = {
@@ -151,7 +179,7 @@ describe('UndoRedoContext', () => {
       const emptyProjectsMock = {
         request: {
           query: GET_PROJECTS,
-        },
+            },
         result: {
           data: {
             projects: [],
@@ -163,7 +191,7 @@ describe('UndoRedoContext', () => {
         request: {
           query: CREATE_PROJECT,
           variables: {
-            input: { name: 'Default Project', description: 'Automatically created project' },
+            input: { name: 'Default Project', description: 'Automatically created project', groupId: 'group-1' },
           },
         },
         result: {
@@ -302,7 +330,7 @@ describe('UndoRedoContext', () => {
       const emptyProjectsMock = {
         request: {
           query: GET_PROJECTS,
-        },
+            },
         result: {
           data: {
             projects: [],
@@ -315,7 +343,7 @@ describe('UndoRedoContext', () => {
         request: {
           query: CREATE_PROJECT,
           variables: {
-            input: { name: 'Default Project', description: 'Automatically created project' },
+            input: { name: 'Default Project', description: 'Automatically created project', groupId: 'group-1' },
           },
         },
         result: {
@@ -371,7 +399,7 @@ describe('UndoRedoContext', () => {
       const getProjectsMock = {
         request: {
           query: GET_PROJECTS,
-        },
+            },
         result: {
           data: {
             projects: [mockProject],
@@ -416,7 +444,7 @@ describe('UndoRedoContext', () => {
           request: {
             query: CREATE_PROJECT,
             variables: {
-              input: { name: 'Default Project', description: 'Automatically created project' },
+              input: { name: 'Default Project', description: 'Automatically created project', groupId: 'group-1' },
             },
           },
           result: {

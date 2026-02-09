@@ -22,6 +22,29 @@ jest.mock('../../contexts/ProjectContext', () => ({
   useProject: jest.fn(),
 }));
 
+// Mock the useGroup hook
+jest.mock('../../contexts/GroupContext', () => ({
+  useGroup: jest.fn(() => ({
+    activeGroup: { id: 'group-1', name: 'Personal', isPersonal: true },
+    groups: [{ id: 'group-1', name: 'Personal', isPersonal: true }],
+    selectableGroups: [{ id: 'group-1', name: 'Personal', isPersonal: true }],
+    loading: false,
+    selectGroup: jest.fn(),
+    selectGroupById: jest.fn(),
+    refetchGroups: jest.fn(),
+  })),
+  getGroupIdForQuery: jest.fn((group: any) => group?.id === 'unassigned' ? undefined : group?.id), // eslint-disable-line @typescript-eslint/no-explicit-any
+}));
+
+// Mock the useAuth hook
+jest.mock('../../contexts/AuthContext', () => ({
+  useAuth: jest.fn(() => ({
+    isAdmin: false,
+    isAuthEnabled: true,
+    isAuthenticated: true,
+  })),
+}));
+
 const mockProjects = [
   {
     id: 'project-1',
@@ -29,6 +52,8 @@ const mockProjects = [
     description: 'First test project',
     createdAt: '2023-01-01T12:00:00Z',
     updatedAt: '2023-01-01T12:00:00Z',
+    groupId: 'group-1',
+    group: { id: 'group-1', name: 'Personal', isPersonal: true },
     __typename: 'Project',
   },
   {
@@ -37,6 +62,8 @@ const mockProjects = [
     description: 'Second test project',
     createdAt: '2023-01-02T12:00:00Z',
     updatedAt: '2023-01-02T12:00:00Z',
+    groupId: 'group-1',
+    group: { id: 'group-1', name: 'Personal', isPersonal: true },
     __typename: 'Project',
   },
 ];
@@ -86,6 +113,8 @@ const createMocks = () => [
           description: 'New project description',
           createdAt: '2023-01-03T12:00:00Z',
           updatedAt: '2023-01-03T12:00:00Z',
+          groupId: 'group-1',
+          group: { id: 'group-1', name: 'Personal', isPersonal: true },
           __typename: 'Project',
         },
       },
@@ -110,6 +139,7 @@ const createMocks = () => [
         input: {
           name: 'Updated Project',
           description: 'Updated description',
+          groupId: 'group-1',
         },
       },
     },
@@ -119,8 +149,9 @@ const createMocks = () => [
           id: 'project-1',
           name: 'Updated Project',
           description: 'Updated description',
-          createdAt: '2023-01-01T12:00:00Z',
           updatedAt: '2023-01-03T12:00:00Z',
+          groupId: 'group-1',
+          group: { id: 'group-1', name: 'Personal', isPersonal: true },
           __typename: 'Project',
         },
       },

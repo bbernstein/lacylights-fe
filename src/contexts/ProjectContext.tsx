@@ -1,9 +1,11 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECTS, CREATE_PROJECT } from '@/graphql/projects';
 import { Project } from '@/types';
+import { useGroup, getGroupIdForQuery, UNASSIGNED_GROUP_ID } from '@/contexts/GroupContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ProjectContextType {
   currentProject: Project | null;
@@ -12,7 +14,7 @@ interface ProjectContextType {
   error: Error | null;
   selectProject: (project: Project) => void;
   selectProjectById: (projectId: string) => void;
-  createNewProject: (name: string, description?: string) => Promise<void>;
+  createNewProject: (name: string, description?: string, groupId?: string) => Promise<void>;
   selectedProjectId: string | null;
   refetchAndGet: () => Promise<Project[]>;
   refetchAndSelectById: (projectId: string) => Promise<void>;
@@ -22,23 +24,47 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  
+  const { activeGroup } = useGroup();
+  const { isAuthEnabled } = useAuth();
+  const prevGroupIdRef = useRef<string | null | undefined>(undefined);
+  const autoCreateAttemptedRef = useRef(false);
+
+  // Backend filters by auth context (user's accessible groups).
+  // No groupId variable needed - we filter client-side by activeGroup.
   const { data, loading, error, refetch: refetchQuery } = useQuery(GET_PROJECTS);
   const [createProject] = useMutation(CREATE_PROJECT);
 
-  const projects = useMemo(() => data?.projects || [], [data?.projects]);
+  // Client-side filter: show only projects matching the active group
+  const projects = useMemo(() => {
+    const allProjects: Project[] = data?.projects || [];
+    if (!activeGroup) return allProjects;
+    // "Unassigned" sentinel: show projects with no group
+    if (activeGroup.id === UNASSIGNED_GROUP_ID) {
+      return allProjects.filter((p) => !p.groupId);
+    }
+    return allProjects.filter((p) => p.groupId === activeGroup.id);
+  }, [data?.projects, activeGroup]);
 
   const refetchAndGet = useCallback(async () => {
     const result = await refetchQuery();
     return result.data?.projects || [];
   }, [refetchQuery]);
 
-  const createNewProject = useCallback(async (name: string, description?: string) => {
+  const createNewProject = useCallback(async (name: string, description?: string, groupId?: string) => {
     try {
-      const result = await createProject({
-        variables: {
-          input: { name, description }
+      const input: { name: string; description?: string; groupId?: string } = { name, description };
+      // Use provided groupId, or fall back to active group (translating sentinel)
+      if (groupId) {
+        input.groupId = groupId;
+      } else {
+        const resolvedGroupId = getGroupIdForQuery(activeGroup);
+        if (resolvedGroupId) {
+          input.groupId = resolvedGroupId;
         }
+      }
+
+      const result = await createProject({
+        variables: { input }
       });
 
       await refetchAndGet();
@@ -51,17 +77,23 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       // Error handled by UI error states
       throw err;
     }
-  }, [createProject, refetchAndGet]);
+  }, [createProject, refetchAndGet, activeGroup]);
 
   // Auto-select first project or create one if none exist
   useEffect(() => {
     if (!loading && !currentProject && projects.length > 0) {
       setCurrentProject(projects[0]);
-    } else if (!loading && projects.length === 0 && !error) {
+    } else if (!loading && projects.length === 0 && !error && !autoCreateAttemptedRef.current
+      && (!isAuthEnabled || activeGroup)) {
       // Auto-create a default project if none exist
-      createNewProject('Default Project', 'Automatically created project');
+      // When auth is enabled, wait for activeGroup so the project gets a groupId
+      autoCreateAttemptedRef.current = true;
+      void createNewProject('Default Project', 'Automatically created project').catch(() => {
+        // Allow retry on failure by resetting the guard
+        autoCreateAttemptedRef.current = false;
+      });
     }
-  }, [loading, projects, currentProject, error, createNewProject]);
+  }, [loading, projects, currentProject, error, createNewProject, isAuthEnabled, activeGroup]);
 
   const selectProject = (project: Project) => {
     setCurrentProject(project);
@@ -84,6 +116,16 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }
   }, [refetchAndGet]);
 
+  // Reset project selection when active group changes
+  useEffect(() => {
+    const currentGroupId = activeGroup?.id ?? null;
+    if (prevGroupIdRef.current !== undefined && prevGroupIdRef.current !== currentGroupId) {
+      setCurrentProject(null);
+      // Reset auto-create guard so a new group with zero projects can trigger auto-create
+      autoCreateAttemptedRef.current = false;
+    }
+    prevGroupIdRef.current = currentGroupId;
+  }, [activeGroup?.id]);
 
   // Try to restore project from localStorage
   useEffect(() => {

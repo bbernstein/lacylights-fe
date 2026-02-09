@@ -8,6 +8,7 @@ import WiFiSettings from './WiFiSettings';
 import VersionManagement from './VersionManagement';
 import OFLManagement from './OFLManagement';
 import ArtNetControl from './ArtNetControl';
+import UsersAccessSection from './UsersAccessSection';
 
 interface SettingDefinition {
   key: string;
@@ -341,6 +342,9 @@ export default function SettingsPage() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
       </div>
+
+      {/* Users & Access Section - Only visible to admins or when auth is disabled in admin mode */}
+      <UsersAccessSection />
 
       {/* WiFi Configuration Section - Only show on systems with WiFi support */}
       <WiFiSettings />

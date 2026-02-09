@@ -4,6 +4,33 @@ import { MockedProvider } from '@apollo/client/testing';
 import { ProjectProvider, useProject } from '../ProjectContext';
 import { GET_PROJECTS, CREATE_PROJECT } from '../../graphql/projects';
 
+// Mock AuthContext - ProjectContext depends on useAuth()
+jest.mock('../AuthContext', () => ({
+  useAuth: jest.fn(() => ({
+    isAuthEnabled: false,
+    isAuthenticated: false,
+    isAdmin: false,
+    user: null,
+    login: jest.fn(),
+    logout: jest.fn(),
+  })),
+}));
+
+// Mock GroupContext - ProjectContext depends on useGroup()
+jest.mock('../GroupContext', () => ({
+  useGroup: jest.fn(() => ({
+    activeGroup: { id: 'group-1', name: 'Personal', isPersonal: true },
+    groups: [{ id: 'group-1', name: 'Personal', isPersonal: true }],
+    loading: false,
+    selectGroup: jest.fn(),
+    selectGroupById: jest.fn(),
+    refetchGroups: jest.fn(),
+  })),
+  GroupProvider: ({ children }: { children: React.ReactNode }) => children,
+  getGroupIdForQuery: jest.fn((group: any) => group?.id === 'unassigned' ? undefined : group?.id), // eslint-disable-line @typescript-eslint/no-explicit-any
+  UNASSIGNED_GROUP_ID: 'unassigned',
+}));
+
 // Mock localStorage
 const mockLocalStorage = {
   getItem: jest.fn(),
@@ -31,6 +58,8 @@ const mockProjects = [
     users: [],
     layoutCanvasWidth: 2000,
     layoutCanvasHeight: 2000,
+    groupId: 'group-1',
+    group: { id: 'group-1', name: 'Personal', isPersonal: true },
   },
   {
     id: '2',
@@ -44,6 +73,8 @@ const mockProjects = [
     users: [],
     layoutCanvasWidth: 2000,
     layoutCanvasHeight: 2000,
+    groupId: 'group-1',
+    group: { id: 'group-1', name: 'Personal', isPersonal: true },
   },
 ];
 
@@ -59,6 +90,8 @@ const newProject = {
   users: [],
   layoutCanvasWidth: 2000,
   layoutCanvasHeight: 2000,
+  groupId: 'group-1',
+  group: { id: 'group-1', name: 'Personal', isPersonal: true },
 };
 
 const createMockProvider = (mocks: any[]) => { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -211,7 +244,7 @@ describe('ProjectContext', () => {
           request: {
             query: CREATE_PROJECT,
             variables: {
-              input: { name: 'Default Project', description: 'Automatically created project' },
+              input: { name: 'Default Project', description: 'Automatically created project', groupId: 'group-1' },
             },
           },
           result: { data: { createProject: newProject } },
@@ -404,7 +437,7 @@ describe('ProjectContext', () => {
           request: {
             query: CREATE_PROJECT,
             variables: {
-              input: { name: 'Test Project', description: 'Test Description' },
+              input: { name: 'Test Project', description: 'Test Description', groupId: 'group-1' },
             },
           },
           result: { data: { createProject: newProject } },
@@ -452,7 +485,7 @@ describe('ProjectContext', () => {
           request: {
             query: CREATE_PROJECT,
             variables: {
-              input: { name: 'Test Project', description: 'Test Description' },
+              input: { name: 'Test Project', description: 'Test Description', groupId: 'group-1' },
             },
           },
           error: createError,

@@ -220,7 +220,7 @@ describe('TabNavigation', () => {
       render(<TabNavigation />);
 
       const links = screen.getAllByRole('link');
-      expect(links).toHaveLength(7); // Dashboard, Fixtures, Looks, Effects, Look Board, Cue Lists, Settings
+      expect(links).toHaveLength(8); // Dashboard, Fixtures, Looks, Effects, Look Board, Cue Lists, Groups, Settings
 
       links.forEach((link) => {
         expect(link).toHaveAttribute('href');

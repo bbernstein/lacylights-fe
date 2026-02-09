@@ -5,6 +5,8 @@ import { useMutation, useQuery } from '@apollo/client';
 import { TrashIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '@/graphql/projects';
 import { useProject } from '@/contexts/ProjectContext';
+import { useGroup, UNASSIGNED_GROUP_ID } from '@/contexts/GroupContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Project } from '@/types';
 import ImportExportButtons from './ImportExportButtons';
 import BottomSheet from './BottomSheet';
@@ -18,11 +20,14 @@ interface ProjectManagementModalProps {
 export default function ProjectManagementModal({ isOpen, onClose }: ProjectManagementModalProps) {
   const isMobile = useIsMobile();
   const { refetchAndSelectById, selectProjectById, selectedProjectId } = useProject();
+  const { groups, activeGroup } = useGroup();
+  const { isAdmin } = useAuth();
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
   const [isCreating, setIsCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
-  const [editingProject, setEditingProject] = useState<{id: string, name: string, description: string} | null>(null);
+  const [newProjectGroupId, setNewProjectGroupId] = useState('');
+  const [editingProject, setEditingProject] = useState<{id: string, name: string, description: string, groupId: string} | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { data, loading, refetch } = useQuery(GET_PROJECTS);
@@ -111,21 +116,31 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     if (!newProjectName.trim()) return;
 
     setError(null);
-    
+
+    const input: { name: string; description?: string; groupId?: string } = {
+      name: newProjectName.trim(),
+    };
+    const trimmedDescription = newProjectDescription.trim();
+    if (trimmedDescription) {
+      input.description = trimmedDescription;
+    }
+    // Use explicitly selected group, or fall back to active group
+    // (skip sentinel 'unassigned' - backend treats absence of groupId as unassigned)
+    const groupId = newProjectGroupId || activeGroup?.id;
+    if (groupId && groupId !== UNASSIGNED_GROUP_ID) {
+      input.groupId = groupId;
+    }
+
     const result = await createProject({
-      variables: {
-        input: {
-          name: newProjectName.trim(),
-          description: newProjectDescription.trim()
-        }
-      }
+      variables: { input }
     });
-    
+
     await refetch();
     setIsCreating(false);
     setNewProjectName('');
     setNewProjectDescription('');
-    
+    setNewProjectGroupId('');
+
     // Select the newly created project
     if (result.data?.createProject?.id) {
       selectProjectById(result.data.createProject.id);
@@ -136,7 +151,8 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     setEditingProject({
       id: project.id,
       name: project.name,
-      description: project.description || ''
+      description: project.description || '',
+      groupId: project.groupId ?? '',
     });
   };
 
@@ -144,17 +160,25 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     if (!editingProject || !editingProject.name.trim()) return;
 
     setError(null);
-    
+
+    const input: { name: string; description: string; groupId?: string | null } = {
+      name: editingProject.name.trim(),
+      description: editingProject.description.trim(),
+    };
+    // Include groupId: empty string means clear (null), otherwise set to selected group
+    if (editingProject.groupId === '') {
+      input.groupId = null;
+    } else {
+      input.groupId = editingProject.groupId;
+    }
+
     const _result = await updateProject({
       variables: {
         id: editingProject.id,
-        input: {
-          name: editingProject.name.trim(),
-          description: editingProject.description.trim()
-        }
+        input,
       }
     });
-    
+
     await refetch();
     setEditingProject(null);
   };
@@ -232,6 +256,24 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
             className="w-full px-3 py-2 bg-gray-600 text-white rounded mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-base"
             rows={2}
           />
+          {groups.length > 1 && (
+            <select
+              value={newProjectGroupId}
+              onChange={(e) => setNewProjectGroupId(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-600 text-white rounded mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+            >
+              <option value="">
+                {activeGroup ? `${activeGroup.name}${activeGroup.isPersonal ? ' (Personal)' : ''} (current)` : 'Select group...'}
+              </option>
+              {groups
+                .filter((g) => g.id !== activeGroup?.id)
+                .map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}{g.isPersonal ? ' (Personal)' : ''}
+                  </option>
+                ))}
+            </select>
+          )}
           <div className={`flex gap-2 ${isMobile ? 'flex-col' : ''}`}>
             <button
               onClick={handleCreateProject}
@@ -290,6 +332,22 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
                       rows={2}
                       placeholder="Description (optional)"
                     />
+                    {groups.length > 1 && (
+                      <select
+                        value={editingProject.groupId}
+                        onChange={(e) => setEditingProject({...editingProject, groupId: e.target.value})}
+                        className="w-full px-2 py-1 bg-gray-600 text-white rounded text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {isAdmin && (
+                          <option value="">Unassigned</option>
+                        )}
+                        {groups.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.name}{g.isPersonal ? ' (Personal)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <div className={`flex gap-2 ${isMobile ? 'flex-col' : ''}`}>
                       <button
                         onClick={handleUpdateProject}
@@ -308,7 +366,14 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
                   </div>
                 ) : (
                   <div>
-                    <div className="text-white font-medium truncate">{project.name}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-white font-medium truncate">{project.name}</div>
+                      {project.group && groups.length > 1 && (
+                        <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-600 text-gray-300">
+                          {project.group.name}{project.group.isPersonal ? ' (Personal)' : ''}
+                        </span>
+                      )}
+                    </div>
                     {project.description && (
                       <div className="text-gray-400 text-sm truncate">{project.description}</div>
                     )}
