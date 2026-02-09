@@ -225,7 +225,7 @@ export const GET_USER_GROUPS = gql`
   }
 `;
 
-/** Get a user group by ID with members (admin or group member) */
+/** Get a user group by ID with members and devices (admin or group member) */
 export const GET_USER_GROUP = gql`
   ${USER_GROUP_FRAGMENT}
   ${GROUP_MEMBER_FRAGMENT}
@@ -234,6 +234,13 @@ export const GET_USER_GROUP = gql`
       ...UserGroupFields
       members {
         ...GroupMemberFields
+      }
+      devices {
+        id
+        name
+        fingerprint
+        isAuthorized
+        lastSeenAt
       }
     }
   }

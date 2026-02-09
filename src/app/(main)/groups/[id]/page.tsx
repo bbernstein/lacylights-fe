@@ -3,7 +3,7 @@
 import { useQuery, useMutation } from '@apollo/client';
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PlusIcon, TrashIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import {
   GET_USER_GROUP,
@@ -14,6 +14,7 @@ import {
   REMOVE_USER_FROM_GROUP,
   UPDATE_USER_GROUP,
   GET_MY_GROUPS,
+  REMOVE_DEVICE_FROM_GROUP,
 } from '@/graphql/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { GroupMemberRole } from '@/types/auth';
@@ -73,6 +74,11 @@ export default function GroupDetailPage() {
   });
 
   const [removeMember] = useMutation(REMOVE_USER_FROM_GROUP, {
+    refetchQueries: [{ query: GET_USER_GROUP, variables: { id: groupId } }],
+    onError: (err) => setError(err.message),
+  });
+
+  const [removeDeviceFromGroup] = useMutation(REMOVE_DEVICE_FROM_GROUP, {
     refetchQueries: [{ query: GET_USER_GROUP, variables: { id: groupId } }],
     onError: (err) => setError(err.message),
   });
@@ -353,6 +359,49 @@ export default function GroupDetailPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Devices Section */}
+      {isGroupAdmin && (
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Devices
+          </h3>
+          {group.devices && group.devices.length > 0 ? (
+            <div className="space-y-2">
+              {group.devices.map((device: { id: string; name: string; fingerprint: string; isAuthorized: boolean; lastSeenAt?: string }) => (
+                <div key={device.id} className="flex items-center justify-between p-3 rounded bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600">
+                  <div>
+                    <span className="text-gray-900 dark:text-white font-medium">{device.name}</span>
+                    <span className={`ml-2 px-2 py-0.5 rounded text-xs ${device.isAuthorized ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'}`}>
+                      {device.isAuthorized ? 'Authorized' : 'Pending'}
+                    </span>
+                    {device.lastSeenAt && (
+                      <div className="text-gray-500 text-xs mt-1">
+                        Last seen: {new Date(device.lastSeenAt).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (confirm(`Remove "${device.name}" from this group?`)) {
+                        await removeDeviceFromGroup({ variables: { deviceId: device.id, groupId } });
+                      }
+                    }}
+                    className="text-gray-400 hover:text-red-500 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                    title="Remove from group"
+                  >
+                    <XCircleIcon className="h-5 w-5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              No devices assigned to this group. Assign devices in Settings &gt; Manage Devices.
+            </p>
+          )}
         </div>
       )}
     </div>
