@@ -13,6 +13,7 @@ jest.mock('@heroicons/react/24/outline', () => ({
   XCircleIcon: ({ className }: { className?: string }) => <div className={className} data-testid="x-circle-icon">Revoke</div>,
   ClipboardIcon: ({ className }: { className?: string }) => <div className={className} data-testid="clipboard-icon">Copy</div>,
   CheckIcon: ({ className }: { className?: string }) => <div className={className} data-testid="check-icon">Check</div>,
+  CheckCircleIcon: ({ className }: { className?: string }) => <div className={className} data-testid="check-circle-icon">Approve</div>,
 }));
 
 // Mock useIsMobile hook
@@ -333,7 +334,7 @@ describe('DeviceManagementModal', () => {
         expect(screen.getByText('Backstage Tablet')).toBeInTheDocument();
       });
 
-      const generateButtons = screen.getAllByTitle('Generate authorization code');
+      const generateButtons = screen.getAllByTitle('Approve device');
       expect(generateButtons).toHaveLength(1);
     });
 
@@ -416,7 +417,7 @@ describe('DeviceManagementModal', () => {
       await waitFor(() => {
         expect(screen.getAllByTitle('Edit device').length).toBeGreaterThan(0);
         expect(screen.getAllByTitle('Revoke authorization').length).toBeGreaterThan(0);
-        expect(screen.getAllByTitle('Generate authorization code').length).toBeGreaterThan(0);
+        expect(screen.getAllByTitle('Approve device').length).toBeGreaterThan(0);
       });
     });
   });

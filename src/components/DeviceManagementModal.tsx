@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
-import { PencilIcon, KeyIcon, XCircleIcon, ClipboardIcon, CheckIcon } from '@heroicons/react/24/outline';
-import { GET_DEVICES, UPDATE_DEVICE, CREATE_DEVICE_AUTH_CODE, REVOKE_DEVICE, ADD_DEVICE_TO_GROUP, REMOVE_DEVICE_FROM_GROUP } from '@/graphql/auth';
+import { PencilIcon, XCircleIcon, ClipboardIcon, CheckIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { GET_DEVICES, UPDATE_DEVICE, CREATE_DEVICE_AUTH_CODE, REVOKE_DEVICE, APPROVE_DEVICE, ADD_DEVICE_TO_GROUP, REMOVE_DEVICE_FROM_GROUP } from '@/graphql/auth';
 import BottomSheet from './BottomSheet';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { useGroup } from '@/contexts/GroupContext';
@@ -68,7 +68,7 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
     },
   });
 
-  const [createDeviceAuthCode, { loading: generatingCode }] = useMutation(CREATE_DEVICE_AUTH_CODE, {
+  const [createDeviceAuthCode, { loading: _generatingCode }] = useMutation(CREATE_DEVICE_AUTH_CODE, {
     onError: (err) => setError(`Failed to generate auth code: ${err.message}`),
     onCompleted: (data) => {
       const code = data.createDeviceAuthCode;
@@ -80,6 +80,11 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
 
   const [revokeDevice, { loading: revoking }] = useMutation(REVOKE_DEVICE, {
     onError: (err) => setError(`Failed to revoke device: ${err.message}`),
+    onCompleted: () => refetch(),
+  });
+
+  const [approveDevice, { loading: approving }] = useMutation(APPROVE_DEVICE, {
+    onError: (err) => setError(`Failed to approve device: ${err.message}`),
     onCompleted: () => refetch(),
   });
 
@@ -151,11 +156,23 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
     });
   };
 
-  const handleGenerateCode = async (device: Device) => {
+  // Auth code generation - kept for when backend implements CreateDeviceAuthCode
+  const _handleGenerateCode = async (device: Device) => {
     setError(null);
     setCopied(false);
     await createDeviceAuthCode({
       variables: { deviceId: device.id },
+    });
+  };
+
+  const handleApproveDevice = async (device: Device) => {
+    if (!confirm(`Approve "${device.name}" for system access?`)) {
+      return;
+    }
+
+    setError(null);
+    await approveDevice({
+      variables: { deviceId: device.id, permissions: 'OPERATOR' },
     });
   };
 
@@ -393,12 +410,12 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
                   </button>
                   {!device.isAuthorized && (
                     <button
-                      onClick={() => handleGenerateCode(device)}
-                      disabled={generatingCode}
+                      onClick={() => handleApproveDevice(device)}
+                      disabled={approving}
                       className="text-gray-500 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500 transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation disabled:opacity-50"
-                      title="Generate authorization code"
+                      title="Approve device"
                     >
-                      <KeyIcon className="h-5 w-5" />
+                      <CheckCircleIcon className="h-5 w-5" />
                     </button>
                   )}
                   {device.isAuthorized && (

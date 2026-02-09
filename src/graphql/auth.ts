@@ -524,6 +524,16 @@ export const UPDATE_DEVICE = gql`
   }
 `;
 
+/** Approve a pending device (admin only) */
+export const APPROVE_DEVICE = gql`
+  ${DEVICE_FRAGMENT}
+  mutation ApproveDevice($deviceId: ID!, $permissions: DevicePermissions!, $groupId: ID) {
+    approveDevice(deviceId: $deviceId, permissions: $permissions, groupId: $groupId) {
+      ...DeviceFields
+    }
+  }
+`;
+
 /** Revoke a device's authorization (admin only) */
 export const REVOKE_DEVICE = gql`
   ${DEVICE_FRAGMENT}
