@@ -58,19 +58,23 @@ interface GroupContextType {
 const GroupContext = createContext<GroupContextType | undefined>(undefined);
 
 export function GroupProvider({ children }: { children: React.ReactNode }) {
-  const { isAuthEnabled, isAuthenticated, isAdmin } = useAuth();
+  const { isAuthEnabled, isAuthenticated, isAdmin, isDeviceAuth, user } = useAuth();
   const [activeGroup, setActiveGroup] = useState<UserGroup | null>(null);
 
-  const shouldFetchGroups = isAuthEnabled && isAuthenticated;
+  // For device auth, we use the groups from the user object directly
+  // (set during device auth init) since myGroups requires a JWT session.
+  const shouldFetchGroups = isAuthEnabled && isAuthenticated && !isDeviceAuth;
 
   const { data, loading, refetch } = useQuery(GET_MY_GROUPS, {
     skip: !shouldFetchGroups,
   });
 
   const groups: UserGroup[] = useMemo(() => {
-    if (!shouldFetchGroups) return [];
+    if (!isAuthEnabled || !isAuthenticated) return [];
+    // For device auth, use groups from user object
+    if (isDeviceAuth && user?.groups) return user.groups;
     return data?.myGroups || [];
-  }, [data?.myGroups, shouldFetchGroups]);
+  }, [data?.myGroups, isAuthEnabled, isAuthenticated, isDeviceAuth, user?.groups]);
 
   const selectableGroups: UserGroup[] = useMemo(() => {
     if (isAdmin) {
@@ -105,10 +109,13 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     activeGroupIdRef.current = activeGroup?.id ?? null;
   }, [activeGroup]);
 
-  // Auto-select group when groups load
+  // Auto-select group when groups load.
+  // For device auth, groups come from user.groups (not a query), so
+  // shouldFetchGroups is false but groups may still be populated.
+  const hasGroups = groups.length > 0;
   useEffect(() => {
-    if (!shouldFetchGroups || loading || groups.length === 0) {
-      if (!shouldFetchGroups) {
+    if (loading || !hasGroups) {
+      if (!shouldFetchGroups && !hasGroups) {
         setActiveGroup(null);
         activeGroupIdRef.current = null;
       }
@@ -134,7 +141,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     // Default: pick the first group
     setActiveGroup(groups[0]);
     activeGroupIdRef.current = groups[0].id;
-  }, [groups, selectableGroups, loading, shouldFetchGroups]);
+  }, [groups, selectableGroups, loading, shouldFetchGroups, hasGroups]);
 
   const value = useMemo(
     () => ({

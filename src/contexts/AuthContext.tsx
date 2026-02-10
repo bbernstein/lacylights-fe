@@ -17,19 +17,24 @@ import {
   LOGOUT_ALL,
   REFRESH_TOKEN,
   REGISTER,
+  CHECK_DEVICE_AUTHORIZATION,
 } from '@/graphql/auth';
 import type {
   AuthUser,
   AuthContextType,
   RegisterInput,
+  DeviceAuthStatus,
+  UserGroup,
 } from '@/types/auth';
 import { UserRole } from '@/types';
+import { getOrCreateDeviceId } from '@/lib/device';
 
 // Storage keys
 const ACCESS_TOKEN_KEY = 'token';
 const REFRESH_TOKEN_KEY = 'refreshToken';
 const AUTH_ENABLED_COOKIE = 'lacylights_auth_enabled';
 const AUTH_TOKEN_COOKIE = 'lacylights_token';
+const DEVICE_AUTH_COOKIE = 'lacylights_device_auth';
 
 /**
  * Authentication context for managing user sessions.
@@ -138,6 +143,69 @@ function getRefreshToken(): string | null {
   }
 }
 
+/**
+ * Sets a cookie to indicate device-level authentication for middleware.
+ */
+function setDeviceAuthCookie(): void {
+  try {
+    if (typeof document !== 'undefined') {
+      document.cookie = `${DEVICE_AUTH_COOKIE}=1; path=/; SameSite=Lax`;
+    }
+  } catch {
+    // Cookie operations may fail in some environments
+  }
+}
+
+/**
+ * Clears the device auth cookie.
+ */
+function clearDeviceAuthCookie(): void {
+  try {
+    if (typeof document !== 'undefined') {
+      document.cookie = `${DEVICE_AUTH_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+    }
+  } catch {
+    // Cookie operations may fail in some environments
+  }
+}
+
+/**
+ * Builds an AuthUser from device authorization data.
+ * Maps the device's defaultUser and groups into the AuthUser shape.
+ */
+function buildDeviceAuthUser(deviceAuth: DeviceAuthStatus): AuthUser | null {
+  const { device, defaultUser } = deviceAuth;
+  if (!defaultUser) return null;
+
+  const now = new Date().toISOString();
+
+  // Map device groups to UserGroup format
+  const groups: UserGroup[] = (device?.groups ?? []).map((g) => ({
+    id: g.id,
+    name: g.name,
+    isPersonal: g.isPersonal,
+    description: undefined,
+    permissions: [],
+    memberCount: 0,
+    createdAt: now,
+    updatedAt: now,
+  }));
+
+  return {
+    id: defaultUser.id,
+    email: defaultUser.email,
+    name: defaultUser.name,
+    role: defaultUser.role,
+    emailVerified: false,
+    phoneVerified: false,
+    isActive: true,
+    createdAt: defaultUser.createdAt,
+    updatedAt: now,
+    groups,
+    permissions: [],
+  };
+}
+
 interface AuthProviderProps {
   children: React.ReactNode;
 }
@@ -166,6 +234,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isAuthEnabled, setIsAuthEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isDeviceAuth, setIsDeviceAuth] = useState(false);
+  const [deviceName, setDeviceName] = useState<string | null>(null);
 
   // GraphQL queries and mutations
   const [checkAuthEnabled] = useLazyQuery(GET_AUTH_ENABLED, {
@@ -183,8 +253,42 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [registerMutation] = useMutation(REGISTER);
 
   /**
+   * Attempt device-based authentication fallback.
+   * Queries the backend to check if this device is authorized and has a default user.
+   * Returns true if device auth succeeded.
+   */
+  const tryDeviceAuth = useCallback(async (): Promise<boolean> => {
+    try {
+      const fingerprint = getOrCreateDeviceId();
+      if (!fingerprint) return false;
+
+      const { data } = await apolloClient.query({
+        query: CHECK_DEVICE_AUTHORIZATION,
+        variables: { fingerprint },
+        fetchPolicy: 'network-only',
+      });
+
+      const deviceAuth = data?.checkDeviceAuthorization as DeviceAuthStatus | undefined;
+      if (deviceAuth?.isAuthorized && deviceAuth.defaultUser) {
+        const deviceUser = buildDeviceAuthUser(deviceAuth);
+        if (deviceUser) {
+          setUser(deviceUser);
+          setIsDeviceAuth(true);
+          setDeviceName(deviceAuth.device?.name ?? null);
+          setDeviceAuthCookie();
+          return true;
+        }
+      }
+    } catch {
+      // Device auth check failed - silently continue
+    }
+    return false;
+  }, [apolloClient]);
+
+  /**
    * Initialize auth state on mount.
    * Checks if auth is enabled and loads current user if token exists.
+   * Falls back to device auth if JWT auth fails.
    */
   useEffect(() => {
     async function initialize() {
@@ -205,6 +309,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         // If auth is enabled and we have a token, try to get current user
+        let jwtAuthSucceeded = false;
         const token = localStorage.getItem(ACCESS_TOKEN_KEY);
         if (token) {
           try {
@@ -213,6 +318,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               setUser(meData.me);
               // Ensure session cookie is set (may have expired between sessions)
               setSessionCookie();
+              jwtAuthSucceeded = true;
             } else {
               // Token is invalid or expired, try to refresh
               const refreshToken = getRefreshToken();
@@ -230,6 +336,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     const { data: refreshedMeData } = await fetchMe();
                     if (refreshedMeData?.me) {
                       setUser(refreshedMeData.me);
+                      jwtAuthSucceeded = true;
                     }
                   } else {
                     // Refresh failed, clear tokens
@@ -258,6 +365,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                   const { data: refreshedMeData } = await fetchMe();
                   if (refreshedMeData?.me) {
                     setUser(refreshedMeData.me);
+                    jwtAuthSucceeded = true;
                   }
                 } else {
                   clearTokens();
@@ -267,6 +375,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
               }
             }
           }
+        }
+
+        // If JWT auth didn't succeed, try device auth as fallback
+        if (!jwtAuthSucceeded) {
+          await tryDeviceAuth();
         }
       } catch (error) {
         // If we can't check auth status, assume it's disabled
@@ -280,7 +393,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     initialize();
-  }, [checkAuthEnabled, fetchMe, refreshTokenMutation]);
+  }, [checkAuthEnabled, fetchMe, refreshTokenMutation, tryDeviceAuth]);
 
   /**
    * Login with email and password.
@@ -292,6 +405,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     if (data?.login) {
       storeTokens(data.login.accessToken, data.login.refreshToken);
+      // Clear device auth state — we're upgrading to JWT
+      setIsDeviceAuth(false);
+      setDeviceName(null);
+      clearDeviceAuthCookie();
       // Fetch full user profile after storing tokens
       const { data: meData } = await fetchMe();
       if (meData?.me) {
@@ -316,9 +433,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     clearTokens();
     setUser(null);
+    setIsDeviceAuth(false);
+    setDeviceName(null);
+    clearDeviceAuthCookie();
     // Clear Apollo cache
     await apolloClient.resetStore();
-  }, [logoutMutation, apolloClient]);
+
+    // Try device auth fallback — approved devices stay authenticated
+    await tryDeviceAuth();
+  }, [logoutMutation, apolloClient, tryDeviceAuth]);
 
   /**
    * Logout all sessions for current user.
@@ -332,9 +455,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     clearTokens();
     setUser(null);
+    setIsDeviceAuth(false);
+    setDeviceName(null);
+    clearDeviceAuthCookie();
     // Clear Apollo cache
     await apolloClient.resetStore();
-  }, [logoutAllMutation, apolloClient]);
+
+    // Try device auth fallback — approved devices stay authenticated
+    await tryDeviceAuth();
+  }, [logoutAllMutation, apolloClient, tryDeviceAuth]);
 
   /**
    * Refresh the current session.
@@ -413,6 +542,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated,
     isAuthEnabled,
     isLoading,
+    isDeviceAuth,
+    deviceName,
     login,
     logout,
     logoutAll,
@@ -425,6 +556,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated,
     isAuthEnabled,
     isLoading,
+    isDeviceAuth,
+    deviceName,
     login,
     logout,
     logoutAll,

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { PencilIcon, XCircleIcon, ClipboardIcon, CheckIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
-import { GET_DEVICES, UPDATE_DEVICE, CREATE_DEVICE_AUTH_CODE, REVOKE_DEVICE, APPROVE_DEVICE, ADD_DEVICE_TO_GROUP, REMOVE_DEVICE_FROM_GROUP } from '@/graphql/auth';
+import { GET_DEVICES, GET_USERS, UPDATE_DEVICE, CREATE_DEVICE_AUTH_CODE, REVOKE_DEVICE, APPROVE_DEVICE, ADD_DEVICE_TO_GROUP, REMOVE_DEVICE_FROM_GROUP } from '@/graphql/auth';
 import BottomSheet from './BottomSheet';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { useGroup } from '@/contexts/GroupContext';
@@ -55,8 +55,13 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
   // Form state for editing device
   const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState<DeviceRole>(DeviceRole.PLAYER);
+  const [editDefaultUserId, setEditDefaultUserId] = useState<string>('');
 
   const { data, loading, refetch } = useQuery(GET_DEVICES, {
+    skip: !isOpen,
+  });
+
+  const { data: usersData } = useQuery(GET_USERS, {
     skip: !isOpen,
   });
 
@@ -99,6 +104,7 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
   });
 
   const devices: Device[] = data?.devices || [];
+  const users: { id: string; email: string; name?: string }[] = usersData?.users || [];
 
   // Timer for auth code expiration
   useEffect(() => {
@@ -129,6 +135,7 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
     setEditingDevice(device);
     setEditName(device.name);
     setEditRole(device.defaultRole);
+    setEditDefaultUserId(device.defaultUser?.id || '');
     setError(null);
   };
 
@@ -151,6 +158,7 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
         input: {
           name: editName.trim(),
           defaultRole: editRole,
+          defaultUserId: editDefaultUserId || null,
         },
       },
     });
@@ -314,6 +322,20 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
                       <option value={DeviceRole.OPERATOR}>Operator</option>
                       <option value={DeviceRole.DESIGNER}>Designer</option>
                     </select>
+                    <div>
+                      <label htmlFor={`default-user-${device.id}`} className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Default user (for device-only access)</label>
+                      <select
+                        id={`default-user-${device.id}`}
+                        value={editDefaultUserId}
+                        onChange={(e) => setEditDefaultUserId(e.target.value)}
+                        className="w-full px-2 py-1 bg-white dark:bg-gray-600 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-500 rounded text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">None</option>
+                        {users.map(u => (
+                          <option key={u.id} value={u.id}>{u.name || u.email}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div>
                       <label htmlFor={`add-group-${device.id}`} className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Add to group</label>
                       <select

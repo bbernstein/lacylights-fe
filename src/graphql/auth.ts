@@ -527,8 +527,8 @@ export const UPDATE_DEVICE = gql`
 /** Approve a pending device (admin only) */
 export const APPROVE_DEVICE = gql`
   ${DEVICE_FRAGMENT}
-  mutation ApproveDevice($deviceId: ID!, $permissions: DevicePermissions!, $groupId: ID) {
-    approveDevice(deviceId: $deviceId, permissions: $permissions, groupId: $groupId) {
+  mutation ApproveDevice($deviceId: ID!, $permissions: DevicePermissions!, $groupId: ID, $defaultUserId: ID) {
+    approveDevice(deviceId: $deviceId, permissions: $permissions, groupId: $groupId, defaultUserId: $defaultUserId) {
       ...DeviceFields
     }
   }

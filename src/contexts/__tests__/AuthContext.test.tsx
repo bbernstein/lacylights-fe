@@ -2,8 +2,13 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
 import { AuthProvider, useAuth, useCanAccess, useRequireAuth } from '../AuthContext';
-import { GET_AUTH_ENABLED, GET_ME, REFRESH_TOKEN, LOGOUT } from '../../graphql/auth';
+import { GET_AUTH_ENABLED, GET_ME, REFRESH_TOKEN, LOGOUT, CHECK_DEVICE_AUTHORIZATION } from '../../graphql/auth';
 import { UserRole } from '@/types';
+
+// Mock device fingerprint module
+jest.mock('@/lib/device', () => ({
+  getOrCreateDeviceId: jest.fn(() => 'test-device-fingerprint'),
+}));
 
 // Mock localStorage
 const mockLocalStorage = (() => {
@@ -60,6 +65,8 @@ function TestComponent({ testPermission = 'read:projects' }: { testPermission?: 
     isAuthEnabled,
     isLoading,
     isAdmin,
+    isDeviceAuth,
+    deviceName,
     hasPermission,
     logout,
   } = useAuth();
@@ -73,6 +80,8 @@ function TestComponent({ testPermission = 'read:projects' }: { testPermission?: 
       <div data-testid="auth-enabled">{isAuthEnabled ? 'enabled' : 'disabled'}</div>
       <div data-testid="authenticated">{isAuthenticated ? 'authenticated' : 'not-authenticated'}</div>
       <div data-testid="is-admin">{isAdmin ? 'admin' : 'not-admin'}</div>
+      <div data-testid="is-device-auth">{isDeviceAuth ? 'device' : 'not-device'}</div>
+      <div data-testid="device-name">{deviceName || 'no-device'}</div>
       <div data-testid="user-email">{user?.email || 'no-user'}</div>
       <div data-testid="has-permission">{hasPermission(testPermission) ? 'has' : 'no'}</div>
       <div data-testid="can-access">{canAccess ? 'can' : 'cannot'}</div>
@@ -147,6 +156,23 @@ describe('AuthContext', () => {
         result: {
           data: {
             authEnabled: true,
+          },
+        },
+      },
+      {
+        // Device auth fallback will be attempted but fail (device not authorized)
+        request: {
+          query: CHECK_DEVICE_AUTHORIZATION,
+          variables: { fingerprint: 'test-device-fingerprint' },
+        },
+        result: {
+          data: {
+            checkDeviceAuthorization: {
+              isAuthorized: false,
+              isPending: false,
+              device: null,
+              defaultUser: null,
+            },
           },
         },
       },
@@ -291,6 +317,23 @@ describe('AuthContext', () => {
             },
           },
         },
+        {
+          // Device auth fallback after logout (device not authorized)
+          request: {
+            query: CHECK_DEVICE_AUTHORIZATION,
+            variables: { fingerprint: 'test-device-fingerprint' },
+          },
+          result: {
+            data: {
+              checkDeviceAuthorization: {
+                isAuthorized: false,
+                isPending: false,
+                device: null,
+                defaultUser: null,
+              },
+            },
+          },
+        },
       ];
 
       render(
@@ -309,7 +352,7 @@ describe('AuthContext', () => {
       // Click logout button
       fireEvent.click(screen.getByTestId('logout-button'));
 
-      // After logout, user should be cleared
+      // After logout, user should be cleared (device auth fallback fails)
       await waitFor(() => {
         expect(screen.getByTestId('authenticated')).toHaveTextContent('not-authenticated');
       });
@@ -495,6 +538,194 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('auth-enabled')).toHaveTextContent('disabled');
 
       consoleError.mockRestore();
+    });
+  });
+
+  describe('device auth fallback', () => {
+    const mockDeviceAuthResponse = {
+      __typename: 'DeviceAuthStatus',
+      isAuthorized: true,
+      isPending: false,
+      device: {
+        __typename: 'Device',
+        id: 'device-1',
+        name: 'Stage Manager iPad',
+        fingerprint: 'test-device-fingerprint',
+        isAuthorized: true,
+        defaultRole: 'OPERATOR',
+        lastSeenAt: null,
+        lastIPAddress: null,
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        defaultUser: {
+          __typename: 'User',
+          id: 'device-user-1',
+          email: 'device@example.com',
+          name: 'Device User',
+        },
+        groups: [
+          { __typename: 'UserGroup', id: 'group-1', name: 'Stage Group', isPersonal: false },
+        ],
+      },
+      defaultUser: {
+        __typename: 'User',
+        id: 'device-user-1',
+        email: 'device@example.com',
+        name: 'Device User',
+        role: UserRole.USER,
+        createdAt: '2024-01-01T00:00:00Z',
+      },
+    };
+
+    it('falls back to device auth when no JWT token exists', async () => {
+      const mocks = [
+        {
+          request: { query: GET_AUTH_ENABLED },
+          result: { data: { authEnabled: true } },
+          maxUsageCount: 3,
+        },
+        {
+          request: {
+            query: CHECK_DEVICE_AUTHORIZATION,
+            variables: { fingerprint: 'test-device-fingerprint' },
+          },
+          result: {
+            data: { checkDeviceAuthorization: mockDeviceAuthResponse },
+          },
+          maxUsageCount: 3,
+        },
+      ];
+
+      // Use addTypename={true} (default) for device auth tests because
+      // apolloClient.query() normalizes through the cache, which needs
+      // __typename to properly resolve nested objects from fragments.
+      render(
+        <MockedProvider mocks={mocks}>
+          <AuthProvider>
+            <TestComponent />
+          </AuthProvider>
+        </MockedProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('loading')).toHaveTextContent('not-loading');
+      });
+
+      // Device auth should succeed: user is authenticated via device
+      await waitFor(() => {
+        expect(screen.getByTestId('authenticated')).toHaveTextContent('authenticated');
+      });
+      expect(screen.getByTestId('is-device-auth')).toHaveTextContent('device');
+      expect(screen.getByTestId('user-email')).toHaveTextContent('device@example.com');
+      expect(screen.getByTestId('device-name')).toHaveTextContent('Stage Manager iPad');
+    });
+
+    it('stays unauthenticated when device is not authorized', async () => {
+      const mocks = [
+        {
+          request: { query: GET_AUTH_ENABLED },
+          result: { data: { authEnabled: true } },
+        },
+        {
+          request: {
+            query: CHECK_DEVICE_AUTHORIZATION,
+            variables: { fingerprint: 'test-device-fingerprint' },
+          },
+          result: {
+            data: {
+              checkDeviceAuthorization: {
+                isAuthorized: false,
+                isPending: true,
+                device: null,
+                defaultUser: null,
+              },
+            },
+          },
+        },
+      ];
+
+      render(
+        <MockedProvider mocks={mocks} addTypename={false}>
+          <AuthProvider>
+            <TestComponent />
+          </AuthProvider>
+        </MockedProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('loading')).toHaveTextContent('not-loading');
+      });
+
+      expect(screen.getByTestId('authenticated')).toHaveTextContent('not-authenticated');
+      expect(screen.getByTestId('is-device-auth')).toHaveTextContent('not-device');
+    });
+
+    it('stays unauthenticated when device has no default user', async () => {
+      const mocks = [
+        {
+          request: { query: GET_AUTH_ENABLED },
+          result: { data: { authEnabled: true } },
+        },
+        {
+          request: {
+            query: CHECK_DEVICE_AUTHORIZATION,
+            variables: { fingerprint: 'test-device-fingerprint' },
+          },
+          result: {
+            data: {
+              checkDeviceAuthorization: {
+                ...mockDeviceAuthResponse,
+                defaultUser: null,
+              },
+            },
+          },
+        },
+      ];
+
+      render(
+        <MockedProvider mocks={mocks} addTypename={false}>
+          <AuthProvider>
+            <TestComponent />
+          </AuthProvider>
+        </MockedProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('loading')).toHaveTextContent('not-loading');
+      });
+
+      expect(screen.getByTestId('authenticated')).toHaveTextContent('not-authenticated');
+      expect(screen.getByTestId('is-device-auth')).toHaveTextContent('not-device');
+    });
+
+    it('prefers JWT auth over device auth when token exists', async () => {
+      mockLocalStorage.setItem('token', 'valid-token');
+
+      const mocks = [
+        {
+          request: { query: GET_AUTH_ENABLED },
+          result: { data: { authEnabled: true } },
+        },
+        {
+          request: { query: GET_ME },
+          result: { data: { me: mockUser } },
+        },
+      ];
+
+      render(
+        <MockedProvider mocks={mocks} addTypename={false}>
+          <AuthProvider>
+            <TestComponent />
+          </AuthProvider>
+        </MockedProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('loading')).toHaveTextContent('not-loading');
+      });
+
+      expect(screen.getByTestId('authenticated')).toHaveTextContent('authenticated');
+      expect(screen.getByTestId('is-device-auth')).toHaveTextContent('not-device');
     });
   });
 });
