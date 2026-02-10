@@ -25,6 +25,8 @@ describe('UserMenu', () => {
     isAuthenticated: false,
     isAuthEnabled: true,
     isLoading: false,
+    isDeviceAuth: false,
+    deviceName: null,
     login: jest.fn(),
     logout: mockLogout,
     logoutAll: mockLogoutAll,
@@ -180,6 +182,7 @@ describe('UserMenu', () => {
       await userEvent.click(screen.getByText('Sign Out'));
 
       expect(mockLogout).toHaveBeenCalled();
+      // Redirect happens when no token and no device auth cookie
       await waitFor(() => {
         expect(mockPush).toHaveBeenCalledWith('/login');
       });
@@ -234,6 +237,98 @@ describe('UserMenu', () => {
       await waitFor(() => {
         expect(mockPush).toHaveBeenCalledWith('/login');
       });
+    });
+  });
+
+  describe('when device-authenticated', () => {
+    const deviceUser = {
+      id: 'device-user-1',
+      email: 'device@example.com',
+      name: 'Device User',
+      role: UserRole.USER,
+      emailVerified: false,
+      phoneVerified: false,
+      isActive: true,
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-01-01T00:00:00Z',
+      groups: [],
+      permissions: [],
+    };
+
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue({
+        ...baseAuthContext,
+        user: deviceUser,
+        isAuthenticated: true,
+        isDeviceAuth: true,
+        deviceName: 'Stage Manager iPad',
+      });
+    });
+
+    it('shows device icon instead of user initials', () => {
+      render(<UserMenu />);
+      // Should not show user initials
+      expect(screen.queryByText('DU')).not.toBeInTheDocument();
+    });
+
+    it('shows device name in dropdown', async () => {
+      render(<UserMenu />);
+
+      await userEvent.click(screen.getByRole('button', { name: /user menu/i }));
+
+      expect(screen.getByText('Stage Manager iPad')).toBeInTheDocument();
+      expect(screen.getByText('Device Access')).toBeInTheDocument();
+    });
+
+    it('shows Sign In option instead of Sign Out', async () => {
+      render(<UserMenu />);
+
+      await userEvent.click(screen.getByRole('button', { name: /user menu/i }));
+
+      expect(screen.getByText('Sign In')).toBeInTheDocument();
+      expect(screen.queryByText('Sign Out')).not.toBeInTheDocument();
+    });
+
+    it('navigates to /login when Sign In is clicked', async () => {
+      render(<UserMenu />);
+
+      await userEvent.click(screen.getByRole('button', { name: /user menu/i }));
+      await userEvent.click(screen.getByText('Sign In'));
+
+      expect(mockPush).toHaveBeenCalledWith('/login');
+    });
+
+    it('does not show Admin badge even if user has admin role', async () => {
+      mockUseAuth.mockReturnValue({
+        ...baseAuthContext,
+        user: { ...deviceUser, role: UserRole.ADMIN },
+        isAuthenticated: true,
+        isDeviceAuth: true,
+        deviceName: 'Admin Device',
+        isAdmin: true,
+      });
+
+      render(<UserMenu />);
+
+      await userEvent.click(screen.getByRole('button', { name: /user menu/i }));
+
+      expect(screen.queryByText('Admin')).not.toBeInTheDocument();
+    });
+
+    it('shows fallback device name when deviceName is null', async () => {
+      mockUseAuth.mockReturnValue({
+        ...baseAuthContext,
+        user: deviceUser,
+        isAuthenticated: true,
+        isDeviceAuth: true,
+        deviceName: null,
+      });
+
+      render(<UserMenu />);
+
+      await userEvent.click(screen.getByRole('button', { name: /user menu/i }));
+
+      expect(screen.getByText('Device')).toBeInTheDocument();
     });
   });
 

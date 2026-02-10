@@ -15,6 +15,34 @@ export const DEVICE_ID_KEY = 'lacylights_device_id';
 export const DEVICE_NAME_KEY = 'lacylights_device_name';
 
 /**
+ * Generate a UUID, with fallback for non-secure contexts (HTTP).
+ * generateUUID() is only available in secure contexts (HTTPS/localhost).
+ * On plain HTTP (e.g., http://lacylights.local), we fall back to a manual
+ * implementation using crypto.getRandomValues().
+ */
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback: construct a v4 UUID from random bytes
+  if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
+    // Last-resort fallback using Math.random (not cryptographically secure)
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  // Set version (4) and variant (10xx) bits per RFC 4122
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/**
  * Gets the existing device ID from localStorage or creates a new one.
  *
  * The device ID is a UUID that uniquely identifies this browser/device.
@@ -31,14 +59,14 @@ export function getOrCreateDeviceId(): string {
   try {
     let deviceId = localStorage.getItem(DEVICE_ID_KEY);
     if (!deviceId) {
-      deviceId = crypto.randomUUID();
+      deviceId = generateUUID();
       localStorage.setItem(DEVICE_ID_KEY, deviceId);
     }
     return deviceId;
   } catch {
     // localStorage may not be available (private browsing, etc.)
     // Return a temporary ID that won't persist
-    return crypto.randomUUID();
+    return generateUUID();
   }
 }
 

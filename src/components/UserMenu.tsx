@@ -7,6 +7,7 @@ import {
   UserCircleIcon,
   ArrowRightOnRectangleIcon,
   ArrowRightStartOnRectangleIcon,
+  ComputerDesktopIcon,
 } from '@heroicons/react/24/outline';
 
 /**
@@ -19,7 +20,7 @@ import {
  */
 export default function UserMenu() {
   const router = useRouter();
-  const { user, isAuthenticated, isAuthEnabled, isLoading, logout, logoutAll, isAdmin } = useAuth();
+  const { user, isAuthenticated, isAuthEnabled, isLoading, logout, logoutAll, isAdmin, isDeviceAuth, deviceName } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -47,11 +48,22 @@ export default function UserMenu() {
     try {
       await logout();
     } catch {
-      // Ignore logout errors - we're redirecting anyway
+      // Ignore logout errors
     } finally {
       setIsLoggingOut(false);
       setIsOpen(false);
-      router.push('/login');
+      // logout() tries device auth fallback — only redirect if still unauthenticated
+      // We check localStorage for the token since state may not have updated yet
+      try {
+        if (!localStorage.getItem('token')) {
+          // Check if device auth cookie was set during logout fallback
+          if (!document.cookie.includes('lacylights_device_auth=1')) {
+            router.push('/login');
+          }
+        }
+      } catch {
+        router.push('/login');
+      }
     }
   };
 
@@ -61,11 +73,19 @@ export default function UserMenu() {
     try {
       await logoutAll();
     } catch {
-      // Ignore logout errors - we're redirecting anyway
+      // Ignore logout errors
     } finally {
       setIsLoggingOut(false);
       setIsOpen(false);
-      router.push('/login');
+      try {
+        if (!localStorage.getItem('token')) {
+          if (!document.cookie.includes('lacylights_device_auth=1')) {
+            router.push('/login');
+          }
+        }
+      } catch {
+        router.push('/login');
+      }
     }
   };
 
@@ -125,34 +145,59 @@ export default function UserMenu() {
         aria-haspopup="true"
         aria-label="User menu"
       >
-        {/* Avatar with initials */}
-        <div className="h-8 w-8 rounded-full bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center text-white text-sm font-medium">
-          {getInitials()}
-        </div>
+        {/* Avatar: device icon for device auth, initials for JWT auth */}
+        {isDeviceAuth ? (
+          <div className="h-8 w-8 rounded-full bg-emerald-600 dark:bg-emerald-500 flex items-center justify-center text-white">
+            <ComputerDesktopIcon className="h-5 w-5" />
+          </div>
+        ) : (
+          <div className="h-8 w-8 rounded-full bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center text-white text-sm font-medium">
+            {getInitials()}
+          </div>
+        )}
       </button>
 
       {isOpen && (
         <div className="absolute right-0 z-50 mt-2 w-64 rounded-md bg-white dark:bg-gray-700 shadow-lg ring-1 ring-black ring-opacity-5">
           <div className="py-1">
-            {/* User info section */}
+            {/* User/Device info section */}
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-600">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
-                  {getInitials()}
-                </div>
+                {isDeviceAuth ? (
+                  <div className="h-10 w-10 rounded-full bg-emerald-600 dark:bg-emerald-500 flex items-center justify-center text-white flex-shrink-0">
+                    <ComputerDesktopIcon className="h-6 w-6" />
+                  </div>
+                ) : (
+                  <div className="h-10 w-10 rounded-full bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                    {getInitials()}
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
-                  {user?.name && (
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                      {user.name}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {user?.email}
-                  </p>
-                  {isAdmin && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 mt-1 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
-                      Admin
-                    </span>
+                  {isDeviceAuth ? (
+                    <>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {deviceName || 'Device'}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        Device Access
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      {user?.name && (
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {user.name}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {user?.email}
+                      </p>
+                      {isAdmin && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 mt-1 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+                          Admin
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -160,24 +205,36 @@ export default function UserMenu() {
 
             {/* Actions */}
             <div className="py-1">
-              <button
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50"
-              >
-                <ArrowRightStartOnRectangleIcon className="h-4 w-4" />
-                {isLoggingOut ? 'Signing out...' : 'Sign Out'}
-              </button>
-
-              {isAdmin && (
+              {isDeviceAuth ? (
                 <button
-                  onClick={handleLogoutAll}
-                  disabled={isLoggingOut}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50"
+                  onClick={() => { setIsOpen(false); router.push('/login'); }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center gap-2"
                 >
-                  <UserCircleIcon className="h-4 w-4" />
-                  {isLoggingOut ? 'Signing out...' : 'Sign Out All Devices'}
+                  <ArrowRightOnRectangleIcon className="h-4 w-4" />
+                  Sign In
                 </button>
+              ) : (
+                <>
+                  <button
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <ArrowRightStartOnRectangleIcon className="h-4 w-4" />
+                    {isLoggingOut ? 'Signing out...' : 'Sign Out'}
+                  </button>
+
+                  {isAdmin && (
+                    <button
+                      onClick={handleLogoutAll}
+                      disabled={isLoggingOut}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <UserCircleIcon className="h-4 w-4" />
+                      {isLoggingOut ? 'Signing out...' : 'Sign Out All Devices'}
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>

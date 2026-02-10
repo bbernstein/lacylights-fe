@@ -38,6 +38,13 @@ const AUTH_TOKEN_COOKIE = 'lacylights_token';
 const AUTH_ENABLED_COOKIE = 'lacylights_auth_enabled';
 
 /**
+ * Cookie name for device-level authentication.
+ * Set when a device is authorized and has a default user, allowing
+ * access without a JWT session.
+ */
+const DEVICE_AUTH_COOKIE = 'lacylights_device_auth';
+
+/**
  * Check if a path matches any of the excluded patterns.
  */
 function isExcludedPath(pathname: string): boolean {
@@ -95,12 +102,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Auth is enabled - check for token
+  // Auth is enabled - check for token or device auth
   const tokenCookie = request.cookies.get(AUTH_TOKEN_COOKIE);
-  const hasToken = !!tokenCookie?.value;
+  const deviceAuthCookie = request.cookies.get(DEVICE_AUTH_COOKIE);
+  const hasAuth = !!tokenCookie?.value || deviceAuthCookie?.value === '1';
 
-  // If no token, redirect to login with return URL (preserving query string)
-  if (!hasToken) {
+  // If no auth (neither JWT session nor device auth), redirect to login
+  if (!hasAuth) {
     const loginUrl = new URL('/login', request.url);
     const returnPath = pathname + request.nextUrl.search;
     loginUrl.searchParams.set('redirect', returnPath);

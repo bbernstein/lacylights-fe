@@ -13,6 +13,7 @@ import { UndoRedoToolbar } from '@/components/UndoRedoToolbar';
 import { OperationHistoryPanel } from '@/components/OperationHistoryPanel';
 import UserMenu from '@/components/UserMenu';
 import InvitationBadge from '@/components/InvitationBadge';
+import DeviceRegistrationPrompt from '@/components/auth/DeviceRegistrationPrompt';
 import { useFocusMode } from '@/contexts/FocusModeContext';
 import { useUndoRedoKeyboard } from '@/hooks/useUndoRedoKeyboard';
 
@@ -78,6 +79,8 @@ function MainLayoutContent({ children }: { children: ReactNode }) {
       {!isFocusMode && <MobileNav />}
       {/* Operation history panel */}
       <OperationHistoryPanel isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
+      {/* Device registration prompt for unregistered devices */}
+      <DeviceRegistrationPrompt />
     </div>
   );
 }

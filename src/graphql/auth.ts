@@ -65,6 +65,11 @@ export const DEVICE_FRAGMENT = gql`
       email
       name
     }
+    groups {
+      id
+      name
+      isPersonal
+    }
   }
 `;
 
@@ -220,7 +225,7 @@ export const GET_USER_GROUPS = gql`
   }
 `;
 
-/** Get a user group by ID with members (admin or group member) */
+/** Get a user group by ID with members and devices (admin or group member) */
 export const GET_USER_GROUP = gql`
   ${USER_GROUP_FRAGMENT}
   ${GROUP_MEMBER_FRAGMENT}
@@ -229,6 +234,13 @@ export const GET_USER_GROUP = gql`
       ...UserGroupFields
       members {
         ...GroupMemberFields
+      }
+      devices {
+        id
+        name
+        fingerprint
+        isAuthorized
+        lastSeenAt
       }
     }
   }
@@ -512,6 +524,16 @@ export const UPDATE_DEVICE = gql`
   }
 `;
 
+/** Approve a pending device (admin only) */
+export const APPROVE_DEVICE = gql`
+  ${DEVICE_FRAGMENT}
+  mutation ApproveDevice($deviceId: ID!, $permissions: DevicePermissions!, $groupId: ID, $defaultUserId: ID) {
+    approveDevice(deviceId: $deviceId, permissions: $permissions, groupId: $groupId, defaultUserId: $defaultUserId) {
+      ...DeviceFields
+    }
+  }
+`;
+
 /** Revoke a device's authorization (admin only) */
 export const REVOKE_DEVICE = gql`
   ${DEVICE_FRAGMENT}
@@ -624,5 +646,23 @@ export const DECLINE_INVITATION = gql`
 export const CANCEL_INVITATION = gql`
   mutation CancelInvitation($invitationId: ID!) {
     cancelInvitation(invitationId: $invitationId)
+  }
+`;
+
+// =============================================================================
+// DEVICE-GROUP MUTATIONS
+// =============================================================================
+
+/** Add a device to a group (admin only) */
+export const ADD_DEVICE_TO_GROUP = gql`
+  mutation AddDeviceToGroup($deviceId: ID!, $groupId: ID!) {
+    addDeviceToGroup(deviceId: $deviceId, groupId: $groupId)
+  }
+`;
+
+/** Remove a device from a group (admin only) */
+export const REMOVE_DEVICE_FROM_GROUP = gql`
+  mutation RemoveDeviceFromGroup($deviceId: ID!, $groupId: ID!) {
+    removeDeviceFromGroup(deviceId: $deviceId, groupId: $groupId)
   }
 `;

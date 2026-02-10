@@ -46,6 +46,20 @@ describe('Device Utilities', () => {
       getOrCreateDeviceId();
       expect(localStorage.getItem(DEVICE_ID_KEY)).toBe('test-uuid-12345678-1234-1234-1234-123456789012');
     });
+
+    it('falls back to Math.random UUID when crypto is unavailable', () => {
+      // Temporarily remove crypto
+      const originalCrypto = global.crypto;
+      Object.defineProperty(global, 'crypto', { value: undefined, writable: true, configurable: true });
+
+      localStorage.clear();
+      const deviceId = getOrCreateDeviceId();
+      // Should be a valid UUID v4 format
+      expect(deviceId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+
+      // Restore
+      Object.defineProperty(global, 'crypto', { value: originalCrypto, writable: true, configurable: true });
+    });
   });
 
   describe('getDeviceName', () => {

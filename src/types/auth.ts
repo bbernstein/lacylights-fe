@@ -156,6 +156,12 @@ export interface Device {
   };
   /** Default role when no user is specified */
   defaultRole: DeviceRole;
+  /** Groups this device belongs to */
+  groups?: {
+    id: string;
+    name: string;
+    isPersonal: boolean;
+  }[];
   lastSeenAt?: string;
   lastIPAddress?: string;
   createdAt: string;
@@ -280,6 +286,10 @@ export interface AuthContextType {
   isAuthEnabled: boolean;
   /** Whether initial auth check is in progress */
   isLoading: boolean;
+  /** Whether currently authenticated via device-only auth (no JWT) */
+  isDeviceAuth: boolean;
+  /** Name of the authenticated device (when using device auth) */
+  deviceName: string | null;
   /** Login with email and password */
   login: (email: string, password: string) => Promise<void>;
   /** Logout current session */

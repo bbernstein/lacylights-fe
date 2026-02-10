@@ -9,6 +9,8 @@ const mockAuth = {
   isAuthEnabled: true,
   isAuthenticated: true,
   isAdmin: false,
+  isDeviceAuth: false,
+  deviceName: null,
   user: { id: 'user-1', email: 'test@example.com', role: 'USER' },
   isLoading: false,
   login: jest.fn(),
@@ -385,6 +387,64 @@ describe('GroupContext', () => {
         expect(screen.getByTestId('groups-count')).toHaveTextContent('2');
         // Admin: selectableGroups should include the extra "Unassigned" group
         expect(screen.getByTestId('selectable-groups-count')).toHaveTextContent('3');
+      });
+    });
+  });
+
+  describe('device auth groups', () => {
+    const deviceGroups = [
+      {
+        id: 'dg-1',
+        name: 'Stage Group',
+        isPersonal: false,
+        permissions: [],
+        memberCount: 0,
+        createdAt: '2023-01-01T00:00:00Z',
+        updatedAt: '2023-01-01T00:00:00Z',
+      },
+      {
+        id: 'dg-2',
+        name: 'Booth Group',
+        isPersonal: false,
+        permissions: [],
+        memberCount: 0,
+        createdAt: '2023-01-02T00:00:00Z',
+        updatedAt: '2023-01-02T00:00:00Z',
+      },
+    ];
+
+    it('uses user.groups directly for device auth instead of querying', async () => {
+      useAuth.mockReturnValue({
+        ...mockAuth,
+        isDeviceAuth: true,
+        deviceName: 'Stage iPad',
+        user: {
+          id: 'device-user-1',
+          email: 'device@example.com',
+          role: 'USER',
+          groups: deviceGroups,
+        },
+      });
+
+      // No GraphQL mocks needed - device auth uses user.groups directly
+      const mocks: any[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+      render(
+        React.createElement(
+          createMockProvider(mocks),
+          null,
+          React.createElement(GroupProvider, null, React.createElement(TestComponent)),
+        ),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('loading')).toHaveTextContent('Not Loading');
+        expect(screen.getByTestId('groups-count')).toHaveTextContent('2');
+      });
+
+      // Auto-select first group
+      await waitFor(() => {
+        expect(screen.getByTestId('active-group')).toHaveTextContent('Stage Group');
       });
     });
   });
