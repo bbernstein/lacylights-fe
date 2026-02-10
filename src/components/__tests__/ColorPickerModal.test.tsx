@@ -10,6 +10,20 @@ jest.mock('@/hooks/useMediaQuery', () => ({
   useMediaQuery: jest.fn(() => false),
 }));
 
+// Mock StreamDockContext
+jest.mock('@/contexts/StreamDockContext', () => ({
+  useStreamDock: () => ({
+    connectionState: 'disconnected',
+    registerCuePlayerHandlers: jest.fn(),
+    registerLookEditorHandlers: jest.fn(),
+    registerColorPickerHandlers: jest.fn(),
+    publishCueListState: jest.fn(),
+    publishLookEditorState: jest.fn(),
+    publishColorPickerState: jest.fn(),
+    publishRoute: jest.fn(),
+  }),
+}));
+
 jest.mock('../ColorWheelPicker', () => {
   return function MockColorWheelPicker({ currentColor, onColorChange, onColorSelect }: { currentColor: { r: number; g: number; b: number }; onColorChange: (color: { r: number; g: number; b: number }) => void; onColorSelect: (color: { r: number; g: number; b: number }) => void }) {
     return (

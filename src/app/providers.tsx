@@ -9,6 +9,7 @@ import { FocusModeProvider } from '@/contexts/FocusModeContext';
 import { UserModeProvider } from '@/contexts/UserModeContext';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
 import { UndoRedoProvider } from '@/contexts/UndoRedoContext';
+import { StreamDockProvider } from '@/contexts/StreamDockContext';
 import { useEffect } from 'react';
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -52,7 +53,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
               <FocusModeProvider>
                 <ProjectProvider>
                   <UndoRedoProvider>
-                    {children}
+                    <StreamDockProvider>
+                      {children}
+                    </StreamDockProvider>
                   </UndoRedoProvider>
                 </ProjectProvider>
               </FocusModeProvider>

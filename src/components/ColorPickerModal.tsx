@@ -7,7 +7,8 @@ import { useIsMobile } from '@/hooks/useMediaQuery';
 import { getBestMatchingRoscolux } from '@/utils/colorMatching';
 import { ROSCOLUX_FILTERS } from '@/data/roscoluxFilters';
 import type { InstanceChannelWithValue } from '@/utils/colorConversion';
-import { rgbToHex, hexToRgb } from '@/utils/colorHelpers';
+import { rgbToHex, hexToRgb, rgbToHsb, hsbToRgb } from '@/utils/colorHelpers';
+import { useStreamDock } from '@/contexts/StreamDockContext';
 
 interface ColorPickerModalProps {
   isOpen: boolean;
@@ -50,6 +51,7 @@ export default function ColorPickerModal({
   channels: _channels
 }: ColorPickerModalProps) {
   const isMobile = useIsMobile();
+  const streamDock = useStreamDock();
   const [activeTab, setActiveTab] = useState<TabType>('wheel');
   const [selectedColor, setSelectedColor] = useState(currentColor);
   const [hexInputValue, setHexInputValue] = useState(rgbToHex(currentColor.r, currentColor.g, currentColor.b));
@@ -110,6 +112,51 @@ export default function ColorPickerModal({
     const match = getBestMatchingRoscolux(selectedColor, ROSCOLUX_FILTERS, 95);
     setBestMatch(match);
   }, [selectedColor]);
+
+  // Stream Dock: register color picker command handlers
+  useEffect(() => {
+    if (!isOpen) {
+      streamDock.registerColorPickerHandlers(null);
+      return;
+    }
+
+    streamDock.registerColorPickerHandlers({
+      handleSetHSB: (hue: number, saturation: number, brightness: number) => {
+        const rgb = hsbToRgb(hue, saturation, brightness);
+        setSelectedColor(rgb);
+        onColorChange(rgb);
+      },
+      handleSetRGB: (r: number, g: number, b: number) => {
+        const color = { r, g, b };
+        setSelectedColor(color);
+        onColorChange(color);
+      },
+      handleApply: () => {
+        onColorSelect(selectedColor);
+        onClose();
+      },
+      handleCancel: () => {
+        onClose();
+      },
+      handleOpen: () => {
+        // Already open - no-op
+      },
+    });
+
+    return () => streamDock.registerColorPickerHandlers(null);
+  }, [isOpen, streamDock, selectedColor, onColorChange, onColorSelect, onClose]);
+
+  // Stream Dock: publish color picker state
+  useEffect(() => {
+    const hsb = rgbToHsb(selectedColor.r, selectedColor.g, selectedColor.b);
+    streamDock.publishColorPickerState({
+      isOpen,
+      hue: hsb.hue,
+      saturation: hsb.saturation,
+      brightness: hsb.brightness,
+      rgb: selectedColor,
+    });
+  }, [streamDock, isOpen, selectedColor]);
 
   const handleColorUpdate = (color: { r: number; g: number; b: number }) => {
     setSelectedColor(color);

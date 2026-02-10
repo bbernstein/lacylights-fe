@@ -43,6 +43,66 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } {
 }
 
 /**
+ * Convert RGB to HSB (Hue, Saturation, Brightness).
+ * @returns {{ hue: number, saturation: number, brightness: number }}
+ *   hue: 0-360, saturation: 0-100, brightness: 0-100
+ */
+export function rgbToHsb(r: number, g: number, b: number): { hue: number; saturation: number; brightness: number } {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const delta = max - min;
+
+  let hue = 0;
+  if (delta !== 0) {
+    if (max === rn) {
+      hue = ((gn - bn) / delta) % 6;
+    } else if (max === gn) {
+      hue = (bn - rn) / delta + 2;
+    } else {
+      hue = (rn - gn) / delta + 4;
+    }
+    hue = Math.round(hue * 60);
+    if (hue < 0) hue += 360;
+  }
+
+  const saturation = max === 0 ? 0 : Math.round((delta / max) * 100);
+  const brightness = Math.round(max * 100);
+
+  return { hue, saturation, brightness };
+}
+
+/**
+ * Convert HSB (Hue, Saturation, Brightness) to RGB.
+ * @param hue 0-360
+ * @param saturation 0-100
+ * @param brightness 0-100
+ */
+export function hsbToRgb(hue: number, saturation: number, brightness: number): { r: number; g: number; b: number } {
+  const s = saturation / 100;
+  const v = brightness / 100;
+  const c = v * s;
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = v - c;
+
+  let rn = 0, gn = 0, bn = 0;
+  if (hue < 60) { rn = c; gn = x; }
+  else if (hue < 120) { rn = x; gn = c; }
+  else if (hue < 180) { gn = c; bn = x; }
+  else if (hue < 240) { gn = x; bn = c; }
+  else if (hue < 300) { rn = x; bn = c; }
+  else { rn = c; bn = x; }
+
+  return {
+    r: Math.round((rn + m) * 255),
+    g: Math.round((gn + m) * 255),
+    b: Math.round((bn + m) * 255),
+  };
+}
+
+/**
  * Calculate relative luminance of an RGB color using WCAG formula
  * @param r - Red value (0-255)
  * @param g - Green value (0-255)
