@@ -105,7 +105,7 @@ export function middleware(request: NextRequest) {
   // Auth is enabled - check for token or device auth
   const tokenCookie = request.cookies.get(AUTH_TOKEN_COOKIE);
   const deviceAuthCookie = request.cookies.get(DEVICE_AUTH_COOKIE);
-  const hasAuth = !!tokenCookie?.value || !!deviceAuthCookie?.value;
+  const hasAuth = !!tokenCookie?.value || deviceAuthCookie?.value === '1';
 
   // If no auth (neither JWT session nor device auth), redirect to login
   if (!hasAuth) {

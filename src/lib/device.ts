@@ -25,6 +25,14 @@ function generateUUID(): string {
     return crypto.randomUUID();
   }
   // Fallback: construct a v4 UUID from random bytes
+  if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
+    // Last-resort fallback using Math.random (not cryptographically secure)
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   // Set version (4) and variant (10xx) bits per RFC 4122

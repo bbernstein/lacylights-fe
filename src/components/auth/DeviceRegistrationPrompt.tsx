@@ -30,8 +30,8 @@ export default function DeviceRegistrationPrompt() {
     setLocallyRegistered(isDeviceRegistered());
   }, []);
 
-  // Check backend for device status
-  const shouldCheck = isAuthEnabled && isAuthenticated && !isLoading && !!deviceId;
+  // Check backend for device status — only when the device is not already locally registered
+  const shouldCheck = isAuthEnabled && isAuthenticated && !isLoading && !!deviceId && !locallyRegistered;
   const { data, loading: checkingDevice } = useQuery(CHECK_DEVICE_AUTHORIZATION, {
     variables: { fingerprint: deviceId },
     skip: !shouldCheck,

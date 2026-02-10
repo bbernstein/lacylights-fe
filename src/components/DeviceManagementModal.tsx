@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
-import { PencilIcon, XCircleIcon, ClipboardIcon, CheckIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
-import { GET_DEVICES, GET_USERS, UPDATE_DEVICE, CREATE_DEVICE_AUTH_CODE, REVOKE_DEVICE, APPROVE_DEVICE, ADD_DEVICE_TO_GROUP, REMOVE_DEVICE_FROM_GROUP } from '@/graphql/auth';
+import { PencilIcon, XCircleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { GET_DEVICES, GET_USERS, UPDATE_DEVICE, REVOKE_DEVICE, APPROVE_DEVICE, ADD_DEVICE_TO_GROUP, REMOVE_DEVICE_FROM_GROUP } from '@/graphql/auth';
 import BottomSheet from './BottomSheet';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { useGroup } from '@/contexts/GroupContext';
@@ -31,14 +31,6 @@ interface Device {
   }[];
 }
 
-interface DeviceAuthCode {
-  code: string;
-  expiresAt: string;
-  deviceId: string;
-  /** Total TTL in seconds, captured at creation time for progress bar accuracy */
-  initialTtlSeconds?: number;
-}
-
 interface DeviceManagementModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -48,9 +40,6 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
   const isMobile = useIsMobile();
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [authCode, setAuthCode] = useState<DeviceAuthCode | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState<number>(0);
 
   // Form state for editing device
   const [editName, setEditName] = useState('');
@@ -70,16 +59,6 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
     onCompleted: () => {
       refetch();
       setEditingDevice(null);
-    },
-  });
-
-  const [createDeviceAuthCode, { loading: _generatingCode }] = useMutation(CREATE_DEVICE_AUTH_CODE, {
-    onError: (err) => setError(`Failed to generate auth code: ${err.message}`),
-    onCompleted: (data) => {
-      const code = data.createDeviceAuthCode;
-      // Capture the initial TTL for accurate progress bar rendering
-      const initialTtl = Math.max(0, Math.floor((new Date(code.expiresAt).getTime() - Date.now()) / 1000));
-      setAuthCode({ ...code, initialTtlSeconds: initialTtl });
     },
   });
 
@@ -105,31 +84,6 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
 
   const devices: Device[] = data?.devices || [];
   const users: { id: string; email: string; name?: string }[] = usersData?.users || [];
-
-  // Timer for auth code expiration
-  useEffect(() => {
-    if (!authCode) {
-      setTimeRemaining(0);
-      return;
-    }
-
-    const expiresAt = new Date(authCode.expiresAt).getTime();
-
-    const updateTimer = () => {
-      const now = Date.now();
-      const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
-      setTimeRemaining(remaining);
-
-      if (remaining === 0) {
-        setAuthCode(null);
-      }
-    };
-
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-
-    return () => clearInterval(interval);
-  }, [authCode]);
 
   const handleStartEdit = (device: Device) => {
     setEditingDevice(device);
@@ -164,15 +118,6 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
     });
   };
 
-  // Auth code generation - kept for when backend implements CreateDeviceAuthCode
-  const _handleGenerateCode = async (device: Device) => {
-    setError(null);
-    setCopied(false);
-    await createDeviceAuthCode({
-      variables: { deviceId: device.id },
-    });
-  };
-
   const handleApproveDevice = async (device: Device) => {
     if (!confirm(`Approve "${device.name}" for system access?`)) {
       return;
@@ -191,22 +136,6 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
 
     setError(null);
     await revokeDevice({ variables: { id: device.id } });
-  };
-
-  const handleCopyCode = useCallback(async () => {
-    if (!authCode) return;
-    try {
-      await navigator.clipboard.writeText(authCode.code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setError('Failed to copy code to clipboard');
-    }
-  }, [authCode]);
-
-  const handleDismissCode = () => {
-    setAuthCode(null);
-    setCopied(false);
   };
 
   const getStatusBadgeClasses = (device: Device) => {
@@ -231,12 +160,6 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
     }
   };
 
-  const formatTimeRemaining = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   const truncateFingerprint = (fingerprint: string) => {
     if (fingerprint.length <= 12) return fingerprint;
     return `${fingerprint.substring(0, 6)}...${fingerprint.substring(fingerprint.length - 4)}`;
@@ -247,44 +170,6 @@ export default function DeviceManagementModal({ isOpen, onClose }: DeviceManagem
       {error && (
         <div className="p-3 bg-red-50 dark:bg-red-500/20 border border-red-300 dark:border-red-500 rounded text-red-700 dark:text-red-200 text-sm">
           {error}
-        </div>
-      )}
-
-      {/* Auth Code Display */}
-      {authCode && (
-        <div className="p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-500 rounded-lg">
-          <h3 className="text-gray-900 dark:text-white font-medium mb-2">Authorization Code</h3>
-          <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">
-            Enter this code on the device to authorize it. The code expires in {formatTimeRemaining(timeRemaining)}.
-          </p>
-          <div className="flex items-center gap-3 justify-center mb-3">
-            <span className="text-4xl font-mono font-bold text-blue-700 dark:text-white tracking-widest">
-              {authCode.code}
-            </span>
-            <button
-              onClick={handleCopyCode}
-              className="p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-white transition-colors"
-              title="Copy code"
-            >
-              {copied ? (
-                <CheckIcon className="h-6 w-6 text-green-600 dark:text-green-500" />
-              ) : (
-                <ClipboardIcon className="h-6 w-6" />
-              )}
-            </button>
-          </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-            <div
-              className="bg-blue-500 h-1.5 rounded-full transition-all duration-1000"
-              style={{ width: `${(timeRemaining / (authCode.initialTtlSeconds || 900)) * 100}%` }}
-            />
-          </div>
-          <button
-            onClick={handleDismissCode}
-            className="mt-3 w-full px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-white border border-gray-300 dark:border-gray-500 rounded hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors min-h-[44px] touch-manipulation"
-          >
-            Done
-          </button>
         </div>
       )}
 

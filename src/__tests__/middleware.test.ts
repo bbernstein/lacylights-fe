@@ -132,6 +132,16 @@ describe('middleware', () => {
       expect(mockRedirect).not.toHaveBeenCalled();
     });
 
+    it('rejects device auth cookie with non-1 value', () => {
+      middleware(createRequest('/dashboard', {
+        lacylights_auth_enabled: 'true',
+        lacylights_device_auth: '0',
+      }));
+      expect(mockRedirect).toHaveBeenCalled();
+      const redirectUrl = mockRedirect.mock.calls[0][0] as URL;
+      expect(redirectUrl.pathname).toBe('/login');
+    });
+
     it('preserves query string in redirect', () => {
       middleware(createRequest('/projects?tab=active', { lacylights_auth_enabled: 'true' }));
       expect(mockRedirect).toHaveBeenCalled();

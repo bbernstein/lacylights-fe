@@ -2,7 +2,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
 import DeviceManagementModal from '../DeviceManagementModal';
-import { GET_DEVICES, UPDATE_DEVICE, CREATE_DEVICE_AUTH_CODE, REVOKE_DEVICE, ADD_DEVICE_TO_GROUP, REMOVE_DEVICE_FROM_GROUP } from '../../graphql/auth';
+import { GET_DEVICES, UPDATE_DEVICE, REVOKE_DEVICE, ADD_DEVICE_TO_GROUP, REMOVE_DEVICE_FROM_GROUP } from '../../graphql/auth';
 import { DeviceRole } from '../../types/auth';
 
 // Mock heroicons
@@ -11,8 +11,6 @@ jest.mock('@heroicons/react/24/outline', () => ({
   PencilIcon: ({ className }: { className?: string }) => <div className={className} data-testid="pencil-icon">Edit</div>,
   KeyIcon: ({ className }: { className?: string }) => <div className={className} data-testid="key-icon">Key</div>,
   XCircleIcon: ({ className }: { className?: string }) => <div className={className} data-testid="x-circle-icon">Revoke</div>,
-  ClipboardIcon: ({ className }: { className?: string }) => <div className={className} data-testid="clipboard-icon">Copy</div>,
-  CheckIcon: ({ className }: { className?: string }) => <div className={className} data-testid="check-icon">Check</div>,
   CheckCircleIcon: ({ className }: { className?: string }) => <div className={className} data-testid="check-circle-icon">Approve</div>,
 }));
 
@@ -125,21 +123,6 @@ const createMocks = () => [
           ...mockDevices[0],
           name: 'Updated Device Name',
           defaultRole: DeviceRole.DESIGNER,
-        },
-      },
-    },
-  },
-  {
-    request: {
-      query: CREATE_DEVICE_AUTH_CODE,
-      variables: { deviceId: 'device-2' },
-    },
-    result: {
-      data: {
-        createDeviceAuthCode: {
-          code: '123456',
-          expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-          deviceId: 'device-2',
         },
       },
     },

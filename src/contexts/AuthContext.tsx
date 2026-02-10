@@ -282,6 +282,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch {
       // Device auth check failed - silently continue
     }
+    // Device auth did not succeed — clear any stale cookie/state
+    clearDeviceAuthCookie();
+    setIsDeviceAuth(false);
+    setDeviceName(null);
     return false;
   }, [apolloClient]);
 
