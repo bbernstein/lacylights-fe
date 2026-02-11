@@ -7,7 +7,8 @@ import { useIsMobile } from '@/hooks/useMediaQuery';
 import { getBestMatchingRoscolux } from '@/utils/colorMatching';
 import { ROSCOLUX_FILTERS } from '@/data/roscoluxFilters';
 import type { InstanceChannelWithValue } from '@/utils/colorConversion';
-import { rgbToHex, hexToRgb } from '@/utils/colorHelpers';
+import { rgbToHex, hexToRgb, rgbToHsb, hsbToRgb } from '@/utils/colorHelpers';
+import { useStreamDock } from '@/contexts/StreamDockContext';
 
 interface ColorPickerModalProps {
   isOpen: boolean;
@@ -50,12 +51,16 @@ export default function ColorPickerModal({
   channels: _channels
 }: ColorPickerModalProps) {
   const isMobile = useIsMobile();
+  const streamDock = useStreamDock();
   const [activeTab, setActiveTab] = useState<TabType>('wheel');
   const [selectedColor, setSelectedColor] = useState(currentColor);
   const [hexInputValue, setHexInputValue] = useState(rgbToHex(currentColor.r, currentColor.g, currentColor.b));
   const [bestMatch, setBestMatch] = useState<(typeof ROSCOLUX_FILTERS[0] & { similarity: number }) | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(!isMobile); // Collapsed by default on mobile
   const prevIsOpenRef = useRef(isOpen);
+  // Ref to track latest selectedColor for use in handlers without re-registration
+  const selectedColorRef = useRef(selectedColor);
+  selectedColorRef.current = selectedColor;
 
   // Only initialize selectedColor when modal first opens (transition from closed to open)
   useEffect(() => {
@@ -110,6 +115,64 @@ export default function ColorPickerModal({
     const match = getBestMatchingRoscolux(selectedColor, ROSCOLUX_FILTERS, 95);
     setBestMatch(match);
   }, [selectedColor]);
+
+  // Stream Dock: register color picker command handlers
+  // Note: handleOpen is a no-op because ColorPickerModal does not own its open state;
+  // the parent component controls isOpen. To support COLOR_OPEN from Stream Dock,
+  // the parent would need to provide an onOpen callback.
+  useEffect(() => {
+    if (!isOpen) {
+      // Register minimal handlers when closed so handleOpen could be wired in the future
+      streamDock.registerColorPickerHandlers({
+        handleSetHSB: () => { /* modal closed */ },
+        handleSetRGB: () => { /* modal closed */ },
+        handleApply: () => { /* modal closed */ },
+        handleCancel: () => { /* modal closed */ },
+        handleOpen: () => {
+          // Cannot open from here - isOpen is controlled by parent component
+        },
+      });
+      return () => streamDock.registerColorPickerHandlers(null);
+    }
+
+    streamDock.registerColorPickerHandlers({
+      handleSetHSB: (hue: number, saturation: number, brightness: number) => {
+        const rgb = hsbToRgb(hue, saturation, brightness);
+        setSelectedColor(rgb);
+        onColorChange(rgb);
+      },
+      handleSetRGB: (r: number, g: number, b: number) => {
+        const color = { r, g, b };
+        setSelectedColor(color);
+        onColorChange(color);
+      },
+      handleApply: () => {
+        // Use ref to avoid re-registration on every color change
+        onColorSelect(selectedColorRef.current);
+        onClose();
+      },
+      handleCancel: () => {
+        onClose();
+      },
+      handleOpen: () => {
+        // Already open - no-op
+      },
+    });
+
+    return () => streamDock.registerColorPickerHandlers(null);
+  }, [isOpen, streamDock, onColorChange, onColorSelect, onClose]);
+
+  // Stream Dock: publish color picker state
+  useEffect(() => {
+    const hsb = rgbToHsb(selectedColor.r, selectedColor.g, selectedColor.b);
+    streamDock.publishColorPickerState({
+      isOpen,
+      hue: hsb.hue,
+      saturation: hsb.saturation,
+      brightness: hsb.brightness,
+      rgb: selectedColor,
+    });
+  }, [streamDock, isOpen, selectedColor]);
 
   const handleColorUpdate = (color: { r: number; g: number; b: number }) => {
     setSelectedColor(color);

@@ -22,6 +22,7 @@ import LookEditorMobileToolbar from "./LookEditorMobileToolbar";
 import LookEditorBottomActions from "./LookEditorBottomActions";
 import { sparseToDense, denseToSparse } from "@/utils/channelConversion";
 import { useUndoStack, UndoDelta, UndoAction } from "@/hooks/useUndoStack";
+import { useStreamDock } from "@/contexts/StreamDockContext";
 import { useFixtureDataUpdates } from "@/hooks/useFixtureDataUpdates";
 import {
   DEFAULT_CANVAS_WIDTH,
@@ -159,6 +160,7 @@ export default function LookEditorLayout({
   returnCueNumber,
 }: LookEditorLayoutProps) {
   const router = useRouter();
+  const streamDock = useStreamDock();
 
   // Track mounted state to prevent state updates after unmount
   const isMounted = useRef<boolean>(true);
@@ -1315,6 +1317,111 @@ export default function LookEditorLayout({
     },
     []
   );
+
+  // Stream Dock integration: register command handlers
+  useEffect(() => {
+    if (!look) return;
+
+    const fixtures = look.fixtureValues
+      .filter((fv: FixtureValue) => !removedFixtureIds.has(fv.fixture.id))
+      .map((fv: FixtureValue) => fv.fixture);
+
+    streamDock.registerLookEditorHandlers({
+      handleSave: handleSaveLook,
+      handleUndo,
+      handleRedo,
+      handleTogglePreview,
+      handleSelectFixture: (fixtureIndex: number) => {
+        if (fixtureIndex >= 0 && fixtureIndex < fixtures.length) {
+          setSelectedFixtureIds(new Set([fixtures[fixtureIndex].id]));
+        }
+      },
+      handleSelectChannel: () => {
+        // Channel selection is managed within ChannelListEditor
+        // The Stream Dock state update will reflect the current selection
+      },
+      handleSetChannelValue: (channelIndex: number, value: number) => {
+        // Apply value change to the first selected fixture
+        if (selectedFixtureIds.size > 0) {
+          const fixtureId = Array.from(selectedFixtureIds)[0];
+          handleSingleChannelChange(fixtureId, channelIndex, value);
+        }
+      },
+      handleNextChannel: () => {
+        // Channel navigation is managed within ChannelListEditor
+      },
+      handlePrevChannel: () => {
+        // Channel navigation is managed within ChannelListEditor
+      },
+      handleToggleChannelActive: (channelIndex: number) => {
+        if (selectedFixtureIds.size > 0) {
+          const fixtureId = Array.from(selectedFixtureIds)[0];
+          const currentActive = activeChannels.get(fixtureId);
+          const isCurrentlyActive = currentActive?.has(channelIndex) ?? false;
+          handleToggleChannelActive(fixtureId, channelIndex, !isCurrentlyActive);
+        }
+      },
+    });
+    return () => streamDock.registerLookEditorHandlers(null);
+  }, [
+    streamDock, look, removedFixtureIds, selectedFixtureIds, activeChannels,
+    handleSaveLook, handleUndo, handleRedo, handleTogglePreview,
+    handleSingleChannelChange, handleToggleChannelActive,
+  ]);
+
+  // Stream Dock: publish look editor state whenever it changes
+  useEffect(() => {
+    if (!look) {
+      streamDock.publishLookEditorState(null);
+      return;
+    }
+
+    const fixtures = look.fixtureValues
+      .filter((fv: FixtureValue) => !removedFixtureIds.has(fv.fixture.id))
+      .map((fv: FixtureValue) => ({
+        id: fv.fixture.id,
+        name: fv.fixture.name,
+        channelCount: fv.fixture.channels?.length || 0,
+      }));
+
+    const selectedIndex = fixtures.findIndex((f: { id: string }) => selectedFixtureIds.has(f.id));
+    const selectedFixtureId = selectedIndex >= 0 ? fixtures[selectedIndex].id : null;
+
+    // Build channel info for the selected fixture
+    let channels: Array<{ index: number; name: string; type: string; value: number; min: number; max: number; active: boolean }> = [];
+    if (selectedFixtureId) {
+      const selectedFv = look.fixtureValues.find((fv: FixtureValue) => fv.fixture.id === selectedFixtureId);
+      if (selectedFv) {
+        const values = localFixtureValues.get(selectedFixtureId) || serverDenseValues.get(selectedFixtureId) || [];
+        const fixtureActiveChannels = activeChannels.get(selectedFixtureId);
+        channels = (selectedFv.fixture.channels || []).map((ch: { name: string; channelType?: string }, i: number) => ({
+          index: i,
+          name: ch.name || `Ch ${i + 1}`,
+          type: ch.channelType || 'generic',
+          value: values[i] ?? 0,
+          min: 0,
+          max: 255,
+          active: fixtureActiveChannels ? fixtureActiveChannels.has(i) : true,
+        }));
+      }
+    }
+
+    streamDock.publishLookEditorState({
+      lookId,
+      lookName: look.name || '',
+      fixtures,
+      selectedFixtureIndex: selectedIndex,
+      channels,
+      currentChannelIndex: 0,
+      canUndo,
+      canRedo,
+      isDirty,
+      previewActive: previewMode,
+    });
+  }, [
+    streamDock, look, lookId, removedFixtureIds, selectedFixtureIds, activeChannels,
+    localFixtureValues, serverDenseValues, canUndo, canRedo, isDirty, previewMode,
+  ]);
 
   // Build fixture names map for copy modal
   const fixtureNamesMap = useMemo(() => {

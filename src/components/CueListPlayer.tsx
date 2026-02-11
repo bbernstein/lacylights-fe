@@ -49,6 +49,7 @@ import ContextMenu from "./ContextMenu";
 import { PencilIcon } from "@heroicons/react/24/outline";
 import { shouldIgnoreKeyboardEvent } from "@/utils/keyboardUtils";
 import { SkipIndicator } from "./SkipIndicator";
+import { useStreamDock } from "@/contexts/StreamDockContext";
 
 interface CueListPlayerProps {
   cueListId: string;
@@ -270,6 +271,7 @@ export default function CueListPlayer({
   const { connectionState, isStale, reconnect, ensureConnection } =
     useWebSocket();
   const { canPlayback, canEditContent } = useUserMode();
+  const streamDock = useStreamDock();
 
   const { data: cueListData, loading } = useQuery(GET_CUE_LIST, {
     variables: { id: cueListId },
@@ -1203,6 +1205,51 @@ export default function CueListPlayer({
       canPlayback,
     ],
   );
+
+  // Stream Dock: dedicated fade-to-black handler (separate from stop)
+  const handleFadeToBlack = useCallback(async () => {
+    if (!canPlayback) return;
+    await ensureConnection();
+    if (!isMounted.current) return;
+    await fadeToBlack({ variables: { fadeOutTime: DEFAULT_FADEOUT_TIME } });
+  }, [fadeToBlack, ensureConnection, canPlayback]);
+
+  // Stream Dock integration: register command handlers and publish playback state
+  useEffect(() => {
+    streamDock.registerCuePlayerHandlers({
+      handleGo,
+      handlePrevious,
+      handleStop,
+      handleHurryUp,
+      handleJumpToCue,
+      handleFadeToBlack,
+    });
+    return () => streamDock.registerCuePlayerHandlers(null);
+  }, [streamDock, handleGo, handlePrevious, handleStop, handleHurryUp, handleJumpToCue, handleFadeToBlack]);
+
+  // Stream Dock: publish cue list playback state whenever it changes
+  useEffect(() => {
+    if (!cueList || !playbackStatus) {
+      streamDock.publishCueListState(null);
+      return;
+    }
+    streamDock.publishCueListState({
+      id: cueList.id,
+      name: cueList.name,
+      currentCueIndex,
+      totalCues: cues.length,
+      currentCueName: currentCueIndex >= 0 && currentCueIndex < cues.length
+        ? cues[currentCueIndex].name
+        : '',
+      isPlaying,
+      isPaused,
+      isFading,
+      fadeProgress,
+      canGo: !isGoDisabled || isPaused,
+      canPrev: currentCueIndex > 0,
+      canStop: canPlayback,
+    });
+  }, [streamDock, cueList, playbackStatus, currentCueIndex, cues, isPlaying, isPaused, isFading, fadeProgress, isGoDisabled, canPlayback]);
 
   const handleKeyPress = useCallback(
     (e: KeyboardEvent) => {

@@ -1,4 +1,4 @@
-import { rgbToHex, hexToRgb, getContrastingTextColor } from '../colorHelpers';
+import { rgbToHex, hexToRgb, rgbToHsb, hsbToRgb, getContrastingTextColor } from '../colorHelpers';
 
 describe('colorHelpers', () => {
   describe('rgbToHex', () => {
@@ -104,6 +104,135 @@ describe('colorHelpers', () => {
         const convertedBack = hexToRgb(hex);
         expect(convertedBack).toEqual(color);
       });
+    });
+  });
+
+  describe('rgbToHsb', () => {
+    it('converts primary colors correctly', () => {
+      // Red
+      expect(rgbToHsb(255, 0, 0)).toEqual({ hue: 0, saturation: 100, brightness: 100 });
+      // Green
+      expect(rgbToHsb(0, 255, 0)).toEqual({ hue: 120, saturation: 100, brightness: 100 });
+      // Blue
+      expect(rgbToHsb(0, 0, 255)).toEqual({ hue: 240, saturation: 100, brightness: 100 });
+    });
+
+    it('converts secondary colors correctly', () => {
+      // Yellow
+      expect(rgbToHsb(255, 255, 0)).toEqual({ hue: 60, saturation: 100, brightness: 100 });
+      // Cyan
+      expect(rgbToHsb(0, 255, 255)).toEqual({ hue: 180, saturation: 100, brightness: 100 });
+      // Magenta
+      expect(rgbToHsb(255, 0, 255)).toEqual({ hue: 300, saturation: 100, brightness: 100 });
+    });
+
+    it('converts white correctly', () => {
+      expect(rgbToHsb(255, 255, 255)).toEqual({ hue: 0, saturation: 0, brightness: 100 });
+    });
+
+    it('converts black correctly', () => {
+      expect(rgbToHsb(0, 0, 0)).toEqual({ hue: 0, saturation: 0, brightness: 0 });
+    });
+
+    it('converts grey values correctly', () => {
+      // 50% grey
+      expect(rgbToHsb(128, 128, 128)).toEqual({ hue: 0, saturation: 0, brightness: 50 });
+    });
+
+    it('converts intermediate colors', () => {
+      // Orange-ish (hue ~30)
+      const result = rgbToHsb(255, 128, 0);
+      expect(result.hue).toBeGreaterThanOrEqual(29);
+      expect(result.hue).toBeLessThanOrEqual(31);
+      expect(result.saturation).toBe(100);
+      expect(result.brightness).toBe(100);
+    });
+  });
+
+  describe('hsbToRgb', () => {
+    it('converts primary hues correctly', () => {
+      // Red (hue 0)
+      expect(hsbToRgb(0, 100, 100)).toEqual({ r: 255, g: 0, b: 0 });
+      // Green (hue 120)
+      expect(hsbToRgb(120, 100, 100)).toEqual({ r: 0, g: 255, b: 0 });
+      // Blue (hue 240)
+      expect(hsbToRgb(240, 100, 100)).toEqual({ r: 0, g: 0, b: 255 });
+    });
+
+    it('converts secondary hues correctly', () => {
+      // Yellow (hue 60)
+      expect(hsbToRgb(60, 100, 100)).toEqual({ r: 255, g: 255, b: 0 });
+      // Cyan (hue 180)
+      expect(hsbToRgb(180, 100, 100)).toEqual({ r: 0, g: 255, b: 255 });
+      // Magenta (hue 300)
+      expect(hsbToRgb(300, 100, 100)).toEqual({ r: 255, g: 0, b: 255 });
+    });
+
+    it('converts white correctly', () => {
+      expect(hsbToRgb(0, 0, 100)).toEqual({ r: 255, g: 255, b: 255 });
+    });
+
+    it('converts black correctly', () => {
+      expect(hsbToRgb(0, 0, 0)).toEqual({ r: 0, g: 0, b: 0 });
+    });
+
+    it('converts grey (zero saturation) correctly', () => {
+      const result = hsbToRgb(0, 0, 50);
+      expect(result.r).toBe(result.g);
+      expect(result.g).toBe(result.b);
+      expect(result.r).toBeCloseTo(128, 0);
+    });
+
+    it('handles hue at boundary 360 same as 0', () => {
+      // hue 360 should behave like hue 0 (red)
+      const at360 = hsbToRgb(360, 100, 100);
+      const at0 = hsbToRgb(0, 100, 100);
+      expect(at360).toEqual(at0);
+    });
+  });
+
+  describe('RGB <-> HSB round-trip', () => {
+    it('round-trips primary colors', () => {
+      const colors = [
+        { r: 255, g: 0, b: 0 },
+        { r: 0, g: 255, b: 0 },
+        { r: 0, g: 0, b: 255 },
+      ];
+      for (const color of colors) {
+        const hsb = rgbToHsb(color.r, color.g, color.b);
+        const back = hsbToRgb(hsb.hue, hsb.saturation, hsb.brightness);
+        expect(back).toEqual(color);
+      }
+    });
+
+    it('round-trips white and black', () => {
+      const white = { r: 255, g: 255, b: 255 };
+      const hsbW = rgbToHsb(white.r, white.g, white.b);
+      expect(hsbToRgb(hsbW.hue, hsbW.saturation, hsbW.brightness)).toEqual(white);
+
+      const black = { r: 0, g: 0, b: 0 };
+      const hsbB = rgbToHsb(black.r, black.g, black.b);
+      expect(hsbToRgb(hsbB.hue, hsbB.saturation, hsbB.brightness)).toEqual(black);
+    });
+
+    it('round-trips grey values', () => {
+      const grey = { r: 128, g: 128, b: 128 };
+      const hsb = rgbToHsb(grey.r, grey.g, grey.b);
+      const back = hsbToRgb(hsb.hue, hsb.saturation, hsb.brightness);
+      expect(back).toEqual(grey);
+    });
+
+    it('round-trips secondary colors', () => {
+      const colors = [
+        { r: 255, g: 255, b: 0 },   // Yellow
+        { r: 0, g: 255, b: 255 },   // Cyan
+        { r: 255, g: 0, b: 255 },   // Magenta
+      ];
+      for (const color of colors) {
+        const hsb = rgbToHsb(color.r, color.g, color.b);
+        const back = hsbToRgb(hsb.hue, hsb.saturation, hsb.brightness);
+        expect(back).toEqual(color);
+      }
     });
   });
 

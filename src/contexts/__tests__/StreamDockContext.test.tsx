@@ -1,0 +1,590 @@
+import React from 'react';
+import { render, screen, act } from '@testing-library/react';
+import { StreamDockProvider, useStreamDock, navigateToRoute } from '../StreamDockContext';
+
+// Mock next/navigation
+const mockPathname = '/cue-lists/123';
+jest.mock('next/navigation', () => ({
+  usePathname: () => mockPathname,
+}));
+
+// Mock WebSocket
+class MockWebSocket {
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSING = 2;
+  static readonly CLOSED = 3;
+
+  readonly CONNECTING = 0;
+  readonly OPEN = 1;
+  readonly CLOSING = 2;
+  readonly CLOSED = 3;
+
+  readyState = MockWebSocket.CONNECTING;
+  onopen: ((event: unknown) => void) | null = null;
+  onclose: ((event: unknown) => void) | null = null;
+  onerror: ((event: unknown) => void) | null = null;
+  onmessage: ((event: { data: string }) => void) | null = null;
+
+  url: string;
+  send = jest.fn();
+  close = jest.fn();
+
+  constructor(url: string) {
+    this.url = url;
+    // Store reference to this instance for test access
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    latestMockWs = this;
+  }
+
+  simulateOpen() {
+    this.readyState = MockWebSocket.OPEN;
+    this.onopen?.({});
+  }
+
+  simulateMessage(data: unknown) {
+    this.onmessage?.({ data: JSON.stringify(data) });
+  }
+
+  simulateClose() {
+    this.readyState = MockWebSocket.CLOSED;
+    this.onclose?.({});
+  }
+
+  simulateError() {
+    this.onerror?.({});
+  }
+
+  // Required by the WebSocket interface
+  addEventListener = jest.fn();
+  removeEventListener = jest.fn();
+  dispatchEvent = jest.fn();
+}
+
+let latestMockWs: MockWebSocket;
+
+// Replace global WebSocket before imports can capture it
+const OriginalWebSocket = global.WebSocket;
+
+beforeAll(() => {
+  Object.defineProperty(global, 'WebSocket', {
+    value: MockWebSocket,
+    writable: true,
+    configurable: true,
+  });
+});
+
+afterAll(() => {
+  Object.defineProperty(global, 'WebSocket', {
+    value: OriginalWebSocket,
+    writable: true,
+    configurable: true,
+  });
+});
+
+beforeEach(() => {
+  jest.useFakeTimers();
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+  jest.restoreAllMocks();
+});
+
+/** Test component that exposes context values */
+function TestConsumer() {
+  const ctx = useStreamDock();
+  return (
+    <div>
+      <span data-testid="connection-state">{ctx.connectionState}</span>
+      <span data-testid="is-connected">{String(ctx.isConnected)}</span>
+      <span data-testid="mode">{ctx.mode}</span>
+    </div>
+  );
+}
+
+describe('StreamDockContext', () => {
+  describe('useStreamDock', () => {
+    it('throws when used outside provider', () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      expect(() => {
+        render(<TestConsumer />);
+      }).toThrow('useStreamDock must be used within a StreamDockProvider');
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('StreamDockProvider', () => {
+    it('renders children', () => {
+      render(
+        <StreamDockProvider>
+          <div data-testid="child">Hello</div>
+        </StreamDockProvider>
+      );
+
+      expect(screen.getByTestId('child')).toHaveTextContent('Hello');
+    });
+
+    it('starts with connecting state and transitions to connected on open', () => {
+      render(
+        <StreamDockProvider>
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      // After the useEffect fires, it should be 'connecting'
+      expect(screen.getByTestId('connection-state')).toHaveTextContent('connecting');
+
+      // Simulate WebSocket opening
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      expect(screen.getByTestId('connection-state')).toHaveTextContent('connected');
+      expect(screen.getByTestId('is-connected')).toHaveTextContent('true');
+    });
+
+    it('transitions to disconnected when WebSocket closes', () => {
+      render(
+        <StreamDockProvider>
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateClose();
+      });
+
+      expect(screen.getByTestId('connection-state')).toHaveTextContent('disconnected');
+      expect(screen.getByTestId('is-connected')).toHaveTextContent('false');
+    });
+
+    it('detects cue_player mode from route', () => {
+      render(
+        <StreamDockProvider>
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      expect(screen.getByTestId('mode')).toHaveTextContent('cue_player');
+    });
+
+    it('sends state update on connection', () => {
+      render(
+        <StreamDockProvider>
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      expect(latestMockWs.send).toHaveBeenCalled();
+      const sentMessage = JSON.parse(latestMockWs.send.mock.calls[0][0]);
+      expect(sentMessage.type).toBe('STATE_UPDATE');
+      expect(sentMessage.payload.route).toBe('/cue-lists/123');
+      expect(sentMessage.payload.mode).toBe('cue_player');
+    });
+
+    it('dispatches CUE_GO command to registered handler', () => {
+      const handleGo = jest.fn();
+
+      function HandlerRegistrar() {
+        const ctx = useStreamDock();
+        React.useEffect(() => {
+          ctx.registerCuePlayerHandlers({
+            handleGo,
+            handlePrevious: jest.fn(),
+            handleStop: jest.fn(),
+            handleHurryUp: jest.fn(),
+            handleJumpToCue: jest.fn(),
+            handleFadeToBlack: jest.fn(),
+          });
+          return () => ctx.registerCuePlayerHandlers(null);
+        }, [ctx]);
+        return null;
+      }
+
+      render(
+        <StreamDockProvider>
+          <HandlerRegistrar />
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({ type: 'COMMAND', command: 'CUE_GO' });
+      });
+
+      expect(handleGo).toHaveBeenCalledTimes(1);
+    });
+
+    it('dispatches CUE_JUMP command with payload', () => {
+      const handleJumpToCue = jest.fn();
+
+      function HandlerRegistrar() {
+        const ctx = useStreamDock();
+        React.useEffect(() => {
+          ctx.registerCuePlayerHandlers({
+            handleGo: jest.fn(),
+            handlePrevious: jest.fn(),
+            handleStop: jest.fn(),
+            handleHurryUp: jest.fn(),
+            handleJumpToCue,
+            handleFadeToBlack: jest.fn(),
+          });
+          return () => ctx.registerCuePlayerHandlers(null);
+        }, [ctx]);
+        return null;
+      }
+
+      render(
+        <StreamDockProvider>
+          <HandlerRegistrar />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({
+          type: 'COMMAND',
+          command: 'CUE_JUMP',
+          payload: { cueIndex: 3 },
+        });
+      });
+
+      expect(handleJumpToCue).toHaveBeenCalledWith(3);
+    });
+
+    it('handles REQUEST_STATE by sending state update', () => {
+      render(
+        <StreamDockProvider>
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      latestMockWs.send.mockClear();
+
+      act(() => {
+        latestMockWs.simulateMessage({ type: 'REQUEST_STATE' });
+      });
+
+      expect(latestMockWs.send).toHaveBeenCalled();
+      const sentMessage = JSON.parse(latestMockWs.send.mock.calls[0][0]);
+      expect(sentMessage.type).toBe('STATE_UPDATE');
+    });
+
+    it('responds to PING with PONG', () => {
+      render(
+        <StreamDockProvider>
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      latestMockWs.send.mockClear();
+
+      act(() => {
+        latestMockWs.simulateMessage({ type: 'PING' });
+      });
+
+      expect(latestMockWs.send).toHaveBeenCalled();
+      const sentMessage = JSON.parse(latestMockWs.send.mock.calls[0][0]);
+      expect(sentMessage.type).toBe('PONG');
+    });
+
+    it('publishes cue list state and sends update', () => {
+      function StatePublisher() {
+        const ctx = useStreamDock();
+        React.useEffect(() => {
+          ctx.publishCueListState({
+            id: 'cl-1',
+            name: 'Test Cue List',
+            currentCueIndex: 0,
+            totalCues: 5,
+            currentCueName: 'Cue 1',
+            isPlaying: true,
+            isPaused: false,
+            isFading: false,
+            fadeProgress: 0,
+            canGo: true,
+            canPrev: false,
+            canStop: true,
+          });
+        }, [ctx]);
+        return null;
+      }
+
+      render(
+        <StreamDockProvider>
+          <StatePublisher />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      const sentMessages = latestMockWs.send.mock.calls.map(
+        (call: unknown[]) => JSON.parse(call[0] as string)
+      );
+      const stateUpdate = sentMessages.find(
+        (msg: { type: string; payload?: { cueList?: unknown } }) =>
+          msg.type === 'STATE_UPDATE' && msg.payload?.cueList
+      );
+
+      expect(stateUpdate).toBeDefined();
+      expect(stateUpdate.payload.cueList.id).toBe('cl-1');
+      expect(stateUpdate.payload.cueList.isPlaying).toBe(true);
+    });
+
+    it('handles error and transitions to error state', () => {
+      render(
+        <StreamDockProvider>
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateError();
+      });
+
+      expect(screen.getByTestId('connection-state')).toHaveTextContent('error');
+    });
+
+    it('cleans up WebSocket on unmount', () => {
+      const { unmount } = render(
+        <StreamDockProvider>
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      const wsInstance = latestMockWs;
+
+      act(() => {
+        wsInstance.simulateOpen();
+      });
+
+      unmount();
+
+      expect(wsInstance.close).toHaveBeenCalled();
+    });
+
+    describe('NAVIGATE command security', () => {
+      it('dispatches NAVIGATE command for internal routes', () => {
+        // We can verify the command is dispatched by checking it does not warn
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+        render(
+          <StreamDockProvider>
+            <TestConsumer />
+          </StreamDockProvider>
+        );
+
+        act(() => {
+          latestMockWs.simulateOpen();
+        });
+
+        act(() => {
+          latestMockWs.simulateMessage({
+            type: 'COMMAND',
+            command: 'NAVIGATE',
+            payload: { route: '/looks/123/edit' },
+          });
+        });
+
+        // Internal route should not trigger a warning
+        expect(warnSpy).not.toHaveBeenCalledWith(
+          expect.stringContaining('NAVIGATE blocked')
+        );
+
+        warnSpy.mockRestore();
+      });
+
+      it('blocks NAVIGATE for external URLs and logs warning', () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+        render(
+          <StreamDockProvider>
+            <TestConsumer />
+          </StreamDockProvider>
+        );
+
+        act(() => {
+          latestMockWs.simulateOpen();
+        });
+
+        act(() => {
+          latestMockWs.simulateMessage({
+            type: 'COMMAND',
+            command: 'NAVIGATE',
+            payload: { route: 'https://evil.com/phish' },
+          });
+        });
+
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('NAVIGATE blocked')
+        );
+
+        warnSpy.mockRestore();
+      });
+
+      it('blocks NAVIGATE for protocol-relative URLs and logs warning', () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+        render(
+          <StreamDockProvider>
+            <TestConsumer />
+          </StreamDockProvider>
+        );
+
+        act(() => {
+          latestMockWs.simulateOpen();
+        });
+
+        act(() => {
+          latestMockWs.simulateMessage({
+            type: 'COMMAND',
+            command: 'NAVIGATE',
+            payload: { route: '//evil.com/phish' },
+          });
+        });
+
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('NAVIGATE blocked')
+        );
+
+        warnSpy.mockRestore();
+      });
+    });
+
+    it('sends PING as keep-alive instead of PONG', () => {
+      render(
+        <StreamDockProvider>
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      latestMockWs.send.mockClear();
+
+      // Advance past the ping interval (15s)
+      act(() => {
+        jest.advanceTimersByTime(15000);
+      });
+
+      expect(latestMockWs.send).toHaveBeenCalled();
+      const sentMessage = JSON.parse(latestMockWs.send.mock.calls[0][0]);
+      expect(sentMessage.type).toBe('PING');
+    });
+
+    it('ignores malformed messages gracefully', () => {
+      render(
+        <StreamDockProvider>
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      // Should not throw
+      act(() => {
+        latestMockWs.onmessage?.({ data: 'not json' });
+      });
+
+      // Should still be connected
+      expect(screen.getByTestId('connection-state')).toHaveTextContent('connected');
+    });
+  });
+});
+
+describe('navigateToRoute', () => {
+  it('returns true for valid internal routes', () => {
+    // navigateToRoute will call window.location.assign which jsdom will process
+    // We just verify it returns true for valid routes
+    expect(navigateToRoute('/looks/123/edit')).toBe(true);
+    expect(navigateToRoute('/cue-lists/456')).toBe(true);
+    expect(navigateToRoute('/')).toBe(true);
+  });
+
+  it('returns false and warns for external URLs', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    expect(navigateToRoute('https://evil.com')).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('NAVIGATE blocked')
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('returns false and warns for protocol-relative URLs', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    expect(navigateToRoute('//evil.com/phish')).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('NAVIGATE blocked')
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('returns false and warns for javascript: URLs', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    expect(navigateToRoute('javascript:alert(1)')).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('NAVIGATE blocked')
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('returns false and warns for data: URLs', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    expect(navigateToRoute('data:text/html,<h1>test</h1>')).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('NAVIGATE blocked')
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('returns false and warns for relative paths without leading slash', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    expect(navigateToRoute('looks/123')).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('NAVIGATE blocked')
+    );
+
+    warnSpy.mockRestore();
+  });
+});

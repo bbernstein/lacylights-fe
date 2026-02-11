@@ -25,6 +25,19 @@ jest.mock('@/hooks/useMediaQuery', () => ({
   useIsMobile: jest.fn(() => false), // Default to desktop
 }));
 
+// Mock StreamDockContext
+jest.mock('@/contexts/StreamDockContext', () => ({
+  useStreamDock: () => ({
+    connectionState: 'disconnected',
+    registerCuePlayerHandlers: jest.fn(),
+    registerLookEditorHandlers: jest.fn(),
+    registerColorPickerHandlers: jest.fn(),
+    publishCueListState: jest.fn(),
+    publishLookEditorState: jest.fn(),
+    publishColorPickerState: jest.fn(),
+  }),
+}));
+
 const mockProject = {
   id: 'project-1',
   name: 'Test Project',

@@ -48,6 +48,19 @@ jest.mock("../../contexts/WebSocketContext", () => ({
   }),
 }));
 
+// Mock StreamDockContext
+jest.mock("../../contexts/StreamDockContext", () => ({
+  useStreamDock: () => ({
+    connectionState: "disconnected",
+    registerCuePlayerHandlers: jest.fn(),
+    registerLookEditorHandlers: jest.fn(),
+    registerColorPickerHandlers: jest.fn(),
+    publishCueListState: jest.fn(),
+    publishLookEditorState: jest.fn(),
+    publishColorPickerState: jest.fn(),
+  }),
+}));
+
 // Mock UserModeContext to provide default editor mode permissions
 jest.mock("../../contexts/UserModeContext", () => ({
   useUserMode: () => ({
