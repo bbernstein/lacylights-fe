@@ -88,12 +88,19 @@ export function hsbToRgb(hue: number, saturation: number, brightness: number): {
   const m = v - c;
 
   let rn = 0, gn = 0, bn = 0;
-  if (hue < 60) { rn = c; gn = x; }
-  else if (hue < 120) { rn = x; gn = c; }
-  else if (hue < 180) { gn = c; bn = x; }
-  else if (hue < 240) { gn = x; bn = c; }
-  else if (hue < 300) { rn = x; bn = c; }
-  else { rn = c; bn = x; }
+  if (hue >= 0 && hue < 60) {
+    rn = c; gn = x; bn = 0;
+  } else if (hue >= 60 && hue < 120) {
+    rn = x; gn = c; bn = 0;
+  } else if (hue >= 120 && hue < 180) {
+    rn = 0; gn = c; bn = x;
+  } else if (hue >= 180 && hue < 240) {
+    rn = 0; gn = x; bn = c;
+  } else if (hue >= 240 && hue < 300) {
+    rn = x; gn = 0; bn = c;
+  } else {
+    rn = c; gn = 0; bn = x;
+  }
 
   return {
     r: Math.round((rn + m) * 255),

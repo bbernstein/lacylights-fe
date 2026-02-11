@@ -58,6 +58,9 @@ export default function ColorPickerModal({
   const [bestMatch, setBestMatch] = useState<(typeof ROSCOLUX_FILTERS[0] & { similarity: number }) | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(!isMobile); // Collapsed by default on mobile
   const prevIsOpenRef = useRef(isOpen);
+  // Ref to track latest selectedColor for use in handlers without re-registration
+  const selectedColorRef = useRef(selectedColor);
+  selectedColorRef.current = selectedColor;
 
   // Only initialize selectedColor when modal first opens (transition from closed to open)
   useEffect(() => {
@@ -114,10 +117,22 @@ export default function ColorPickerModal({
   }, [selectedColor]);
 
   // Stream Dock: register color picker command handlers
+  // Note: handleOpen is a no-op because ColorPickerModal does not own its open state;
+  // the parent component controls isOpen. To support COLOR_OPEN from Stream Dock,
+  // the parent would need to provide an onOpen callback.
   useEffect(() => {
     if (!isOpen) {
-      streamDock.registerColorPickerHandlers(null);
-      return;
+      // Register minimal handlers when closed so handleOpen could be wired in the future
+      streamDock.registerColorPickerHandlers({
+        handleSetHSB: () => { /* modal closed */ },
+        handleSetRGB: () => { /* modal closed */ },
+        handleApply: () => { /* modal closed */ },
+        handleCancel: () => { /* modal closed */ },
+        handleOpen: () => {
+          // Cannot open from here - isOpen is controlled by parent component
+        },
+      });
+      return () => streamDock.registerColorPickerHandlers(null);
     }
 
     streamDock.registerColorPickerHandlers({
@@ -132,7 +147,8 @@ export default function ColorPickerModal({
         onColorChange(color);
       },
       handleApply: () => {
-        onColorSelect(selectedColor);
+        // Use ref to avoid re-registration on every color change
+        onColorSelect(selectedColorRef.current);
         onClose();
       },
       handleCancel: () => {
@@ -144,7 +160,7 @@ export default function ColorPickerModal({
     });
 
     return () => streamDock.registerColorPickerHandlers(null);
-  }, [isOpen, streamDock, selectedColor, onColorChange, onColorSelect, onClose]);
+  }, [isOpen, streamDock, onColorChange, onColorSelect, onClose]);
 
   // Stream Dock: publish color picker state
   useEffect(() => {

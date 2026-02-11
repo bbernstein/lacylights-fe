@@ -178,9 +178,25 @@ export function useStreamDock(): StreamDockContextType {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STREAM_DOCK_WS_URL = 'ws://127.0.0.1:4100';
+const STREAM_DOCK_WS_URL =
+  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_STREAM_DOCK_WS_URL) ||
+  'ws://127.0.0.1:4100';
 const RECONNECT_INTERVAL_MS = 5000;
 const PING_INTERVAL_MS = 15000;
+
+/**
+ * Validate and perform navigation for Stream Dock NAVIGATE commands.
+ * Only allows internal routes (paths starting with '/' but not '//').
+ * Exported for testing.
+ */
+export function navigateToRoute(route: string): boolean {
+  if (route.startsWith('/') && !route.startsWith('//')) {
+    window.location.assign(route);
+    return true;
+  }
+  console.warn(`Stream Dock NAVIGATE blocked: invalid route "${route}"`);
+  return false;
+}
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
@@ -343,11 +359,9 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
       }
     }
 
-    // Navigation commands
+    // Navigation commands - validated to only allow internal routes
     if (command === 'NAVIGATE' && payload && typeof payload.route === 'string') {
-      // Use window.location for navigation - the router from Next.js
-      // would require accessing the hook, but this is simpler and works
-      window.location.href = payload.route;
+      navigateToRoute(payload.route);
     }
   }, []);
 
@@ -384,12 +398,12 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
         // Send initial state
         sendStateUpdate();
 
-        // Start ping interval
+        // Start keep-alive ping interval
         if (pingTimerRef.current) clearInterval(pingTimerRef.current);
         pingTimerRef.current = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             try {
-              ws.send(JSON.stringify({ type: 'PONG' }));
+              ws.send(JSON.stringify({ type: 'PING' }));
             } catch {
               // ignore
             }

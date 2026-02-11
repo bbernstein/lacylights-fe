@@ -1410,7 +1410,7 @@ export default function LookEditorLayout({
       lookId,
       lookName: look.name || '',
       fixtures,
-      selectedFixtureIndex: Math.max(0, selectedIndex),
+      selectedFixtureIndex: selectedIndex,
       channels,
       currentChannelIndex: 0,
       canUndo,

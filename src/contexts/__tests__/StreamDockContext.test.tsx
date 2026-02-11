@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
-import { StreamDockProvider, useStreamDock } from '../StreamDockContext';
+import { StreamDockProvider, useStreamDock, navigateToRoute } from '../StreamDockContext';
 
 // Mock next/navigation
 const mockPathname = '/cue-lists/123';
@@ -391,6 +391,117 @@ describe('StreamDockContext', () => {
       expect(wsInstance.close).toHaveBeenCalled();
     });
 
+    describe('NAVIGATE command security', () => {
+      it('dispatches NAVIGATE command for internal routes', () => {
+        // We can verify the command is dispatched by checking it does not warn
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+        render(
+          <StreamDockProvider>
+            <TestConsumer />
+          </StreamDockProvider>
+        );
+
+        act(() => {
+          latestMockWs.simulateOpen();
+        });
+
+        act(() => {
+          latestMockWs.simulateMessage({
+            type: 'COMMAND',
+            command: 'NAVIGATE',
+            payload: { route: '/looks/123/edit' },
+          });
+        });
+
+        // Internal route should not trigger a warning
+        expect(warnSpy).not.toHaveBeenCalledWith(
+          expect.stringContaining('NAVIGATE blocked')
+        );
+
+        warnSpy.mockRestore();
+      });
+
+      it('blocks NAVIGATE for external URLs and logs warning', () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+        render(
+          <StreamDockProvider>
+            <TestConsumer />
+          </StreamDockProvider>
+        );
+
+        act(() => {
+          latestMockWs.simulateOpen();
+        });
+
+        act(() => {
+          latestMockWs.simulateMessage({
+            type: 'COMMAND',
+            command: 'NAVIGATE',
+            payload: { route: 'https://evil.com/phish' },
+          });
+        });
+
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('NAVIGATE blocked')
+        );
+
+        warnSpy.mockRestore();
+      });
+
+      it('blocks NAVIGATE for protocol-relative URLs and logs warning', () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+        render(
+          <StreamDockProvider>
+            <TestConsumer />
+          </StreamDockProvider>
+        );
+
+        act(() => {
+          latestMockWs.simulateOpen();
+        });
+
+        act(() => {
+          latestMockWs.simulateMessage({
+            type: 'COMMAND',
+            command: 'NAVIGATE',
+            payload: { route: '//evil.com/phish' },
+          });
+        });
+
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('NAVIGATE blocked')
+        );
+
+        warnSpy.mockRestore();
+      });
+    });
+
+    it('sends PING as keep-alive instead of PONG', () => {
+      render(
+        <StreamDockProvider>
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      latestMockWs.send.mockClear();
+
+      // Advance past the ping interval (15s)
+      act(() => {
+        jest.advanceTimersByTime(15000);
+      });
+
+      expect(latestMockWs.send).toHaveBeenCalled();
+      const sentMessage = JSON.parse(latestMockWs.send.mock.calls[0][0]);
+      expect(sentMessage.type).toBe('PING');
+    });
+
     it('ignores malformed messages gracefully', () => {
       render(
         <StreamDockProvider>
@@ -410,5 +521,70 @@ describe('StreamDockContext', () => {
       // Should still be connected
       expect(screen.getByTestId('connection-state')).toHaveTextContent('connected');
     });
+  });
+});
+
+describe('navigateToRoute', () => {
+  it('returns true for valid internal routes', () => {
+    // navigateToRoute will call window.location.assign which jsdom will process
+    // We just verify it returns true for valid routes
+    expect(navigateToRoute('/looks/123/edit')).toBe(true);
+    expect(navigateToRoute('/cue-lists/456')).toBe(true);
+    expect(navigateToRoute('/')).toBe(true);
+  });
+
+  it('returns false and warns for external URLs', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    expect(navigateToRoute('https://evil.com')).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('NAVIGATE blocked')
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('returns false and warns for protocol-relative URLs', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    expect(navigateToRoute('//evil.com/phish')).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('NAVIGATE blocked')
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('returns false and warns for javascript: URLs', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    expect(navigateToRoute('javascript:alert(1)')).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('NAVIGATE blocked')
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('returns false and warns for data: URLs', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    expect(navigateToRoute('data:text/html,<h1>test</h1>')).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('NAVIGATE blocked')
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('returns false and warns for relative paths without leading slash', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    expect(navigateToRoute('looks/123')).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('NAVIGATE blocked')
+    );
+
+    warnSpy.mockRestore();
   });
 });

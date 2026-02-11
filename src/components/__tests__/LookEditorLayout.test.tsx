@@ -35,7 +35,6 @@ jest.mock('@/contexts/StreamDockContext', () => ({
     publishCueListState: jest.fn(),
     publishLookEditorState: jest.fn(),
     publishColorPickerState: jest.fn(),
-    publishRoute: jest.fn(),
   }),
 }));
 
