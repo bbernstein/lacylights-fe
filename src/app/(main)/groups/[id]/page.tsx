@@ -407,3 +407,9 @@ export default function GroupDetailPage() {
     </div>
   );
 }
+
+// Required for Next.js static export with dynamic routes
+// Returns empty array since group IDs are dynamic and auth-dependent
+export async function generateStaticParams() {
+  return [];
+}
