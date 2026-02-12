@@ -65,6 +65,9 @@ export interface LookEditorState {
   canRedo: boolean;
   isDirty: boolean;
   previewActive: boolean;
+  // Layout mode fixture navigation (when no fixture is selected)
+  highlightedFixtureId: string | null;
+  fixtureOrderingMode: 'vertical' | 'horizontal';
 }
 
 /** Color picker state published to the Stream Dock plugin */
@@ -74,6 +77,9 @@ export interface ColorPickerState {
   saturation: number;
   brightness: number;
   rgb: { r: number; g: number; b: number };
+  activeTab: 'wheel' | 'roscolux';
+  highlightedRoscoluxIndex: number;
+  totalRoscoluxSwatches: number;
 }
 
 /** Complete state message sent to the plugin */
@@ -110,6 +116,7 @@ export interface CuePlayerHandlers {
   handleStop: () => void;
   handleHurryUp: () => void;
   handleJumpToCue: (index: number) => void;
+  handleHighlightCue: (index: number) => void;
   handleFadeToBlack: () => void;
 }
 
@@ -125,6 +132,11 @@ export interface LookEditorHandlers {
   handleNextChannel: () => void;
   handlePrevChannel: () => void;
   handleToggleChannelActive: (channelIndex: number) => void;
+  handleOpenColorPicker: () => void;
+  // Layout mode fixture navigation (when no fixture is selected)
+  handleNavigateFixture: (delta: number) => void;
+  handleSelectHighlightedFixture: () => void;
+  handleToggleFixtureOrdering: () => void;
 }
 
 /** Handlers that can be registered by ColorPickerModal */
@@ -134,6 +146,9 @@ export interface ColorPickerHandlers {
   handleApply: () => void;
   handleCancel: () => void;
   handleOpen: () => void;
+  handleToggleTab: () => void;
+  handleNavigateRoscolux: (delta: number) => void;
+  handleSelectHighlightedRoscolux: () => void;
 }
 
 // ─── Context Interface ────────────────────────────────────────────────────────
@@ -303,6 +318,11 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
             cueHandlers.handleJumpToCue(payload.cueIndex);
           }
           return;
+        case 'CUE_HIGHLIGHT':
+          if (payload && typeof payload.cueIndex === 'number') {
+            cueHandlers.handleHighlightCue(payload.cueIndex);
+          }
+          return;
       }
     }
 
@@ -336,6 +356,14 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
             editorHandlers.handleToggleChannelActive(payload.channelIndex);
           }
           return;
+        case 'COLOR_OPEN': editorHandlers.handleOpenColorPicker(); return;
+        case 'EDITOR_NAVIGATE_FIXTURE':
+          if (payload && typeof payload.delta === 'number') {
+            editorHandlers.handleNavigateFixture(payload.delta);
+          }
+          return;
+        case 'EDITOR_SELECT_HIGHLIGHTED_FIXTURE': editorHandlers.handleSelectHighlightedFixture(); return;
+        case 'EDITOR_TOGGLE_FIXTURE_ORDERING': editorHandlers.handleToggleFixtureOrdering(); return;
       }
     }
 
@@ -356,6 +384,13 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
         case 'COLOR_APPLY': colorHandlers.handleApply(); return;
         case 'COLOR_CANCEL': colorHandlers.handleCancel(); return;
         case 'COLOR_OPEN': colorHandlers.handleOpen(); return;
+        case 'COLOR_TOGGLE_TAB': colorHandlers.handleToggleTab(); return;
+        case 'COLOR_NAVIGATE_ROSCOLUX':
+          if (payload && typeof payload.delta === 'number') {
+            colorHandlers.handleNavigateRoscolux(payload.delta);
+          }
+          return;
+        case 'COLOR_SELECT_ROSCOLUX': colorHandlers.handleSelectHighlightedRoscolux(); return;
       }
     }
 

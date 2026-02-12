@@ -30,6 +30,12 @@ interface MultiSelectControlsProps {
   activeChannels?: Map<string, Set<number>>;
   /** Optional: Callback when channel active state changes */
   onToggleChannelActive?: (fixtureId: string, channelIndex: number, isActive: boolean) => void;
+  /** Optional: Current channel index for Stream Dock knob control (highlights the focused channel) */
+  currentChannelIndex?: number;
+  /** Optional: Callback when current channel index changes (for Stream Deck integration) */
+  onChannelIndexChange?: (index: number) => void;
+  /** Optional: External trigger to open color picker - increment/change this value to trigger open (for Stream Deck integration) */
+  openColorPickerTrigger?: number;
 }
 
 /**
@@ -79,6 +85,9 @@ export default function MultiSelectControls({
   onDeselectAll,
   activeChannels,
   onToggleChannelActive,
+  currentChannelIndex,
+  onChannelIndexChange,
+  openColorPickerTrigger,
 }: MultiSelectControlsProps) {
   const isMobile = useIsMobile();
   const [mergedChannels, setMergedChannels] = useState<MergedChannel[]>([]);
@@ -123,6 +132,19 @@ export default function MultiSelectControls({
 
     return { colorChannels, intensityChannels, otherChannels };
   }, [mergedChannels]);
+
+  // Watch for external trigger to open color picker (e.g., from Stream Deck)
+  // Track previous value to avoid triggering on initial mount
+  const prevTriggerRef = useRef<number | undefined>(openColorPickerTrigger);
+  useEffect(() => {
+    // Only trigger if the value actually changed (not just on mount)
+    if (openColorPickerTrigger !== undefined &&
+        openColorPickerTrigger > 0 &&
+        prevTriggerRef.current !== openColorPickerTrigger) {
+      handleOpenColorPicker();
+    }
+    prevTriggerRef.current = openColorPickerTrigger;
+  }, [openColorPickerTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Merge channels whenever selection or values change
   useEffect(() => {
@@ -501,32 +523,83 @@ export default function MultiSelectControls({
     [onToggleChannelActive],
   );
 
+  // Determine which merged channel corresponds to the current channel index
+  // (based on the first selected fixture)
+  const getCurrentMergedChannelIndex = useCallback((): number => {
+    if (currentChannelIndex === undefined || currentChannelIndex === null || selectedFixtures.length === 0) return -1;
+
+    const firstFixture = selectedFixtures[0];
+    if (!firstFixture.channels || currentChannelIndex >= firstFixture.channels.length) return -1;
+
+    // Find the merged channel that includes this channel index for the first fixture
+    const mergedIndex = mergedChannels.findIndex(mc =>
+      mc.fixtureIds.includes(firstFixture.id) &&
+      mc.channelIndices[mc.fixtureIds.indexOf(firstFixture.id)] === currentChannelIndex
+    );
+
+    return mergedIndex;
+  }, [currentChannelIndex, selectedFixtures, mergedChannels]);
+
+  const currentMergedChannelIndex = getCurrentMergedChannelIndex();
+
+  // Handle clicking on a channel slider to make it current
+  const handleChannelClick = useCallback((mergedChannelIndex: number) => {
+    if (!onChannelIndexChange || selectedFixtures.length === 0) return;
+
+    const channel = mergedChannels[mergedChannelIndex];
+    if (!channel) return;
+
+    const firstFixture = selectedFixtures[0];
+    const fixtureIndexInMerged = channel.fixtureIds.indexOf(firstFixture.id);
+    if (fixtureIndexInMerged >= 0) {
+      const channelIndex = channel.channelIndices[fixtureIndexInMerged];
+      onChannelIndexChange(channelIndex);
+    }
+  }, [onChannelIndexChange, selectedFixtures, mergedChannels]);
+
   if (selectedFixtures.length === 0) {
     return null;
   }
 
   // Render a channel slider
-  const renderChannelSlider = (channel: MergedChannel, index: number) => (
-    <div key={`${channel.type}-${index}`} className="relative">
-      <ChannelSlider
-        channel={channel}
-        value={getSliderValue(channel)}
-        onChange={(value) => handleSliderInput(channel, value)}
-        onChangeComplete={(value) => handleSliderMouseUp(channel, value)}
-        tooltip={getChannelTooltip(channel)}
-        isActive={onToggleChannelActive ? isMergedChannelActive(channel) : undefined}
-        onToggleActive={onToggleChannelActive ? (active) => handleToggleMergedChannelActive(channel, active) : undefined}
-      />
-      {channel.hasVariation && (
-        <div
-          className="absolute right-14 top-1/2 -translate-y-1/2 text-yellow-500 text-xs pointer-events-none"
-          title="Values differ across selected fixtures"
-        >
-          ≈
-        </div>
-      )}
-    </div>
-  );
+  const renderChannelSlider = (channel: MergedChannel, index: number) => {
+    const isCurrent = index === currentMergedChannelIndex;
+
+    return (
+      <div
+        key={`${channel.type}-${index}`}
+        className={`relative ${isCurrent ? 'bg-blue-50 dark:bg-blue-900/20 rounded-lg p-1 -m-1 ring-2 ring-blue-500' : ''}`}
+        onClick={() => handleChannelClick(index)}
+        style={{ cursor: onChannelIndexChange ? 'pointer' : 'default' }}
+      >
+        <ChannelSlider
+          channel={channel}
+          value={getSliderValue(channel)}
+          onChange={(value) => handleSliderInput(channel, value)}
+          onChangeComplete={(value) => handleSliderMouseUp(channel, value)}
+          tooltip={getChannelTooltip(channel)}
+          isActive={onToggleChannelActive ? isMergedChannelActive(channel) : undefined}
+          onToggleActive={onToggleChannelActive ? (active) => handleToggleMergedChannelActive(channel, active) : undefined}
+        />
+        {channel.hasVariation && (
+          <div
+            className="absolute right-14 top-1/2 -translate-y-1/2 text-yellow-500 text-xs pointer-events-none"
+            title="Values differ across selected fixtures"
+          >
+            ≈
+          </div>
+        )}
+        {isCurrent && (
+          <div
+            className="absolute left-2 top-1/2 -translate-y-1/2 text-blue-500 text-xs font-bold pointer-events-none"
+            title="Current channel (Stream Dock knobs control this)"
+          >
+            ▶
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // Render a collapsible section for mobile
   const renderCollapsibleSection = (

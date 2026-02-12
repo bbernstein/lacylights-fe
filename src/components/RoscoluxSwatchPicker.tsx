@@ -10,6 +10,7 @@ interface RoscoluxSwatchPickerProps {
   onColorSelect: (color: { r: number; g: number; b: number }) => void;
   maxHeight?: string; // Optional max height style (e.g. "calc(90vh - 200px)")
   highlightMatches?: boolean; // Whether to highlight matching swatches
+  highlightedIndex?: number; // Index of swatch to highlight (for Stream Deck navigation)
 }
 
 interface TooltipProps {
@@ -120,11 +121,13 @@ export default function RoscoluxSwatchPicker({
   currentColor,
   onColorSelect,
   maxHeight = "calc(90vh - 200px)", // Default fallback for backwards compatibility
-  highlightMatches = false
+  highlightMatches = false,
+  highlightedIndex
 }: RoscoluxSwatchPickerProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [hoveredFilter, setHoveredFilter] = useState<RoscoluxFilter | null>(null);
   const [hoveredElement, setHoveredElement] = useState<HTMLElement | null>(null);
+  const highlightedSwatchRef = useRef<HTMLButtonElement>(null);
 
   // Use the imported Roscolux filter data
   const roscoluxFilters = ROSCOLUX_FILTERS;
@@ -162,6 +165,16 @@ export default function RoscoluxSwatchPicker({
     onColorSelect(rgb);
   };
 
+  // Auto-scroll to highlighted swatch when highlightedIndex changes
+  useEffect(() => {
+    if (highlightedIndex !== undefined && highlightedSwatchRef.current) {
+      highlightedSwatchRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [highlightedIndex]);
+
   return (
     <div className="p-6 h-full flex flex-col" style={{ maxHeight }}>
       {/* Search */}
@@ -184,9 +197,14 @@ export default function RoscoluxSwatchPicker({
       {/* Filter Grid */}
       <div className="flex-1 overflow-y-auto overflow-x-visible scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-200 dark:scrollbar-track-gray-700 relative">
         <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2 p-4">
-          {filteredFilters.map((filter, index) => (
+          {filteredFilters.map((filter, index) => {
+            const isHighlighted = highlightedIndex === index;
+            const isMatchHighlighted = matchingSimilarities.has(filter.rgbHex);
+
+            return (
             <div key={index} className="relative group">
               <button
+                ref={isHighlighted ? highlightedSwatchRef : null}
                 onClick={() => handleSwatchClick(filter)}
                 onMouseEnter={(e) => {
                   setHoveredFilter(filter);
@@ -197,7 +215,9 @@ export default function RoscoluxSwatchPicker({
                   setHoveredElement(null);
                 }}
                 className={`w-full aspect-square min-h-[44px] min-w-[44px] rounded-md border-2 transition-all duration-200 shadow-sm hover:shadow-md hover:scale-110 relative overflow-hidden ${
-                  matchingSimilarities.has(filter.rgbHex)
+                  isHighlighted
+                    ? 'border-yellow-500 dark:border-yellow-400 ring-4 ring-yellow-300 dark:ring-yellow-600 scale-110'
+                    : isMatchHighlighted
                     ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-300 dark:ring-blue-600'
                     : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
                 }`}
@@ -221,7 +241,8 @@ export default function RoscoluxSwatchPicker({
                 })()}
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {filteredFilters.length === 0 && (

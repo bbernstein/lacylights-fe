@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import ColorWheelPicker from './ColorWheelPicker';
 import RoscoluxSwatchPicker from './RoscoluxSwatchPicker';
@@ -57,10 +57,63 @@ export default function ColorPickerModal({
   const [hexInputValue, setHexInputValue] = useState(rgbToHex(currentColor.r, currentColor.g, currentColor.b));
   const [bestMatch, setBestMatch] = useState<(typeof ROSCOLUX_FILTERS[0] & { similarity: number }) | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(!isMobile); // Collapsed by default on mobile
+  const [highlightedRoscoluxIndex, setHighlightedRoscoluxIndex] = useState(0); // For Stream Dock navigation
   const prevIsOpenRef = useRef(isOpen);
   // Ref to track latest selectedColor for use in handlers without re-registration
   const selectedColorRef = useRef(selectedColor);
   selectedColorRef.current = selectedColor;
+
+  // Throttle state for onColorChange - max 10 calls per second (100ms intervals)
+  const lastColorChangeTimeRef = useRef(0);
+  const pendingColorChangeRef = useRef<{ r: number; g: number; b: number } | null>(null);
+  const colorChangeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Throttled version of onColorChange - max 10 calls/second (100ms throttle)
+  const throttledColorChange = useCallback((color: { r: number; g: number; b: number }) => {
+    const now = Date.now();
+    const timeSinceLastCall = now - lastColorChangeTimeRef.current;
+
+    if (timeSinceLastCall >= 100) {
+      // Enough time has passed - call immediately
+      onColorChange(color);
+      lastColorChangeTimeRef.current = now;
+      pendingColorChangeRef.current = null;
+
+      // Clear any pending timer
+      if (colorChangeTimerRef.current) {
+        clearTimeout(colorChangeTimerRef.current);
+        colorChangeTimerRef.current = null;
+      }
+    } else {
+      // Too soon - schedule for later
+      pendingColorChangeRef.current = color;
+
+      // Clear existing timer if any
+      if (colorChangeTimerRef.current) {
+        clearTimeout(colorChangeTimerRef.current);
+      }
+
+      // Schedule the pending call
+      const delay = 100 - timeSinceLastCall;
+      colorChangeTimerRef.current = setTimeout(() => {
+        if (pendingColorChangeRef.current) {
+          onColorChange(pendingColorChangeRef.current);
+          lastColorChangeTimeRef.current = Date.now();
+          pendingColorChangeRef.current = null;
+        }
+        colorChangeTimerRef.current = null;
+      }, delay);
+    }
+  }, [onColorChange]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (colorChangeTimerRef.current) {
+        clearTimeout(colorChangeTimerRef.current);
+      }
+    };
+  }, []);
 
   // Only initialize selectedColor when modal first opens (transition from closed to open)
   useEffect(() => {
@@ -116,6 +169,30 @@ export default function ColorPickerModal({
     setBestMatch(match);
   }, [selectedColor]);
 
+  // Handler to toggle between Color Wheel and Roscolux tabs
+  const handleToggleTab = useCallback(() => {
+    setActiveTab(prev => prev === 'wheel' ? 'roscolux' : 'wheel');
+  }, []);
+
+  // Handler to navigate Roscolux swatches (for Stream Dock knob)
+  const handleNavigateRoscolux = useCallback((delta: number) => {
+    setHighlightedRoscoluxIndex(prev => {
+      const newIndex = prev + delta;
+      // Clamp to valid range
+      return Math.max(0, Math.min(ROSCOLUX_FILTERS.length - 1, newIndex));
+    });
+  }, []);
+
+  // Handler to select the currently highlighted Roscolux swatch and apply/close
+  const handleSelectHighlightedRoscolux = useCallback(() => {
+    const filter = ROSCOLUX_FILTERS[highlightedRoscoluxIndex];
+    if (filter) {
+      const rgb = hexToRgb(filter.rgbHex);
+      onColorSelect(rgb); // Apply the color
+      onClose(); // Close the modal
+    }
+  }, [highlightedRoscoluxIndex, onColorSelect, onClose]);
+
   // Stream Dock: register color picker command handlers
   // Note: handleOpen is a no-op because ColorPickerModal does not own its open state;
   // the parent component controls isOpen. To support COLOR_OPEN from Stream Dock,
@@ -131,6 +208,9 @@ export default function ColorPickerModal({
         handleOpen: () => {
           // Cannot open from here - isOpen is controlled by parent component
         },
+        handleToggleTab: () => { /* modal closed */ },
+        handleNavigateRoscolux: () => { /* modal closed */ },
+        handleSelectHighlightedRoscolux: () => { /* modal closed */ },
       });
       return () => streamDock.registerColorPickerHandlers(null);
     }
@@ -139,12 +219,12 @@ export default function ColorPickerModal({
       handleSetHSB: (hue: number, saturation: number, brightness: number) => {
         const rgb = hsbToRgb(hue, saturation, brightness);
         setSelectedColor(rgb);
-        onColorChange(rgb);
+        throttledColorChange(rgb);
       },
       handleSetRGB: (r: number, g: number, b: number) => {
         const color = { r, g, b };
         setSelectedColor(color);
-        onColorChange(color);
+        throttledColorChange(color);
       },
       handleApply: () => {
         // Use ref to avoid re-registration on every color change
@@ -157,10 +237,13 @@ export default function ColorPickerModal({
       handleOpen: () => {
         // Already open - no-op
       },
+      handleToggleTab,
+      handleNavigateRoscolux,
+      handleSelectHighlightedRoscolux,
     });
 
     return () => streamDock.registerColorPickerHandlers(null);
-  }, [isOpen, streamDock, onColorChange, onColorSelect, onClose]);
+  }, [isOpen, streamDock, throttledColorChange, onColorSelect, onClose, handleToggleTab, handleNavigateRoscolux, handleSelectHighlightedRoscolux]);
 
   // Stream Dock: publish color picker state
   useEffect(() => {
@@ -171,26 +254,29 @@ export default function ColorPickerModal({
       saturation: hsb.saturation,
       brightness: hsb.brightness,
       rgb: selectedColor,
+      activeTab,
+      highlightedRoscoluxIndex,
+      totalRoscoluxSwatches: ROSCOLUX_FILTERS.length,
     });
-  }, [streamDock, isOpen, selectedColor]);
+  }, [streamDock, isOpen, selectedColor, activeTab, highlightedRoscoluxIndex]);
 
-  const handleColorUpdate = (color: { r: number; g: number; b: number }) => {
+  const handleColorUpdate = useCallback((color: { r: number; g: number; b: number }) => {
     setSelectedColor(color);
-    onColorChange(color);
-  };
+    throttledColorChange(color);
+  }, [throttledColorChange]);
 
-  const handleRoscoluxSelect = (color: { r: number; g: number; b: number }) => {
+  const handleRoscoluxSelect = useCallback((color: { r: number; g: number; b: number }) => {
     setSelectedColor(color);
-    // Also trigger real-time preview
-    onColorChange(color);
-  };
+    // Also trigger real-time preview (throttled)
+    throttledColorChange(color);
+  }, [throttledColorChange]);
 
   const isValidHex = (hex: string): boolean => {
     // Support both 3-character (#FFF) and 6-character (#FFFFFF) hex codes
     return /^#?([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(hex);
   };
 
-  const handleHexInputChange = (hex: string) => {
+  const handleHexInputChange = useCallback((hex: string) => {
     setHexInputValue(hex);
 
     // Only update color if valid hex
@@ -199,9 +285,9 @@ export default function ColorPickerModal({
       // Store the hex value to prevent effect from overwriting user's input
       lastHexInputColorRef.current = hex;
       setSelectedColor(rgb);
-      onColorChange(rgb);
+      throttledColorChange(rgb);
     }
-  };
+  }, [throttledColorChange]);
 
   const handleHexInputBlur = () => {
     // Reset to valid hex color on blur if invalid
@@ -311,6 +397,7 @@ export default function ColorPickerModal({
             currentColor={selectedColor}
             onColorSelect={handleRoscoluxSelect}
             highlightMatches={true}
+            highlightedIndex={highlightedRoscoluxIndex}
           />
         )}
       </div>

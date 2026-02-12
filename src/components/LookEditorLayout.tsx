@@ -336,16 +336,16 @@ export default function LookEditorLayout({
     // Sort based on ordering mode
     if (fixtureOrderingMode === 'vertical') {
       // Vertical: top to bottom, then left to right
-      return fixturesWithPositions.sort((a, b) => {
+      return fixturesWithPositions.sort((a: { fixture: FixtureInstance; x: number; y: number }, b: { fixture: FixtureInstance; x: number; y: number }) => {
         if (a.x !== b.x) return a.x - b.x; // Left to right first
         return a.y - b.y; // Then top to bottom
-      }).map(f => f.fixture);
+      }).map((f: { fixture: FixtureInstance; x: number; y: number }) => f.fixture);
     } else {
       // Horizontal: left to right, then top to bottom
-      return fixturesWithPositions.sort((a, b) => {
+      return fixturesWithPositions.sort((a: { fixture: FixtureInstance; x: number; y: number }, b: { fixture: FixtureInstance; x: number; y: number }) => {
         if (a.y !== b.y) return a.y - b.y; // Top to bottom first
         return a.x - b.x; // Then left to right
-      }).map(f => f.fixture);
+      }).map((f: { fixture: FixtureInstance; x: number; y: number }) => f.fixture);
     }
   }, [look, removedFixtureIds, fixtureOrderingMode]);
 
@@ -1367,7 +1367,7 @@ export default function LookEditorLayout({
       setHighlightedFixtureId(orderedFixtures[0].id);
     } else {
       // Find current index and move by delta
-      const currentIndex = orderedFixtures.findIndex(f => f.id === highlightedFixtureId);
+      const currentIndex = orderedFixtures.findIndex((f: FixtureInstance) => f.id === highlightedFixtureId);
       if (currentIndex === -1) {
         // Current fixture not found (removed?) - go to first
         setHighlightedFixtureId(orderedFixtures[0].id);
