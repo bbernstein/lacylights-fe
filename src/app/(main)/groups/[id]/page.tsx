@@ -1,4 +1,4 @@
-import { use } from 'react';
+import { use, Suspense } from 'react';
 import GroupDetailPageClient from './GroupDetailPageClient';
 
 interface PageProps {
@@ -16,5 +16,9 @@ export async function generateStaticParams() {
 export default function GroupDetailPage({ params }: PageProps) {
   const { id } = use(params);
 
-  return <GroupDetailPageClient groupId={id} />;
+  return (
+    <Suspense fallback={<div className="text-gray-400 text-center py-8">Loading group...</div>}>
+      <GroupDetailPageClient groupId={id} />
+    </Suspense>
+  );
 }
