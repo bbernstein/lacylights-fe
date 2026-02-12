@@ -9,6 +9,7 @@ import {
   START_PREVIEW_SESSION,
   CANCEL_PREVIEW_SESSION,
   UPDATE_PREVIEW_CHANNEL,
+  UPDATE_PREVIEW_CHANNELS,
   INITIALIZE_PREVIEW_WITH_LOOK,
   ACTIVATE_LOOK,
 } from "@/graphql/looks";
@@ -232,6 +233,17 @@ export default function LookEditorLayout({
   // Copy to other looks modal state
   const [showCopyToLooksModal, setShowCopyToLooksModal] = useState(false);
 
+  // Current channel index for Stream Dock knob control
+  // Tracks which channel in the channel editor is currently focused
+  const [currentChannelIndex, setCurrentChannelIndex] = useState(0);
+
+  // Trigger for opening color picker (incremented to trigger open from Stream Dock)
+  const [colorPickerTrigger, setColorPickerTrigger] = useState(0);
+
+  // Fixture navigation state for layout mode (when no fixture is selected)
+  const [highlightedFixtureId, setHighlightedFixtureId] = useState<string | null>(null);
+  const [fixtureOrderingMode, setFixtureOrderingMode] = useState<'vertical' | 'horizontal'>('vertical');
+
   // Fetch look data for both modes (shared state)
   const {
     data: lookData,
@@ -277,6 +289,7 @@ export default function LookEditorLayout({
   });
 
   const [updatePreviewChannel] = useMutation(UPDATE_PREVIEW_CHANNEL);
+  const [updatePreviewChannels] = useMutation(UPDATE_PREVIEW_CHANNELS);
   const [initializePreviewWithLook] = useMutation(
     INITIALIZE_PREVIEW_WITH_LOOK,
   );
@@ -305,6 +318,36 @@ export default function LookEditorLayout({
     }
     return values;
   }, [look]);
+
+  // Calculate ordered fixture list based on layout positions and ordering mode
+  // Used for StreamDock navigation in layout mode
+  const orderedFixtures = useMemo(() => {
+    if (!look) return [];
+
+    // Get all fixtures with their positions
+    const fixturesWithPositions = look.fixtureValues
+      .filter((fv: FixtureValue) => !removedFixtureIds.has(fv.fixture.id))
+      .map((fv: FixtureValue) => ({
+        fixture: fv.fixture,
+        x: fv.fixture.layoutX ?? 0,
+        y: fv.fixture.layoutY ?? 0,
+      }));
+
+    // Sort based on ordering mode
+    if (fixtureOrderingMode === 'vertical') {
+      // Vertical: top to bottom, then left to right
+      return fixturesWithPositions.sort((a: { fixture: FixtureInstance; x: number; y: number }, b: { fixture: FixtureInstance; x: number; y: number }) => {
+        if (a.x !== b.x) return a.x - b.x; // Left to right first
+        return a.y - b.y; // Then top to bottom
+      }).map((f: { fixture: FixtureInstance; x: number; y: number }) => f.fixture);
+    } else {
+      // Horizontal: left to right, then top to bottom
+      return fixturesWithPositions.sort((a: { fixture: FixtureInstance; x: number; y: number }, b: { fixture: FixtureInstance; x: number; y: number }) => {
+        if (a.y !== b.y) return a.y - b.y; // Top to bottom first
+        return a.x - b.x; // Then left to right
+      }).map((f: { fixture: FixtureInstance; x: number; y: number }) => f.fixture);
+    }
+  }, [look, removedFixtureIds, fixtureOrderingMode]);
 
   // Track mounted state to prevent state updates after unmount
   useEffect(() => {
@@ -556,18 +599,17 @@ export default function LookEditorLayout({
 
       // Set new timeout for debounced update
       debounceTimeoutRef.current = setTimeout(() => {
-        Promise.all(
-          changes.map(({ fixtureId, channelIndex, value }) =>
-            updatePreviewChannel({
-              variables: {
-                sessionId: previewSessionId,
-                fixtureId,
-                channelIndex,
-                value,
-              },
-            }),
-          ),
-        ).catch((error) => {
+        // Use bulk update mutation to send all channel changes in a single GraphQL call
+        updatePreviewChannels({
+          variables: {
+            sessionId: previewSessionId,
+            updates: changes.map(({ fixtureId, channelIndex, value }) => ({
+              fixtureId,
+              channelIndex,
+              value,
+            })),
+          },
+        }).catch((error) => {
           console.error("Failed to update preview channels:", error);
           setPreviewError(error.message);
         });
@@ -576,7 +618,7 @@ export default function LookEditorLayout({
     [
       previewMode,
       previewSessionId,
-      updatePreviewChannel,
+      updatePreviewChannels,
       handleLocalChannelChanges,
     ],
   );
@@ -598,24 +640,22 @@ export default function LookEditorLayout({
         debounceTimeoutRef.current = null;
       }
 
-      // Send all changes in parallel immediately
-      Promise.all(
-        changes.map(({ fixtureId, channelIndex, value }) =>
-          updatePreviewChannel({
-            variables: {
-              sessionId: previewSessionId,
-              fixtureId,
-              channelIndex,
-              value,
-            },
-          }),
-        ),
-      ).catch((error) => {
+      // Send all changes in a single bulk GraphQL call
+      updatePreviewChannels({
+        variables: {
+          sessionId: previewSessionId,
+          updates: changes.map(({ fixtureId, channelIndex, value }) => ({
+            fixtureId,
+            channelIndex,
+            value,
+          })),
+        },
+      }).catch((error) => {
         console.error("Failed to batch update preview channels:", error);
         setPreviewError(error.message);
       });
     },
-    [previewMode, previewSessionId, updatePreviewChannel],
+    [previewMode, previewSessionId, updatePreviewChannels],
   );
 
   // Initialize preview with all current look values
@@ -1318,6 +1358,44 @@ export default function LookEditorLayout({
     []
   );
 
+  // Handle fixture navigation in layout mode (Stream Dock)
+  const handleNavigateFixture = useCallback((delta: number) => {
+    if (orderedFixtures.length === 0) return;
+
+    if (highlightedFixtureId === null) {
+      // No fixture highlighted yet - start at first
+      setHighlightedFixtureId(orderedFixtures[0].id);
+    } else {
+      // Find current index and move by delta
+      const currentIndex = orderedFixtures.findIndex((f: FixtureInstance) => f.id === highlightedFixtureId);
+      if (currentIndex === -1) {
+        // Current fixture not found (removed?) - go to first
+        setHighlightedFixtureId(orderedFixtures[0].id);
+      } else {
+        // Calculate new index with wraparound
+        const newIndex = (currentIndex + delta + orderedFixtures.length) % orderedFixtures.length;
+        setHighlightedFixtureId(orderedFixtures[newIndex].id);
+      }
+    }
+  }, [orderedFixtures, highlightedFixtureId]);
+
+  // Handle selecting the highlighted fixture (Stream Dock)
+  const handleSelectHighlightedFixture = useCallback(() => {
+    if (highlightedFixtureId) {
+      // Select the highlighted fixture
+      setSelectedFixtureIds(new Set([highlightedFixtureId]));
+      // Clear highlight since it's now selected
+      setHighlightedFixtureId(null);
+      // Reset channel index when changing fixtures
+      setCurrentChannelIndex(0);
+    }
+  }, [highlightedFixtureId]);
+
+  // Handle toggling fixture ordering mode (Stream Dock)
+  const handleToggleFixtureOrdering = useCallback(() => {
+    setFixtureOrderingMode(prev => prev === 'vertical' ? 'horizontal' : 'vertical');
+  }, []);
+
   // Stream Dock integration: register command handlers
   useEffect(() => {
     if (!look) return;
@@ -1325,6 +1403,14 @@ export default function LookEditorLayout({
     const fixtures = look.fixtureValues
       .filter((fv: FixtureValue) => !removedFixtureIds.has(fv.fixture.id))
       .map((fv: FixtureValue) => fv.fixture);
+
+    // Get channel count for the first selected fixture (for channel navigation)
+    let channelCount = 0;
+    if (selectedFixtureIds.size > 0) {
+      const firstSelectedId = Array.from(selectedFixtureIds)[0];
+      const firstFixture = fixtures.find((f: FixtureInstance) => f.id === firstSelectedId);
+      channelCount = firstFixture?.channels?.length || 0;
+    }
 
     streamDock.registerLookEditorHandlers({
       handleSave: handleSaveLook,
@@ -1334,39 +1420,61 @@ export default function LookEditorLayout({
       handleSelectFixture: (fixtureIndex: number) => {
         if (fixtureIndex >= 0 && fixtureIndex < fixtures.length) {
           setSelectedFixtureIds(new Set([fixtures[fixtureIndex].id]));
+          // Reset channel index when changing fixtures
+          setCurrentChannelIndex(0);
         }
       },
-      handleSelectChannel: () => {
-        // Channel selection is managed within ChannelListEditor
-        // The Stream Dock state update will reflect the current selection
+      handleSelectChannel: (channelIndex: number) => {
+        // Directly set the channel index (for explicit selection)
+        if (channelCount > 0) {
+          setCurrentChannelIndex(Math.max(0, Math.min(channelCount - 1, channelIndex)));
+        }
       },
       handleSetChannelValue: (channelIndex: number, value: number) => {
-        // Apply value change to the first selected fixture
-        if (selectedFixtureIds.size > 0) {
-          const fixtureId = Array.from(selectedFixtureIds)[0];
-          handleSingleChannelChange(fixtureId, channelIndex, value);
-        }
+        // Apply value change to all selected fixtures at the current channel index
+        // Use channelIndex from payload, or fall back to currentChannelIndex
+        const targetChannelIndex = channelIndex !== undefined ? channelIndex : currentChannelIndex;
+
+        selectedFixtureIds.forEach(fixtureId => {
+          handleSingleChannelChange(fixtureId, targetChannelIndex, value);
+        });
       },
       handleNextChannel: () => {
-        // Channel navigation is managed within ChannelListEditor
-      },
-      handlePrevChannel: () => {
-        // Channel navigation is managed within ChannelListEditor
-      },
-      handleToggleChannelActive: (channelIndex: number) => {
-        if (selectedFixtureIds.size > 0) {
-          const fixtureId = Array.from(selectedFixtureIds)[0];
-          const currentActive = activeChannels.get(fixtureId);
-          const isCurrentlyActive = currentActive?.has(channelIndex) ?? false;
-          handleToggleChannelActive(fixtureId, channelIndex, !isCurrentlyActive);
+        // Move to next channel (with wraparound)
+        if (channelCount > 0) {
+          setCurrentChannelIndex((prev) => (prev + 1) % channelCount);
         }
       },
+      handlePrevChannel: () => {
+        // Move to previous channel (with wraparound)
+        if (channelCount > 0) {
+          setCurrentChannelIndex((prev) => (prev - 1 + channelCount) % channelCount);
+        }
+      },
+      handleToggleChannelActive: (channelIndex: number) => {
+        // Use provided channelIndex or current channel
+        const targetChannelIndex = channelIndex !== undefined ? channelIndex : currentChannelIndex;
+
+        selectedFixtureIds.forEach(fixtureId => {
+          const currentActive = activeChannels.get(fixtureId);
+          const isCurrentlyActive = currentActive?.has(targetChannelIndex) ?? false;
+          handleToggleChannelActive(fixtureId, targetChannelIndex, !isCurrentlyActive);
+        });
+      },
+      handleOpenColorPicker: () => {
+        // Trigger color picker to open (increments trigger value)
+        setColorPickerTrigger(prev => prev + 1);
+      },
+      handleNavigateFixture,
+      handleSelectHighlightedFixture,
+      handleToggleFixtureOrdering,
     });
     return () => streamDock.registerLookEditorHandlers(null);
   }, [
     streamDock, look, removedFixtureIds, selectedFixtureIds, activeChannels,
     handleSaveLook, handleUndo, handleRedo, handleTogglePreview,
-    handleSingleChannelChange, handleToggleChannelActive,
+    handleSingleChannelChange, handleToggleChannelActive, currentChannelIndex,
+    handleNavigateFixture, handleSelectHighlightedFixture, handleToggleFixtureOrdering,
   ]);
 
   // Stream Dock: publish look editor state whenever it changes
@@ -1412,15 +1520,18 @@ export default function LookEditorLayout({
       fixtures,
       selectedFixtureIndex: selectedIndex,
       channels,
-      currentChannelIndex: 0,
+      currentChannelIndex,
       canUndo,
       canRedo,
       isDirty,
       previewActive: previewMode,
+      highlightedFixtureId,
+      fixtureOrderingMode,
     });
   }, [
     streamDock, look, lookId, removedFixtureIds, selectedFixtureIds, activeChannels,
-    localFixtureValues, serverDenseValues, canUndo, canRedo, isDirty, previewMode,
+    localFixtureValues, serverDenseValues, canUndo, canRedo, isDirty, previewMode, currentChannelIndex,
+    highlightedFixtureId, fixtureOrderingMode,
   ]);
 
   // Build fixture names map for copy modal
@@ -1820,6 +1931,7 @@ export default function LookEditorLayout({
               showCopiedFeedback={showCopiedFeedback}
               canvasWidth={look.project?.layoutCanvasWidth ?? DEFAULT_CANVAS_WIDTH}
               canvasHeight={look.project?.layoutCanvasHeight ?? DEFAULT_CANVAS_HEIGHT}
+              highlightedFixtureId={highlightedFixtureId}
             />
             {selectedFixtures.length > 0 && (
               <MultiSelectControls
@@ -1830,6 +1942,9 @@ export default function LookEditorLayout({
                 onDeselectAll={handleDeselectAll}
                 activeChannels={activeChannels}
                 onToggleChannelActive={handleToggleChannelActive}
+                currentChannelIndex={currentChannelIndex}
+                onChannelIndexChange={setCurrentChannelIndex}
+                openColorPickerTrigger={colorPickerTrigger}
               />
             )}
 

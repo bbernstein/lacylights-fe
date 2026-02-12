@@ -217,6 +217,12 @@ export const UPDATE_PREVIEW_CHANNEL = gql`
   }
 `;
 
+export const UPDATE_PREVIEW_CHANNELS = gql`
+  mutation UpdatePreviewChannels($sessionId: ID!, $updates: [PreviewChannelUpdateInput!]!) {
+    updatePreviewChannels(sessionId: $sessionId, updates: $updates)
+  }
+`;
+
 export const INITIALIZE_PREVIEW_WITH_LOOK = gql`
   mutation InitializePreviewWithLook($sessionId: ID!, $lookId: ID!) {
     initializePreviewWithLook(sessionId: $sessionId, lookId: $lookId)

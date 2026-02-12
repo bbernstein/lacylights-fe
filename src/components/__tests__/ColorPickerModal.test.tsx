@@ -446,7 +446,10 @@ describe('ColorPickerModal', () => {
       await userEvent.type(hexInput, '#0000FF');
 
       // Typing #0000FF doesn't trigger intermediate valid 3-char matches
-      expect(defaultProps.onColorChange).toHaveBeenLastCalledWith({ r: 0, g: 0, b: 255 });
+      // Wait for throttled callback (100ms throttle)
+      await waitFor(() => {
+        expect(defaultProps.onColorChange).toHaveBeenLastCalledWith({ r: 0, g: 0, b: 255 });
+      });
     });
 
     it('updates color when valid 3-char hex is entered', async () => {

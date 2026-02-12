@@ -205,6 +205,7 @@ describe('StreamDockContext', () => {
             handleStop: jest.fn(),
             handleHurryUp: jest.fn(),
             handleJumpToCue: jest.fn(),
+            handleHighlightCue: jest.fn(),
             handleFadeToBlack: jest.fn(),
           });
           return () => ctx.registerCuePlayerHandlers(null);
@@ -242,6 +243,7 @@ describe('StreamDockContext', () => {
             handleStop: jest.fn(),
             handleHurryUp: jest.fn(),
             handleJumpToCue,
+            handleHighlightCue: jest.fn(),
             handleFadeToBlack: jest.fn(),
           });
           return () => ctx.registerCuePlayerHandlers(null);

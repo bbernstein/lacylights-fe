@@ -32,6 +32,8 @@ interface LayoutCanvasProps {
   // Virtual canvas dimensions (default 2000x2000)
   canvasWidth?: number;
   canvasHeight?: number;
+  // StreamDock layout navigation (when no fixture selected)
+  highlightedFixtureId?: string | null;
 }
 
 interface FixturePosition {
@@ -93,6 +95,7 @@ export default function LayoutCanvas({
   showCopiedFeedback = false,
   canvasWidth = DEFAULT_CANVAS_WIDTH,
   canvasHeight = DEFAULT_CANVAS_HEIGHT,
+  highlightedFixtureId = null,
 }: LayoutCanvasProps) {
   // Internal selection state (used if not controlled by parent)
   const [internalSelection, setInternalSelection] = useState<Set<string>>(
@@ -709,15 +712,19 @@ export default function LayoutCanvas({
       const isSelected = selectedFixtureIds.has(fixture.id);
       const isHovered = hoveredFixtureId === fixture.id;
       const isBeingDragged = draggedFixtures.has(fixture.id);
+      const isHighlighted = highlightedFixtureId === fixture.id;
 
       ctx.save();
       ctx.translate(canvasPos.x, canvasPos.y);
 
-      // Draw shadow if selected, hovered, or being dragged
+      // Draw shadow if selected, hovered, highlighted, or being dragged
       if (isBeingDragged) {
         ctx.shadowColor = "#10b981";
         ctx.shadowBlur = 15;
         ctx.globalAlpha = 0.8;
+      } else if (isHighlighted) {
+        ctx.shadowColor = "#f59e0b"; // Amber/orange for highlight
+        ctx.shadowBlur = 12;
       } else if (isSelected || isHovered) {
         ctx.shadowColor = isSelected ? "#3b82f6" : "#60a5fa";
         ctx.shadowBlur = 10;
@@ -730,6 +737,9 @@ export default function LayoutCanvas({
       // Draw border
       if (isBeingDragged) {
         ctx.strokeStyle = "#10b981";
+        ctx.lineWidth = 3;
+      } else if (isHighlighted) {
+        ctx.strokeStyle = "#f59e0b"; // Amber/orange for highlight
         ctx.lineWidth = 3;
       } else {
         ctx.strokeStyle = isSelected
@@ -830,6 +840,7 @@ export default function LayoutCanvas({
     getTextColor,
     calculateFittedText,
     showLabels,
+    highlightedFixtureId,
   ]);
 
   // Handle mouse down (start panning, dragging, or marquee selection)

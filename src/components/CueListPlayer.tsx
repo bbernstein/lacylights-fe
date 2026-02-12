@@ -139,6 +139,9 @@ export default function CueListPlayer({
   // Highlight state for cue that was just edited
   const [highlightedCueId, setHighlightedCueId] = useState<string | null>(null);
 
+  // Preview cue index for Stream Dock knob navigation (before button press)
+  const [previewCueIndex, setPreviewCueIndex] = useState<number | null>(null);
+
   // Error state for mutations
   const [mutationError, setMutationError] = useState<string | null>(null);
 
@@ -403,15 +406,19 @@ export default function CueListPlayer({
       // Only mark immediate next (one after current, or first if looping from last)
       const isNext = i === currentCueIndex + 1 || (isLoopingToFirst && i === 0);
 
+      // Mark as preview if this is the preview cue index (Stream Dock knob navigation)
+      const isPreview = previewCueIndex !== null && i === previewCueIndex;
+
       return {
         cue,
         index: i,
         isCurrent: i === currentCueIndex,
         isPrevious,
         isNext,
+        isPreview,
       };
     });
-  }, [currentCueIndex, cues, cueList?.loop]);
+  }, [currentCueIndex, cues, cueList?.loop, previewCueIndex]);
 
   // Callback ref for storing reference to current cue element
   // Also handles initial scroll when node is attached and we haven't scrolled yet
@@ -1169,6 +1176,9 @@ export default function CueListPlayer({
     async (index: number) => {
       if (!cueList || index < 0 || index >= cues.length || !canPlayback) return;
 
+      // Clear preview highlight when actually jumping to a cue
+      setPreviewCueIndex(null);
+
       // Wait for WebSocket to be connected before mutation, so we receive real-time updates
       await ensureConnection();
 
@@ -1206,6 +1216,18 @@ export default function CueListPlayer({
     ],
   );
 
+  // Stream Dock: highlight/preview a cue without jumping to it (for knob navigation)
+  const handleHighlightCue = useCallback(
+    (index: number) => {
+      if (index < 0 || index >= cues.length) {
+        setPreviewCueIndex(null);
+        return;
+      }
+      setPreviewCueIndex(index);
+    },
+    [cues.length],
+  );
+
   // Stream Dock: dedicated fade-to-black handler (separate from stop)
   const handleFadeToBlack = useCallback(async () => {
     if (!canPlayback) return;
@@ -1222,10 +1244,11 @@ export default function CueListPlayer({
       handleStop,
       handleHurryUp,
       handleJumpToCue,
+      handleHighlightCue,
       handleFadeToBlack,
     });
     return () => streamDock.registerCuePlayerHandlers(null);
-  }, [streamDock, handleGo, handlePrevious, handleStop, handleHurryUp, handleJumpToCue, handleFadeToBlack]);
+  }, [streamDock, handleGo, handlePrevious, handleStop, handleHurryUp, handleJumpToCue, handleHighlightCue, handleFadeToBlack]);
 
   // Stream Dock: publish cue list playback state whenever it changes
   useEffect(() => {
@@ -1358,12 +1381,14 @@ export default function CueListPlayer({
                 isCurrent,
                 isPrevious,
                 isNext,
+                isPreview,
               }: {
                 cue: Cue;
                 index: number;
                 isCurrent: boolean;
                 isPrevious: boolean;
                 isNext: boolean;
+                isPreview: boolean;
               }) => (
                 <div
                   key={cue.id}
@@ -1387,6 +1412,10 @@ export default function CueListPlayer({
                       // Non-skipped cue styling
                       if (isHighlighted) {
                         return "bg-gray-700 border-yellow-500 border-2 shadow-lg animate-pulse";
+                      }
+                      // Preview cue (Stream Dock knob navigation) - highlighted but not yet selected
+                      if (isPreview) {
+                        return "bg-gray-700/70 border-blue-400 border-2 scale-[1.01] shadow-md ring-2 ring-blue-400/50";
                       }
                       if (isCurrent && isPaused) {
                         return "bg-gray-700 border-amber-500 border-2 scale-[1.02] shadow-lg";
@@ -1451,11 +1480,13 @@ export default function CueListPlayer({
                         className={`text-2xl font-bold flex items-center ${
                           cue.skip
                             ? "text-gray-500"
-                            : isCurrent && isPaused
-                              ? "text-amber-400"
-                              : isCurrent
-                                ? "text-green-400"
-                                : "text-gray-300"
+                            : isPreview
+                              ? "text-blue-400"
+                              : isCurrent && isPaused
+                                ? "text-amber-400"
+                                : isCurrent
+                                  ? "text-green-400"
+                                  : "text-gray-300"
                         }`}
                       >
                         {cue.cueNumber}
@@ -1468,9 +1499,11 @@ export default function CueListPlayer({
                           className={`text-lg ${
                             cue.skip
                               ? "text-gray-500 line-through"
-                              : isCurrent
-                                ? "text-white"
-                                : "text-gray-300"
+                              : isPreview
+                                ? "text-blue-100"
+                                : isCurrent
+                                  ? "text-white"
+                                  : "text-gray-300"
                           }`}
                         >
                           {cue.name}
@@ -1479,9 +1512,11 @@ export default function CueListPlayer({
                           className={`text-sm ${
                             cue.skip
                               ? "text-gray-600"
-                              : isCurrent
-                                ? "text-gray-300"
-                                : "text-gray-500"
+                              : isPreview
+                                ? "text-blue-200"
+                                : isCurrent
+                                  ? "text-gray-300"
+                                  : "text-gray-500"
                           }`}
                         >
                           Look: {cue.look.name}
