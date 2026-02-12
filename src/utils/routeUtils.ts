@@ -68,3 +68,15 @@ export function extractEffectId(effectIdProp: string): string {
   // Excludes /, ?, and # from the ID to handle query params and hash fragments
   return extractDynamicRouteId(effectIdProp, /\/effects\/([^\/\?#]+)/);
 }
+
+/**
+ * Extracts a group ID from the URL when in static export mode.
+ * Pattern matches /groups/{groupId}
+ *
+ * @param groupIdProp - The group ID prop from Next.js
+ * @returns The extracted group ID
+ */
+export function extractGroupId(groupIdProp: string): string {
+  // Excludes /, ?, and # from the ID to handle query params and hash fragments
+  return extractDynamicRouteId(groupIdProp, /\/groups\/([^\/\?#]+)/);
+}
