@@ -426,7 +426,7 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
     const state = {
       effectId: effect.id,
       effectName: effect.name,
-      effectType: effect.effectType || 'WAVEFORM',
+      effectType: effect.effectType || EffectType.Waveform,
       isRunning: isActive,
       parameters,
       selectedParamIndex: 0, // Default to first parameter
