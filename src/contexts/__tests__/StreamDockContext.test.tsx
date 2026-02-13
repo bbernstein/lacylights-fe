@@ -395,8 +395,8 @@ describe('StreamDockContext', () => {
 
     describe('NAVIGATE command security', () => {
       it('dispatches NAVIGATE command for internal routes', () => {
-        // We can verify the command is dispatched by checking it does not warn
         const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
         render(
           <StreamDockProvider>
@@ -416,12 +416,13 @@ describe('StreamDockContext', () => {
           });
         });
 
-        // Internal route should not trigger a warning
+        // Internal route should not trigger a warning (actual navigation is not testable in jsdom)
         expect(warnSpy).not.toHaveBeenCalledWith(
           expect.stringContaining('NAVIGATE blocked')
         );
 
         warnSpy.mockRestore();
+        consoleSpy.mockRestore();
       });
 
       it('blocks NAVIGATE for external URLs and logs warning', () => {
@@ -527,12 +528,16 @@ describe('StreamDockContext', () => {
 });
 
 describe('navigateToRoute', () => {
+  // Note: Actual navigation cannot be tested in jsdom, we only test validation logic
   it('returns true for valid internal routes', () => {
-    // navigateToRoute will call window.location.assign which jsdom will process
-    // We just verify it returns true for valid routes
+    // Suppress jsdom navigation errors
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
     expect(navigateToRoute('/looks/123/edit')).toBe(true);
     expect(navigateToRoute('/cue-lists/456')).toBe(true);
     expect(navigateToRoute('/')).toBe(true);
+
+    consoleSpy.mockRestore();
   });
 
   it('returns false and warns for external URLs', () => {
@@ -588,5 +593,454 @@ describe('navigateToRoute', () => {
     );
 
     warnSpy.mockRestore();
+  });
+
+  describe('Effect Editor Commands', () => {
+    it('dispatches EFFECT_SAVE command to registered handler', () => {
+      const handleSave = jest.fn();
+
+      function HandlerRegistrar() {
+        const ctx = useStreamDock();
+        React.useEffect(() => {
+          ctx.registerEffectEditorHandlers({
+            handleSave,
+            handleUndo: jest.fn(),
+            handleRedo: jest.fn(),
+            handleStartStop: jest.fn(),
+            handleCycleType: jest.fn(),
+            handleTogglePreview: jest.fn(),
+            handleSetParam: jest.fn(),
+          });
+          return () => ctx.registerEffectEditorHandlers(null);
+        }, [ctx]);
+        return null;
+      }
+
+      render(
+        <StreamDockProvider>
+          <HandlerRegistrar />
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({ type: 'COMMAND', command: 'EFFECT_SAVE' });
+      });
+
+      expect(handleSave).toHaveBeenCalledTimes(1);
+    });
+
+    it('dispatches EFFECT_SET_PARAM command with payload', () => {
+      const handleSetParam = jest.fn();
+
+      function HandlerRegistrar() {
+        const ctx = useStreamDock();
+        React.useEffect(() => {
+          ctx.registerEffectEditorHandlers({
+            handleSave: jest.fn(),
+            handleUndo: jest.fn(),
+            handleRedo: jest.fn(),
+            handleStartStop: jest.fn(),
+            handleCycleType: jest.fn(),
+            handleTogglePreview: jest.fn(),
+            handleSetParam,
+          });
+          return () => ctx.registerEffectEditorHandlers(null);
+        }, [ctx]);
+        return null;
+      }
+
+      render(
+        <StreamDockProvider>
+          <HandlerRegistrar />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({
+          type: 'COMMAND',
+          command: 'EFFECT_SET_PARAM',
+          payload: { paramName: 'speed', value: 75 },
+        });
+      });
+
+      expect(handleSetParam).toHaveBeenCalledWith('speed', 75);
+    });
+  });
+
+  describe('Look Board Commands', () => {
+    it('dispatches BOARD_ACTIVATE_LOOK command with payload', () => {
+      const handleActivateLook = jest.fn();
+
+      function HandlerRegistrar() {
+        const ctx = useStreamDock();
+        React.useEffect(() => {
+          ctx.registerLookBoardHandlers({
+            handleActivateLook,
+            handlePageNext: jest.fn(),
+            handlePagePrev: jest.fn(),
+            handleSetFadeTime: jest.fn(),
+          });
+          return () => ctx.registerLookBoardHandlers(null);
+        }, [ctx]);
+        return null;
+      }
+
+      render(
+        <StreamDockProvider>
+          <HandlerRegistrar />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({
+          type: 'COMMAND',
+          command: 'BOARD_ACTIVATE_LOOK',
+          payload: { lookId: 'look123', slotIndex: 2 },
+        });
+      });
+
+      expect(handleActivateLook).toHaveBeenCalledWith('look123', 2);
+    });
+
+    it('dispatches BOARD_PAGE_NEXT command', () => {
+      const handlePageNext = jest.fn();
+
+      function HandlerRegistrar() {
+        const ctx = useStreamDock();
+        React.useEffect(() => {
+          ctx.registerLookBoardHandlers({
+            handleActivateLook: jest.fn(),
+            handlePageNext,
+            handlePagePrev: jest.fn(),
+            handleSetFadeTime: jest.fn(),
+          });
+          return () => ctx.registerLookBoardHandlers(null);
+        }, [ctx]);
+        return null;
+      }
+
+      render(
+        <StreamDockProvider>
+          <HandlerRegistrar />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({ type: 'COMMAND', command: 'BOARD_PAGE_NEXT' });
+      });
+
+      expect(handlePageNext).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Global Commands', () => {
+    it('dispatches GLOBAL_FTB command', () => {
+      const handleFadeToBlack = jest.fn();
+
+      function HandlerRegistrar() {
+        const ctx = useStreamDock();
+        React.useEffect(() => {
+          ctx.registerGlobalHandlers({
+            handleUndo: jest.fn(),
+            handleRedo: jest.fn(),
+            handleFadeToBlack,
+            handleSetMaster: jest.fn(),
+          });
+          return () => ctx.registerGlobalHandlers(null);
+        }, [ctx]);
+        return null;
+      }
+
+      render(
+        <StreamDockProvider>
+          <HandlerRegistrar />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({ type: 'COMMAND', command: 'GLOBAL_FTB' });
+      });
+
+      expect(handleFadeToBlack).toHaveBeenCalledTimes(1);
+    });
+
+    it('dispatches GLOBAL_SET_MASTER command with intensity', () => {
+      const handleSetMaster = jest.fn();
+
+      function HandlerRegistrar() {
+        const ctx = useStreamDock();
+        React.useEffect(() => {
+          ctx.registerGlobalHandlers({
+            handleUndo: jest.fn(),
+            handleRedo: jest.fn(),
+            handleFadeToBlack: jest.fn(),
+            handleSetMaster,
+          });
+          return () => ctx.registerGlobalHandlers(null);
+        }, [ctx]);
+        return null;
+      }
+
+      render(
+        <StreamDockProvider>
+          <HandlerRegistrar />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({
+          type: 'COMMAND',
+          command: 'GLOBAL_SET_MASTER',
+          payload: { intensity: 80 },
+        });
+      });
+
+      expect(handleSetMaster).toHaveBeenCalledWith(80);
+    });
+  });
+
+  describe('Layout Commands', () => {
+    it('dispatches LAYOUT_ZOOM command with delta', () => {
+      const handleZoom = jest.fn();
+
+      function HandlerRegistrar() {
+        const ctx = useStreamDock();
+        React.useEffect(() => {
+          ctx.registerLayoutHandlers({
+            handleZoom,
+            handlePan: jest.fn(),
+            handleSelectAll: jest.fn(),
+            handleDeselectAll: jest.fn(),
+            handleToggleSnap: jest.fn(),
+            handleAutoLayout: jest.fn(),
+            handleFitToView: jest.fn(),
+          });
+          return () => ctx.registerLayoutHandlers(null);
+        }, [ctx]);
+        return null;
+      }
+
+      render(
+        <StreamDockProvider>
+          <HandlerRegistrar />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({
+          type: 'COMMAND',
+          command: 'LAYOUT_ZOOM',
+          payload: { delta: 0.1 },
+        });
+      });
+
+      expect(handleZoom).toHaveBeenCalledWith(0.1);
+    });
+
+    it('dispatches LAYOUT_PAN command with deltaX and deltaY', () => {
+      const handlePan = jest.fn();
+
+      function HandlerRegistrar() {
+        const ctx = useStreamDock();
+        React.useEffect(() => {
+          ctx.registerLayoutHandlers({
+            handleZoom: jest.fn(),
+            handlePan,
+            handleSelectAll: jest.fn(),
+            handleDeselectAll: jest.fn(),
+            handleToggleSnap: jest.fn(),
+            handleAutoLayout: jest.fn(),
+            handleFitToView: jest.fn(),
+          });
+          return () => ctx.registerLayoutHandlers(null);
+        }, [ctx]);
+        return null;
+      }
+
+      render(
+        <StreamDockProvider>
+          <HandlerRegistrar />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({
+          type: 'COMMAND',
+          command: 'LAYOUT_PAN',
+          payload: { deltaX: 10, deltaY: -5 },
+        });
+      });
+
+      expect(handlePan).toHaveBeenCalledWith(10, -5);
+    });
+
+    it('dispatches LAYOUT_SELECT_ALL command', () => {
+      const handleSelectAll = jest.fn();
+
+      function HandlerRegistrar() {
+        const ctx = useStreamDock();
+        React.useEffect(() => {
+          ctx.registerLayoutHandlers({
+            handleZoom: jest.fn(),
+            handlePan: jest.fn(),
+            handleSelectAll,
+            handleDeselectAll: jest.fn(),
+            handleToggleSnap: jest.fn(),
+            handleAutoLayout: jest.fn(),
+            handleFitToView: jest.fn(),
+          });
+          return () => ctx.registerLayoutHandlers(null);
+        }, [ctx]);
+        return null;
+      }
+
+      render(
+        <StreamDockProvider>
+          <HandlerRegistrar />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({ type: 'COMMAND', command: 'LAYOUT_SELECT_ALL' });
+      });
+
+      expect(handleSelectAll).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Navigation Commands', () => {
+    // Note: Actual navigation cannot be tested in jsdom, we only test commands dispatch without errors
+    it('handles NAV_GO_TO command', () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      render(
+        <StreamDockProvider>
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({
+          type: 'COMMAND',
+          command: 'NAV_GO_TO',
+          payload: { route: '/looks/456' },
+        });
+      });
+
+      // Command dispatches successfully (actual navigation not testable in jsdom)
+      expect(consoleSpy).toHaveBeenCalled(); // jsdom will log navigation error, which is expected
+      consoleSpy.mockRestore();
+    });
+
+    it('handles NAV_BACK command', () => {
+      render(
+        <StreamDockProvider>
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      // window.history.back() works in jsdom
+      expect(() => {
+        act(() => {
+          latestMockWs.simulateMessage({ type: 'COMMAND', command: 'NAV_BACK' });
+        });
+      }).not.toThrow();
+    });
+  });
+
+  describe('Cue List Browser Commands', () => {
+    // Note: Actual navigation cannot be tested in jsdom, we only test commands dispatch without errors
+    it('handles CUE_LIST_OPEN command', () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      render(
+        <StreamDockProvider>
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({
+          type: 'COMMAND',
+          command: 'CUE_LIST_OPEN',
+          payload: { cueListId: 'cue789' },
+        });
+      });
+
+      // Command dispatches successfully (actual navigation not testable in jsdom)
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    it('handles CUE_LIST_CREATE command', () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      render(
+        <StreamDockProvider>
+          <TestConsumer />
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({ type: 'COMMAND', command: 'CUE_LIST_CREATE' });
+      });
+
+      // Command dispatches successfully (actual navigation not testable in jsdom)
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
   });
 });

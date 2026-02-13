@@ -17,7 +17,15 @@ import { usePathname } from 'next/navigation';
 export type StreamDockConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 /** Mode that the Stream Dock is operating in, determined by the current page */
-export type StreamDockMode = 'cue_player' | 'look_editor' | 'color_picker' | 'navigation';
+export type StreamDockMode =
+  | 'cue_player'
+  | 'look_editor_channels'
+  | 'look_editor_layout'
+  | 'color_picker'
+  | 'effect_editor'
+  | 'look_board'
+  | 'cue_list_browser'
+  | 'navigation';
 
 /** Cue list state published to the Stream Dock plugin */
 export interface CueListState {
@@ -82,6 +90,69 @@ export interface ColorPickerState {
   totalRoscoluxSwatches: number;
 }
 
+/** Effect parameter for effect editor state */
+export interface EffectParameter {
+  name: string;
+  value: number;
+  min: number;
+  max: number;
+}
+
+/** Effect editor state published to the Stream Dock plugin */
+export interface EffectEditorState {
+  effectId: string;
+  effectName: string;
+  effectType: string;
+  isRunning: boolean;
+  parameters: EffectParameter[];
+  selectedParamIndex: number;
+  canUndo: boolean;
+  canRedo: boolean;
+  isDirty: boolean;
+}
+
+/** Look board button for look board state */
+export interface LookBoardButton {
+  id: string;
+  lookId: string;
+  lookName: string;
+  color: string;
+  position: number;
+}
+
+/** Look board state published to the Stream Dock plugin */
+export interface LookBoardState {
+  boardId: string;
+  boardName: string;
+  buttons: LookBoardButton[];
+  activeLookId: string | null;
+  totalButtons: number;
+  pageSize: number;
+  currentPage: number;
+  fadeTime: number;
+}
+
+/** Cue list browser item for cue list browser state */
+export interface CueListBrowserItem {
+  id: string;
+  name: string;
+  cueCount: number;
+}
+
+/** Cue list browser state published to the Stream Dock plugin */
+export interface CueListBrowserState {
+  cueLists: CueListBrowserItem[];
+  highlightedIndex: number;
+}
+
+/** Global state published to the Stream Dock plugin */
+export interface GlobalState {
+  canUndo: boolean;
+  canRedo: boolean;
+  masterIntensity: number;
+  isBlackedOut: boolean;
+}
+
 /** Complete state message sent to the plugin */
 export interface StreamDockStateUpdate {
   type: 'STATE_UPDATE';
@@ -91,6 +162,10 @@ export interface StreamDockStateUpdate {
     cueList?: CueListState;
     lookEditor?: LookEditorState;
     colorPicker?: ColorPickerState;
+    effectEditor?: EffectEditorState;
+    lookBoard?: LookBoardState;
+    cueListBrowser?: CueListBrowserState;
+    global?: GlobalState;
   };
 }
 
@@ -151,6 +226,44 @@ export interface ColorPickerHandlers {
   handleSelectHighlightedRoscolux: () => void;
 }
 
+/** Handlers that can be registered by Effect Editor */
+export interface EffectEditorHandlers {
+  handleSave: () => void;
+  handleUndo: () => void;
+  handleRedo: () => void;
+  handleStartStop: () => void;
+  handleCycleType: () => void;
+  handleTogglePreview: () => void;
+  handleSetParam: (paramName: string, value: number) => void;
+}
+
+/** Handlers that can be registered by Look Board */
+export interface LookBoardHandlers {
+  handleActivateLook: (lookId: string, slotIndex: number) => void;
+  handlePageNext: () => void;
+  handlePagePrev: () => void;
+  handleSetFadeTime: (seconds: number) => void;
+}
+
+/** Handlers that can be registered globally */
+export interface GlobalHandlers {
+  handleUndo: () => void;
+  handleRedo: () => void;
+  handleFadeToBlack: () => void;
+  handleSetMaster: (intensity: number) => void;
+}
+
+/** Handlers that can be registered by Layout Editor */
+export interface LayoutHandlers {
+  handleZoom: (delta: number) => void;
+  handlePan: (deltaX: number, deltaY: number) => void;
+  handleSelectAll: () => void;
+  handleDeselectAll: () => void;
+  handleToggleSnap: () => void;
+  handleAutoLayout: () => void;
+  handleFitToView: () => void;
+}
+
 // ─── Context Interface ────────────────────────────────────────────────────────
 
 interface StreamDockContextType {
@@ -167,6 +280,14 @@ interface StreamDockContextType {
   registerLookEditorHandlers: (handlers: LookEditorHandlers | null) => void;
   /** Register handlers from ColorPickerModal */
   registerColorPickerHandlers: (handlers: ColorPickerHandlers | null) => void;
+  /** Register handlers from Effect Editor */
+  registerEffectEditorHandlers: (handlers: EffectEditorHandlers | null) => void;
+  /** Register handlers from Look Board */
+  registerLookBoardHandlers: (handlers: LookBoardHandlers | null) => void;
+  /** Register handlers globally */
+  registerGlobalHandlers: (handlers: GlobalHandlers | null) => void;
+  /** Register handlers from Layout Editor */
+  registerLayoutHandlers: (handlers: LayoutHandlers | null) => void;
 
   /** Publish cue list state (called by CueListPlayer when state changes) */
   publishCueListState: (state: CueListState | null) => void;
@@ -174,6 +295,14 @@ interface StreamDockContextType {
   publishLookEditorState: (state: LookEditorState | null) => void;
   /** Publish color picker state (called by ColorPickerModal when state changes) */
   publishColorPickerState: (state: ColorPickerState | null) => void;
+  /** Publish effect editor state (called by Effect Editor when state changes) */
+  publishEffectEditorState: (state: EffectEditorState | null) => void;
+  /** Publish look board state (called by Look Board when state changes) */
+  publishLookBoardState: (state: LookBoardState | null) => void;
+  /** Publish cue list browser state (called by Cue List Browser when state changes) */
+  publishCueListBrowserState: (state: CueListBrowserState | null) => void;
+  /** Publish global state (called when global state changes) */
+  publishGlobalState: (state: GlobalState | null) => void;
 }
 
 const StreamDockContext = createContext<StreamDockContextType | undefined>(undefined);
@@ -247,11 +376,19 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
   const cuePlayerHandlersRef = useRef<CuePlayerHandlers | null>(null);
   const lookEditorHandlersRef = useRef<LookEditorHandlers | null>(null);
   const colorPickerHandlersRef = useRef<ColorPickerHandlers | null>(null);
+  const effectEditorHandlersRef = useRef<EffectEditorHandlers | null>(null);
+  const lookBoardHandlersRef = useRef<LookBoardHandlers | null>(null);
+  const globalHandlersRef = useRef<GlobalHandlers | null>(null);
+  const layoutHandlersRef = useRef<LayoutHandlers | null>(null);
 
   // State refs (set by components via publish, read for state updates)
   const cueListStateRef = useRef<CueListState | null>(null);
   const lookEditorStateRef = useRef<LookEditorState | null>(null);
   const colorPickerStateRef = useRef<ColorPickerState | null>(null);
+  const effectEditorStateRef = useRef<EffectEditorState | null>(null);
+  const lookBoardStateRef = useRef<LookBoardState | null>(null);
+  const cueListBrowserStateRef = useRef<CueListBrowserState | null>(null);
+  const globalStateRef = useRef<GlobalState | null>(null);
 
   // ─── Mode detection ───────────────────────────────────────────────────────
 
@@ -260,11 +397,30 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
     if (colorPickerStateRef.current?.isOpen) {
       return 'color_picker';
     }
+    // Cue list player
     if (route.match(/\/cue-lists\//) || route.match(/\/player\//)) {
       return 'cue_player';
     }
+    // Look editor - channels mode (default) or layout mode
     if (route.match(/\/looks\/.*\/edit/)) {
-      return 'look_editor';
+      // Check if a fixture is selected - if not, we're in layout mode
+      const lookEditor = lookEditorStateRef.current;
+      if (lookEditor && lookEditor.selectedFixtureIndex === -1) {
+        return 'look_editor_layout';
+      }
+      return 'look_editor_channels';
+    }
+    // Effect editor
+    if (route.match(/\/effects\/.*\/edit/)) {
+      return 'effect_editor';
+    }
+    // Look board
+    if (route.match(/\/look-board\//)) {
+      return 'look_board';
+    }
+    // Cue list browser
+    if (route === '/cue-lists' || route.startsWith('/cue-lists?')) {
+      return 'cue_list_browser';
     }
     return 'navigation';
   }, []);
@@ -291,6 +447,10 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
         ...(cueListStateRef.current && { cueList: cueListStateRef.current }),
         ...(lookEditorStateRef.current && { lookEditor: lookEditorStateRef.current }),
         ...(colorPickerStateRef.current && { colorPicker: colorPickerStateRef.current }),
+        ...(effectEditorStateRef.current && { effectEditor: effectEditorStateRef.current }),
+        ...(lookBoardStateRef.current && { lookBoard: lookBoardStateRef.current }),
+        ...(cueListBrowserStateRef.current && { cueListBrowser: cueListBrowserStateRef.current }),
+        ...(globalStateRef.current && { global: globalStateRef.current }),
       },
     };
 
@@ -394,7 +554,100 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
       }
     }
 
+    // Effect Editor commands
+    const effectHandlers = effectEditorHandlersRef.current;
+    if (effectHandlers) {
+      switch (command) {
+        case 'EFFECT_SAVE': effectHandlers.handleSave(); return;
+        case 'EFFECT_UNDO': effectHandlers.handleUndo(); return;
+        case 'EFFECT_REDO': effectHandlers.handleRedo(); return;
+        case 'EFFECT_START_STOP': effectHandlers.handleStartStop(); return;
+        case 'EFFECT_CYCLE_TYPE': effectHandlers.handleCycleType(); return;
+        case 'EFFECT_TOGGLE_PREVIEW': effectHandlers.handleTogglePreview(); return;
+        case 'EFFECT_SET_PARAM':
+          if (payload && typeof payload.paramName === 'string' && typeof payload.value === 'number') {
+            effectHandlers.handleSetParam(payload.paramName, payload.value);
+          }
+          return;
+      }
+    }
+
+    // Look Board commands
+    const boardHandlers = lookBoardHandlersRef.current;
+    if (boardHandlers) {
+      switch (command) {
+        case 'BOARD_ACTIVATE_LOOK':
+          if (payload && typeof payload.lookId === 'string' && typeof payload.slotIndex === 'number') {
+            boardHandlers.handleActivateLook(payload.lookId, payload.slotIndex);
+          }
+          return;
+        case 'BOARD_PAGE_NEXT': boardHandlers.handlePageNext(); return;
+        case 'BOARD_PAGE_PREV': boardHandlers.handlePagePrev(); return;
+        case 'BOARD_SET_FADE_TIME':
+          if (payload && typeof payload.seconds === 'number') {
+            boardHandlers.handleSetFadeTime(payload.seconds);
+          }
+          return;
+      }
+    }
+
+    // Global commands
+    const globalHandlers = globalHandlersRef.current;
+    if (globalHandlers) {
+      switch (command) {
+        case 'GLOBAL_UNDO': globalHandlers.handleUndo(); return;
+        case 'GLOBAL_REDO': globalHandlers.handleRedo(); return;
+        case 'GLOBAL_FTB': globalHandlers.handleFadeToBlack(); return;
+        case 'GLOBAL_SET_MASTER':
+          if (payload && typeof payload.intensity === 'number') {
+            globalHandlers.handleSetMaster(payload.intensity);
+          }
+          return;
+      }
+    }
+
+    // Layout commands
+    const layoutHandlers = layoutHandlersRef.current;
+    if (layoutHandlers) {
+      switch (command) {
+        case 'LAYOUT_ZOOM':
+          if (payload && typeof payload.delta === 'number') {
+            layoutHandlers.handleZoom(payload.delta);
+          }
+          return;
+        case 'LAYOUT_PAN':
+          if (payload && typeof payload.deltaX === 'number' && typeof payload.deltaY === 'number') {
+            layoutHandlers.handlePan(payload.deltaX, payload.deltaY);
+          }
+          return;
+        case 'LAYOUT_SELECT_ALL': layoutHandlers.handleSelectAll(); return;
+        case 'LAYOUT_DESELECT_ALL': layoutHandlers.handleDeselectAll(); return;
+        case 'LAYOUT_TOGGLE_SNAP': layoutHandlers.handleToggleSnap(); return;
+        case 'LAYOUT_AUTO_LAYOUT': layoutHandlers.handleAutoLayout(); return;
+        case 'LAYOUT_FIT_TO_VIEW': layoutHandlers.handleFitToView(); return;
+      }
+    }
+
+    // Cue List Browser commands
+    if (command === 'CUE_LIST_OPEN' && payload && typeof payload.cueListId === 'string') {
+      navigateToRoute(`/cue-lists/${payload.cueListId}`);
+      return;
+    }
+    if (command === 'CUE_LIST_CREATE') {
+      navigateToRoute('/cue-lists/new');
+      return;
+    }
+
     // Navigation commands - validated to only allow internal routes
+    if (command === 'NAV_GO_TO' && payload && typeof payload.route === 'string') {
+      navigateToRoute(payload.route);
+      return;
+    }
+    if (command === 'NAV_BACK') {
+      window.history.back();
+      return;
+    }
+    // Legacy NAVIGATE command for backward compatibility
     if (command === 'NAVIGATE' && payload && typeof payload.route === 'string') {
       navigateToRoute(payload.route);
     }
@@ -544,6 +797,22 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
     colorPickerHandlersRef.current = handlers;
   }, []);
 
+  const registerEffectEditorHandlers = useCallback((handlers: EffectEditorHandlers | null) => {
+    effectEditorHandlersRef.current = handlers;
+  }, []);
+
+  const registerLookBoardHandlers = useCallback((handlers: LookBoardHandlers | null) => {
+    lookBoardHandlersRef.current = handlers;
+  }, []);
+
+  const registerGlobalHandlers = useCallback((handlers: GlobalHandlers | null) => {
+    globalHandlersRef.current = handlers;
+  }, []);
+
+  const registerLayoutHandlers = useCallback((handlers: LayoutHandlers | null) => {
+    layoutHandlersRef.current = handlers;
+  }, []);
+
   // ─── State publishing (callbacks for components) ──────────────────────────
 
   const publishCueListState = useCallback((state: CueListState | null) => {
@@ -553,8 +822,10 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
 
   const publishLookEditorState = useCallback((state: LookEditorState | null) => {
     lookEditorStateRef.current = state;
+    // Look editor may change mode between channels and layout
+    setMode(detectMode(pathname));
     sendStateUpdate();
-  }, [sendStateUpdate]);
+  }, [sendStateUpdate, detectMode, pathname]);
 
   const publishColorPickerState = useCallback((state: ColorPickerState | null) => {
     colorPickerStateRef.current = state;
@@ -562,6 +833,26 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
     setMode(detectMode(pathname));
     sendStateUpdate();
   }, [sendStateUpdate, detectMode, pathname]);
+
+  const publishEffectEditorState = useCallback((state: EffectEditorState | null) => {
+    effectEditorStateRef.current = state;
+    sendStateUpdate();
+  }, [sendStateUpdate]);
+
+  const publishLookBoardState = useCallback((state: LookBoardState | null) => {
+    lookBoardStateRef.current = state;
+    sendStateUpdate();
+  }, [sendStateUpdate]);
+
+  const publishCueListBrowserState = useCallback((state: CueListBrowserState | null) => {
+    cueListBrowserStateRef.current = state;
+    sendStateUpdate();
+  }, [sendStateUpdate]);
+
+  const publishGlobalState = useCallback((state: GlobalState | null) => {
+    globalStateRef.current = state;
+    sendStateUpdate();
+  }, [sendStateUpdate]);
 
   // ─── Context value ────────────────────────────────────────────────────────
 
@@ -572,9 +863,17 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
     registerCuePlayerHandlers,
     registerLookEditorHandlers,
     registerColorPickerHandlers,
+    registerEffectEditorHandlers,
+    registerLookBoardHandlers,
+    registerGlobalHandlers,
+    registerLayoutHandlers,
     publishCueListState,
     publishLookEditorState,
     publishColorPickerState,
+    publishEffectEditorState,
+    publishLookBoardState,
+    publishCueListBrowserState,
+    publishGlobalState,
   };
 
   return (
