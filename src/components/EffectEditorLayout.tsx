@@ -498,7 +498,10 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
         }
       },
       handleTogglePreview: () => {
-        // Toggle editing mode as a preview
+        // Toggle editing mode to preview changes
+        // "Preview" in Stream Deck context means entering edit mode to preview parameter changes
+        // isEditing=true: Can edit parameters and preview changes
+        // isEditing=false: View-only mode
         setIsEditing(prev => !prev);
       },
       handleSetParam: (paramName: string, value: number) => {
