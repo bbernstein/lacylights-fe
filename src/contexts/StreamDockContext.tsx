@@ -10,6 +10,7 @@ import {
   ReactNode,
 } from 'react';
 import { usePathname } from 'next/navigation';
+import { useUndoRedo } from './UndoRedoContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -389,6 +390,9 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
   const lookBoardStateRef = useRef<LookBoardState | null>(null);
   const cueListBrowserStateRef = useRef<CueListBrowserState | null>(null);
   const globalStateRef = useRef<GlobalState | null>(null);
+
+  // Get undo/redo state from UndoRedoContext
+  const { canUndo, canRedo, undo, redo } = useUndoRedo();
 
   // ─── Mode detection ───────────────────────────────────────────────────────
 
@@ -853,6 +857,47 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
     globalStateRef.current = state;
     sendStateUpdate();
   }, [sendStateUpdate]);
+
+  // ─── Global state publishing ──────────────────────────────────────────────
+
+  // Publish global state when undo/redo status changes
+  useEffect(() => {
+    const globalState: GlobalState = {
+      canUndo,
+      canRedo,
+      masterIntensity: 100, // TODO: Track master intensity when implemented
+      isBlackedOut: false,  // TODO: Track blackout status when implemented
+    };
+
+    globalStateRef.current = globalState;
+    sendStateUpdate();
+  }, [canUndo, canRedo, sendStateUpdate]);
+
+  // Register global handlers
+  useEffect(() => {
+    const handlers: GlobalHandlers = {
+      handleUndo: () => {
+        undo();
+      },
+      handleRedo: () => {
+        redo();
+      },
+      handleFadeToBlack: () => {
+        // TODO: Implement fade to black when backend supports it
+        console.log('Fade to black triggered from Stream Deck');
+      },
+      handleSetMaster: (_intensity: number) => {
+        // TODO: Implement master intensity control when backend supports it
+        console.log('Set master intensity triggered from Stream Deck:', _intensity);
+      },
+    };
+
+    globalHandlersRef.current = handlers;
+
+    return () => {
+      globalHandlersRef.current = null;
+    };
+  }, [undo, redo]);
 
   // ─── Context value ────────────────────────────────────────────────────────
 
