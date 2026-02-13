@@ -8,6 +8,24 @@ jest.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
 }));
 
+// Mock UndoRedoContext
+const mockUndo = jest.fn();
+const mockRedo = jest.fn();
+jest.mock('../UndoRedoContext', () => ({
+  useUndoRedo: () => ({
+    canUndo: true,
+    canRedo: false,
+    undo: mockUndo,
+    redo: mockRedo,
+    undoDescription: null,
+    redoDescription: null,
+    currentSequence: 0,
+    totalOperations: 0,
+    isLoading: false,
+    lastMessage: null,
+  }),
+}));
+
 // Mock WebSocket
 class MockWebSocket {
   static readonly CONNECTING = 0;
@@ -84,6 +102,8 @@ afterAll(() => {
 
 beforeEach(() => {
   jest.useFakeTimers();
+  mockUndo.mockClear();
+  mockRedo.mockClear();
 });
 
 afterEach(() => {
