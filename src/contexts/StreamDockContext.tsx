@@ -593,7 +593,12 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
         case 'BOARD_PAGE_NEXT': boardHandlers.handlePageNext(); return;
         case 'BOARD_PAGE_PREV': boardHandlers.handlePagePrev(); return;
         case 'BOARD_SET_FADE_TIME':
-          if (payload && typeof payload.seconds === 'number') {
+          if (
+            payload &&
+            typeof payload.seconds === 'number' &&
+            Number.isFinite(payload.seconds) &&
+            payload.seconds >= 0
+          ) {
             boardHandlers.handleSetFadeTime(payload.seconds);
           }
           return;

@@ -476,9 +476,19 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
         // 2. Implement effect-specific local undo/redo for draft changes
         // 3. Disable Stream Deck undo/redo buttons in Effect Editor mode
         // Decision deferred pending backend operation history scope review
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(
+            'Effect Editor: undo command received from Stream Deck, but undo/redo is not implemented yet.'
+          );
+        }
       },
       handleRedo: () => {
         // TODO: See handleUndo comment above
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(
+            'Effect Editor: redo command received from Stream Deck, but undo/redo is not implemented yet.'
+          );
+        }
       },
       handleStartStop: () => {
         if (isActive) {
