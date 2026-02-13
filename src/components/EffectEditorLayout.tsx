@@ -412,21 +412,23 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
     }
 
     // Build parameters list based on effect type
+    // Use consistent effectType for both parameters and published state
+    const effectType = effect.effectType || EffectType.Waveform;
     const parameters = [];
-    if (effect.effectType === EffectType.Waveform) {
+    if (effectType === EffectType.Waveform) {
       parameters.push(
         { name: 'frequency', value: formFrequency, min: 0.1, max: 10.0 },
         { name: 'amplitude', value: formAmplitude, min: 0, max: 100 },
         { name: 'offset', value: formOffset, min: 0, max: 100 }
       );
-    } else if (effect.effectType === EffectType.Master) {
+    } else if (effectType === EffectType.Master) {
       parameters.push({ name: 'masterValue', value: formMasterValue * 100, min: 0, max: 100 });
     }
 
     const state = {
       effectId: effect.id,
       effectName: effect.name,
-      effectType: effect.effectType || EffectType.Waveform,
+      effectType,
       isRunning: isActive,
       parameters,
       selectedParamIndex: 0, // Default to first parameter
@@ -524,7 +526,7 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
         switch (paramName) {
           case 'frequency':
             // Validate against bounds (min: 0.1, max: 10.0)
-            if (value >= 0.1 && value <= 10.0) {
+            if (Number.isFinite(value) && value >= 0.1 && value <= 10.0) {
               setFormFrequency(value);
             } else {
               console.warn(`Frequency out of range: ${value} (valid: 0.1-10.0)`);
@@ -532,7 +534,7 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
             break;
           case 'amplitude':
             // Validate against bounds (min: 0, max: 100)
-            if (value >= 0 && value <= 100) {
+            if (Number.isFinite(value) && value >= 0 && value <= 100) {
               setFormAmplitude(value);
             } else {
               console.warn(`Amplitude out of range: ${value} (valid: 0-100)`);
@@ -540,7 +542,7 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
             break;
           case 'offset':
             // Validate against bounds (min: 0, max: 100)
-            if (value >= 0 && value <= 100) {
+            if (Number.isFinite(value) && value >= 0 && value <= 100) {
               setFormOffset(value);
             } else {
               console.warn(`Offset out of range: ${value} (valid: 0-100)`);

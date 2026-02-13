@@ -320,7 +320,7 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
       totalButtons: board.buttons.length,
       pageSize: STREAM_DECK_LOOK_BUTTON_COUNT,
       currentPage: 0, // Start at first page
-      fadeTime: board.defaultFadeTime || 3.0,
+      fadeTime: board.defaultFadeTime ?? 3.0, // Use ?? to allow valid 0 fade time
     };
 
     streamDock.publishLookBoardState(state);

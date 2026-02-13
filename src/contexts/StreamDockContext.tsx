@@ -644,6 +644,14 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
 
     // Cue List Browser commands
     if (command === 'CUE_LIST_OPEN' && payload && typeof payload.cueListId === 'string') {
+      // Validate cueListId to prevent path injection - only allow alphanumeric, dash, underscore
+      if (!/^[a-zA-Z0-9_-]+$/.test(payload.cueListId)) {
+        console.warn(
+          '[StreamDock] Ignoring CUE_LIST_OPEN with invalid cueListId',
+          { cueListId: payload.cueListId }
+        );
+        return;
+      }
       navigateToRoute(`/cue-lists/${payload.cueListId}`);
       return;
     }
