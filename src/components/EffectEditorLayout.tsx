@@ -526,6 +526,10 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
             // Clamp value to 0-100 range before converting to 0-1
             setFormMasterValue(Math.max(0, Math.min(100, value)) / 100);
             break;
+          default:
+            if (process.env.NODE_ENV !== 'production') {
+              console.warn(`Unknown effect parameter name: ${paramName}`);
+            }
         }
       },
     };
@@ -535,6 +539,9 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
     return () => {
       streamDock.registerEffectEditorHandlers(null);
     };
+    // Note: updateEffect, activateEffect, stopEffect are intentionally omitted from deps
+    // GraphQL mutations are not stable and handlers capture latest via closure
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     effect,
     effectId,
@@ -551,9 +558,6 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
     isActive,
     isEditing,
     streamDock,
-    updateEffect,
-    activateEffect,
-    stopEffect,
   ]);
 
   // Handlers

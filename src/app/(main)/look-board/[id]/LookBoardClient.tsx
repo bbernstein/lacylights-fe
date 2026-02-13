@@ -394,7 +394,10 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
     return () => {
       streamDock.registerLookBoardHandlers(null);
     };
-  }, [board, boardId, streamDock, activateLook, updateBoard, canPlayback]);
+    // Note: activateLook and updateBoard are intentionally omitted from deps
+    // GraphQL mutations are not stable and handlers capture latest via closure
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board, boardId, streamDock, canPlayback]);
 
   // Selection helper functions - defined before useEffects that use them
   const clearButtonSelection = useCallback(() => {
