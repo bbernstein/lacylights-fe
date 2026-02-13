@@ -523,13 +523,28 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
       handleSetParam: (paramName: string, value: number) => {
         switch (paramName) {
           case 'frequency':
-            setFormFrequency(value);
+            // Validate against bounds (min: 0.1, max: 10.0)
+            if (value >= 0.1 && value <= 10.0) {
+              setFormFrequency(value);
+            } else {
+              console.warn(`Frequency out of range: ${value} (valid: 0.1-10.0)`);
+            }
             break;
           case 'amplitude':
-            setFormAmplitude(value);
+            // Validate against bounds (min: 0, max: 100)
+            if (value >= 0 && value <= 100) {
+              setFormAmplitude(value);
+            } else {
+              console.warn(`Amplitude out of range: ${value} (valid: 0-100)`);
+            }
             break;
           case 'offset':
-            setFormOffset(value);
+            // Validate against bounds (min: 0, max: 100)
+            if (value >= 0 && value <= 100) {
+              setFormOffset(value);
+            } else {
+              console.warn(`Offset out of range: ${value} (valid: 0-100)`);
+            }
             break;
           case 'masterValue':
             // Clamp value to 0-100 range before converting to 0-1

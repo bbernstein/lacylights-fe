@@ -721,10 +721,18 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
 
           switch (message.type) {
             case 'COMMAND':
-              dispatchCommand(
-                (message as StreamDockCommand).command,
-                (message as StreamDockCommand).payload,
-              );
+              try {
+                dispatchCommand(
+                  (message as StreamDockCommand).command,
+                  (message as StreamDockCommand).payload,
+                );
+              } catch (error) {
+                console.error(
+                  '[StreamDock] Command handler error:',
+                  (message as StreamDockCommand).command,
+                  error
+                );
+              }
               break;
             case 'REQUEST_STATE':
               sendStateUpdate();
