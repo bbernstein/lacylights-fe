@@ -15,6 +15,7 @@ import { GET_PROJECT_LOOKS } from "@/graphql/looks";
 import { useProject } from "@/contexts/ProjectContext";
 import { useFocusMode } from "@/contexts/FocusModeContext";
 import { useUserMode } from "@/contexts/UserModeContext";
+import { useStreamDock } from "@/contexts/StreamDockContext";
 import { LookBoardButton } from "@/types";
 import {
   screenToCanvas,
@@ -293,6 +294,84 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
       availableLooks.filter((s: { id: string }) => !buttonsOnBoard.has(s.id)),
     [availableLooks, buttonsOnBoard],
   );
+
+  // Stream Dock integration
+  const streamDock = useStreamDock();
+
+  // Publish Look Board state to Stream Dock
+  useEffect(() => {
+    if (!board) {
+      streamDock.publishLookBoardState(null);
+      return;
+    }
+
+    const state = {
+      boardId: board.id,
+      boardName: board.name,
+      buttons: board.buttons.map((btn: LookBoardButton) => ({
+        id: btn.id,
+        lookId: btn.look.id,
+        lookName: btn.look.name,
+        color: btn.look.color || "#888888",
+        position: btn.position,
+      })),
+      activeLookId: null, // TODO: Track active look from subscription
+      totalButtons: board.buttons.length,
+      pageSize: 7, // Number of look buttons on Stream Deck
+      currentPage: 0, // Start at first page
+      fadeTime: board.defaultFadeTime || 3.0,
+    };
+
+    streamDock.publishLookBoardState(state);
+  }, [board, streamDock]);
+
+  // Register Stream Dock handlers
+  useEffect(() => {
+    if (!board) {
+      streamDock.registerLookBoardHandlers(null);
+      return;
+    }
+
+    const handlers = {
+      handleActivateLook: (lookId: string, _slotIndex: number) => {
+        if (canPlayback) {
+          activateLook({
+            variables: {
+              lookBoardId: boardId,
+              lookId,
+            },
+          });
+        }
+      },
+      handlePageNext: () => {
+        // No-op for now - canvas-based board doesn't have pagination
+        // Stream Deck handles pagination internally
+      },
+      handlePagePrev: () => {
+        // No-op for now - canvas-based board doesn't have pagination
+        // Stream Deck handles pagination internally
+      },
+      handleSetFadeTime: (seconds: number) => {
+        updateBoard({
+          variables: {
+            id: boardId,
+            input: {
+              name: board.name,
+              defaultFadeTime: seconds,
+              canvasWidth: board.canvasWidth || DEFAULT_CANVAS_WIDTH,
+              canvasHeight: board.canvasHeight || DEFAULT_CANVAS_HEIGHT,
+            },
+          },
+        });
+      },
+    };
+
+    streamDock.registerLookBoardHandlers(handlers);
+
+    return () => {
+      streamDock.registerLookBoardHandlers(null);
+    };
+  }, [board, boardId, streamDock, activateLook, updateBoard, canPlayback]);
 
   // Selection helper functions - defined before useEffects that use them
   const clearButtonSelection = useCallback(() => {
