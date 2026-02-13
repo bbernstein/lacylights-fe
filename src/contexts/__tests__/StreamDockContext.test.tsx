@@ -842,6 +842,44 @@ describe('navigateToRoute', () => {
 
       expect(handleSetMaster).toHaveBeenCalledWith(80);
     });
+
+    it('dispatches GLOBAL_UNDO command and calls undo', () => {
+      // Don't register custom handlers - use the internal ones that call UndoRedoContext.undo()
+      render(
+        <StreamDockProvider>
+          <div>Test</div>
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({ type: 'COMMAND', command: 'GLOBAL_UNDO' });
+      });
+
+      expect(mockUndo).toHaveBeenCalledTimes(1);
+    });
+
+    it('dispatches GLOBAL_REDO command and calls redo', () => {
+      // Don't register custom handlers - use the internal ones that call UndoRedoContext.redo()
+      render(
+        <StreamDockProvider>
+          <div>Test</div>
+        </StreamDockProvider>
+      );
+
+      act(() => {
+        latestMockWs.simulateOpen();
+      });
+
+      act(() => {
+        latestMockWs.simulateMessage({ type: 'COMMAND', command: 'GLOBAL_REDO' });
+      });
+
+      expect(mockRedo).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('Layout Commands', () => {

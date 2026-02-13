@@ -39,6 +39,7 @@ const MIN_ZOOM = 0.1; // Allow zooming out to 10% to fit 4000x4000 canvas on scr
 const MAX_ZOOM = 3.0;
 const DEFAULT_BUTTON_WIDTH = 200;
 const DEFAULT_BUTTON_HEIGHT = 120;
+const DEFAULT_BUTTON_COLOR = '#888888'; // Fallback color for buttons without custom colors
 const DEFAULT_CANVAS_WIDTH = 4000;
 const DEFAULT_CANVAS_HEIGHT = 4000;
 
@@ -312,7 +313,7 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
         id: btn.id,
         lookId: btn.look.id,
         lookName: btn.look.name,
-        color: btn.color || "#888888", // Use button color, not look color
+        color: btn.color || DEFAULT_BUTTON_COLOR,
         position: index, // Use index as position since buttons are already sorted
       })),
       activeLookId: null, // TODO: Track active look from subscription

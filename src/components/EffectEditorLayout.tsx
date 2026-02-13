@@ -513,7 +513,8 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
             setFormOffset(value);
             break;
           case 'masterValue':
-            setFormMasterValue(value / 100); // Convert percentage to 0-1
+            // Clamp value to 0-100 range before converting to 0-1
+            setFormMasterValue(Math.max(0, Math.min(100, value)) / 100);
             break;
         }
       },

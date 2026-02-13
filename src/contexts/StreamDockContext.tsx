@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   useRef,
   ReactNode,
 } from 'react';
@@ -888,11 +889,15 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
       },
       handleFadeToBlack: () => {
         // TODO: Implement fade to black when backend supports it
-        console.warn('Fade to black triggered from Stream Deck');
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('Fade to black triggered from Stream Deck');
+        }
       },
       handleSetMaster: (_intensity: number) => {
         // TODO: Implement master intensity control when backend supports it
-        console.warn('Set master intensity triggered from Stream Deck:', _intensity);
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('Set master intensity triggered from Stream Deck:', _intensity);
+        }
       },
     };
 
@@ -905,25 +910,45 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
 
   // ─── Context value ────────────────────────────────────────────────────────
 
-  const contextValue: StreamDockContextType = {
-    connectionState,
-    isConnected: connectionState === 'connected',
-    mode,
-    registerCuePlayerHandlers,
-    registerLookEditorHandlers,
-    registerColorPickerHandlers,
-    registerEffectEditorHandlers,
-    registerLookBoardHandlers,
-    registerGlobalHandlers,
-    registerLayoutHandlers,
-    publishCueListState,
-    publishLookEditorState,
-    publishColorPickerState,
-    publishEffectEditorState,
-    publishLookBoardState,
-    publishCueListBrowserState,
-    publishGlobalState,
-  };
+  const contextValue: StreamDockContextType = useMemo(
+    () => ({
+      connectionState,
+      isConnected: connectionState === 'connected',
+      mode,
+      registerCuePlayerHandlers,
+      registerLookEditorHandlers,
+      registerColorPickerHandlers,
+      registerEffectEditorHandlers,
+      registerLookBoardHandlers,
+      registerGlobalHandlers,
+      registerLayoutHandlers,
+      publishCueListState,
+      publishLookEditorState,
+      publishColorPickerState,
+      publishEffectEditorState,
+      publishLookBoardState,
+      publishCueListBrowserState,
+      publishGlobalState,
+    }),
+    [
+      connectionState,
+      mode,
+      registerCuePlayerHandlers,
+      registerLookEditorHandlers,
+      registerColorPickerHandlers,
+      registerEffectEditorHandlers,
+      registerLookBoardHandlers,
+      registerGlobalHandlers,
+      registerLayoutHandlers,
+      publishCueListState,
+      publishLookEditorState,
+      publishColorPickerState,
+      publishEffectEditorState,
+      publishLookBoardState,
+      publishCueListBrowserState,
+      publishGlobalState,
+    ]
+  );
 
   return (
     <StreamDockContext.Provider value={contextValue}>
