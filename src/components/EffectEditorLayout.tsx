@@ -471,10 +471,15 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
         });
       },
       handleUndo: () => {
-        // TODO: Integrate with undo/redo system
+        // TODO: Effect Editor undo/redo strategy needs clarification
+        // Options:
+        // 1. Integrate with global UndoRedoContext if backend tracks effect mutations
+        // 2. Implement effect-specific local undo/redo for draft changes
+        // 3. Disable Stream Deck undo/redo buttons in Effect Editor mode
+        // Decision deferred pending backend operation history scope review
       },
       handleRedo: () => {
-        // TODO: Integrate with undo/redo system
+        // TODO: See handleUndo comment above
       },
       handleStartStop: () => {
         if (isActive) {
@@ -494,7 +499,7 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
       },
       handleTogglePreview: () => {
         // Toggle editing mode as a preview
-        setIsEditing(!isEditing);
+        setIsEditing(prev => !prev);
       },
       handleSetParam: (paramName: string, value: number) => {
         switch (paramName) {

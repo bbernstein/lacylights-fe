@@ -15,7 +15,7 @@ import { GET_PROJECT_LOOKS } from "@/graphql/looks";
 import { useProject } from "@/contexts/ProjectContext";
 import { useFocusMode } from "@/contexts/FocusModeContext";
 import { useUserMode } from "@/contexts/UserModeContext";
-import { useStreamDock } from "@/contexts/StreamDockContext";
+import { useStreamDock, STREAM_DECK_LOOK_BUTTON_COUNT } from "@/contexts/StreamDockContext";
 import { LookBoardButton } from "@/types";
 import {
   screenToCanvas,
@@ -317,7 +317,7 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
       })),
       activeLookId: null, // TODO: Track active look from subscription
       totalButtons: board.buttons.length,
-      pageSize: 7, // Number of look buttons on Stream Deck
+      pageSize: STREAM_DECK_LOOK_BUTTON_COUNT,
       currentPage: 0, // Start at first page
       fadeTime: board.defaultFadeTime || 3.0,
     };
@@ -344,12 +344,13 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
         }
       },
       handlePageNext: () => {
-        // No-op for now - canvas-based board doesn't have pagination
-        // Stream Deck handles pagination internally
+        // Pagination is handled internally by Stream Deck plugin
+        // Frontend doesn't track current page - Stream Deck plugin manages which buttons to display
+        // To implement: Would need Stream Deck to send PAGE_CHANGED messages to sync state
+        // Current design: Keep pagination local to Stream Deck for simplicity
       },
       handlePagePrev: () => {
-        // No-op for now - canvas-based board doesn't have pagination
-        // Stream Deck handles pagination internally
+        // See handlePageNext comment
       },
       handleSetFadeTime: (seconds: number) => {
         updateBoard({

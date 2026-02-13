@@ -329,6 +329,10 @@ const STREAM_DOCK_WS_URL =
 const RECONNECT_INTERVAL_MS = 5000;
 const PING_INTERVAL_MS = 15000;
 
+// Stream Deck hardware constants
+export const STREAM_DECK_LOOK_BUTTON_COUNT = 7; // Number of look buttons on Stream Deck Plus LCD
+const DEFAULT_MASTER_INTENSITY = 100; // Default master intensity percentage
+
 /**
  * Validate and perform navigation for Stream Dock NAVIGATE commands.
  * Only allows internal routes (paths starting with '/' but not '//').
@@ -865,7 +869,7 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
     const globalState: GlobalState = {
       canUndo,
       canRedo,
-      masterIntensity: 100, // TODO: Track master intensity when implemented
+      masterIntensity: DEFAULT_MASTER_INTENSITY, // TODO: Track master intensity when implemented
       isBlackedOut: false,  // TODO: Track blackout status when implemented
     };
 
@@ -884,11 +888,11 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
       },
       handleFadeToBlack: () => {
         // TODO: Implement fade to black when backend supports it
-        console.log('Fade to black triggered from Stream Deck');
+        console.warn('Fade to black triggered from Stream Deck');
       },
       handleSetMaster: (_intensity: number) => {
         // TODO: Implement master intensity control when backend supports it
-        console.log('Set master intensity triggered from Stream Deck:', _intensity);
+        console.warn('Set master intensity triggered from Stream Deck:', _intensity);
       },
     };
 
