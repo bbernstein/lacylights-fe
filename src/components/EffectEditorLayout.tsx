@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   DndContext,
@@ -34,6 +34,7 @@ import {
 } from '@/graphql/effects';
 import { GET_PROJECT_FIXTURES } from '@/graphql/fixtures';
 import { useProject } from '@/contexts/ProjectContext';
+import { useStreamDock } from '@/contexts/StreamDockContext';
 import {
   EffectType,
   PriorityBand,
@@ -399,6 +400,200 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
   const [removeChannelFromEffectFixture] = useMutation(REMOVE_CHANNEL_FROM_EFFECT_FIXTURE, {
     onCompleted: () => refetch(),
   });
+
+  // Stream Dock integration
+  const streamDock = useStreamDock();
+  // Use ref to ensure cleanup always has latest streamDock reference
+  const streamDockRef = useRef(streamDock);
+  useEffect(() => {
+    streamDockRef.current = streamDock;
+  }, [streamDock]);
+
+  // Publish Effect Editor state to Stream Dock
+  useEffect(() => {
+    if (!effect) {
+      streamDock.publishEffectEditorState(null);
+      return;
+    }
+
+    // Build parameters list based on effect type
+    // Use consistent effectType for both parameters and published state
+    const effectType = effect.effectType ?? EffectType.Waveform;
+    const parameters: Array<{ name: string; value: number; min: number; max: number }> = [];
+    if (effectType === EffectType.Waveform) {
+      parameters.push(
+        { name: 'frequency', value: formFrequency, min: 0.1, max: 10.0 },
+        { name: 'amplitude', value: formAmplitude, min: 0, max: 100 },
+        { name: 'offset', value: formOffset, min: 0, max: 100 }
+      );
+    } else if (effectType === EffectType.Master) {
+      parameters.push({ name: 'masterValue', value: formMasterValue * 100, min: 0, max: 100 });
+    }
+
+    const state = {
+      effectId: effect.id,
+      effectName: effect.name,
+      effectType,
+      isRunning: isActive,
+      parameters,
+      selectedParamIndex: parameters.length > 0 ? 0 : -1, // Default to first parameter when available
+      // Note: canUndo/canRedo removed until strategy is clarified (see handler TODOs)
+      isDirty: isEditing,
+    };
+
+    streamDock.publishEffectEditorState(state);
+  }, [effect, formFrequency, formAmplitude, formOffset, formMasterValue, isActive, isEditing, streamDock]);
+
+  // Register Stream Dock handlers
+  useEffect(() => {
+    if (!effect) {
+      streamDock.registerEffectEditorHandlers(null);
+      return;
+    }
+
+    const handlers = {
+      handleSave: () => {
+        if (!effect) return;
+
+        const input: Record<string, unknown> = {
+          name: formName,
+          description: formDescription || undefined,
+          fadeDuration: formFadeDuration,
+          compositionMode: formCompositionMode,
+          onCueChange: formOnCueChange,
+        };
+
+        if (effect.effectType === EffectType.Waveform) {
+          input.waveform = formWaveform;
+          input.frequency = formFrequency;
+          input.amplitude = formAmplitude;
+          input.offset = formOffset;
+        } else if (effect.effectType === EffectType.Master) {
+          input.masterValue = formMasterValue;
+        }
+
+        updateEffect({
+          variables: { id: effectId, input },
+        });
+      },
+      handleUndo: () => {
+        // TODO: Effect Editor undo/redo strategy needs clarification
+        // Options:
+        // 1. Integrate with global UndoRedoContext if backend tracks effect mutations
+        // 2. Implement effect-specific local undo/redo for draft changes
+        // 3. Disable Stream Deck undo/redo buttons in Effect Editor mode
+        // Decision deferred pending backend operation history scope review
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(
+            'Effect Editor: undo command received from Stream Deck, but undo/redo is not implemented yet.'
+          );
+        }
+      },
+      handleRedo: () => {
+        // TODO: See handleUndo comment above
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(
+            'Effect Editor: redo command received from Stream Deck, but undo/redo is not implemented yet.'
+          );
+        }
+      },
+      handleStartStop: () => {
+        if (isActive) {
+          stopEffect({ variables: { id: effectId } });
+        } else {
+          activateEffect({ variables: { id: effectId } });
+        }
+      },
+      handleCycleType: () => {
+        // Toggle waveform type for waveform effects
+        if (effect.effectType === EffectType.Waveform) {
+          const waveforms = [
+            WaveformType.Sine,
+            WaveformType.Cosine,
+            WaveformType.Square,
+            WaveformType.Triangle,
+            WaveformType.Sawtooth,
+            WaveformType.Random,
+          ];
+          const currentIndex = waveforms.indexOf(formWaveform);
+          const nextIndex = (currentIndex + 1) % waveforms.length;
+          setFormWaveform(waveforms[nextIndex]);
+        }
+      },
+      handleTogglePreview: () => {
+        // Toggle editing mode to preview changes
+        // "Preview" in Stream Deck context means entering edit mode to preview parameter changes
+        // isEditing=true: Can edit parameters and preview changes
+        // isEditing=false: View-only mode
+        setIsEditing(prev => !prev);
+      },
+      handleSetParam: (paramName: string, value: number) => {
+        switch (paramName) {
+          case 'frequency':
+            // Validate against bounds (min: 0.1, max: 10.0)
+            if (Number.isFinite(value) && value >= 0.1 && value <= 10.0) {
+              setFormFrequency(value);
+            } else {
+              console.warn(`Frequency out of range: ${value} (valid: 0.1-10.0)`);
+            }
+            break;
+          case 'amplitude':
+            // Validate against bounds (min: 0, max: 100)
+            if (Number.isFinite(value) && value >= 0 && value <= 100) {
+              setFormAmplitude(value);
+            } else {
+              console.warn(`Amplitude out of range: ${value} (valid: 0-100)`);
+            }
+            break;
+          case 'offset':
+            // Validate against bounds (min: 0, max: 100)
+            if (Number.isFinite(value) && value >= 0 && value <= 100) {
+              setFormOffset(value);
+            } else {
+              console.warn(`Offset out of range: ${value} (valid: 0-100)`);
+            }
+            break;
+          case 'masterValue':
+            // Validate and clamp value to 0-100 range before converting to 0-1
+            if (Number.isFinite(value) && value >= 0 && value <= 100) {
+              const clamped = Math.max(0, Math.min(100, value));
+              setFormMasterValue(clamped / 100);
+            } else {
+              console.warn(`Master value out of range or invalid: ${value} (valid: 0-100, finite)`);
+            }
+            break;
+          default:
+            // Unknown parameters indicate protocol mismatch - log as error in all environments
+            console.error(`Unknown effect parameter name: ${paramName}`);
+        }
+      },
+    };
+
+    streamDock.registerEffectEditorHandlers(handlers);
+
+    return () => {
+      streamDockRef.current.registerEffectEditorHandlers(null);
+    };
+    // Note: updateEffect, activateEffect, stopEffect are intentionally omitted from deps
+    // GraphQL mutations are not stable and handlers capture latest via closure
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    effect,
+    effectId,
+    formName,
+    formDescription,
+    formFadeDuration,
+    formCompositionMode,
+    formOnCueChange,
+    formWaveform,
+    formFrequency,
+    formAmplitude,
+    formOffset,
+    formMasterValue,
+    isActive,
+    isEditing,
+    streamDock,
+  ]);
 
   // Handlers
   const handleSave = useCallback(() => {

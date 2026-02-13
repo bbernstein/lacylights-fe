@@ -15,6 +15,7 @@ import { GET_PROJECT_LOOKS } from "@/graphql/looks";
 import { useProject } from "@/contexts/ProjectContext";
 import { useFocusMode } from "@/contexts/FocusModeContext";
 import { useUserMode } from "@/contexts/UserModeContext";
+import { useStreamDock, STREAM_DECK_LOOK_BUTTON_COUNT } from "@/contexts/StreamDockContext";
 import { LookBoardButton } from "@/types";
 import {
   screenToCanvas,
@@ -38,6 +39,7 @@ const MIN_ZOOM = 0.1; // Allow zooming out to 10% to fit 4000x4000 canvas on scr
 const MAX_ZOOM = 3.0;
 const DEFAULT_BUTTON_WIDTH = 200;
 const DEFAULT_BUTTON_HEIGHT = 120;
+const DEFAULT_BUTTON_COLOR = '#888888'; // Fallback color for buttons without custom colors
 const DEFAULT_CANVAS_WIDTH = 4000;
 const DEFAULT_CANVAS_HEIGHT = 4000;
 
@@ -293,6 +295,133 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
       availableLooks.filter((s: { id: string }) => !buttonsOnBoard.has(s.id)),
     [availableLooks, buttonsOnBoard],
   );
+
+  // Stream Dock integration
+  const streamDock = useStreamDock();
+  // Use ref to ensure cleanup always has latest streamDock reference
+  const streamDockRef = useRef(streamDock);
+  useEffect(() => {
+    streamDockRef.current = streamDock;
+  }, [streamDock]);
+
+  // Publish Look Board state to Stream Dock
+  useEffect(() => {
+    if (!board) {
+      streamDock.publishLookBoardState(null);
+      return;
+    }
+
+    const state = {
+      boardId: board.id,
+      boardName: board.name,
+      buttons: board.buttons.map((btn: LookBoardButton, index: number) => ({
+        id: btn.id,
+        lookId: btn.look.id,
+        lookName: btn.look.name,
+        color: btn.color || DEFAULT_BUTTON_COLOR,
+        position: index, // Use index as position since buttons are already sorted
+      })),
+      activeLookId: null, // TODO: Track active look from subscription
+      totalButtons: board.buttons.length,
+      pageSize: STREAM_DECK_LOOK_BUTTON_COUNT,
+      currentPage: 0, // Start at first page
+      fadeTime: board.defaultFadeTime ?? 3.0, // Use ?? to allow valid 0 fade time
+    };
+
+    streamDock.publishLookBoardState(state);
+  }, [board, streamDock]);
+
+  // Register Stream Dock handlers
+  useEffect(() => {
+    if (!board) {
+      streamDock.registerLookBoardHandlers(null);
+      return;
+    }
+
+    const handlers = {
+      handleActivateLook: (lookId: string, slotIndex: number) => {
+        // Validate slotIndex to detect synchronization issues between frontend and Stream Deck
+        if (slotIndex < 0 || slotIndex >= board.buttons.length) {
+          console.warn(
+            '[LookBoard] Received out-of-bounds slotIndex from Stream Deck',
+            { boardId, lookId, slotIndex, buttonCount: board.buttons.length }
+          );
+        } else {
+          const expectedButton = board.buttons[slotIndex];
+          if (expectedButton.look.id !== lookId) {
+            console.warn(
+              '[LookBoard] Mismatch between slotIndex and lookId from Stream Deck',
+              {
+                boardId,
+                lookIdFromStreamDeck: lookId,
+                expectedLookId: expectedButton.look.id,
+                slotIndex,
+              }
+            );
+          }
+        }
+
+        if (canPlayback) {
+          activateLook({
+            variables: {
+              lookBoardId: boardId,
+              lookId,
+            },
+          });
+        }
+      },
+      handlePageNext: () => {
+        // Pagination is handled internally by Stream Deck plugin
+        // Frontend doesn't track current page - Stream Deck plugin manages which buttons to display
+        // To implement: Would need Stream Deck to send PAGE_CHANGED messages to sync state
+        // Current design: Keep pagination local to Stream Deck for simplicity
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug(
+            '[LookBoard] handlePageNext called - pagination is managed by the Stream Deck plugin; frontend is intentionally a no-op.'
+          );
+        }
+      },
+      handlePagePrev: () => {
+        // See handlePageNext comment
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug(
+            '[LookBoard] handlePagePrev called - pagination is managed by the Stream Deck plugin; frontend is intentionally a no-op.'
+          );
+        }
+      },
+      handleSetFadeTime: (seconds: number) => {
+        // Validate fade time is within reasonable bounds
+        if (seconds < 0 || seconds > 300) {
+          console.warn(
+            '[LookBoard] Ignoring out-of-range fade time from Stream Deck',
+            { seconds, validRange: '0-300' }
+          );
+          return;
+        }
+        updateBoard({
+          variables: {
+            id: boardId,
+            input: {
+              name: board.name,
+              defaultFadeTime: seconds,
+              canvasWidth: board.canvasWidth ?? DEFAULT_CANVAS_WIDTH,
+              canvasHeight: board.canvasHeight ?? DEFAULT_CANVAS_HEIGHT,
+            },
+          },
+        });
+      },
+    };
+
+    streamDock.registerLookBoardHandlers(handlers);
+
+    return () => {
+      streamDockRef.current.registerLookBoardHandlers(null);
+    };
+    // Note: activateLook and updateBoard mutations are intentionally omitted from deps
+    // GraphQL mutations are not stable and handlers capture latest via closure
+    // canPlayback is correctly included as it affects handler behavior
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board, boardId, streamDock, canPlayback]);
 
   // Selection helper functions - defined before useEffects that use them
   const clearButtonSelection = useCallback(() => {
