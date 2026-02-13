@@ -554,8 +554,13 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
             }
             break;
           case 'masterValue':
-            // Clamp value to 0-100 range before converting to 0-1
-            setFormMasterValue(Math.max(0, Math.min(100, value)) / 100);
+            // Validate and clamp value to 0-100 range before converting to 0-1
+            if (Number.isFinite(value) && value >= 0 && value <= 100) {
+              const clamped = Math.max(0, Math.min(100, value));
+              setFormMasterValue(clamped / 100);
+            } else {
+              console.warn(`Master value out of range or invalid: ${value} (valid: 0-100, finite)`);
+            }
             break;
           default:
             // Unknown parameters indicate protocol mismatch - log as error in all environments

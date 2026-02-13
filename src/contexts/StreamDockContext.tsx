@@ -428,7 +428,7 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
       return 'look_board';
     }
     // Cue list browser
-    if (route === '/cue-lists' || route.startsWith('/cue-lists?')) {
+    if (route === '/cue-lists') {
       return 'cue_list_browser';
     }
     return 'navigation';
@@ -574,7 +574,12 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
         case 'EFFECT_CYCLE_TYPE': effectHandlers.handleCycleType(); return;
         case 'EFFECT_TOGGLE_PREVIEW': effectHandlers.handleTogglePreview(); return;
         case 'EFFECT_SET_PARAM':
-          if (payload && typeof payload.paramName === 'string' && typeof payload.value === 'number') {
+          if (
+            payload &&
+            typeof payload.paramName === 'string' &&
+            typeof payload.value === 'number' &&
+            Number.isFinite(payload.value)
+          ) {
             effectHandlers.handleSetParam(payload.paramName, payload.value);
           }
           return;
@@ -631,12 +636,22 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
     if (layoutHandlers) {
       switch (command) {
         case 'LAYOUT_ZOOM':
-          if (payload && typeof payload.delta === 'number') {
+          if (
+            payload &&
+            typeof payload.delta === 'number' &&
+            Number.isFinite(payload.delta)
+          ) {
             layoutHandlers.handleZoom(payload.delta);
           }
           return;
         case 'LAYOUT_PAN':
-          if (payload && typeof payload.deltaX === 'number' && typeof payload.deltaY === 'number') {
+          if (
+            payload &&
+            typeof payload.deltaX === 'number' &&
+            typeof payload.deltaY === 'number' &&
+            Number.isFinite(payload.deltaX) &&
+            Number.isFinite(payload.deltaY)
+          ) {
             layoutHandlers.handlePan(payload.deltaX, payload.deltaY);
           }
           return;
@@ -896,12 +911,20 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
 
   // Publish global state when undo/redo status changes
   useEffect(() => {
-    const globalState: GlobalState = {
-      canUndo,
-      canRedo,
-      masterIntensity: DEFAULT_MASTER_INTENSITY, // TODO: Track master intensity when implemented
-      isBlackedOut: false,  // TODO: Track blackout status when implemented
-    };
+    const previous = globalStateRef.current;
+
+    const globalState: GlobalState = previous
+      ? {
+          ...previous,
+          canUndo,
+          canRedo,
+        }
+      : {
+          canUndo,
+          canRedo,
+          masterIntensity: DEFAULT_MASTER_INTENSITY, // TODO: Track master intensity when implemented
+          isBlackedOut: false,  // TODO: Track blackout status when implemented
+        };
 
     globalStateRef.current = globalState;
     sendStateUpdate();
