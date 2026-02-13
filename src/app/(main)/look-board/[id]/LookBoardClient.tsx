@@ -298,6 +298,11 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
 
   // Stream Dock integration
   const streamDock = useStreamDock();
+  // Use ref to ensure cleanup always has latest streamDock reference
+  const streamDockRef = useRef(streamDock);
+  useEffect(() => {
+    streamDockRef.current = streamDock;
+  }, [streamDock]);
 
   // Publish Look Board state to Stream Dock
   useEffect(() => {
@@ -399,8 +404,8 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
             input: {
               name: board.name,
               defaultFadeTime: seconds,
-              canvasWidth: board.canvasWidth || DEFAULT_CANVAS_WIDTH,
-              canvasHeight: board.canvasHeight || DEFAULT_CANVAS_HEIGHT,
+              canvasWidth: board.canvasWidth ?? DEFAULT_CANVAS_WIDTH,
+              canvasHeight: board.canvasHeight ?? DEFAULT_CANVAS_HEIGHT,
             },
           },
         });
@@ -410,7 +415,7 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
     streamDock.registerLookBoardHandlers(handlers);
 
     return () => {
-      streamDock.registerLookBoardHandlers(null);
+      streamDockRef.current.registerLookBoardHandlers(null);
     };
     // Note: activateLook and updateBoard mutations are intentionally omitted from deps
     // GraphQL mutations are not stable and handlers capture latest via closure

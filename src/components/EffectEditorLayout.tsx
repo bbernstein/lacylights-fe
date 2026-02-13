@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   DndContext,
@@ -403,6 +403,11 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
 
   // Stream Dock integration
   const streamDock = useStreamDock();
+  // Use ref to ensure cleanup always has latest streamDock reference
+  const streamDockRef = useRef(streamDock);
+  useEffect(() => {
+    streamDockRef.current = streamDock;
+  }, [streamDock]);
 
   // Publish Effect Editor state to Stream Dock
   useEffect(() => {
@@ -562,7 +567,7 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
     streamDock.registerEffectEditorHandlers(handlers);
 
     return () => {
-      streamDock.registerEffectEditorHandlers(null);
+      streamDockRef.current.registerEffectEditorHandlers(null);
     };
     // Note: updateEffect, activateEffect, stopEffect are intentionally omitted from deps
     // GraphQL mutations are not stable and handlers capture latest via closure
