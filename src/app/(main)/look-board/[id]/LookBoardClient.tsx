@@ -308,12 +308,12 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
     const state = {
       boardId: board.id,
       boardName: board.name,
-      buttons: board.buttons.map((btn: LookBoardButton) => ({
+      buttons: board.buttons.map((btn: LookBoardButton, index: number) => ({
         id: btn.id,
         lookId: btn.look.id,
         lookName: btn.look.name,
-        color: btn.look.color || "#888888",
-        position: btn.position,
+        color: btn.color || "#888888", // Use button color, not look color
+        position: index, // Use index as position since buttons are already sorted
       })),
       activeLookId: null, // TODO: Track active look from subscription
       totalButtons: board.buttons.length,

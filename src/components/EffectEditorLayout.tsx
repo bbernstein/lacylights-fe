@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   DndContext,
@@ -34,6 +34,7 @@ import {
 } from '@/graphql/effects';
 import { GET_PROJECT_FIXTURES } from '@/graphql/fixtures';
 import { useProject } from '@/contexts/ProjectContext';
+import { useStreamDock } from '@/contexts/StreamDockContext';
 import {
   EffectType,
   PriorityBand,
@@ -399,6 +400,145 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
   const [removeChannelFromEffectFixture] = useMutation(REMOVE_CHANNEL_FROM_EFFECT_FIXTURE, {
     onCompleted: () => refetch(),
   });
+
+  // Stream Dock integration
+  const streamDock = useStreamDock();
+
+  // Publish Effect Editor state to Stream Dock
+  useEffect(() => {
+    if (!effect) {
+      streamDock.publishEffectEditorState(null);
+      return;
+    }
+
+    // Build parameters list based on effect type
+    const parameters = [];
+    if (effect.effectType === EffectType.Waveform) {
+      parameters.push(
+        { name: 'frequency', value: formFrequency, min: 0.1, max: 10.0 },
+        { name: 'amplitude', value: formAmplitude, min: 0, max: 100 },
+        { name: 'offset', value: formOffset, min: 0, max: 100 }
+      );
+    } else if (effect.effectType === EffectType.Master) {
+      parameters.push({ name: 'masterValue', value: formMasterValue * 100, min: 0, max: 100 });
+    }
+
+    const state = {
+      effectId: effect.id,
+      effectName: effect.name,
+      effectType: effect.effectType || 'WAVEFORM',
+      isRunning: isActive,
+      parameters,
+      selectedParamIndex: 0, // Default to first parameter
+      canUndo: false, // TODO: Integrate with undo/redo system
+      canRedo: false,
+      isDirty: isEditing,
+    };
+
+    streamDock.publishEffectEditorState(state);
+  }, [effect, formFrequency, formAmplitude, formOffset, formMasterValue, isActive, isEditing, streamDock]);
+
+  // Register Stream Dock handlers
+  useEffect(() => {
+    if (!effect) {
+      streamDock.registerEffectEditorHandlers(null);
+      return;
+    }
+
+    const handlers = {
+      handleSave: () => {
+        if (!effect) return;
+
+        const input: Record<string, unknown> = {
+          name: formName,
+          description: formDescription || undefined,
+          fadeDuration: formFadeDuration,
+          compositionMode: formCompositionMode,
+          onCueChange: formOnCueChange,
+        };
+
+        if (effect.effectType === EffectType.Waveform) {
+          input.waveform = formWaveform;
+          input.frequency = formFrequency;
+          input.amplitude = formAmplitude;
+          input.offset = formOffset;
+        } else if (effect.effectType === EffectType.Master) {
+          input.masterValue = formMasterValue;
+        }
+
+        updateEffect({
+          variables: { id: effectId, input },
+        });
+      },
+      handleUndo: () => {
+        // TODO: Integrate with undo/redo system
+      },
+      handleRedo: () => {
+        // TODO: Integrate with undo/redo system
+      },
+      handleStartStop: () => {
+        if (isActive) {
+          stopEffect({ variables: { id: effectId } });
+        } else {
+          activateEffect({ variables: { id: effectId } });
+        }
+      },
+      handleCycleType: () => {
+        // Toggle waveform type for waveform effects
+        if (effect.effectType === EffectType.Waveform) {
+          const waveforms = [WaveformType.Sine, WaveformType.Square, WaveformType.Triangle, WaveformType.Sawtooth];
+          const currentIndex = waveforms.indexOf(formWaveform);
+          const nextIndex = (currentIndex + 1) % waveforms.length;
+          setFormWaveform(waveforms[nextIndex]);
+        }
+      },
+      handleTogglePreview: () => {
+        // Toggle editing mode as a preview
+        setIsEditing(!isEditing);
+      },
+      handleSetParam: (paramName: string, value: number) => {
+        switch (paramName) {
+          case 'frequency':
+            setFormFrequency(value);
+            break;
+          case 'amplitude':
+            setFormAmplitude(value);
+            break;
+          case 'offset':
+            setFormOffset(value);
+            break;
+          case 'masterValue':
+            setFormMasterValue(value / 100); // Convert percentage to 0-1
+            break;
+        }
+      },
+    };
+
+    streamDock.registerEffectEditorHandlers(handlers);
+
+    return () => {
+      streamDock.registerEffectEditorHandlers(null);
+    };
+  }, [
+    effect,
+    effectId,
+    formName,
+    formDescription,
+    formFadeDuration,
+    formCompositionMode,
+    formOnCueChange,
+    formWaveform,
+    formFrequency,
+    formAmplitude,
+    formOffset,
+    formMasterValue,
+    isActive,
+    isEditing,
+    streamDock,
+    updateEffect,
+    activateEffect,
+    stopEffect,
+  ]);
 
   // Handlers
   const handleSave = useCallback(() => {
