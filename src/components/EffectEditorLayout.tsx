@@ -491,7 +491,14 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
       handleCycleType: () => {
         // Toggle waveform type for waveform effects
         if (effect.effectType === EffectType.Waveform) {
-          const waveforms = [WaveformType.Sine, WaveformType.Square, WaveformType.Triangle, WaveformType.Sawtooth];
+          const waveforms = [
+            WaveformType.Sine,
+            WaveformType.Cosine,
+            WaveformType.Square,
+            WaveformType.Triangle,
+            WaveformType.Sawtooth,
+            WaveformType.Random,
+          ];
           const currentIndex = waveforms.indexOf(formWaveform);
           const nextIndex = (currentIndex + 1) % waveforms.length;
           setFormWaveform(waveforms[nextIndex]);

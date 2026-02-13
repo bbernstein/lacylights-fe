@@ -423,8 +423,8 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
     if (route.match(/\/effects\/.*\/edit/)) {
       return 'effect_editor';
     }
-    // Look board
-    if (route.match(/\/look-board\//)) {
+    // Look board (handles both /look-board/{id} and /look-board?board={id} formats)
+    if (route.startsWith('/look-board')) {
       return 'look_board';
     }
     // Cue list browser

@@ -334,7 +334,28 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
     }
 
     const handlers = {
-      handleActivateLook: (lookId: string, _slotIndex: number) => {
+      handleActivateLook: (lookId: string, slotIndex: number) => {
+        // Validate slotIndex to detect synchronization issues between frontend and Stream Deck
+        if (slotIndex < 0 || slotIndex >= board.buttons.length) {
+          console.warn(
+            '[LookBoard] Received out-of-bounds slotIndex from Stream Deck',
+            { boardId, lookId, slotIndex, buttonCount: board.buttons.length }
+          );
+        } else {
+          const expectedButton = board.buttons[slotIndex];
+          if (expectedButton.look.id !== lookId) {
+            console.warn(
+              '[LookBoard] Mismatch between slotIndex and lookId from Stream Deck',
+              {
+                boardId,
+                lookIdFromStreamDeck: lookId,
+                expectedLookId: expectedButton.look.id,
+                slotIndex,
+              }
+            );
+          }
+        }
+
         if (canPlayback) {
           activateLook({
             variables: {
