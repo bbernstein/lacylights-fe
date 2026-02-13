@@ -394,8 +394,9 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
     return () => {
       streamDock.registerLookBoardHandlers(null);
     };
-    // Note: activateLook and updateBoard are intentionally omitted from deps
+    // Note: activateLook and updateBoard mutations are intentionally omitted from deps
     // GraphQL mutations are not stable and handlers capture latest via closure
+    // canPlayback is correctly included as it affects handler behavior
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board, boardId, streamDock, canPlayback]);
 

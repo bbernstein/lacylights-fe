@@ -108,8 +108,8 @@ export interface EffectEditorState {
   isRunning: boolean;
   parameters: EffectParameter[];
   selectedParamIndex: number;
-  canUndo: boolean;
-  canRedo: boolean;
+  // Note: canUndo/canRedo removed until undo/redo strategy is clarified
+  // See EffectEditorLayout.tsx handlers for TODO comments about strategy
   isDirty: boolean;
 }
 

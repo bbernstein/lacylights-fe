@@ -430,8 +430,7 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
       isRunning: isActive,
       parameters,
       selectedParamIndex: 0, // Default to first parameter
-      canUndo: false, // TODO: Integrate with undo/redo system
-      canRedo: false,
+      // Note: canUndo/canRedo removed until strategy is clarified (see handler TODOs)
       isDirty: isEditing,
     };
 
@@ -527,9 +526,8 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
             setFormMasterValue(Math.max(0, Math.min(100, value)) / 100);
             break;
           default:
-            if (process.env.NODE_ENV !== 'production') {
-              console.warn(`Unknown effect parameter name: ${paramName}`);
-            }
+            // Unknown parameters indicate protocol mismatch - log as error in all environments
+            console.error(`Unknown effect parameter name: ${paramName}`);
         }
       },
     };
