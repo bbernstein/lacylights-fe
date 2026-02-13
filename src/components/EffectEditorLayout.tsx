@@ -413,7 +413,8 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
 
     // Build parameters list based on effect type
     // Use consistent effectType for both parameters and published state
-    const effectType = effect.effectType || EffectType.Waveform;
+    // Use nullish coalescing to preserve explicit null/undefined distinction
+    const effectType = effect.effectType ?? EffectType.Waveform;
     const parameters = [];
     if (effectType === EffectType.Waveform) {
       parameters.push(
@@ -431,7 +432,7 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
       effectType,
       isRunning: isActive,
       parameters,
-      selectedParamIndex: 0, // Default to first parameter
+      selectedParamIndex: parameters.length > 0 ? 0 : -1, // Default to first parameter when available
       // Note: canUndo/canRedo removed until strategy is clarified (see handler TODOs)
       isDirty: isEditing,
     };
