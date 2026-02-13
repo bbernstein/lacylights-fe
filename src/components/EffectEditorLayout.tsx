@@ -413,9 +413,8 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
 
     // Build parameters list based on effect type
     // Use consistent effectType for both parameters and published state
-    // Use nullish coalescing to preserve explicit null/undefined distinction
     const effectType = effect.effectType ?? EffectType.Waveform;
-    const parameters = [];
+    const parameters: Array<{ name: string; value: number; min: number; max: number }> = [];
     if (effectType === EffectType.Waveform) {
       parameters.push(
         { name: 'frequency', value: formFrequency, min: 0.1, max: 10.0 },

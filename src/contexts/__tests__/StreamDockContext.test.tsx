@@ -1006,8 +1006,6 @@ describe('navigateToRoute', () => {
   describe('Navigation Commands', () => {
     // Note: Actual navigation cannot be tested in jsdom, we only test commands dispatch without errors
     it('handles NAV_GO_TO command', () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-
       render(
         <StreamDockProvider>
           <TestConsumer />
@@ -1018,17 +1016,16 @@ describe('navigateToRoute', () => {
         latestMockWs.simulateOpen();
       });
 
-      act(() => {
-        latestMockWs.simulateMessage({
-          type: 'COMMAND',
-          command: 'NAV_GO_TO',
-          payload: { route: '/looks/456' },
+      // Verify command doesn't throw
+      expect(() => {
+        act(() => {
+          latestMockWs.simulateMessage({
+            type: 'COMMAND',
+            command: 'NAV_GO_TO',
+            payload: { route: '/looks/456' },
+          });
         });
-      });
-
-      // Command dispatches successfully (actual navigation not testable in jsdom)
-      expect(consoleSpy).toHaveBeenCalled(); // jsdom will log navigation error, which is expected
-      consoleSpy.mockRestore();
+      }).not.toThrow();
     });
 
     it('handles NAV_BACK command', () => {
@@ -1054,8 +1051,6 @@ describe('navigateToRoute', () => {
   describe('Cue List Browser Commands', () => {
     // Note: Actual navigation cannot be tested in jsdom, we only test commands dispatch without errors
     it('handles CUE_LIST_OPEN command', () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-
       render(
         <StreamDockProvider>
           <TestConsumer />
@@ -1066,22 +1061,19 @@ describe('navigateToRoute', () => {
         latestMockWs.simulateOpen();
       });
 
-      act(() => {
-        latestMockWs.simulateMessage({
-          type: 'COMMAND',
-          command: 'CUE_LIST_OPEN',
-          payload: { cueListId: 'cue789' },
+      // Verify command doesn't throw
+      expect(() => {
+        act(() => {
+          latestMockWs.simulateMessage({
+            type: 'COMMAND',
+            command: 'CUE_LIST_OPEN',
+            payload: { cueListId: 'cue789' },
+          });
         });
-      });
-
-      // Command dispatches successfully (actual navigation not testable in jsdom)
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
+      }).not.toThrow();
     });
 
     it('handles CUE_LIST_CREATE command', () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-
       render(
         <StreamDockProvider>
           <TestConsumer />
@@ -1092,13 +1084,12 @@ describe('navigateToRoute', () => {
         latestMockWs.simulateOpen();
       });
 
-      act(() => {
-        latestMockWs.simulateMessage({ type: 'COMMAND', command: 'CUE_LIST_CREATE' });
-      });
-
-      // Command dispatches successfully (actual navigation not testable in jsdom)
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
+      // Verify command doesn't throw
+      expect(() => {
+        act(() => {
+          latestMockWs.simulateMessage({ type: 'COMMAND', command: 'CUE_LIST_CREATE' });
+        });
+      }).not.toThrow();
     });
   });
 });

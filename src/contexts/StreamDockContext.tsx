@@ -613,8 +613,14 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
         case 'GLOBAL_REDO': globalHandlers.handleRedo(); return;
         case 'GLOBAL_FTB': globalHandlers.handleFadeToBlack(); return;
         case 'GLOBAL_SET_MASTER':
-          if (payload && typeof payload.intensity === 'number') {
-            globalHandlers.handleSetMaster(payload.intensity);
+          if (
+            payload &&
+            typeof payload.intensity === 'number' &&
+            Number.isFinite(payload.intensity)
+          ) {
+            // Clamp intensity to valid range (0-100)
+            const clampedIntensity = Math.min(100, Math.max(0, payload.intensity));
+            globalHandlers.handleSetMaster(clampedIntensity);
           }
           return;
       }
@@ -656,7 +662,9 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
       return;
     }
     if (command === 'CUE_LIST_CREATE') {
-      navigateToRoute('/cue-lists/new');
+      // Navigate to cue lists page where CreateCueListModal can be triggered
+      // Note: /cue-lists/new route doesn't exist - creation is handled via modal
+      navigateToRoute('/cue-lists');
       return;
     }
 

@@ -370,15 +370,19 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
         // Frontend doesn't track current page - Stream Deck plugin manages which buttons to display
         // To implement: Would need Stream Deck to send PAGE_CHANGED messages to sync state
         // Current design: Keep pagination local to Stream Deck for simplicity
-        console.debug(
-          '[LookBoard] handlePageNext called - pagination is managed by the Stream Deck plugin; frontend is intentionally a no-op.'
-        );
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug(
+            '[LookBoard] handlePageNext called - pagination is managed by the Stream Deck plugin; frontend is intentionally a no-op.'
+          );
+        }
       },
       handlePagePrev: () => {
         // See handlePageNext comment
-        console.debug(
-          '[LookBoard] handlePagePrev called - pagination is managed by the Stream Deck plugin; frontend is intentionally a no-op.'
-        );
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug(
+            '[LookBoard] handlePagePrev called - pagination is managed by the Stream Deck plugin; frontend is intentionally a no-op.'
+          );
+        }
       },
       handleSetFadeTime: (seconds: number) => {
         // Validate fade time is within reasonable bounds
