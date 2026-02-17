@@ -413,7 +413,7 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
   useEffect(() => {
     if (!effect) {
       streamDock.publishEffectEditorState(null);
-      return;
+      return () => { streamDock.publishEffectEditorState(null); };
     }
 
     // Build parameters list based on effect type
@@ -442,6 +442,7 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
     };
 
     streamDock.publishEffectEditorState(state);
+    return () => { streamDock.publishEffectEditorState(null); };
   }, [effect, formFrequency, formAmplitude, formOffset, formMasterValue, isActive, isEditing, streamDock]);
 
   // Register Stream Dock handlers

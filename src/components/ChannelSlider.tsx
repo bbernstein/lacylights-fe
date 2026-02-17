@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ChannelType, FadeBehavior } from '@/types';
 import { UV_COLOR_HEX } from '@/utils/colorConversion';
 import { abbreviateChannelName } from '@/utils/channelAbbreviation';
@@ -34,6 +34,8 @@ interface ChannelSliderProps {
   isActive?: boolean;
   /** Callback when user toggles the active state. If provided, shows a checkbox. */
   onToggleActive?: (isActive: boolean) => void;
+  /** Whether this channel is highlighted by hardware controller (Stream Deck dial navigation) */
+  isHighlighted?: boolean;
 }
 
 /**
@@ -50,6 +52,7 @@ export default function ChannelSlider({
   onFadeBehaviorClick,
   isActive,
   onToggleActive,
+  isHighlighted,
 }: ChannelSliderProps) {
   const [localValue, setLocalValue] = useState(value);
 
@@ -151,10 +154,29 @@ export default function ChannelSlider({
   const channelColor = getChannelColor();
   const displayTooltip = tooltip || `${channel.name} (${channel.type})`;
 
+  // Auto-scroll highlighted channel into view
+  const highlightNodeRef = useRef<HTMLDivElement | null>(null);
+  const mergedRef = useCallback((node: HTMLDivElement | null) => {
+    highlightNodeRef.current = node;
+    // Assign to containerRef (from useValueScrub hook) using Object.assign
+    // containerRef is a RefObject so we use this pattern to set .current
+    Object.assign(containerRef, { current: node });
+  }, [containerRef]);
+
+  useEffect(() => {
+    if (isHighlighted && highlightNodeRef.current) {
+      highlightNodeRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [isHighlighted]);
+
   return (
     <div
-      ref={containerRef}
-      className={`flex items-center space-x-2 py-0.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded ${isInactive ? 'opacity-50' : ''}`}
+      ref={mergedRef}
+      className={`flex items-center space-x-2 py-0.5 px-2 rounded transition-colors duration-150 ${
+        isHighlighted
+          ? 'bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-400 dark:ring-blue-500'
+          : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+      } ${isInactive ? 'opacity-50' : ''}`}
       {...wheelProps}
     >
       {/* Channel active toggle checkbox */}

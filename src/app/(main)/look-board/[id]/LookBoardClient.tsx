@@ -64,6 +64,7 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
   const { canPlayback, canEditContent } = useUserMode();
 
   const [mode, setMode] = useState<"play" | "layout">("play");
+  const [highlightedButtonId, setHighlightedButtonId] = useState<string | null>(null);
   const [isAddLookModalOpen, setIsAddLookModalOpen] = useState(false);
   const [selectedLookIds, setSelectedLookIds] = useState<Set<string>>(
     new Set(),
@@ -409,6 +410,9 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
             },
           },
         });
+      },
+      handleHighlightLook: (buttonId: string) => {
+        setHighlightedButtonId(buttonId);
       },
     };
 
@@ -1159,6 +1163,7 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
   // Handle look click (activate in play mode)
   const handleLookClick = useCallback(
     (button: LookBoardButton) => {
+      setHighlightedButtonId(null);
       if (mode === "play" && canPlayback) {
         // Activate the look
         activateLook({
@@ -2645,13 +2650,16 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
               const width = `${button.width || DEFAULT_BUTTON_WIDTH}px`;
               const height = `${button.height || DEFAULT_BUTTON_HEIGHT}px`;
               const isSelected = selectedButtonIds.has(button.id);
+              const isHighlightedByDeck = button.id === highlightedButtonId;
 
               return (
                 <div
                   key={button.id}
                   className={`absolute select-none ${
                     mode === "play" ? "cursor-pointer" : "cursor-move"
-                  } ${isDragging ? "opacity-75 z-50" : ""}`}
+                  } ${isDragging ? "opacity-75 z-50" : ""} ${
+                    isHighlightedByDeck ? "z-40" : ""
+                  }`}
                   style={{
                     left,
                     top,
@@ -2682,6 +2690,10 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
                 >
                   <div
                     className={`h-full rounded-lg flex items-center justify-center p-4 transition-all ${
+                      isHighlightedByDeck
+                        ? "ring-4 ring-blue-400 ring-offset-2 ring-offset-gray-900 shadow-lg shadow-blue-500/50 scale-105"
+                        : ""
+                    } ${
                       mode === "play"
                         ? "bg-blue-600 border-2 border-blue-400 hover:bg-blue-500 hover:scale-105"
                         : isSelected

@@ -39,6 +39,16 @@ interface ChannelListEditorProps {
   sharedState?: SharedEditorState;
   /** Callback when local dirty state changes (for name/description) */
   onDirtyChange?: (isDirty: boolean) => void;
+  /** Fixture ID highlighted by hardware controller (Stream Deck dial navigation) */
+  highlightedFixtureId?: string | null;
+  /** Fixture ID to auto-expand (set when user presses dial to select a fixture) */
+  autoExpandFixtureId?: string | null;
+  /** Fixture ID currently selected for channel editing (via hardware controller) */
+  selectedEditFixtureId?: string | null;
+  /** Channel index highlighted by hardware controller (Stream Deck dial navigation) */
+  highlightedChannelIndex?: number;
+  /** Trigger to open color picker for selected fixture (incremented by Stream Deck COLOR key) */
+  openColorPickerTrigger?: number;
 }
 
 // Extended FixtureValue interface with lookOrder for sorting
@@ -229,6 +239,10 @@ interface SortableFixtureRowProps {
   onToggleExpand: () => void;
   isChannelActive: (fixtureId: string, channelIndex: number) => boolean;
   handleToggleChannelActive: (fixtureId: string, channelIndex: number, isActive: boolean) => void;
+  /** Whether this fixture is highlighted by hardware controller navigation */
+  isHighlighted?: boolean;
+  /** Channel index highlighted by hardware controller (Stream Deck dial navigation) */
+  highlightedChannelIndex?: number;
 }
 
 function SortableFixtureRow({
@@ -245,7 +259,9 @@ function SortableFixtureRow({
   isChannelActive,
   handleToggleChannelActive,
   isExpanded,
-  onToggleExpand
+  onToggleExpand,
+  isHighlighted,
+  highlightedChannelIndex,
 }: SortableFixtureRowProps) {
   const {
     attributes,
@@ -254,6 +270,15 @@ function SortableFixtureRow({
     transform,
     transition,
   } = useSortable({ id: fixtureValue.fixture.id });
+
+  const highlightRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll highlighted fixture into view
+  useEffect(() => {
+    if (isHighlighted && highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [isHighlighted]);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -271,9 +296,16 @@ function SortableFixtureRow({
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node);
+        (highlightRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      }}
       style={style}
-      className="p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+      className={`p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0 transition-colors duration-150${
+        isHighlighted
+          ? ' border-l-4 border-l-blue-500 bg-blue-50 dark:bg-blue-900/30'
+          : ''
+      }`}
       {...attributes}
     >
       <div className="flex items-start justify-between mb-2 px-2">
@@ -386,6 +418,7 @@ function SortableFixtureRow({
               onChange={(value) => handleChannelValueChange(fixtureValue.fixture.id, channelIndex, value)}
               isActive={isChannelActive(fixtureValue.fixture.id, channelIndex)}
               onToggleActive={(active) => handleToggleChannelActive(fixtureValue.fixture.id, channelIndex, active)}
+              isHighlighted={highlightedChannelIndex === channelIndex}
             />
           ))}
         </div>
@@ -394,7 +427,7 @@ function SortableFixtureRow({
   );
 }
 
-export default function ChannelListEditor({ lookId, onClose, sharedState, onDirtyChange: _onDirtyChange }: ChannelListEditorProps) {
+export default function ChannelListEditor({ lookId, onClose, sharedState, onDirtyChange: _onDirtyChange, highlightedFixtureId, autoExpandFixtureId, selectedEditFixtureId, highlightedChannelIndex, openColorPickerTrigger }: ChannelListEditorProps) {
   // Determine if we're using shared state from parent
   const useSharedState = !!sharedState;
 
@@ -438,6 +471,31 @@ export default function ChannelListEditor({ lookId, onClose, sharedState, onDirt
 
   // Expand/collapse state for fixtures - track which fixtures are expanded
   const [expandedFixtures, setExpandedFixtures] = useState<Set<string>>(new Set());
+
+  // Auto-expand fixture when selected via hardware controller (dial press)
+  useEffect(() => {
+    if (autoExpandFixtureId) {
+      setExpandedFixtures(prev => {
+        if (prev.has(autoExpandFixtureId)) return prev;
+        const next = new Set(prev);
+        next.add(autoExpandFixtureId);
+        return next;
+      });
+    }
+  }, [autoExpandFixtureId]);
+
+  // Open color picker when triggered by hardware controller (Stream Deck COLOR key)
+  const prevColorPickerTrigger = useRef(openColorPickerTrigger ?? 0);
+  useEffect(() => {
+    if (openColorPickerTrigger !== undefined && openColorPickerTrigger > prevColorPickerTrigger.current) {
+      prevColorPickerTrigger.current = openColorPickerTrigger;
+      // Open color picker for the currently selected fixture
+      if (selectedEditFixtureId) {
+        handleColorSwatchClick(selectedEditFixtureId);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openColorPickerTrigger, selectedEditFixtureId]);
 
   // Copy/paste state
   const [copiedChannelValues, setCopiedChannelValues] = useState<number[] | null>(null);
@@ -2140,6 +2198,8 @@ export default function ChannelListEditor({ lookId, onClose, sharedState, onDirt
                       handlePasteFixture={handlePasteFixture}
                       handleRemoveFixture={handleRemoveFixture}
                       hasCopiedValues={copiedChannelValues !== null}
+                      isHighlighted={fixtureValue.fixture.id === highlightedFixtureId}
+                      highlightedChannelIndex={fixtureValue.fixture.id === selectedEditFixtureId ? highlightedChannelIndex : undefined}
                       isExpanded={expandedFixtures.has(fixtureValue.fixture.id)}
                       onToggleExpand={() => {
                         setExpandedFixtures(prev => {
