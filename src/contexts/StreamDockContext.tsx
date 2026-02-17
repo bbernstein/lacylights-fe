@@ -23,10 +23,15 @@ export type StreamDockMode =
   | 'cue_player'
   | 'look_editor_channels'
   | 'look_editor_layout'
+  | 'channel_editor'
   | 'color_picker'
   | 'effect_editor'
   | 'look_board'
+  | 'look_board_browser'
   | 'cue_list_browser'
+  | 'fixtures_browser'
+  | 'looks_browser'
+  | 'effects_browser'
   | 'navigation';
 
 /** Cue list state published to the Stream Dock plugin */
@@ -78,6 +83,8 @@ export interface LookEditorState {
   // Layout mode fixture navigation (when no fixture is selected)
   highlightedFixtureId: string | null;
   fixtureOrderingMode: 'vertical' | 'horizontal';
+  /** Which editor view is active: 'channels' (fixture list + sliders) or 'layout' (canvas) */
+  editorMode: 'channels' | 'layout';
 }
 
 /** Color picker state published to the Stream Dock plugin */
@@ -147,6 +154,66 @@ export interface CueListBrowserState {
   highlightedIndex: number;
 }
 
+/** Look board browser item for look board browser state */
+export interface LookBoardBrowserItem {
+  id: string;
+  name: string;
+  buttonCount: number;
+  fadeTime: number;
+}
+
+/** Look board browser state published to the Stream Dock plugin */
+export interface LookBoardBrowserState {
+  boards: LookBoardBrowserItem[];
+  highlightedIndex: number;
+}
+
+/** Generic browser item for list pages */
+export interface BrowserItem {
+  id: string;
+  name: string;
+  detail: string;
+}
+
+/** Fixtures browser state published to the plugin */
+export interface FixturesBrowserState {
+  items: BrowserItem[];
+  highlightedIndex: number;
+}
+
+/** Looks browser state published to the plugin */
+export interface LooksBrowserState {
+  items: BrowserItem[];
+  highlightedIndex: number;
+}
+
+/** Effects browser state published to the plugin */
+export interface EffectsBrowserState {
+  items: BrowserItem[];
+  highlightedIndex: number;
+}
+
+/** Dashboard state published to the plugin */
+export interface DashboardState {
+  recentItems: Array<{
+    id: string;
+    name: string;
+    type: 'look' | 'effect' | 'board' | 'cueList' | 'fixture';
+    route: string;
+  }>;
+  tabs: Array<{ id: string; name: string; route: string }>;
+  activeCueList?: { id: string; name: string; currentCue: string } | null;
+}
+
+/** Browse item types for generic highlight/select commands */
+export type BrowseItemType = 'tab' | 'fixture' | 'look' | 'effect' | 'board' | 'cueList';
+
+/** Handlers for browse highlight/select on listing pages */
+export interface BrowseHandlers {
+  handleHighlight: (itemId: string) => void;
+  handleSelect: (itemId: string) => void;
+}
+
 /** Global state published to the Stream Dock plugin */
 export interface GlobalState {
   canUndo: boolean;
@@ -167,6 +234,11 @@ export interface StreamDockStateUpdate {
     effectEditor?: EffectEditorState;
     lookBoard?: LookBoardState;
     cueListBrowser?: CueListBrowserState;
+    lookBoardBrowser?: LookBoardBrowserState;
+    fixturesBrowser?: FixturesBrowserState;
+    looksBrowser?: LooksBrowserState;
+    effectsBrowser?: EffectsBrowserState;
+    dashboard?: DashboardState;
     global?: GlobalState;
   };
 }
@@ -195,6 +267,7 @@ export interface CuePlayerHandlers {
   handleJumpToCue: (index: number) => void;
   handleHighlightCue: (index: number) => void;
   handleFadeToBlack: () => void;
+  handleEditLook: () => void;
 }
 
 /** Handlers that can be registered by LookEditorLayout */
@@ -245,6 +318,12 @@ export interface LookBoardHandlers {
   handlePageNext: () => void;
   handlePagePrev: () => void;
   handleSetFadeTime: (seconds: number) => void;
+  handleHighlightLook: (buttonId: string) => void;
+}
+
+/** Handlers that can be registered by Look Board Browser */
+export interface LookBoardBrowserHandlers {
+  handleHighlightBoard: (boardId: string) => void;
 }
 
 /** Handlers that can be registered globally */
@@ -286,6 +365,8 @@ interface StreamDockContextType {
   registerEffectEditorHandlers: (handlers: EffectEditorHandlers | null) => void;
   /** Register handlers from Look Board */
   registerLookBoardHandlers: (handlers: LookBoardHandlers | null) => void;
+  /** Register handlers from Look Board Browser */
+  registerLookBoardBrowserHandlers: (handlers: LookBoardBrowserHandlers | null) => void;
   /** Register handlers globally */
   registerGlobalHandlers: (handlers: GlobalHandlers | null) => void;
   /** Register handlers from Layout Editor */
@@ -303,8 +384,20 @@ interface StreamDockContextType {
   publishLookBoardState: (state: LookBoardState | null) => void;
   /** Publish cue list browser state (called by Cue List Browser when state changes) */
   publishCueListBrowserState: (state: CueListBrowserState | null) => void;
+  /** Publish look board browser state (called by Look Board listing page when state changes) */
+  publishLookBoardBrowserState: (state: LookBoardBrowserState | null) => void;
   /** Publish global state (called when global state changes) */
   publishGlobalState: (state: GlobalState | null) => void;
+  /** Register browse handlers for a given item type */
+  registerBrowseHandlers: (itemType: BrowseItemType, handlers: BrowseHandlers | null) => void;
+  /** Publish fixtures browser state */
+  publishFixturesBrowserState: (state: FixturesBrowserState | null) => void;
+  /** Publish looks browser state */
+  publishLooksBrowserState: (state: LooksBrowserState | null) => void;
+  /** Publish effects browser state */
+  publishEffectsBrowserState: (state: EffectsBrowserState | null) => void;
+  /** Publish dashboard state */
+  publishDashboardState: (state: DashboardState | null) => void;
 }
 
 const StreamDockContext = createContext<StreamDockContextType | undefined>(undefined);
@@ -324,11 +417,27 @@ export function useStreamDock(): StreamDockContextType {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STREAM_DOCK_WS_URL =
+/** WebSocket URLs for hardware controller plugins.
+ * Port 4100: primary (Stream Dock N3 or Elgato Stream Deck +)
+ * Port 4101: fallback (Elgato Stream Deck + when N3 occupies 4100)
+ * Both ports are tried; multiple devices can be connected simultaneously.
+ */
+const STREAM_DOCK_WS_URLS = [
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_STREAM_DOCK_WS_URL) ||
-  'ws://127.0.0.1:4100';
+    'ws://127.0.0.1:4100',
+  'ws://127.0.0.1:4101',
+];
 const RECONNECT_INTERVAL_MS = 5000;
 const PING_INTERVAL_MS = 15000;
+/** Max reconnect delay after exponential backoff (ms) */
+const MAX_RECONNECT_INTERVAL_MS = 60000;
+
+/**
+ * WebSocket close code sent by BridgeServer when this client is replaced by a new connection
+ * (e.g., another browser tab connected). We must NOT auto-reconnect, or two tabs will
+ * fight over the connection causing mode oscillation every RECONNECT_INTERVAL_MS.
+ */
+const CLOSE_CODE_REPLACED = 4001;
 
 // Stream Deck hardware constants
 export const STREAM_DECK_LOOK_BUTTON_COUNT = 7; // Number of look buttons on Stream Deck Plus LCD
@@ -371,12 +480,18 @@ interface StreamDockProviderProps {
 export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.Element {
   const pathname = usePathname();
 
-  // Connection state
+  // Connection state — supports multiple simultaneous WebSocket connections
   const [connectionState, setConnectionState] = useState<StreamDockConnectionState>('disconnected');
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const wsMapRef = useRef<Map<string, WebSocket>>(new Map());
+  const reconnectTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const pingTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
+  /** Consecutive connection failure count per URL — drives exponential backoff */
+  const failureCountRef = useRef<Map<string, number>>(new Map());
   const isMountedRef = useRef(true);
+
+  // Ref to latest sendStateUpdate — used by WebSocket handlers to avoid
+  // coupling socket lifecycle to pathname changes (prevents socket churn)
+  const sendStateUpdateRef = useRef<() => void>(() => {});
 
   // Handler refs (set by components, read by command dispatcher)
   const cuePlayerHandlersRef = useRef<CuePlayerHandlers | null>(null);
@@ -384,8 +499,10 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
   const colorPickerHandlersRef = useRef<ColorPickerHandlers | null>(null);
   const effectEditorHandlersRef = useRef<EffectEditorHandlers | null>(null);
   const lookBoardHandlersRef = useRef<LookBoardHandlers | null>(null);
+  const lookBoardBrowserHandlersRef = useRef<LookBoardBrowserHandlers | null>(null);
   const globalHandlersRef = useRef<GlobalHandlers | null>(null);
   const layoutHandlersRef = useRef<LayoutHandlers | null>(null);
+  const browseHandlersRef = useRef<Map<BrowseItemType, BrowseHandlers | null>>(new Map());
 
   // State refs (set by components via publish, read for state updates)
   const cueListStateRef = useRef<CueListState | null>(null);
@@ -394,7 +511,12 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
   const effectEditorStateRef = useRef<EffectEditorState | null>(null);
   const lookBoardStateRef = useRef<LookBoardState | null>(null);
   const cueListBrowserStateRef = useRef<CueListBrowserState | null>(null);
+  const lookBoardBrowserStateRef = useRef<LookBoardBrowserState | null>(null);
   const globalStateRef = useRef<GlobalState | null>(null);
+  const fixturesBrowserStateRef = useRef<FixturesBrowserState | null>(null);
+  const looksBrowserStateRef = useRef<LooksBrowserState | null>(null);
+  const effectsBrowserStateRef = useRef<EffectsBrowserState | null>(null);
+  const dashboardStateRef = useRef<DashboardState | null>(null);
 
   // Get undo/redo state from UndoRedoContext
   const { canUndo, canRedo, undo, redo } = useUndoRedo();
@@ -410,26 +532,51 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
     if (route.match(/\/cue-lists\//) || route.match(/\/player\//)) {
       return 'cue_player';
     }
-    // Look editor - channels mode (default) or layout mode
+    // Look editor - channels mode (fixture browser), channel editor, or layout mode
     if (route.match(/\/looks\/.*\/edit/)) {
-      // Check if a fixture is selected - if not, we're in layout mode
       const lookEditor = lookEditorStateRef.current;
-      if (lookEditor && lookEditor.selectedFixtureIndex === -1) {
-        return 'look_editor_layout';
+      if (lookEditor) {
+        // Fixture selected in either view → channel editor (dials: channel select + value adjust)
+        if (lookEditor.selectedFixtureIndex >= 0) {
+          return 'channel_editor';
+        }
+        // No fixture selected: layout canvas view
+        if (lookEditor.editorMode === 'layout') {
+          return 'look_editor_layout';
+        }
+        // No fixture selected: channels view → fixture browser
+        return 'look_editor_channels';
       }
+      // Default when no look editor state yet (e.g., initial load)
       return 'look_editor_channels';
     }
     // Effect editor
     if (route.match(/\/effects\/.*\/edit/)) {
       return 'effect_editor';
     }
-    // Look board (handles both /look-board/{id} and /look-board?board={id} formats)
+    // Look board browser (listing page) vs specific board
+    if (route === '/look-board' || route === '/look-board/') {
+      return 'look_board_browser';
+    }
+    // Look board (specific board: /look-board/{id} or /look-board?board={id})
     if (route.startsWith('/look-board')) {
       return 'look_board';
     }
     // Cue list browser
     if (route === '/cue-lists') {
       return 'cue_list_browser';
+    }
+    // Fixtures browser
+    if (route === '/fixtures' || route === '/fixtures/') {
+      return 'fixtures_browser';
+    }
+    // Looks browser (listing page, not edit)
+    if (route === '/looks' || route === '/looks/') {
+      return 'looks_browser';
+    }
+    // Effects browser (listing page, not edit)
+    if (route === '/effects' || route === '/effects/') {
+      return 'effects_browser';
     }
     return 'navigation';
   }, []);
@@ -444,8 +591,10 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
   // ─── Send state update to plugin ──────────────────────────────────────────
 
   const sendStateUpdate = useCallback(() => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const connectedSockets = Array.from(wsMapRef.current.values()).filter(
+      ws => ws.readyState === WebSocket.OPEN
+    );
+    if (connectedSockets.length === 0) return;
 
     const currentMode = detectMode(pathname);
     const message: StreamDockStateUpdate = {
@@ -459,16 +608,40 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
         ...(effectEditorStateRef.current && { effectEditor: effectEditorStateRef.current }),
         ...(lookBoardStateRef.current && { lookBoard: lookBoardStateRef.current }),
         ...(cueListBrowserStateRef.current && { cueListBrowser: cueListBrowserStateRef.current }),
+        ...(lookBoardBrowserStateRef.current && { lookBoardBrowser: lookBoardBrowserStateRef.current }),
+        ...(fixturesBrowserStateRef.current && { fixturesBrowser: fixturesBrowserStateRef.current }),
+        ...(looksBrowserStateRef.current && { looksBrowser: looksBrowserStateRef.current }),
+        ...(effectsBrowserStateRef.current && { effectsBrowser: effectsBrowserStateRef.current }),
+        ...(dashboardStateRef.current && { dashboard: dashboardStateRef.current }),
         ...(globalStateRef.current && { global: globalStateRef.current }),
       },
     };
 
-    try {
-      ws.send(JSON.stringify(message));
-    } catch {
-      // Silently ignore send errors - connection will be cleaned up by onclose/onerror
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.debug(
+        `[StreamDock] STATE_UPDATE → mode=${currentMode} route=${pathname} sockets=${connectedSockets.length}` +
+        ` cueList=${!!cueListStateRef.current} lookEditor=${!!lookEditorStateRef.current}`
+      );
+    }
+
+    const json = JSON.stringify(message);
+    for (const ws of connectedSockets) {
+      try {
+        ws.send(json);
+      } catch {
+        // Silently ignore send errors - connection will be cleaned up by onclose/onerror
+      }
     }
   }, [pathname, detectMode]);
+
+  // Keep ref in sync — used by WebSocket handlers to always call latest version
+  sendStateUpdateRef.current = sendStateUpdate;
+
+  // Push state to connected plugins whenever route changes (separate from socket lifecycle)
+  useEffect(() => {
+    sendStateUpdate();
+  }, [sendStateUpdate]);
 
   // ─── Command dispatcher ───────────────────────────────────────────────────
 
@@ -482,6 +655,7 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
         case 'CUE_STOP': cueHandlers.handleStop(); return;
         case 'CUE_HURRY': cueHandlers.handleHurryUp(); return;
         case 'CUE_FADE_TO_BLACK': cueHandlers.handleFadeToBlack(); return;
+        case 'CUE_EDIT_LOOK': cueHandlers.handleEditLook(); return;
         case 'CUE_JUMP':
           if (payload && typeof payload.cueIndex === 'number') {
             cueHandlers.handleJumpToCue(payload.cueIndex);
@@ -607,6 +781,23 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
             boardHandlers.handleSetFadeTime(payload.seconds);
           }
           return;
+        case 'BOARD_HIGHLIGHT_LOOK':
+          if (payload && typeof payload.buttonId === 'string') {
+            boardHandlers.handleHighlightLook(payload.buttonId);
+          }
+          return;
+      }
+    }
+
+    // Look Board Browser commands
+    const browserHandlers = lookBoardBrowserHandlersRef.current;
+    if (browserHandlers) {
+      switch (command) {
+        case 'LOOK_BOARD_BROWSER_HIGHLIGHT':
+          if (payload && typeof payload.boardId === 'string') {
+            browserHandlers.handleHighlightBoard(payload.boardId);
+          }
+          return;
       }
     }
 
@@ -683,6 +874,40 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
       return;
     }
 
+    // Look Board Browser commands
+    if (command === 'LOOK_BOARD_OPEN' && payload && typeof payload.boardId === 'string') {
+      // Validate boardId to prevent path injection - only allow alphanumeric, dash, underscore
+      if (!/^[a-zA-Z0-9_-]+$/.test(payload.boardId)) {
+        console.warn(
+          '[StreamDock] Ignoring LOOK_BOARD_OPEN with invalid boardId',
+          { boardId: payload.boardId }
+        );
+        return;
+      }
+      navigateToRoute(`/look-board/${payload.boardId}`);
+      return;
+    }
+
+    // Generic browse commands (highlight/select on listing pages)
+    if (command === 'NAV_HIGHLIGHT_ITEM' && payload) {
+      const itemType = payload.itemType as BrowseItemType;
+      const itemId = payload.itemId as string;
+      if (itemType && itemId) {
+        const handlers = browseHandlersRef.current.get(itemType);
+        handlers?.handleHighlight(itemId);
+      }
+      return;
+    }
+    if (command === 'NAV_SELECT_ITEM' && payload) {
+      const itemType = payload.itemType as BrowseItemType;
+      const itemId = payload.itemId as string;
+      if (itemType && itemId) {
+        const handlers = browseHandlersRef.current.get(itemType);
+        handlers?.handleSelect(itemId);
+      }
+      return;
+    }
+
     // Navigation commands - validated to only allow internal routes
     if (command === 'NAV_GO_TO' && payload && typeof payload.route === 'string') {
       navigateToRoute(payload.route);
@@ -698,42 +923,62 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
     }
   }, []);
 
-  // ─── WebSocket connection management ──────────────────────────────────────
+  // ─── WebSocket connection management (multi-port) ──────────────────────────
 
-  // Use a ref for connect to break the circular dependency between connect and scheduleReconnect
-  const connectRef = useRef<() => void>(() => {});
-
-  const scheduleReconnect = useCallback(() => {
-    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-    reconnectTimerRef.current = setTimeout(() => {
-      if (isMountedRef.current) {
-        connectRef.current();
-      }
-    }, RECONNECT_INTERVAL_MS);
+  /** Update overall connection state based on all sockets */
+  const updateConnectionState = useCallback(() => {
+    if (!isMountedRef.current) return;
+    const anyOpen = Array.from(wsMapRef.current.values()).some(
+      ws => ws.readyState === WebSocket.OPEN
+    );
+    setConnectionState(anyOpen ? 'connected' : 'disconnected');
   }, []);
 
-  const connect = useCallback(() => {
+  // Use a ref to break the circular dependency between connectToUrl and scheduleReconnect
+  const connectToUrlRef = useRef<(url: string) => void>(() => {});
+
+  const scheduleReconnect = useCallback((url: string) => {
+    const existing = reconnectTimersRef.current.get(url);
+    if (existing) clearTimeout(existing);
+
+    // Exponential backoff: 5s → 10s → 20s → 40s → 60s cap
+    const failures = failureCountRef.current.get(url) ?? 0;
+    const delay = Math.min(
+      RECONNECT_INTERVAL_MS * Math.pow(2, failures),
+      MAX_RECONNECT_INTERVAL_MS
+    );
+
+    reconnectTimersRef.current.set(url, setTimeout(() => {
+      if (isMountedRef.current) {
+        connectToUrlRef.current(url);
+      }
+    }, delay));
+  }, []);
+
+  const connectToUrl = useCallback((url: string) => {
     if (typeof window === 'undefined') return;
-    if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) {
+    const existing = wsMapRef.current.get(url);
+    if (existing?.readyState === WebSocket.OPEN || existing?.readyState === WebSocket.CONNECTING) {
       return;
     }
 
-    setConnectionState('connecting');
-
     try {
-      const ws = new WebSocket(STREAM_DOCK_WS_URL);
-      wsRef.current = ws;
+      const ws = new WebSocket(url);
+      let opened = false;
+      wsMapRef.current.set(url, ws);
 
       ws.onopen = () => {
+        opened = true;
+        failureCountRef.current.delete(url);
         if (!isMountedRef.current) return;
-        setConnectionState('connected');
+        updateConnectionState();
+        // Use ref to always call latest sendStateUpdate (avoids stale pathname)
+        sendStateUpdateRef.current();
 
-        // Send initial state
-        sendStateUpdate();
-
-        // Start keep-alive ping interval
-        if (pingTimerRef.current) clearInterval(pingTimerRef.current);
-        pingTimerRef.current = setInterval(() => {
+        // Start keep-alive ping for this connection
+        const existingPing = pingTimersRef.current.get(url);
+        if (existingPing) clearInterval(existingPing);
+        pingTimersRef.current.set(url, setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             try {
               ws.send(JSON.stringify({ type: 'PING' }));
@@ -741,15 +986,13 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
               // ignore
             }
           }
-        }, PING_INTERVAL_MS);
+        }, PING_INTERVAL_MS));
       };
 
       ws.onmessage = (event) => {
         if (!isMountedRef.current) return;
-
         try {
           const message = JSON.parse(event.data) as StreamDockIncomingMessage;
-
           switch (message.type) {
             case 'COMMAND':
               try {
@@ -758,15 +1001,12 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
                   (message as StreamDockCommand).payload,
                 );
               } catch (error) {
-                console.error(
-                  '[StreamDock] Command handler error:',
-                  (message as StreamDockCommand).command,
-                  error
-                );
+                console.error('[StreamDock] Command handler error:', (message as StreamDockCommand).command, error);
               }
               break;
             case 'REQUEST_STATE':
-              sendStateUpdate();
+              // Use ref to always call latest sendStateUpdate (avoids stale pathname)
+              sendStateUpdateRef.current();
               break;
             case 'PING':
               if (ws.readyState === WebSocket.OPEN) {
@@ -779,62 +1019,81 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
         }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         if (!isMountedRef.current) return;
-        setConnectionState('disconnected');
-        wsRef.current = null;
+        wsMapRef.current.delete(url);
+        const pingTimer = pingTimersRef.current.get(url);
+        if (pingTimer) {
+          clearInterval(pingTimer);
+          pingTimersRef.current.delete(url);
+        }
+        updateConnectionState();
 
-        if (pingTimerRef.current) {
-          clearInterval(pingTimerRef.current);
-          pingTimerRef.current = null;
+        // Don't reconnect if replaced by another tab/window — prevents oscillation
+        if (event.code === CLOSE_CODE_REPLACED) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[StreamDock] Connection to ${url} replaced by another tab. Not reconnecting. Refresh this tab to reconnect.`
+          );
+          return;
         }
 
-        // Schedule reconnect
-        scheduleReconnect();
+        // Track consecutive failures for exponential backoff
+        if (!opened) {
+          failureCountRef.current.set(url, (failureCountRef.current.get(url) ?? 0) + 1);
+        }
+
+        scheduleReconnect(url);
       };
 
       ws.onerror = () => {
-        // onclose will fire after onerror, so we handle cleanup there
-        // Just update state to show error briefly
-        if (isMountedRef.current) {
-          setConnectionState('error');
-        }
+        // onclose will fire after onerror, handles cleanup and reconnect
       };
     } catch {
-      // WebSocket constructor can throw if URL is invalid, but ours is hardcoded
+      failureCountRef.current.set(url, (failureCountRef.current.get(url) ?? 0) + 1);
       if (isMountedRef.current) {
-        setConnectionState('error');
-        scheduleReconnect();
+        scheduleReconnect(url);
       }
     }
-  }, [sendStateUpdate, dispatchCommand, scheduleReconnect]);
+  // NOTE: sendStateUpdate is accessed via sendStateUpdateRef to decouple socket
+  // lifecycle from pathname changes. This prevents all sockets from being torn
+  // down and rebuilt on every route change, which caused mode oscillation.
+  }, [dispatchCommand, scheduleReconnect, updateConnectionState]);
 
-  // Keep the ref in sync with the latest connect function
-  connectRef.current = connect;
+  // Keep the ref in sync
+  connectToUrlRef.current = connectToUrl;
 
-  // Initial connection and cleanup
+  // Initial connection to all ports and cleanup
   useEffect(() => {
     isMountedRef.current = true;
-    connect();
+    const reconnectTimers = reconnectTimersRef.current;
+    const pingTimers = pingTimersRef.current;
+    const wsMap = wsMapRef.current;
+
+    for (const url of STREAM_DOCK_WS_URLS) {
+      connectToUrl(url);
+    }
 
     return () => {
       isMountedRef.current = false;
 
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
+      for (const timer of reconnectTimers.values()) {
+        clearTimeout(timer);
       }
-      if (pingTimerRef.current) {
-        clearInterval(pingTimerRef.current);
-        pingTimerRef.current = null;
+      reconnectTimers.clear();
+
+      for (const timer of pingTimers.values()) {
+        clearInterval(timer);
       }
-      if (wsRef.current) {
-        wsRef.current.onclose = null; // Prevent reconnect on intentional close
-        wsRef.current.close();
-        wsRef.current = null;
+      pingTimers.clear();
+
+      for (const ws of wsMap.values()) {
+        ws.onclose = null; // Prevent reconnect on intentional close
+        ws.close();
       }
+      wsMap.clear();
     };
-  }, [connect]);
+  }, [connectToUrl]);
 
   // ─── Handler registration (callbacks for components) ──────────────────────
 
@@ -858,12 +1117,24 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
     lookBoardHandlersRef.current = handlers;
   }, []);
 
+  const registerLookBoardBrowserHandlers = useCallback((handlers: LookBoardBrowserHandlers | null) => {
+    lookBoardBrowserHandlersRef.current = handlers;
+  }, []);
+
   const registerGlobalHandlers = useCallback((handlers: GlobalHandlers | null) => {
     globalHandlersRef.current = handlers;
   }, []);
 
   const registerLayoutHandlers = useCallback((handlers: LayoutHandlers | null) => {
     layoutHandlersRef.current = handlers;
+  }, []);
+
+  const registerBrowseHandlers = useCallback((itemType: BrowseItemType, handlers: BrowseHandlers | null) => {
+    if (handlers) {
+      browseHandlersRef.current.set(itemType, handlers);
+    } else {
+      browseHandlersRef.current.delete(itemType);
+    }
   }, []);
 
   // ─── State publishing (callbacks for components) ──────────────────────────
@@ -902,8 +1173,33 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
     sendStateUpdate();
   }, [sendStateUpdate]);
 
+  const publishLookBoardBrowserState = useCallback((state: LookBoardBrowserState | null) => {
+    lookBoardBrowserStateRef.current = state;
+    sendStateUpdate();
+  }, [sendStateUpdate]);
+
   const publishGlobalState = useCallback((state: GlobalState | null) => {
     globalStateRef.current = state;
+    sendStateUpdate();
+  }, [sendStateUpdate]);
+
+  const publishFixturesBrowserState = useCallback((state: FixturesBrowserState | null) => {
+    fixturesBrowserStateRef.current = state;
+    sendStateUpdate();
+  }, [sendStateUpdate]);
+
+  const publishLooksBrowserState = useCallback((state: LooksBrowserState | null) => {
+    looksBrowserStateRef.current = state;
+    sendStateUpdate();
+  }, [sendStateUpdate]);
+
+  const publishEffectsBrowserState = useCallback((state: EffectsBrowserState | null) => {
+    effectsBrowserStateRef.current = state;
+    sendStateUpdate();
+  }, [sendStateUpdate]);
+
+  const publishDashboardState = useCallback((state: DashboardState | null) => {
+    dashboardStateRef.current = state;
     sendStateUpdate();
   }, [sendStateUpdate]);
 
@@ -972,6 +1268,7 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
       registerColorPickerHandlers,
       registerEffectEditorHandlers,
       registerLookBoardHandlers,
+      registerLookBoardBrowserHandlers,
       registerGlobalHandlers,
       registerLayoutHandlers,
       publishCueListState,
@@ -980,7 +1277,13 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
       publishEffectEditorState,
       publishLookBoardState,
       publishCueListBrowserState,
+      publishLookBoardBrowserState,
       publishGlobalState,
+      registerBrowseHandlers,
+      publishFixturesBrowserState,
+      publishLooksBrowserState,
+      publishEffectsBrowserState,
+      publishDashboardState,
     }),
     [
       connectionState,
@@ -990,6 +1293,7 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
       registerColorPickerHandlers,
       registerEffectEditorHandlers,
       registerLookBoardHandlers,
+      registerLookBoardBrowserHandlers,
       registerGlobalHandlers,
       registerLayoutHandlers,
       publishCueListState,
@@ -998,7 +1302,13 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
       publishEffectEditorState,
       publishLookBoardState,
       publishCueListBrowserState,
+      publishLookBoardBrowserState,
       publishGlobalState,
+      registerBrowseHandlers,
+      publishFixturesBrowserState,
+      publishLooksBrowserState,
+      publishEffectsBrowserState,
+      publishDashboardState,
     ]
   );
 
