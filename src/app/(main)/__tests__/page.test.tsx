@@ -34,6 +34,19 @@ jest.mock("@/contexts/ProjectContext", () => ({
   })),
 }));
 
+jest.mock("@/contexts/StreamDockContext", () => ({
+  useStreamDock: () => ({
+    publishDashboardState: jest.fn(),
+  }),
+}));
+
+jest.mock("@/hooks/useRecentItems", () => ({
+  useRecentItems: () => ({
+    items: [],
+    addItem: jest.fn(),
+  }),
+}));
+
 // Mock Next.js Link
 jest.mock("next/link", () => {
   const MockLink = ({

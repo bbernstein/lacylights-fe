@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useQuery } from "@apollo/client";
 import { useProject } from "@/contexts/ProjectContext";
+import { useStreamDock } from "@/contexts/StreamDockContext";
+import { useRecentItems } from "@/hooks/useRecentItems";
 import { GET_PROJECT_FIXTURES } from "@/graphql/fixtures";
 import { GET_PROJECT_LOOKS } from "@/graphql/looks";
 import { GET_PROJECT_LOOK_BOARDS } from "@/graphql/lookBoards";
@@ -173,6 +175,29 @@ export default function DashboardPage() {
     [effectsData?.effects],
   );
   const systemInfo: SystemInfo | undefined = systemInfoData?.systemInfo;
+  const streamDock = useStreamDock();
+  const { items: recentItems } = useRecentItems();
+
+  // Publish dashboard state to Stream Deck plugin
+  useEffect(() => {
+    streamDock.publishDashboardState({
+      recentItems: recentItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        type: item.type,
+        route: item.route,
+      })),
+      tabs: [
+        { id: 'fixtures', name: 'Fixtures', route: '/fixtures' },
+        { id: 'looks', name: 'Looks', route: '/looks' },
+        { id: 'effects', name: 'Effects', route: '/effects' },
+        { id: 'look-board', name: 'Look Board', route: '/look-board' },
+        { id: 'cue-lists', name: 'Cue Lists', route: '/cue-lists' },
+        { id: 'groups', name: 'Groups', route: '/groups' },
+        { id: 'settings', name: 'Settings', route: '/settings' },
+      ],
+    });
+  }, [recentItems, streamDock]);
 
   // Calculate fixture type breakdown
   const fixtureTypeBreakdown = useMemo(() => {
