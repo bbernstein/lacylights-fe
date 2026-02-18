@@ -14,7 +14,7 @@ import { CueList } from '@/types';
 export default function CueListsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [highlightedCueListId, setHighlightedCueListId] = useState<string | null>(null);
-  const highlightRef = useRef<HTMLDivElement>(null);
+  const highlightRef = useRef<HTMLElement | null>(null);
   const router = useRouter();
   const { currentProject, loading: projectLoading } = useProject();
   const streamDock = useStreamDock();
@@ -177,7 +177,7 @@ export default function CueListsPage() {
               return (
               <div
                 key={cueList.id}
-                ref={isHighlighted ? highlightRef : undefined}
+                ref={isHighlighted ? (el) => { highlightRef.current = el; } : undefined}
                 className={`shadow rounded-lg p-4 space-y-3 ${
                   isHighlighted
                     ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500 dark:ring-blue-400'
@@ -247,7 +247,7 @@ export default function CueListsPage() {
                 return (
                 <tr
                   key={cueList.id}
-                  ref={isHighlighted ? highlightRef as React.Ref<HTMLTableRowElement> : undefined}
+                  ref={isHighlighted ? (el) => { highlightRef.current = el; } : undefined}
                   className={`${
                     isHighlighted
                       ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500 dark:ring-blue-400'

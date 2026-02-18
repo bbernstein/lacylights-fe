@@ -182,7 +182,7 @@ export default function FixturesPage() {
   const { addItem: addRecentItem } = useRecentItems();
   const router = useRouter();
   const [highlightedFixtureId, setHighlightedFixtureId] = useState<string | null>(null);
-  const highlightRef = useRef<HTMLDivElement>(null);
+  const highlightRef = useRef<HTMLElement | null>(null);
   
   const { data, loading, error, refetch } = useQuery(GET_PROJECT_FIXTURES, {
     variables: { projectId: currentProject?.id },
@@ -454,7 +454,7 @@ export default function FixturesPage() {
             {fixtures.map((fixture: FixtureInstance) => (
               <div
                 key={fixture.id}
-                ref={fixture.id === highlightedFixtureId ? highlightRef : undefined}
+                ref={fixture.id === highlightedFixtureId ? (el) => { highlightRef.current = el; } : undefined}
                 className={`bg-white dark:bg-gray-800 shadow rounded-lg p-4 space-y-3 ${fixture.id === highlightedFixtureId ? 'ring-2 ring-blue-500' : ''}`}
               >
                 <div className="font-medium text-gray-900 dark:text-white text-lg">
