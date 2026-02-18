@@ -249,7 +249,7 @@ export default function ColorPickerModal({
   useEffect(() => {
     if (!isOpen) {
       streamDock.publishColorPickerState(null);
-      return () => { streamDock.publishColorPickerState(null); };
+      return;
     }
     const hsb = rgbToHsb(selectedColor.r, selectedColor.g, selectedColor.b);
     streamDock.publishColorPickerState({

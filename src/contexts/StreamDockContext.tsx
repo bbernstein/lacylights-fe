@@ -420,15 +420,15 @@ export function useStreamDock(): StreamDockContextType {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** WebSocket URLs for hardware controller plugins.
+ * When NEXT_PUBLIC_STREAM_DOCK_WS_URL is set, only that URL is used.
+ * Otherwise, both default ports are tried for multi-device support:
  * Port 4100: primary (Stream Dock N3 or Elgato Stream Deck +)
  * Port 4101: fallback (Elgato Stream Deck + when N3 occupies 4100)
- * Both ports are tried; multiple devices can be connected simultaneously.
  */
-const STREAM_DOCK_WS_URLS = [
-  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_STREAM_DOCK_WS_URL) ||
-    'ws://127.0.0.1:4100',
-  'ws://127.0.0.1:4101',
-];
+const customUrl = typeof process !== 'undefined' ? process.env?.NEXT_PUBLIC_STREAM_DOCK_WS_URL : undefined;
+const STREAM_DOCK_WS_URLS = customUrl
+  ? [customUrl]
+  : ['ws://127.0.0.1:4100', 'ws://127.0.0.1:4101'];
 const RECONNECT_INTERVAL_MS = 5000;
 const PING_INTERVAL_MS = 15000;
 /** Max reconnect delay after exponential backoff (ms) */

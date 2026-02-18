@@ -6,6 +6,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import { GET_EFFECTS, DELETE_EFFECT, ACTIVATE_EFFECT, STOP_EFFECT } from '@/graphql/effects';
 import { useProject } from '@/contexts/ProjectContext';
 import { useStreamDock, BrowseHandlers } from '@/contexts/StreamDockContext';
+import { useRecentItems } from '@/hooks/useRecentItems';
 import CreateEffectModal from '@/components/CreateEffectModal';
 import { Effect, EffectType, WaveformType, PriorityBand } from '@/generated/graphql';
 
@@ -68,6 +69,7 @@ export default function EffectsPage() {
   const [activeEffectId, setActiveEffectId] = useState<string | null>(null);
   const { currentProject, loading: projectLoading } = useProject();
   const streamDock = useStreamDock();
+  const { addItem: addRecentItem } = useRecentItems();
   const [highlightedEffectId, setHighlightedEffectId] = useState<string | null>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
 
@@ -131,6 +133,10 @@ export default function EffectsPage() {
       })),
       highlightedIndex: 0,
     });
+
+    return () => {
+      streamDock.publishEffectsBrowserState(null);
+    };
   }, [sortedEffects, streamDock]);
 
   // Register browse handlers for Stream Dock navigation
@@ -157,6 +163,7 @@ export default function EffectsPage() {
   };
 
   const handleEditEffect = (effect: Effect) => {
+    addRecentItem({ id: effect.id, name: effect.name, type: 'effect', route: `/effects/${effect.id}/edit` });
     router.push(`/effects/${effect.id}/edit`);
   };
 

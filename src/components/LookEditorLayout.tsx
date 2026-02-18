@@ -1499,7 +1499,7 @@ export default function LookEditorLayout({
   useEffect(() => {
     if (!look) {
       streamDock.publishLookEditorState(null);
-      return () => { streamDock.publishLookEditorState(null); };
+      return;
     }
 
     const fixtures = look.fixtureValues

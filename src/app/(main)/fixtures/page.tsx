@@ -9,6 +9,7 @@ import EditFixtureModal from '@/components/EditFixtureModal';
 import ImportOFLFixtureModal from '@/components/ImportOFLFixtureModal';
 import { useProject } from '@/contexts/ProjectContext';
 import { useStreamDock, BrowseHandlers } from '@/contexts/StreamDockContext';
+import { useRecentItems } from '@/hooks/useRecentItems';
 import { FixtureInstance } from '@/types';
 import {
   DndContext,
@@ -178,6 +179,7 @@ export default function FixturesPage() {
   } | null>(null);
   const { currentProject, loading: projectLoading } = useProject();
   const streamDock = useStreamDock();
+  const { addItem: addRecentItem } = useRecentItems();
   const router = useRouter();
   const [highlightedFixtureId, setHighlightedFixtureId] = useState<string | null>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
@@ -271,6 +273,10 @@ export default function FixturesPage() {
       })),
       highlightedIndex: 0,
     });
+
+    return () => {
+      streamDock.publishFixturesBrowserState(null);
+    };
   }, [fixtures, streamDock]);
 
   // Register browse handlers for Stream Dock navigation
@@ -332,6 +338,7 @@ export default function FixturesPage() {
   };
 
   const handleEditFixture = (fixture: FixtureInstance) => {
+    addRecentItem({ id: fixture.id, name: fixture.name, type: 'fixture', route: `/fixtures/${fixture.id}` });
     setSelectedFixture(fixture);
     setIsEditModalOpen(true);
   };

@@ -1263,7 +1263,7 @@ export default function CueListPlayer({
   useEffect(() => {
     if (!cueList || !playbackStatus) {
       streamDock.publishCueListState(null);
-      return () => { streamDock.publishCueListState(null); };
+      return;
     }
     streamDock.publishCueListState({
       id: cueList.id,

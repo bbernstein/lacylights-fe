@@ -6,6 +6,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECT_LOOKS, DELETE_LOOK, ACTIVATE_LOOK, DUPLICATE_LOOK } from '@/graphql/looks';
 import { useProject } from '@/contexts/ProjectContext';
 import { useStreamDock, BrowseHandlers } from '@/contexts/StreamDockContext';
+import { useRecentItems } from '@/hooks/useRecentItems';
 import CreateLookModal from '@/components/CreateLookModal';
 import { Look } from '@/types';
 
@@ -15,6 +16,7 @@ export default function LooksPage() {
   const [sortAlphabetically, setSortAlphabetically] = useState(false);
   const { currentProject, loading: projectLoading } = useProject();
   const streamDock = useStreamDock();
+  const { addItem: addRecentItem } = useRecentItems();
   const [highlightedLookId, setHighlightedLookId] = useState<string | null>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
 
@@ -74,6 +76,10 @@ export default function LooksPage() {
       })),
       highlightedIndex: 0,
     });
+
+    return () => {
+      streamDock.publishLooksBrowserState(null);
+    };
   }, [sortedLooks, streamDock]);
 
   // Register browse handlers for Stream Dock navigation
@@ -100,6 +106,7 @@ export default function LooksPage() {
   };
 
   const handleEditLook = (look: Look) => {
+    addRecentItem({ id: look.id, name: look.name, type: 'look', route: `/looks/${look.id}/edit` });
     router.push(`/looks/${look.id}/edit`);
   };
 

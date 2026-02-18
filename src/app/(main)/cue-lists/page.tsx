@@ -6,6 +6,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECT_CUE_LISTS, DELETE_CUE_LIST } from '@/graphql/cueLists';
 import { useProject } from '@/contexts/ProjectContext';
 import { useStreamDock, BrowseHandlers } from '@/contexts/StreamDockContext';
+import { useRecentItems } from '@/hooks/useRecentItems';
 import CreateCueListModal from '@/components/CreateCueListModal';
 import CueListPlaybackStatus from '@/components/CueListPlaybackStatus';
 import { CueList } from '@/types';
@@ -17,6 +18,7 @@ export default function CueListsPage() {
   const router = useRouter();
   const { currentProject, loading: projectLoading } = useProject();
   const streamDock = useStreamDock();
+  const { addItem: addRecentItem } = useRecentItems();
 
   const { data, loading, error, refetch } = useQuery(GET_PROJECT_CUE_LISTS, {
     variables: { projectId: currentProject?.id },
@@ -34,22 +36,33 @@ export default function CueListsPage() {
 
   const cueLists = useMemo(() => data?.project?.cueLists || [], [data?.project?.cueLists]);
 
+  // Memoize the mapped cue list data to avoid duplication
+  const browserCueLists = useMemo(
+    () =>
+      cueLists.map((cl: CueList) => ({
+        id: cl.id,
+        name: cl.name,
+        cueCount: cl.cues.length,
+      })),
+    [cueLists],
+  );
+
   // Publish cue list browser state to Stream Deck plugin
   useEffect(() => {
-    if (!cueLists.length) {
+    if (!browserCueLists.length) {
       streamDock.publishCueListBrowserState(null);
       return;
     }
 
     streamDock.publishCueListBrowserState({
-      cueLists: cueLists.map((cl: CueList) => ({
-        id: cl.id,
-        name: cl.name,
-        cueCount: cl.cues.length,
-      })),
+      cueLists: browserCueLists,
       highlightedIndex: 0,
     });
-  }, [cueLists, streamDock]);
+
+    return () => {
+      streamDock.publishCueListBrowserState(null);
+    };
+  }, [browserCueLists, streamDock]);
 
   // Handle highlight from Stream Deck
   const handleHighlightCueList = useCallback((cueListId: string) => {
@@ -58,15 +71,11 @@ export default function CueListsPage() {
     const idx = cueLists.findIndex((cl: CueList) => cl.id === cueListId);
     if (idx >= 0) {
       streamDock.publishCueListBrowserState({
-        cueLists: cueLists.map((cl: CueList) => ({
-          id: cl.id,
-          name: cl.name,
-          cueCount: cl.cues.length,
-        })),
+        cueLists: browserCueLists,
         highlightedIndex: idx,
       });
     }
-  }, [cueLists, streamDock]);
+  }, [cueLists, browserCueLists, streamDock]);
 
   // Register browse handlers for Stream Deck
   useEffect(() => {
@@ -102,6 +111,7 @@ export default function CueListsPage() {
   };
 
   const handleOpenCueList = (cueList: CueList) => {
+    addRecentItem({ id: cueList.id, name: cueList.name, type: 'cueList', route: `/cue-lists/${cueList.id}` });
     router.push(`/cue-lists/${cueList.id}`);
   };
 

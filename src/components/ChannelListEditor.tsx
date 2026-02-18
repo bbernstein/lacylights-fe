@@ -485,16 +485,17 @@ export default function ChannelListEditor({ lookId, onClose, sharedState, onDirt
   }, [autoExpandFixtureId]);
 
   // Open color picker when triggered by hardware controller (Stream Deck COLOR key)
+  // Use a ref for handleColorSwatchClick since it's defined later in the component
+  const colorSwatchClickRef = useRef<((fixtureId: string) => void) | null>(null);
   const prevColorPickerTrigger = useRef(openColorPickerTrigger ?? 0);
   useEffect(() => {
     if (openColorPickerTrigger !== undefined && openColorPickerTrigger > prevColorPickerTrigger.current) {
       prevColorPickerTrigger.current = openColorPickerTrigger;
       // Open color picker for the currently selected fixture
-      if (selectedEditFixtureId) {
-        handleColorSwatchClick(selectedEditFixtureId);
+      if (selectedEditFixtureId && colorSwatchClickRef.current) {
+        colorSwatchClickRef.current(selectedEditFixtureId);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openColorPickerTrigger, selectedEditFixtureId]);
 
   // Copy/paste state
@@ -842,6 +843,7 @@ export default function ChannelListEditor({ lookId, onClose, sharedState, onDirt
   }, [useSharedState, sharedState, channelValues, previewMode, previewSessionId, debouncedPreviewUpdate, localUndoStack]);
 
   // Color picker handlers
+  // Keep ref updated for hardware controller trigger (defined before this function)
   const handleColorSwatchClick = (fixtureId: string) => {
     // Look for the fixture in activeFixtureValues (includes both saved and newly added fixtures)
     const fixtureValue = activeFixtureValues.find((fv: LookFixtureValue) => fv.fixture.id === fixtureId);
@@ -862,6 +864,8 @@ export default function ChannelListEditor({ lookId, onClose, sharedState, onDirt
     setTempIntensity(currentIntensity);
     setColorPickerOpen(true);
   };
+  // Keep ref in sync for the hardware controller trigger useEffect above
+  colorSwatchClickRef.current = handleColorSwatchClick;
 
   const handleColorChange = (color: { r: number; g: number; b: number }) => {
     setTempColor(color);

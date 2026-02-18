@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   GET_PROJECT_LOOK_BOARDS,
@@ -9,6 +10,7 @@ import {
 } from '@/graphql/lookBoards';
 import { useProject } from '@/contexts/ProjectContext';
 import { useStreamDock, BrowseHandlers } from '@/contexts/StreamDockContext';
+import { useRecentItems } from '@/hooks/useRecentItems';
 import { LookBoard } from '@/types';
 
 export default function LookBoardPage() {
@@ -20,6 +22,8 @@ export default function LookBoardPage() {
   const [highlightedBoardId, setHighlightedBoardId] = useState<string | null>(null);
   const { currentProject, loading: projectLoading } = useProject();
   const streamDock = useStreamDock();
+  const router = useRouter();
+  const { addItem: addRecentItem } = useRecentItems();
 
   const { data, loading, error, refetch } = useQuery(GET_PROJECT_LOOK_BOARDS, {
     variables: { projectId: currentProject?.id },
@@ -69,6 +73,10 @@ export default function LookBoardPage() {
       })),
       highlightedIndex: 0,
     });
+
+    return () => {
+      streamDock.publishLookBoardBrowserState(null);
+    };
   }, [lookBoards, streamDock]);
 
   // Register Stream Deck browse handlers for highlight/select feedback
@@ -93,14 +101,14 @@ export default function LookBoardPage() {
     const handlers: BrowseHandlers = {
       handleHighlight: handleHighlightBoard,
       handleSelect: (boardId: string) => {
-        window.location.href = `/look-board/${boardId}`;
+        router.push(`/look-board/${boardId}`);
       },
     };
     streamDock.registerBrowseHandlers('board', handlers);
     return () => {
       streamDock.registerBrowseHandlers('board', null);
     };
-  }, [streamDock, handleHighlightBoard]);
+  }, [streamDock, handleHighlightBoard, router]);
 
   // Auto-scroll highlighted board card into view
   const highlightedRef = useRef<HTMLDivElement | null>(null);
@@ -150,6 +158,7 @@ export default function LookBoardPage() {
   };
 
   const handleOpenBoard = (board: LookBoard) => {
+    addRecentItem({ id: board.id, name: board.name, type: 'board', route: `/look-board/${board.id}` });
     // Use full page navigation to avoid Next.js client-side routing issues
     // with output: 'export' and dynamic params
     window.location.href = `/look-board/${board.id}`;
@@ -258,7 +267,7 @@ export default function LookBoardPage() {
                 <span>Fade: {board.defaultFadeTime}s</span>
               </div>
             </div>
-          );})}
+          )})}
         </div>
       )}
 

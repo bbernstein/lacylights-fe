@@ -231,6 +231,10 @@ export default function DashboardPage() {
       })),
       tabs: dashboardCards,
     });
+
+    return () => {
+      streamDock.publishDashboardState(null);
+    };
   }, [recentItems, streamDock, dashboardCards]);
 
   // Calculate fixture type breakdown

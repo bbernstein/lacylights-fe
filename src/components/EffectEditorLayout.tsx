@@ -413,7 +413,7 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
   useEffect(() => {
     if (!effect) {
       streamDock.publishEffectEditorState(null);
-      return () => { streamDock.publishEffectEditorState(null); };
+      return;
     }
 
     // Build parameters list based on effect type

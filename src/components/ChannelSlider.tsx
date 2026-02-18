@@ -158,9 +158,9 @@ export default function ChannelSlider({
   const highlightNodeRef = useRef<HTMLDivElement | null>(null);
   const mergedRef = useCallback((node: HTMLDivElement | null) => {
     highlightNodeRef.current = node;
-    // Assign to containerRef (from useValueScrub hook) using Object.assign
-    // containerRef is a RefObject so we use this pattern to set .current
-    Object.assign(containerRef, { current: node });
+    // Set containerRef.current (from useValueScrub hook) via mutable ref property
+    // This is safe because useRef returns a mutable object
+    (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
   }, [containerRef]);
 
   useEffect(() => {
