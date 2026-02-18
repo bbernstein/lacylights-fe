@@ -1281,9 +1281,12 @@ export default function CueListPlayer({
       canPrev: currentCueIndex > 0,
       canStop: canPlayback,
     });
-    // Clear stale cue list state when component unmounts or deps change
-    return () => { streamDock.publishCueListState(null); };
   }, [streamDock, cueList, playbackStatus, currentCueIndex, cues, isPlaying, isPaused, isFading, fadeProgress, isGoDisabled, canPlayback]);
+
+  // Clear cue list state on unmount only (not on every dependency change)
+  useEffect(() => {
+    return () => { streamDock.publishCueListState(null); };
+  }, [streamDock]);
 
   const handleKeyPress = useCallback(
     (e: KeyboardEvent) => {

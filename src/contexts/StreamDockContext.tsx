@@ -895,21 +895,19 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
 
     // Generic browse commands (highlight/select on listing pages)
     if (command === 'NAV_HIGHLIGHT_ITEM' && payload) {
+      if (typeof payload.itemType !== 'string' || typeof payload.itemId !== 'string') return;
       const itemType = payload.itemType as BrowseItemType;
-      const itemId = payload.itemId as string;
-      if (itemType && itemId) {
-        const handlers = browseHandlersRef.current.get(itemType);
-        handlers?.handleHighlight(itemId);
-      }
+      const itemId = payload.itemId;
+      const handlers = browseHandlersRef.current.get(itemType);
+      handlers?.handleHighlight(itemId);
       return;
     }
     if (command === 'NAV_SELECT_ITEM' && payload) {
+      if (typeof payload.itemType !== 'string' || typeof payload.itemId !== 'string') return;
       const itemType = payload.itemType as BrowseItemType;
-      const itemId = payload.itemId as string;
-      if (itemType && itemId) {
-        const handlers = browseHandlersRef.current.get(itemType);
-        handlers?.handleSelect(itemId);
-      }
+      const itemId = payload.itemId;
+      const handlers = browseHandlersRef.current.get(itemType);
+      handlers?.handleSelect(itemId);
       return;
     }
 

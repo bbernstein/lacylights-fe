@@ -273,11 +273,12 @@ export default function FixturesPage() {
       })),
       highlightedIndex: 0,
     });
-
-    return () => {
-      streamDock.publishFixturesBrowserState(null);
-    };
   }, [fixtures, streamDock]);
+
+  // Clear fixtures browser state on unmount only
+  useEffect(() => {
+    return () => { streamDock.publishFixturesBrowserState(null); };
+  }, [streamDock]);
 
   // Register browse handlers for Stream Dock navigation
   useEffect(() => {

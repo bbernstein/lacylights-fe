@@ -231,11 +231,14 @@ export default function DashboardPage() {
       })),
       tabs: dashboardCards,
     });
+  }, [recentItems, streamDock, dashboardCards]);
 
+  // Clear dashboard state on unmount only
+  useEffect(() => {
     return () => {
       streamDock.publishDashboardState(null);
     };
-  }, [recentItems, streamDock, dashboardCards]);
+  }, [streamDock]);
 
   // Calculate fixture type breakdown
   const fixtureTypeBreakdown = useMemo(() => {

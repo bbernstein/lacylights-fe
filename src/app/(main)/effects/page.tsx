@@ -71,7 +71,7 @@ export default function EffectsPage() {
   const streamDock = useStreamDock();
   const { addItem: addRecentItem } = useRecentItems();
   const [highlightedEffectId, setHighlightedEffectId] = useState<string | null>(null);
-  const highlightRef = useRef<HTMLDivElement>(null);
+  const highlightRef = useRef<HTMLElement | null>(null);
 
   const { data, loading, error, refetch } = useQuery(GET_EFFECTS, {
     variables: { projectId: currentProject?.id },
@@ -133,11 +133,12 @@ export default function EffectsPage() {
       })),
       highlightedIndex: 0,
     });
-
-    return () => {
-      streamDock.publishEffectsBrowserState(null);
-    };
   }, [sortedEffects, streamDock]);
+
+  // Clear effects browser state on unmount only
+  useEffect(() => {
+    return () => { streamDock.publishEffectsBrowserState(null); };
+  }, [streamDock]);
 
   // Register browse handlers for Stream Dock navigation
   useEffect(() => {
@@ -281,7 +282,7 @@ export default function EffectsPage() {
             {sortedEffects.map((effect: Effect) => (
               <div
                 key={effect.id}
-                ref={effect.id === highlightedEffectId ? highlightRef : undefined}
+                ref={effect.id === highlightedEffectId ? (el) => { highlightRef.current = el; } : undefined}
                 className={`bg-white dark:bg-gray-800 shadow rounded-lg p-4 space-y-3 ${effect.id === highlightedEffectId ? 'ring-2 ring-blue-500' : ''}`}
               >
                 <div className="flex items-center justify-between">
@@ -379,7 +380,7 @@ export default function EffectsPage() {
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {sortedEffects.map((effect: Effect) => (
-                  <tr key={effect.id} ref={effect.id === highlightedEffectId ? highlightRef as React.Ref<HTMLTableRowElement> : undefined} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${activeEffectId === effect.id ? 'bg-green-50 dark:bg-green-900/20' : ''} ${effect.id === highlightedEffectId ? 'ring-2 ring-blue-500' : ''}`}>
+                  <tr key={effect.id} ref={effect.id === highlightedEffectId ? (el) => { highlightRef.current = el; } : undefined} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${activeEffectId === effect.id ? 'bg-green-50 dark:bg-green-900/20' : ''} ${effect.id === highlightedEffectId ? 'ring-2 ring-blue-500' : ''}`}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
                         {effect.name}

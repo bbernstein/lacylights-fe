@@ -442,8 +442,12 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
     };
 
     streamDock.publishEffectEditorState(state);
-    return () => { streamDock.publishEffectEditorState(null); };
   }, [effect, formFrequency, formAmplitude, formOffset, formMasterValue, isActive, isEditing, streamDock]);
+
+  // Clear effect editor state on unmount only (not on every dependency change)
+  useEffect(() => {
+    return () => { streamDock.publishEffectEditorState(null); };
+  }, [streamDock]);
 
   // Register Stream Dock handlers
   useEffect(() => {

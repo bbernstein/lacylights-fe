@@ -58,11 +58,12 @@ export default function CueListsPage() {
       cueLists: browserCueLists,
       highlightedIndex: 0,
     });
-
-    return () => {
-      streamDock.publishCueListBrowserState(null);
-    };
   }, [browserCueLists, streamDock]);
+
+  // Clear cue list browser state on unmount only
+  useEffect(() => {
+    return () => { streamDock.publishCueListBrowserState(null); };
+  }, [streamDock]);
 
   // Handle highlight from Stream Deck
   const handleHighlightCueList = useCallback((cueListId: string) => {

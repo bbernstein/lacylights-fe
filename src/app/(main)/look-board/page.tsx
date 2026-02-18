@@ -73,11 +73,12 @@ export default function LookBoardPage() {
       })),
       highlightedIndex: 0,
     });
-
-    return () => {
-      streamDock.publishLookBoardBrowserState(null);
-    };
   }, [lookBoards, streamDock]);
+
+  // Clear look board browser state on unmount only
+  useEffect(() => {
+    return () => { streamDock.publishLookBoardBrowserState(null); };
+  }, [streamDock]);
 
   // Register Stream Deck browse handlers for highlight/select feedback
   const handleHighlightBoard = useCallback((boardId: string) => {
@@ -101,7 +102,9 @@ export default function LookBoardPage() {
     const handlers: BrowseHandlers = {
       handleHighlight: handleHighlightBoard,
       handleSelect: (boardId: string) => {
-        router.push(`/look-board/${boardId}`);
+        // Use full page navigation consistent with handleOpenBoard to avoid
+        // Next.js client-side routing issues with output: 'export' and dynamic params
+        window.location.href = `/look-board/${boardId}`;
       },
     };
     streamDock.registerBrowseHandlers('board', handlers);

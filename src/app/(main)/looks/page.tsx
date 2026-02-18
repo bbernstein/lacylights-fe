@@ -18,7 +18,7 @@ export default function LooksPage() {
   const streamDock = useStreamDock();
   const { addItem: addRecentItem } = useRecentItems();
   const [highlightedLookId, setHighlightedLookId] = useState<string | null>(null);
-  const highlightRef = useRef<HTMLDivElement>(null);
+  const highlightRef = useRef<HTMLElement | null>(null);
 
   const { data, loading, error, refetch } = useQuery(GET_PROJECT_LOOKS, {
     variables: { projectId: currentProject?.id },
@@ -76,11 +76,12 @@ export default function LooksPage() {
       })),
       highlightedIndex: 0,
     });
-
-    return () => {
-      streamDock.publishLooksBrowserState(null);
-    };
   }, [sortedLooks, streamDock]);
+
+  // Clear looks browser state on unmount only
+  useEffect(() => {
+    return () => { streamDock.publishLooksBrowserState(null); };
+  }, [streamDock]);
 
   // Register browse handlers for Stream Dock navigation
   useEffect(() => {
@@ -212,7 +213,7 @@ export default function LooksPage() {
             {sortedLooks.map((look: Look) => (
               <div
                 key={look.id}
-                ref={look.id === highlightedLookId ? highlightRef : undefined}
+                ref={look.id === highlightedLookId ? (el) => { highlightRef.current = el; } : undefined}
                 className={`bg-white dark:bg-gray-800 shadow rounded-lg p-4 space-y-3 ${look.id === highlightedLookId ? 'ring-2 ring-blue-500' : ''}`}
               >
                 <div className="font-medium text-gray-900 dark:text-white text-lg">
@@ -287,7 +288,7 @@ export default function LooksPage() {
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {sortedLooks.map((look: Look) => (
-                <tr key={look.id} ref={look.id === highlightedLookId ? highlightRef as React.Ref<HTMLTableRowElement> : undefined} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${look.id === highlightedLookId ? 'ring-2 ring-blue-500' : ''}`}>
+                <tr key={look.id} ref={look.id === highlightedLookId ? (el) => { highlightRef.current = el; } : undefined} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${look.id === highlightedLookId ? 'ring-2 ring-blue-500' : ''}`}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     {look.name}
                   </td>

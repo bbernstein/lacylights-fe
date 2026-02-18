@@ -1547,13 +1547,16 @@ export default function LookEditorLayout({
       fixtureOrderingMode,
       editorMode: mode,
     });
-    // Clear stale look editor state when component unmounts or deps change
-    return () => { streamDock.publishLookEditorState(null); };
   }, [
     streamDock, look, lookId, removedFixtureIds, selectedFixtureIds, activeChannels,
     localFixtureValues, serverDenseValues, canUndo, canRedo, isDirty, previewMode, currentChannelIndex,
     highlightedFixtureId, fixtureOrderingMode, mode,
   ]);
+
+  // Clear look editor state on unmount only (not on every dependency change)
+  useEffect(() => {
+    return () => { streamDock.publishLookEditorState(null); };
+  }, [streamDock]);
 
   // Build fixture names map for copy modal
   const fixtureNamesMap = useMemo(() => {
