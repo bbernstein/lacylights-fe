@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECT_LOOKS, DELETE_LOOK, ACTIVATE_LOOK, DUPLICATE_LOOK } from '@/graphql/looks';
 import { useProject } from '@/contexts/ProjectContext';
+import { useStreamDock, BrowseHandlers } from '@/contexts/StreamDockContext';
+import { useRecentItems } from '@/hooks/useRecentItems';
 import CreateLookModal from '@/components/CreateLookModal';
 import { Look } from '@/types';
 
@@ -13,6 +15,10 @@ export default function LooksPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [sortAlphabetically, setSortAlphabetically] = useState(false);
   const { currentProject, loading: projectLoading } = useProject();
+  const streamDock = useStreamDock();
+  const { addItem: addRecentItem } = useRecentItems();
+  const [highlightedLookId, setHighlightedLookId] = useState<string | null>(null);
+  const highlightRef = useRef<HTMLElement | null>(null);
 
   const { data, loading, error, refetch } = useQuery(GET_PROJECT_LOOKS, {
     variables: { projectId: currentProject?.id },
@@ -56,11 +62,52 @@ export default function LooksPage() {
     );
   }, [looks, sortAlphabetically]);
 
+  // Publish looks browser state to Stream Dock
+  useEffect(() => {
+    if (!sortedLooks.length) {
+      streamDock.publishLooksBrowserState(null);
+      return;
+    }
+    streamDock.publishLooksBrowserState({
+      items: sortedLooks.map((l: Look) => ({
+        id: l.id,
+        name: l.name,
+        detail: `${l.fixtureValues?.length ?? 0} fixtures`,
+      })),
+      highlightedIndex: 0,
+    });
+  }, [sortedLooks, streamDock]);
+
+  // Clear looks browser state on unmount only
+  useEffect(() => {
+    return () => { streamDock.publishLooksBrowserState(null); };
+  }, [streamDock]);
+
+  // Register browse handlers for Stream Dock navigation
+  useEffect(() => {
+    const handlers: BrowseHandlers = {
+      handleHighlight: (lookId: string) => setHighlightedLookId(lookId),
+      handleSelect: (lookId: string) => router.push(`/looks/${lookId}/edit`),
+    };
+    streamDock.registerBrowseHandlers('look', handlers);
+    return () => {
+      streamDock.registerBrowseHandlers('look', null);
+    };
+  }, [streamDock, router]);
+
+  // Auto-scroll to highlighted look
+  useEffect(() => {
+    if (highlightedLookId && highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [highlightedLookId]);
+
   const handleLookCreated = () => {
     refetch();
   };
 
   const handleEditLook = (look: Look) => {
+    addRecentItem({ id: look.id, name: look.name, type: 'look', route: `/looks/${look.id}/edit` });
     router.push(`/looks/${look.id}/edit`);
   };
 
@@ -164,7 +211,11 @@ export default function LooksPage() {
           {/* Mobile Card Layout */}
           <div className="md:hidden space-y-4">
             {sortedLooks.map((look: Look) => (
-              <div key={look.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 space-y-3">
+              <div
+                key={look.id}
+                ref={look.id === highlightedLookId ? (el) => { highlightRef.current = el; } : undefined}
+                className={`bg-white dark:bg-gray-800 shadow rounded-lg p-4 space-y-3 ${look.id === highlightedLookId ? 'ring-2 ring-blue-500' : ''}`}
+              >
                 <div className="font-medium text-gray-900 dark:text-white text-lg">
                   {look.name}
                 </div>
@@ -237,7 +288,7 @@ export default function LooksPage() {
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {sortedLooks.map((look: Look) => (
-                <tr key={look.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                <tr key={look.id} ref={look.id === highlightedLookId ? (el) => { highlightRef.current = el; } : undefined} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${look.id === highlightedLookId ? 'ring-2 ring-blue-500' : ''}`}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     {look.name}
                   </td>

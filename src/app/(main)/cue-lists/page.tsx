@@ -1,19 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECT_CUE_LISTS, DELETE_CUE_LIST } from '@/graphql/cueLists';
 import { useProject } from '@/contexts/ProjectContext';
+import { useStreamDock, BrowseHandlers } from '@/contexts/StreamDockContext';
+import { useRecentItems } from '@/hooks/useRecentItems';
 import CreateCueListModal from '@/components/CreateCueListModal';
 import CueListPlaybackStatus from '@/components/CueListPlaybackStatus';
 import { CueList } from '@/types';
 
 export default function CueListsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [highlightedCueListId, setHighlightedCueListId] = useState<string | null>(null);
+  const highlightRef = useRef<HTMLElement | null>(null);
   const router = useRouter();
   const { currentProject, loading: projectLoading } = useProject();
-  
+  const streamDock = useStreamDock();
+  const { addItem: addRecentItem } = useRecentItems();
+
   const { data, loading, error, refetch } = useQuery(GET_PROJECT_CUE_LISTS, {
     variables: { projectId: currentProject?.id },
     skip: !currentProject?.id,
@@ -28,7 +34,68 @@ export default function CueListsPage() {
     },
   });
 
-  const cueLists = data?.project?.cueLists || [];
+  const cueLists = useMemo(() => data?.project?.cueLists || [], [data?.project?.cueLists]);
+
+  // Memoize the mapped cue list data to avoid duplication
+  const browserCueLists = useMemo(
+    () =>
+      cueLists.map((cl: CueList) => ({
+        id: cl.id,
+        name: cl.name,
+        cueCount: cl.cues.length,
+      })),
+    [cueLists],
+  );
+
+  // Publish cue list browser state to Stream Deck plugin
+  useEffect(() => {
+    if (!browserCueLists.length) {
+      streamDock.publishCueListBrowserState(null);
+      return;
+    }
+
+    streamDock.publishCueListBrowserState({
+      cueLists: browserCueLists,
+      highlightedIndex: 0,
+    });
+  }, [browserCueLists, streamDock]);
+
+  // Clear cue list browser state on unmount only
+  useEffect(() => {
+    return () => { streamDock.publishCueListBrowserState(null); };
+  }, [streamDock]);
+
+  // Handle highlight from Stream Deck
+  const handleHighlightCueList = useCallback((cueListId: string) => {
+    setHighlightedCueListId(cueListId);
+    // Re-publish with updated highlighted index
+    const idx = cueLists.findIndex((cl: CueList) => cl.id === cueListId);
+    if (idx >= 0) {
+      streamDock.publishCueListBrowserState({
+        cueLists: browserCueLists,
+        highlightedIndex: idx,
+      });
+    }
+  }, [cueLists, browserCueLists, streamDock]);
+
+  // Register browse handlers for Stream Deck
+  useEffect(() => {
+    const handlers: BrowseHandlers = {
+      handleHighlight: handleHighlightCueList,
+      handleSelect: (cueListId: string) => router.push(`/cue-lists/${cueListId}`),
+    };
+    streamDock.registerBrowseHandlers('cueList', handlers);
+    return () => {
+      streamDock.registerBrowseHandlers('cueList', null);
+    };
+  }, [streamDock, handleHighlightCueList, router]);
+
+  // Auto-scroll highlighted cue list into view
+  useEffect(() => {
+    if (highlightedCueListId && highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [highlightedCueListId]);
 
   const handleCueListCreated = () => {
     refetch();
@@ -45,6 +112,7 @@ export default function CueListsPage() {
   };
 
   const handleOpenCueList = (cueList: CueList) => {
+    addRecentItem({ id: cueList.id, name: cueList.name, type: 'cueList', route: `/cue-lists/${cueList.id}` });
     router.push(`/cue-lists/${cueList.id}`);
   };
 
@@ -104,8 +172,18 @@ export default function CueListsPage() {
         <>
           {/* Mobile Card Layout */}
           <div className="sm:hidden space-y-4">
-            {cueLists.map((cueList: CueList) => (
-              <div key={cueList.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 space-y-3">
+            {cueLists.map((cueList: CueList) => {
+              const isHighlighted = cueList.id === highlightedCueListId;
+              return (
+              <div
+                key={cueList.id}
+                ref={isHighlighted ? (el) => { highlightRef.current = el; } : undefined}
+                className={`shadow rounded-lg p-4 space-y-3 ${
+                  isHighlighted
+                    ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500 dark:ring-blue-400'
+                    : 'bg-white dark:bg-gray-800'
+                }`}
+              >
                 <div>
                   <div className="font-medium text-gray-900 dark:text-white text-lg">
                     {cueList.name}
@@ -140,7 +218,8 @@ export default function CueListsPage() {
                   </button>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
 
           {/* Desktop Table Layout */}
@@ -163,8 +242,18 @@ export default function CueListsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {cueLists.map((cueList: CueList) => (
-                <tr key={cueList.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              {cueLists.map((cueList: CueList) => {
+                const isHighlighted = cueList.id === highlightedCueListId;
+                return (
+                <tr
+                  key={cueList.id}
+                  ref={isHighlighted ? (el) => { highlightRef.current = el; } : undefined}
+                  className={`${
+                    isHighlighted
+                      ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500 dark:ring-blue-400'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                  }`}
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -203,7 +292,8 @@ export default function CueListsPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              );
+              })}
             </tbody>
           </table>
           </div>

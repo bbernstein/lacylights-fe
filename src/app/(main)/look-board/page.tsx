@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   GET_PROJECT_LOOK_BOARDS,
@@ -8,6 +9,8 @@ import {
   DELETE_LOOK_BOARD,
 } from '@/graphql/lookBoards';
 import { useProject } from '@/contexts/ProjectContext';
+import { useStreamDock, BrowseHandlers } from '@/contexts/StreamDockContext';
+import { useRecentItems } from '@/hooks/useRecentItems';
 import { LookBoard } from '@/types';
 
 export default function LookBoardPage() {
@@ -16,7 +19,11 @@ export default function LookBoardPage() {
   const [newBoardDescription, setNewBoardDescription] = useState('');
   const [newBoardFadeTime, setNewBoardFadeTime] = useState("3");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [highlightedBoardId, setHighlightedBoardId] = useState<string | null>(null);
   const { currentProject, loading: projectLoading } = useProject();
+  const streamDock = useStreamDock();
+  const router = useRouter();
+  const { addItem: addRecentItem } = useRecentItems();
 
   const { data, loading, error, refetch } = useQuery(GET_PROJECT_LOOK_BOARDS, {
     variables: { projectId: currentProject?.id },
@@ -49,6 +56,70 @@ export default function LookBoardPage() {
     () => data?.lookBoards || [],
     [data?.lookBoards]
   );
+
+  // Publish look board browser state to Stream Deck plugin
+  useEffect(() => {
+    if (!lookBoards.length) {
+      streamDock.publishLookBoardBrowserState(null);
+      return;
+    }
+
+    streamDock.publishLookBoardBrowserState({
+      boards: lookBoards.map((board: LookBoard) => ({
+        id: board.id,
+        name: board.name,
+        buttonCount: board.buttons.length,
+        fadeTime: board.defaultFadeTime,
+      })),
+      highlightedIndex: 0,
+    });
+  }, [lookBoards, streamDock]);
+
+  // Clear look board browser state on unmount only
+  useEffect(() => {
+    return () => { streamDock.publishLookBoardBrowserState(null); };
+  }, [streamDock]);
+
+  // Register Stream Deck browse handlers for highlight/select feedback
+  const handleHighlightBoard = useCallback((boardId: string) => {
+    setHighlightedBoardId(boardId);
+    // Re-publish with updated highlighted index
+    const idx = lookBoards.findIndex((b: LookBoard) => b.id === boardId);
+    if (idx >= 0) {
+      streamDock.publishLookBoardBrowserState({
+        boards: lookBoards.map((board: LookBoard) => ({
+          id: board.id,
+          name: board.name,
+          buttonCount: board.buttons.length,
+          fadeTime: board.defaultFadeTime,
+        })),
+        highlightedIndex: idx,
+      });
+    }
+  }, [lookBoards, streamDock]);
+
+  useEffect(() => {
+    const handlers: BrowseHandlers = {
+      handleHighlight: handleHighlightBoard,
+      handleSelect: (boardId: string) => {
+        // Use full page navigation consistent with handleOpenBoard to avoid
+        // Next.js client-side routing issues with output: 'export' and dynamic params
+        window.location.href = `/look-board/${boardId}`;
+      },
+    };
+    streamDock.registerBrowseHandlers('board', handlers);
+    return () => {
+      streamDock.registerBrowseHandlers('board', null);
+    };
+  }, [streamDock, handleHighlightBoard, router]);
+
+  // Auto-scroll highlighted board card into view
+  const highlightedRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (highlightedBoardId && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [highlightedBoardId]);
 
   const handleCreateBoard = () => {
     if (!newBoardName.trim()) {
@@ -90,6 +161,7 @@ export default function LookBoardPage() {
   };
 
   const handleOpenBoard = (board: LookBoard) => {
+    addRecentItem({ id: board.id, name: board.name, type: 'board', route: `/look-board/${board.id}` });
     // Use full page navigation to avoid Next.js client-side routing issues
     // with output: 'export' and dynamic params
     window.location.href = `/look-board/${board.id}`;
@@ -159,11 +231,21 @@ export default function LookBoardPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {lookBoards.map((board: LookBoard) => (
+          {lookBoards.map((board: LookBoard) => {
+            const isHighlighted = board.id === highlightedBoardId;
+            return (
             <div
               key={board.id}
-              className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => handleOpenBoard(board)}
+              ref={isHighlighted ? highlightedRef : undefined}
+              className={`shadow rounded-lg p-4 hover:shadow-lg transition-all cursor-pointer ${
+                isHighlighted
+                  ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500 dark:ring-blue-400'
+                  : 'bg-white dark:bg-gray-800'
+              }`}
+              onClick={() => {
+                setHighlightedBoardId(null);
+                handleOpenBoard(board);
+              }}
             >
               <div className="flex justify-between items-start mb-2">
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{board.name}</h3>
@@ -188,7 +270,7 @@ export default function LookBoardPage() {
                 <span>Fade: {board.defaultFadeTime}s</span>
               </div>
             </div>
-          ))}
+          )})}
         </div>
       )}
 

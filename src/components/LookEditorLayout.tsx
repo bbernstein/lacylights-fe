@@ -1358,32 +1358,46 @@ export default function LookEditorLayout({
     []
   );
 
-  // Handle fixture navigation in layout mode (Stream Dock)
+  // Fixture IDs in channel list display order (look order, matching ChannelListEditor)
+  const channelListFixtureIds = useMemo(() => {
+    if (!look) return [];
+    return look.fixtureValues
+      .filter((fv: FixtureValue) => !removedFixtureIds.has(fv.fixture.id))
+      .map((fv: FixtureValue) => fv.fixture.id);
+  }, [look, removedFixtureIds]);
+
+  // Handle fixture navigation (Stream Dock dial)
+  // In channels mode: follows on-screen list order; in layout mode: follows spatial order
   const handleNavigateFixture = useCallback((delta: number) => {
-    if (orderedFixtures.length === 0) return;
+    const fixtureIds = mode === 'channels'
+      ? channelListFixtureIds
+      : orderedFixtures.map((f: FixtureInstance) => f.id);
+
+    if (fixtureIds.length === 0) return;
 
     if (highlightedFixtureId === null) {
-      // No fixture highlighted yet - start at first
-      setHighlightedFixtureId(orderedFixtures[0].id);
+      setHighlightedFixtureId(fixtureIds[0]);
     } else {
-      // Find current index and move by delta
-      const currentIndex = orderedFixtures.findIndex((f: FixtureInstance) => f.id === highlightedFixtureId);
+      const currentIndex = fixtureIds.indexOf(highlightedFixtureId);
       if (currentIndex === -1) {
-        // Current fixture not found (removed?) - go to first
-        setHighlightedFixtureId(orderedFixtures[0].id);
+        setHighlightedFixtureId(fixtureIds[0]);
       } else {
-        // Calculate new index with wraparound
-        const newIndex = (currentIndex + delta + orderedFixtures.length) % orderedFixtures.length;
-        setHighlightedFixtureId(orderedFixtures[newIndex].id);
+        const newIndex = (currentIndex + delta + fixtureIds.length) % fixtureIds.length;
+        setHighlightedFixtureId(fixtureIds[newIndex]);
       }
     }
-  }, [orderedFixtures, highlightedFixtureId]);
+  }, [mode, channelListFixtureIds, orderedFixtures, highlightedFixtureId]);
+
+  // Track fixture that should be auto-expanded in ChannelListEditor (set by dial press)
+  const [autoExpandFixtureId, setAutoExpandFixtureId] = useState<string | null>(null);
 
   // Handle selecting the highlighted fixture (Stream Dock)
   const handleSelectHighlightedFixture = useCallback(() => {
     if (highlightedFixtureId) {
       // Select the highlighted fixture
       setSelectedFixtureIds(new Set([highlightedFixtureId]));
+      // Auto-expand in the channel list view
+      setAutoExpandFixtureId(highlightedFixtureId);
       // Clear highlight since it's now selected
       setHighlightedFixtureId(null);
       // Reset channel index when changing fixtures
@@ -1421,6 +1435,10 @@ export default function LookEditorLayout({
         if (fixtureIndex >= 0 && fixtureIndex < fixtures.length) {
           setSelectedFixtureIds(new Set([fixtures[fixtureIndex].id]));
           // Reset channel index when changing fixtures
+          setCurrentChannelIndex(0);
+        } else if (fixtureIndex < 0) {
+          // Negative index means deselect all fixtures
+          setSelectedFixtureIds(new Set());
           setCurrentChannelIndex(0);
         }
       },
@@ -1527,12 +1545,18 @@ export default function LookEditorLayout({
       previewActive: previewMode,
       highlightedFixtureId,
       fixtureOrderingMode,
+      editorMode: mode,
     });
   }, [
     streamDock, look, lookId, removedFixtureIds, selectedFixtureIds, activeChannels,
     localFixtureValues, serverDenseValues, canUndo, canRedo, isDirty, previewMode, currentChannelIndex,
-    highlightedFixtureId, fixtureOrderingMode,
+    highlightedFixtureId, fixtureOrderingMode, mode,
   ]);
+
+  // Clear look editor state on unmount only (not on every dependency change)
+  useEffect(() => {
+    return () => { streamDock.publishLookEditorState(null); };
+  }, [streamDock]);
 
   // Build fixture names map for copy modal
   const fixtureNamesMap = useMemo(() => {
@@ -1884,6 +1908,11 @@ export default function LookEditorLayout({
           <ChannelListEditor
             lookId={lookId}
             onClose={onClose}
+            highlightedFixtureId={highlightedFixtureId}
+            autoExpandFixtureId={autoExpandFixtureId}
+            selectedEditFixtureId={selectedFixtureIds.size === 1 ? Array.from(selectedFixtureIds)[0] : null}
+            highlightedChannelIndex={currentChannelIndex}
+            openColorPickerTrigger={colorPickerTrigger}
             sharedState={{
               channelValues:
                 localFixtureValues.size > 0

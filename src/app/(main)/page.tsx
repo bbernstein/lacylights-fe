@@ -1,9 +1,12 @@
 'use client';
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@apollo/client";
 import { useProject } from "@/contexts/ProjectContext";
+import { useStreamDock, BrowseHandlers } from "@/contexts/StreamDockContext";
+import { useRecentItems } from "@/hooks/useRecentItems";
 import { GET_PROJECT_FIXTURES } from "@/graphql/fixtures";
 import { GET_PROJECT_LOOKS } from "@/graphql/looks";
 import { GET_PROJECT_LOOK_BOARDS } from "@/graphql/lookBoards";
@@ -50,6 +53,7 @@ interface DashboardCardProps {
   countLabel?: string;
   children: React.ReactNode;
   testId?: string;
+  highlighted?: boolean;
 }
 
 function DashboardCard({
@@ -59,10 +63,13 @@ function DashboardCard({
   countLabel,
   children,
   testId,
+  highlighted,
 }: DashboardCardProps) {
   return (
     <div
-      className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 flex flex-col"
+      className={`bg-white dark:bg-gray-800 shadow rounded-lg p-6 flex flex-col transition-all ${
+        highlighted ? 'ring-2 ring-yellow-400 dark:ring-yellow-500' : ''
+      }`}
       data-testid={testId}
     >
       <div className="flex items-center justify-between mb-4">
@@ -173,6 +180,65 @@ export default function DashboardPage() {
     [effectsData?.effects],
   );
   const systemInfo: SystemInfo | undefined = systemInfoData?.systemInfo;
+  const router = useRouter();
+  const streamDock = useStreamDock();
+  const { items: recentItems } = useRecentItems();
+  const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
+
+  // Dashboard card definitions for Stream Deck browsing
+  const dashboardCards = useMemo(() => [
+    { id: 'fixtures', name: 'Fixtures', route: '/fixtures' },
+    { id: 'looks', name: 'Looks', route: '/looks' },
+    { id: 'effects', name: 'Effects', route: '/effects' },
+    { id: 'look-board', name: 'Look Board', route: '/look-board' },
+    { id: 'cue-lists', name: 'Cue Lists', route: '/cue-lists' },
+    { id: 'groups', name: 'Groups', route: '/groups' },
+    { id: 'settings', name: 'Settings', route: '/settings' },
+  ], []);
+
+  // Register card browse handlers for Stream Deck
+  const handleCardHighlight = useCallback((cardId: string) => {
+    setHighlightedCardId(cardId);
+  }, []);
+
+  const handleCardSelect = useCallback((cardId: string) => {
+    const card = dashboardCards.find(c => c.id === cardId);
+    if (card) {
+      setHighlightedCardId(null);
+      router.push(card.route);
+    }
+  }, [dashboardCards, router]);
+
+  useEffect(() => {
+    const handlers: BrowseHandlers = {
+      handleHighlight: handleCardHighlight,
+      handleSelect: handleCardSelect,
+    };
+    streamDock.registerBrowseHandlers('card', handlers);
+    return () => {
+      streamDock.registerBrowseHandlers('card', null);
+    };
+  }, [streamDock, handleCardHighlight, handleCardSelect]);
+
+  // Publish dashboard state to Stream Deck plugin
+  useEffect(() => {
+    streamDock.publishDashboardState({
+      recentItems: recentItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        type: item.type,
+        route: item.route,
+      })),
+      tabs: dashboardCards,
+    });
+  }, [recentItems, streamDock, dashboardCards]);
+
+  // Clear dashboard state on unmount only
+  useEffect(() => {
+    return () => {
+      streamDock.publishDashboardState(null);
+    };
+  }, [streamDock]);
 
   // Calculate fixture type breakdown
   const fixtureTypeBreakdown = useMemo(() => {
@@ -277,6 +343,7 @@ export default function DashboardPage() {
             count={fixtures.length}
             countLabel={fixtureTypeBreakdown || "No fixtures yet"}
             testId="fixtures-card"
+            highlighted={highlightedCardId === 'fixtures'}
           >
             {fixtures.length > 0 ? (
               <ul className="space-y-1">
@@ -313,6 +380,7 @@ export default function DashboardPage() {
               looks.length === 1 ? "1 look" : `${looks.length} looks`
             }
             testId="looks-card"
+            highlighted={highlightedCardId === 'looks'}
           >
             {looks.length > 0 ? (
               <ul className="space-y-1">
@@ -346,6 +414,7 @@ export default function DashboardPage() {
               effects.length === 1 ? "1 effect" : `${effects.length} effects`
             }
             testId="effects-card"
+            highlighted={highlightedCardId === 'effects'}
           >
             {effects.length > 0 ? (
               <ul className="space-y-1">
@@ -394,6 +463,7 @@ export default function DashboardPage() {
                 : `${lookBoards.length} boards`
             }
             testId="look-boards-card"
+            highlighted={highlightedCardId === 'look-board'}
           >
             {lookBoards.length > 0 ? (
               <ul className="space-y-1">
@@ -430,6 +500,7 @@ export default function DashboardPage() {
                 : `${cueLists.length} cue lists`
             }
             testId="cue-lists-card"
+            highlighted={highlightedCardId === 'cue-lists'}
           >
             {sortedCueLists.length > 0 ? (
               <ul className="space-y-1">
@@ -475,6 +546,7 @@ export default function DashboardPage() {
             title="Settings"
             href="/settings"
             testId="settings-card"
+            highlighted={highlightedCardId === 'settings'}
           >
             <div className="space-y-3">
               <div className="flex justify-between items-center">

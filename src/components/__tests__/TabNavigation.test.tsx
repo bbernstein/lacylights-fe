@@ -1,15 +1,18 @@
-import { render, screen } from '@testing-library/react';
-import { usePathname } from 'next/navigation';
-import TabNavigation from '../TabNavigation';
+import { render, screen, act } from '@testing-library/react';
+import { usePathname, useRouter } from 'next/navigation';
+import TabNavigation, { tabIdToRoute } from '../TabNavigation';
+import { BrowseHandlers } from '@/contexts/StreamDockContext';
 
 // Mock Next.js navigation
+const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
   usePathname: jest.fn(),
+  useRouter: jest.fn(() => ({ push: mockPush })),
 }));
 
 // Mock Next.js Link component
 jest.mock('next/link', () => {
-  return function MockLink({ children, href, ...props }: unknown) {
+  return function MockLink({ children, href, ...props }: { children: React.ReactNode; href: string; [key: string]: unknown }) {
     return (
       <a href={href} {...props}>
         {children}
@@ -18,11 +21,28 @@ jest.mock('next/link', () => {
   };
 });
 
+// Capture browse handlers registered by TabNavigation
+let capturedHandlers: BrowseHandlers | null = null;
+const mockRegisterBrowseHandlers = jest.fn((itemType: string, handlers: BrowseHandlers | null) => {
+  if (itemType === 'tab') {
+    capturedHandlers = handlers;
+  }
+});
+
+jest.mock('@/contexts/StreamDockContext', () => ({
+  useStreamDock: () => ({
+    registerBrowseHandlers: mockRegisterBrowseHandlers,
+  }),
+}));
+
 const mockUsePathname = usePathname as jest.MockedFunction<typeof usePathname>;
+const mockUseRouter = useRouter as jest.MockedFunction<typeof useRouter>;
 
 describe('TabNavigation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    capturedHandlers = null;
+    mockUseRouter.mockReturnValue({ push: mockPush } as unknown as ReturnType<typeof useRouter>);
   });
 
   describe('rendering', () => {
@@ -284,6 +304,148 @@ describe('TabNavigation', () => {
 
       const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
       expect(fixturesLink).toHaveClass('border-transparent', 'text-gray-500');
+    });
+  });
+
+  describe('Stream Deck tab browsing', () => {
+    it('registers browse handlers for tab on mount', () => {
+      mockUsePathname.mockReturnValue('/');
+
+      render(<TabNavigation />);
+
+      expect(mockRegisterBrowseHandlers).toHaveBeenCalledWith('tab', expect.objectContaining({
+        handleHighlight: expect.any(Function),
+        handleSelect: expect.any(Function),
+      }));
+    });
+
+    it('unregisters browse handlers on unmount', () => {
+      mockUsePathname.mockReturnValue('/');
+
+      const { unmount } = render(<TabNavigation />);
+      mockRegisterBrowseHandlers.mockClear();
+
+      unmount();
+
+      expect(mockRegisterBrowseHandlers).toHaveBeenCalledWith('tab', null);
+    });
+
+    it('highlights tab when handleHighlight is called', () => {
+      mockUsePathname.mockReturnValue('/');
+
+      render(<TabNavigation />);
+
+      // Trigger highlight for 'fixtures' tab
+      act(() => {
+        capturedHandlers?.handleHighlight('fixtures');
+      });
+
+      const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
+      expect(fixturesLink).toHaveClass('border-yellow-400', 'text-yellow-600');
+    });
+
+    it('navigates when handleSelect is called', () => {
+      mockUsePathname.mockReturnValue('/');
+
+      render(<TabNavigation />);
+
+      // Trigger select for 'looks' tab
+      act(() => {
+        capturedHandlers?.handleSelect('looks');
+      });
+
+      expect(mockPush).toHaveBeenCalledWith('/looks');
+    });
+
+    it('highlight overrides active state', () => {
+      mockUsePathname.mockReturnValue('/fixtures');
+
+      render(<TabNavigation />);
+
+      // Fixtures is active, but highlight 'fixtures' should show highlight style
+      act(() => {
+        capturedHandlers?.handleHighlight('fixtures');
+      });
+
+      const fixturesLink = screen.getByRole('link', { name: 'Fixtures' });
+      expect(fixturesLink).toHaveClass('border-yellow-400', 'text-yellow-600');
+      // Should NOT have active styles when highlighted
+      expect(fixturesLink).not.toHaveClass('border-blue-500');
+    });
+
+    it('ignores unknown tab IDs on highlight', () => {
+      mockUsePathname.mockReturnValue('/');
+
+      render(<TabNavigation />);
+
+      act(() => {
+        capturedHandlers?.handleHighlight('nonexistent');
+      });
+
+      // No tab should be highlighted
+      const links = screen.getAllByRole('link');
+      links.forEach((link) => {
+        expect(link).not.toHaveClass('border-yellow-400');
+      });
+    });
+
+    it('ignores unknown tab IDs on select', () => {
+      mockUsePathname.mockReturnValue('/');
+
+      render(<TabNavigation />);
+
+      act(() => {
+        capturedHandlers?.handleSelect('nonexistent');
+      });
+
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it('highlights dashboard tab when handleHighlight("dashboard") is called', () => {
+      mockUsePathname.mockReturnValue('/fixtures');
+
+      render(<TabNavigation />);
+
+      act(() => {
+        capturedHandlers?.handleHighlight('dashboard');
+      });
+
+      const dashboardLink = screen.getByRole('link', { name: 'Dashboard' });
+      expect(dashboardLink).toHaveClass('border-yellow-400', 'text-yellow-600');
+    });
+
+    it('navigates to / when handleSelect("dashboard") is called', () => {
+      mockUsePathname.mockReturnValue('/fixtures');
+
+      render(<TabNavigation />);
+
+      act(() => {
+        capturedHandlers?.handleSelect('dashboard');
+      });
+
+      expect(mockPush).toHaveBeenCalledWith('/');
+    });
+  });
+
+  describe('tabIdToRoute', () => {
+    it('maps "dashboard" to "/"', () => {
+      expect(tabIdToRoute('dashboard')).toBe('/');
+    });
+
+    it('maps "fixtures" to "/fixtures"', () => {
+      expect(tabIdToRoute('fixtures')).toBe('/fixtures');
+    });
+
+    it('maps "looks" to "/looks"', () => {
+      expect(tabIdToRoute('looks')).toBe('/looks');
+    });
+
+    it('maps "cue-lists" to "/cue-lists"', () => {
+      expect(tabIdToRoute('cue-lists')).toBe('/cue-lists');
+    });
+
+    it('returns undefined for unknown tab IDs', () => {
+      expect(tabIdToRoute('nonexistent')).toBeUndefined();
     });
   });
 });

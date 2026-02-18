@@ -1236,6 +1236,14 @@ export default function CueListPlayer({
     await fadeToBlack({ variables: { fadeOutTime: DEFAULT_FADEOUT_TIME } });
   }, [fadeToBlack, ensureConnection, canPlayback]);
 
+  // Stream Dock: edit the look assigned to the current cue (navigates to look editor)
+  const handleEditLook = useCallback(async () => {
+    if (currentCueIndex < 0 || currentCueIndex >= cues.length) return;
+    const cue = cues[currentCueIndex];
+    if (!cue?.look?.id) return;
+    await handleContextMenuEditLook(cue);
+  }, [currentCueIndex, cues, handleContextMenuEditLook]);
+
   // Stream Dock integration: register command handlers and publish playback state
   useEffect(() => {
     streamDock.registerCuePlayerHandlers({
@@ -1246,9 +1254,10 @@ export default function CueListPlayer({
       handleJumpToCue,
       handleHighlightCue,
       handleFadeToBlack,
+      handleEditLook,
     });
     return () => streamDock.registerCuePlayerHandlers(null);
-  }, [streamDock, handleGo, handlePrevious, handleStop, handleHurryUp, handleJumpToCue, handleHighlightCue, handleFadeToBlack]);
+  }, [streamDock, handleGo, handlePrevious, handleStop, handleHurryUp, handleJumpToCue, handleHighlightCue, handleFadeToBlack, handleEditLook]);
 
   // Stream Dock: publish cue list playback state whenever it changes
   useEffect(() => {
@@ -1273,6 +1282,11 @@ export default function CueListPlayer({
       canStop: canPlayback,
     });
   }, [streamDock, cueList, playbackStatus, currentCueIndex, cues, isPlaying, isPaused, isFading, fadeProgress, isGoDisabled, canPlayback]);
+
+  // Clear cue list state on unmount only (not on every dependency change)
+  useEffect(() => {
+    return () => { streamDock.publishCueListState(null); };
+  }, [streamDock]);
 
   const handleKeyPress = useCallback(
     (e: KeyboardEvent) => {

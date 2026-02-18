@@ -26,6 +26,14 @@ jest.mock('../UndoRedoContext', () => ({
   }),
 }));
 
+// Mock useGlobalPlaybackStatus
+jest.mock('@/hooks/useGlobalPlaybackStatus', () => ({
+  useGlobalPlaybackStatus: () => ({
+    playbackStatus: null,
+    isLoading: false,
+  }),
+}));
+
 // Mock WebSocket
 class MockWebSocket {
   static readonly CONNECTING = 0;
@@ -147,17 +155,17 @@ describe('StreamDockContext', () => {
       expect(screen.getByTestId('child')).toHaveTextContent('Hello');
     });
 
-    it('starts with connecting state and transitions to connected on open', () => {
+    it('starts disconnected and transitions to connected when any socket opens', () => {
       render(
         <StreamDockProvider>
           <TestConsumer />
         </StreamDockProvider>
       );
 
-      // After the useEffect fires, it should be 'connecting'
-      expect(screen.getByTestId('connection-state')).toHaveTextContent('connecting');
+      // Initial state is disconnected until a socket opens
+      expect(screen.getByTestId('connection-state')).toHaveTextContent('disconnected');
 
-      // Simulate WebSocket opening
+      // Simulate WebSocket opening (latest mock is the last port tried)
       act(() => {
         latestMockWs.simulateOpen();
       });
@@ -227,6 +235,7 @@ describe('StreamDockContext', () => {
             handleJumpToCue: jest.fn(),
             handleHighlightCue: jest.fn(),
             handleFadeToBlack: jest.fn(),
+            handleEditLook: jest.fn(),
           });
           return () => ctx.registerCuePlayerHandlers(null);
         }, [ctx]);
@@ -265,6 +274,7 @@ describe('StreamDockContext', () => {
             handleJumpToCue,
             handleHighlightCue: jest.fn(),
             handleFadeToBlack: jest.fn(),
+            handleEditLook: jest.fn(),
           });
           return () => ctx.registerCuePlayerHandlers(null);
         }, [ctx]);
@@ -381,18 +391,19 @@ describe('StreamDockContext', () => {
       expect(stateUpdate.payload.cueList.isPlaying).toBe(true);
     });
 
-    it('handles error and transitions to error state', () => {
+    it('handles error gracefully and stays disconnected', () => {
       render(
         <StreamDockProvider>
           <TestConsumer />
         </StreamDockProvider>
       );
 
+      // Error on a single socket doesn't change overall state — onclose handles cleanup
       act(() => {
         latestMockWs.simulateError();
       });
 
-      expect(screen.getByTestId('connection-state')).toHaveTextContent('error');
+      expect(screen.getByTestId('connection-state')).toHaveTextContent('disconnected');
     });
 
     it('cleans up WebSocket on unmount', () => {
@@ -708,6 +719,7 @@ describe('navigateToRoute', () => {
             handlePageNext: jest.fn(),
             handlePagePrev: jest.fn(),
             handleSetFadeTime: jest.fn(),
+            handleHighlightLook: jest.fn(),
           });
           return () => ctx.registerLookBoardHandlers(null);
         }, [ctx]);
@@ -746,6 +758,7 @@ describe('navigateToRoute', () => {
             handlePageNext,
             handlePagePrev: jest.fn(),
             handleSetFadeTime: jest.fn(),
+            handleHighlightLook: jest.fn(),
           });
           return () => ctx.registerLookBoardHandlers(null);
         }, [ctx]);

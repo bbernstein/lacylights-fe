@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECT_FIXTURES, DELETE_FIXTURE_INSTANCE, REORDER_PROJECT_FIXTURES } from '@/graphql/fixtures';
+import { useRouter } from 'next/navigation';
 import AddFixtureModal from '@/components/AddFixtureModal';
 import EditFixtureModal from '@/components/EditFixtureModal';
 import ImportOFLFixtureModal from '@/components/ImportOFLFixtureModal';
 import { useProject } from '@/contexts/ProjectContext';
+import { useStreamDock, BrowseHandlers } from '@/contexts/StreamDockContext';
+import { useRecentItems } from '@/hooks/useRecentItems';
 import { FixtureInstance } from '@/types';
 import {
   DndContext,
@@ -175,6 +178,11 @@ export default function FixturesPage() {
     universe: number;
   } | null>(null);
   const { currentProject, loading: projectLoading } = useProject();
+  const streamDock = useStreamDock();
+  const { addItem: addRecentItem } = useRecentItems();
+  const router = useRouter();
+  const [highlightedFixtureId, setHighlightedFixtureId] = useState<string | null>(null);
+  const highlightRef = useRef<HTMLElement | null>(null);
   
   const { data, loading, error, refetch } = useQuery(GET_PROJECT_FIXTURES, {
     variables: { projectId: currentProject?.id },
@@ -251,6 +259,46 @@ export default function FixturesPage() {
     }
   };
 
+  // Publish fixtures browser state to Stream Dock
+  useEffect(() => {
+    if (!fixtures.length) {
+      streamDock.publishFixturesBrowserState(null);
+      return;
+    }
+    streamDock.publishFixturesBrowserState({
+      items: fixtures.map(f => ({
+        id: f.id,
+        name: f.name,
+        detail: `${f.channelCount}ch \u00b7 ${f.manufacturer || 'Generic'}`,
+      })),
+      highlightedIndex: 0,
+    });
+  }, [fixtures, streamDock]);
+
+  // Clear fixtures browser state on unmount only
+  useEffect(() => {
+    return () => { streamDock.publishFixturesBrowserState(null); };
+  }, [streamDock]);
+
+  // Register browse handlers for Stream Dock navigation
+  useEffect(() => {
+    const handlers: BrowseHandlers = {
+      handleHighlight: (fixtureId: string) => setHighlightedFixtureId(fixtureId),
+      handleSelect: (fixtureId: string) => router.push(`/fixtures/${fixtureId}`),
+    };
+    streamDock.registerBrowseHandlers('fixture', handlers);
+    return () => {
+      streamDock.registerBrowseHandlers('fixture', null);
+    };
+  }, [streamDock, router]);
+
+  // Auto-scroll to highlighted fixture
+  useEffect(() => {
+    if (highlightedFixtureId && highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [highlightedFixtureId]);
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -291,6 +339,7 @@ export default function FixturesPage() {
   };
 
   const handleEditFixture = (fixture: FixtureInstance) => {
+    addRecentItem({ id: fixture.id, name: fixture.name, type: 'fixture', route: `/fixtures/${fixture.id}` });
     setSelectedFixture(fixture);
     setIsEditModalOpen(true);
   };
@@ -403,7 +452,11 @@ export default function FixturesPage() {
           {/* Mobile Card Layout */}
           <div className="md:hidden space-y-4">
             {fixtures.map((fixture: FixtureInstance) => (
-              <div key={fixture.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 space-y-3">
+              <div
+                key={fixture.id}
+                ref={fixture.id === highlightedFixtureId ? (el) => { highlightRef.current = el; } : undefined}
+                className={`bg-white dark:bg-gray-800 shadow rounded-lg p-4 space-y-3 ${fixture.id === highlightedFixtureId ? 'ring-2 ring-blue-500' : ''}`}
+              >
                 <div className="font-medium text-gray-900 dark:text-white text-lg">
                   {fixture.name}
                 </div>

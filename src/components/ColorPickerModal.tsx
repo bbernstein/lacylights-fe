@@ -247,6 +247,10 @@ export default function ColorPickerModal({
 
   // Stream Dock: publish color picker state
   useEffect(() => {
+    if (!isOpen) {
+      streamDock.publishColorPickerState(null);
+      return;
+    }
     const hsb = rgbToHsb(selectedColor.r, selectedColor.g, selectedColor.b);
     streamDock.publishColorPickerState({
       isOpen,
@@ -259,6 +263,11 @@ export default function ColorPickerModal({
       totalRoscoluxSwatches: ROSCOLUX_FILTERS.length,
     });
   }, [streamDock, isOpen, selectedColor, activeTab, highlightedRoscoluxIndex]);
+
+  // Clear color picker state on unmount only
+  useEffect(() => {
+    return () => { streamDock.publishColorPickerState(null); };
+  }, [streamDock]);
 
   const handleColorUpdate = useCallback((color: { r: number; g: number; b: number }) => {
     setSelectedColor(color);

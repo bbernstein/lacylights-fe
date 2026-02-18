@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_EFFECTS, DELETE_EFFECT, ACTIVATE_EFFECT, STOP_EFFECT } from '@/graphql/effects';
 import { useProject } from '@/contexts/ProjectContext';
+import { useStreamDock, BrowseHandlers } from '@/contexts/StreamDockContext';
+import { useRecentItems } from '@/hooks/useRecentItems';
 import CreateEffectModal from '@/components/CreateEffectModal';
 import { Effect, EffectType, WaveformType, PriorityBand } from '@/generated/graphql';
 
@@ -66,6 +68,10 @@ export default function EffectsPage() {
   const [sortAlphabetically, setSortAlphabetically] = useState(false);
   const [activeEffectId, setActiveEffectId] = useState<string | null>(null);
   const { currentProject, loading: projectLoading } = useProject();
+  const streamDock = useStreamDock();
+  const { addItem: addRecentItem } = useRecentItems();
+  const [highlightedEffectId, setHighlightedEffectId] = useState<string | null>(null);
+  const highlightRef = useRef<HTMLElement | null>(null);
 
   const { data, loading, error, refetch } = useQuery(GET_EFFECTS, {
     variables: { projectId: currentProject?.id },
@@ -113,11 +119,52 @@ export default function EffectsPage() {
     );
   }, [effects, sortAlphabetically]);
 
+  // Publish effects browser state to Stream Dock
+  useEffect(() => {
+    if (!sortedEffects.length) {
+      streamDock.publishEffectsBrowserState(null);
+      return;
+    }
+    streamDock.publishEffectsBrowserState({
+      items: sortedEffects.map((e: Effect) => ({
+        id: e.id,
+        name: e.name,
+        detail: e.effectType,
+      })),
+      highlightedIndex: 0,
+    });
+  }, [sortedEffects, streamDock]);
+
+  // Clear effects browser state on unmount only
+  useEffect(() => {
+    return () => { streamDock.publishEffectsBrowserState(null); };
+  }, [streamDock]);
+
+  // Register browse handlers for Stream Dock navigation
+  useEffect(() => {
+    const handlers: BrowseHandlers = {
+      handleHighlight: (effectId: string) => setHighlightedEffectId(effectId),
+      handleSelect: (effectId: string) => router.push(`/effects/${effectId}/edit`),
+    };
+    streamDock.registerBrowseHandlers('effect', handlers);
+    return () => {
+      streamDock.registerBrowseHandlers('effect', null);
+    };
+  }, [streamDock, router]);
+
+  // Auto-scroll to highlighted effect
+  useEffect(() => {
+    if (highlightedEffectId && highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [highlightedEffectId]);
+
   const handleEffectCreated = () => {
     refetch();
   };
 
   const handleEditEffect = (effect: Effect) => {
+    addRecentItem({ id: effect.id, name: effect.name, type: 'effect', route: `/effects/${effect.id}/edit` });
     router.push(`/effects/${effect.id}/edit`);
   };
 
@@ -233,7 +280,11 @@ export default function EffectsPage() {
           {/* Mobile Card Layout */}
           <div className="md:hidden space-y-4">
             {sortedEffects.map((effect: Effect) => (
-              <div key={effect.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 space-y-3">
+              <div
+                key={effect.id}
+                ref={effect.id === highlightedEffectId ? (el) => { highlightRef.current = el; } : undefined}
+                className={`bg-white dark:bg-gray-800 shadow rounded-lg p-4 space-y-3 ${effect.id === highlightedEffectId ? 'ring-2 ring-blue-500' : ''}`}
+              >
                 <div className="flex items-center justify-between">
                   <div className="font-medium text-gray-900 dark:text-white text-lg">
                     {effect.name}
@@ -329,7 +380,7 @@ export default function EffectsPage() {
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {sortedEffects.map((effect: Effect) => (
-                  <tr key={effect.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${activeEffectId === effect.id ? 'bg-green-50 dark:bg-green-900/20' : ''}`}>
+                  <tr key={effect.id} ref={effect.id === highlightedEffectId ? (el) => { highlightRef.current = el; } : undefined} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${activeEffectId === effect.id ? 'bg-green-50 dark:bg-green-900/20' : ''} ${effect.id === highlightedEffectId ? 'ring-2 ring-blue-500' : ''}`}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
                         {effect.name}
