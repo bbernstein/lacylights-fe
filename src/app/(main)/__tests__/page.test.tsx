@@ -37,6 +37,7 @@ jest.mock("@/contexts/ProjectContext", () => ({
 jest.mock("@/contexts/StreamDockContext", () => ({
   useStreamDock: () => ({
     publishDashboardState: jest.fn(),
+    registerBrowseHandlers: jest.fn(),
   }),
 }));
 

@@ -22,7 +22,8 @@ const tabs: Tab[] = [
 ];
 
 /** Map a plugin tab ID (e.g. 'fixtures') to its route (e.g. '/fixtures') */
-function tabIdToRoute(tabId: string): string | undefined {
+export function tabIdToRoute(tabId: string): string | undefined {
+  if (tabId === 'dashboard') return '/';
   return tabs.find(t => t.href === `/${tabId}`)?.href;
 }
 

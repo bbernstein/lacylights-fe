@@ -1,6 +1,6 @@
 import { render, screen, act } from '@testing-library/react';
 import { usePathname, useRouter } from 'next/navigation';
-import TabNavigation from '../TabNavigation';
+import TabNavigation, { tabIdToRoute } from '../TabNavigation';
 import { BrowseHandlers } from '@/contexts/StreamDockContext';
 
 // Mock Next.js navigation
@@ -399,6 +399,53 @@ describe('TabNavigation', () => {
       });
 
       expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it('highlights dashboard tab when handleHighlight("dashboard") is called', () => {
+      mockUsePathname.mockReturnValue('/fixtures');
+
+      render(<TabNavigation />);
+
+      act(() => {
+        capturedHandlers?.handleHighlight('dashboard');
+      });
+
+      const dashboardLink = screen.getByRole('link', { name: 'Dashboard' });
+      expect(dashboardLink).toHaveClass('border-yellow-400', 'text-yellow-600');
+    });
+
+    it('navigates to / when handleSelect("dashboard") is called', () => {
+      mockUsePathname.mockReturnValue('/fixtures');
+
+      render(<TabNavigation />);
+
+      act(() => {
+        capturedHandlers?.handleSelect('dashboard');
+      });
+
+      expect(mockPush).toHaveBeenCalledWith('/');
+    });
+  });
+
+  describe('tabIdToRoute', () => {
+    it('maps "dashboard" to "/"', () => {
+      expect(tabIdToRoute('dashboard')).toBe('/');
+    });
+
+    it('maps "fixtures" to "/fixtures"', () => {
+      expect(tabIdToRoute('fixtures')).toBe('/fixtures');
+    });
+
+    it('maps "looks" to "/looks"', () => {
+      expect(tabIdToRoute('looks')).toBe('/looks');
+    });
+
+    it('maps "cue-lists" to "/cue-lists"', () => {
+      expect(tabIdToRoute('cue-lists')).toBe('/cue-lists');
+    });
+
+    it('returns undefined for unknown tab IDs', () => {
+      expect(tabIdToRoute('nonexistent')).toBeUndefined();
     });
   });
 });

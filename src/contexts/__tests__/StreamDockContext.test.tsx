@@ -26,6 +26,14 @@ jest.mock('../UndoRedoContext', () => ({
   }),
 }));
 
+// Mock useGlobalPlaybackStatus
+jest.mock('@/hooks/useGlobalPlaybackStatus', () => ({
+  useGlobalPlaybackStatus: () => ({
+    playbackStatus: null,
+    isLoading: false,
+  }),
+}));
+
 // Mock WebSocket
 class MockWebSocket {
   static readonly CONNECTING = 0;

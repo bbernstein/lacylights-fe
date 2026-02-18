@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { usePathname } from 'next/navigation';
 import { useUndoRedo } from './UndoRedoContext';
+import { useGlobalPlaybackStatus } from '@/hooks/useGlobalPlaybackStatus';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -206,7 +207,7 @@ export interface DashboardState {
 }
 
 /** Browse item types for generic highlight/select commands */
-export type BrowseItemType = 'tab' | 'fixture' | 'look' | 'effect' | 'board' | 'cueList';
+export type BrowseItemType = 'tab' | 'fixture' | 'look' | 'effect' | 'board' | 'cueList' | 'card';
 
 /** Handlers for browse highlight/select on listing pages */
 export interface BrowseHandlers {
@@ -218,6 +219,7 @@ export interface BrowseHandlers {
 export interface GlobalState {
   canUndo: boolean;
   canRedo: boolean;
+  activeCueList?: { id: string; name: string; currentCue?: string } | null;
   masterIntensity: number;
   isBlackedOut: boolean;
 }
@@ -520,6 +522,9 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
 
   // Get undo/redo state from UndoRedoContext
   const { canUndo, canRedo, undo, redo } = useUndoRedo();
+
+  // Get global playback status for activeCueList in GlobalState
+  const { playbackStatus } = useGlobalPlaybackStatus();
 
   // ─── Mode detection ───────────────────────────────────────────────────────
 
@@ -1205,26 +1210,36 @@ export function StreamDockProvider({ children }: StreamDockProviderProps): JSX.E
 
   // ─── Global state publishing ──────────────────────────────────────────────
 
-  // Publish global state when undo/redo status changes
+  // Publish global state when undo/redo or playback status changes
   useEffect(() => {
     const previous = globalStateRef.current;
+
+    const activeCueList = playbackStatus?.cueListId
+      ? {
+          id: playbackStatus.cueListId,
+          name: playbackStatus.cueListName ?? '',
+          currentCue: playbackStatus.currentCueName ?? undefined,
+        }
+      : null;
 
     const globalState: GlobalState = previous
       ? {
           ...previous,
           canUndo,
           canRedo,
+          activeCueList,
         }
       : {
           canUndo,
           canRedo,
           masterIntensity: DEFAULT_MASTER_INTENSITY, // TODO: Track master intensity when implemented
           isBlackedOut: false,  // TODO: Track blackout status when implemented
+          activeCueList,
         };
 
     globalStateRef.current = globalState;
     sendStateUpdate();
-  }, [canUndo, canRedo, sendStateUpdate]);
+  }, [canUndo, canRedo, playbackStatus?.cueListId, playbackStatus?.cueListName, playbackStatus?.currentCueName, sendStateUpdate]);
 
   // Register global handlers
   useEffect(() => {
