@@ -7,6 +7,7 @@ import {
   RGBColor,
   COLOR_CHANNEL_TYPES,
   WHITE_CHANNEL_INTENSITY_FACTOR,
+  INDIGO_AS_PRIMARY_RATIOS,
 
   AMBER_COLOR_RATIOS,
 
@@ -389,6 +390,124 @@ describe('colorConversion', () => {
       const fullIntensity = createOptimizedColorMapping({ r: 255, g: 0, b: 0 }, channels, 1.0);
       const halfIntensity = createOptimizedColorMapping({ r: 255, g: 0, b: 0 }, channels, 0.5);
       expect(halfIntensity['1']).toBeLessThan(fullIntensity['1']);
+    });
+  });
+
+  describe('INDIGO as primary blue (no BLUE channel)', () => {
+    // Helper to create an RGI (Red, Green, Indigo) fixture - like ETC ColorSource Spot Deep Blue
+    const makeRGIChannels = (r = 0, g = 0, indigo = 0) => [
+      { id: '1', type: ChannelType.RED, value: r, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: '2', type: ChannelType.GREEN, value: g, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: '3', type: ChannelType.INDIGO, value: indigo, offset: 2, name: 'Indigo', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+    ];
+
+    // Helper to create an RGB+Indigo fixture (has both BLUE and INDIGO)
+    const makeRGBIChannels = (r = 0, g = 0, b = 0, indigo = 0) => [
+      { id: '1', type: ChannelType.RED, value: r, offset: 0, name: 'Red', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: '2', type: ChannelType.GREEN, value: g, offset: 1, name: 'Green', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: '3', type: ChannelType.BLUE, value: b, offset: 2, name: 'Blue', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+      { id: '4', type: ChannelType.INDIGO, value: indigo, offset: 3, name: 'Indigo', minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false },
+    ];
+
+    it('exports INDIGO_AS_PRIMARY_RATIOS constant', () => {
+      expect(INDIGO_AS_PRIMARY_RATIOS.RED_COMPONENT).toBe(0.08);
+      expect(INDIGO_AS_PRIMARY_RATIOS.GREEN_COMPONENT).toBe(0);
+      expect(INDIGO_AS_PRIMARY_RATIOS.BLUE_COMPONENT).toBe(1.0);
+    });
+
+    describe('channelValuesToRgb with INDIGO as primary', () => {
+      it('displays full INDIGO as near-blue when no BLUE channel', () => {
+        const channels = makeRGIChannels(0, 0, 255);
+        const result = channelValuesToRgb(channels);
+        // With primary ratios (RED=0.08, BLUE=1.0), full indigo should be near-blue
+        expect(result.b).toBe(255);
+        expect(result.r).toBe(Math.round(255 * INDIGO_AS_PRIMARY_RATIOS.RED_COMPONENT));
+        expect(result.g).toBe(0);
+      });
+
+      it('displays INDIGO as standard indigo when BLUE channel exists', () => {
+        const channels = makeRGBIChannels(0, 0, 0, 255);
+        const result = channelValuesToRgb(channels);
+        // With standard ratios (RED=0.29, BLUE=0.51), should be dark purple
+        expect(result.b).toBe(Math.round(255 * 0.51));
+        expect(result.r).toBe(Math.round(255 * 0.29));
+      });
+
+      it('blends BLUE and INDIGO correctly when both are present', () => {
+        const channels = makeRGBIChannels(0, 0, 128, 128);
+        const result = channelValuesToRgb(channels);
+        // BLUE=128 contributes b=128
+        // INDIGO=128 contributes r=128*0.29≈37, b=128*0.51≈65 (standard ratios)
+        // Total b should be 128 + ~65 = ~193 (blue from both sources)
+        expect(result.b).toBeGreaterThan(128);
+        // Red should only come from INDIGO's standard contribution
+        expect(result.r).toBeLessThan(40);
+      });
+
+      it('produces a bright color for user-selected blue on RGI fixture', () => {
+        // Simulating the user's reported scenario: picked #ADC7FF
+        // Forward mapping produces approximately: R=0, G=26, Indigo=82
+        const channels = makeRGIChannels(0, 26, 82);
+        const result = channelValuesToRgb(channels);
+        // With primary ratios, the blue component should be significant
+        expect(result.b).toBeGreaterThan(70);
+        // Should NOT be the dark purple (#2F1A52) that was reported
+        expect(result.b).toBeGreaterThan(result.r);
+      });
+    });
+
+    describe('rgbToChannelValuesIntelligent with INDIGO as primary', () => {
+      it('maps pure blue to full INDIGO when no BLUE channel', () => {
+        const channels = makeRGIChannels();
+        const result = createOptimizedColorMapping({ r: 0, g: 0, b: 255 }, channels, 1.0);
+        expect(result['3']).toBe(255); // INDIGO should be maxed
+        expect(result['1']).toBe(0);   // RED should be 0
+      });
+
+      it('maps blue correctly to INDIGO for RGI fixture', () => {
+        const channels = makeRGIChannels();
+        const result = createOptimizedColorMapping({ r: 0, g: 128, b: 255 }, channels, 1.0);
+        expect(result['3']).toBeGreaterThan(0); // INDIGO should be active
+        expect(result['2']).toBeGreaterThan(0); // GREEN should be active
+      });
+    });
+
+    describe('round-trip consistency for RGI fixtures', () => {
+      it('pure blue round-trips to near-blue display', () => {
+        const channels = makeRGIChannels();
+        // Forward: RGB → channel values
+        const mapping = createOptimizedColorMapping({ r: 0, g: 0, b: 255 }, channels, 1.0);
+        // Reverse: channel values → RGB display
+        const displayChannels = makeRGIChannels(mapping['1'] || 0, mapping['2'] || 0, mapping['3'] || 0);
+        const display = channelValuesToRgb(displayChannels);
+        // Display blue should be high (close to 255)
+        expect(display.b).toBeGreaterThanOrEqual(240);
+        // Display red should be minimal
+        expect(display.r).toBeLessThan(30);
+      });
+
+      it('pastel blue round-trips accurately on RGI fixture (no white channel)', () => {
+        // #92D7FF - a pastel blue that has a large white component
+        // Without white extraction fix, this would display as #09456D (too dark)
+        const channels = makeRGIChannels();
+        const mapping = createOptimizedColorMapping({ r: 146, g: 215, b: 255 }, channels, 1.0);
+        const displayChannels = makeRGIChannels(mapping['1'] || 0, mapping['2'] || 0, mapping['3'] || 0);
+        const display = channelValuesToRgb(displayChannels);
+        // Should preserve brightness - not lose the white component
+        expect(display.r).toBeGreaterThan(100);
+        expect(display.g).toBeGreaterThan(180);
+        expect(display.b).toBe(255);
+      });
+
+      it('pure red round-trips correctly on RGI fixture', () => {
+        const channels = makeRGIChannels();
+        const mapping = createOptimizedColorMapping({ r: 255, g: 0, b: 0 }, channels, 1.0);
+        const displayChannels = makeRGIChannels(mapping['1'] || 0, mapping['2'] || 0, mapping['3'] || 0);
+        const display = channelValuesToRgb(displayChannels);
+        expect(display.r).toBe(255);
+        expect(display.g).toBe(0);
+        expect(display.b).toBe(0);
+      });
     });
   });
 });
