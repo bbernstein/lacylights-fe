@@ -147,6 +147,7 @@ export default function ChannelSlider({
       case ChannelType.AMBER: return '#ffbf00';
       case ChannelType.WHITE: return '#ffffff';
       case ChannelType.UV: return UV_COLOR_HEX;
+      case ChannelType.INDIGO: return '#2000ff'; // Deep Blue LED (~440nm)
       default: return null;
     }
   };

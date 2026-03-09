@@ -6,7 +6,6 @@ import { FixtureInstance, ChannelType } from "@/types";
 import {
   mergeFixtureChannels,
   rgbToHex,
-  sortMergedChannels,
   MergedChannel,
 } from "@/utils/channelMerging";
 import { channelValuesToRgb, applyIntensityToRgb, createOptimizedColorMapping, type InstanceChannelWithValue } from "@/utils/colorConversion";
@@ -149,7 +148,8 @@ export default function MultiSelectControls({
   // Merge channels whenever selection or values change
   useEffect(() => {
     const channelMap = mergeFixtureChannels(selectedFixtures, fixtureValues);
-    const channels = sortMergedChannels(Array.from(channelMap.values()));
+    // Use fixture definition order (Map insertion order) to match channel list editor
+    const channels = Array.from(channelMap.values());
     setMergedChannels(channels);
 
     // Extract current intensity from INTENSITY channel (if available)
