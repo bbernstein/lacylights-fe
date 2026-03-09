@@ -330,9 +330,12 @@ export function rgbToChannelValuesIntelligent(
       .map(ch => ch.type)
   );
 
-  // Calculate white component (minimum of RGB values)
-  const minRGB = Math.min(r, g, b);
-  const whiteComponent = minRGB;
+  // Only extract white component if there's a white-type channel to absorb it.
+  // Without a white channel, extracting white discards brightness silently.
+  const hasAnyWhiteChannel = availableChannels.has(ChannelType.WHITE) ||
+    availableChannels.has(ChannelType.WARM_WHITE) ||
+    availableChannels.has(ChannelType.COLD_WHITE);
+  const whiteComponent = hasAnyWhiteChannel ? Math.min(r, g, b) : 0;
 
   // Pure color components after white extraction
   let pureR = r - whiteComponent;

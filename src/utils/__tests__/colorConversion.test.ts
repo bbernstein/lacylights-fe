@@ -486,6 +486,19 @@ describe('colorConversion', () => {
         expect(display.r).toBeLessThan(30);
       });
 
+      it('pastel blue round-trips accurately on RGI fixture (no white channel)', () => {
+        // #92D7FF - a pastel blue that has a large white component
+        // Without white extraction fix, this would display as #09456D (too dark)
+        const channels = makeRGIChannels();
+        const mapping = createOptimizedColorMapping({ r: 146, g: 215, b: 255 }, channels, 1.0);
+        const displayChannels = makeRGIChannels(mapping['1'] || 0, mapping['2'] || 0, mapping['3'] || 0);
+        const display = channelValuesToRgb(displayChannels);
+        // Should preserve brightness - not lose the white component
+        expect(display.r).toBeGreaterThan(100);
+        expect(display.g).toBeGreaterThan(180);
+        expect(display.b).toBe(255);
+      });
+
       it('pure red round-trips correctly on RGI fixture', () => {
         const channels = makeRGIChannels();
         const mapping = createOptimizedColorMapping({ r: 255, g: 0, b: 0 }, channels, 1.0);
