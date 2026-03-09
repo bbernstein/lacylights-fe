@@ -454,9 +454,11 @@ export function rgbToChannelValuesIntelligent(
       const ratios = INDIGO_AS_PRIMARY_RATIOS;
       const indigoValue = Math.min(1, pureB / ratios.BLUE_COMPONENT);
       channelValues[indigoChannel.id] = Math.round(indigoValue * 255);
-      // Subtract the red contribution from INDIGO
+      // Subtract the blue and red contributions consumed by INDIGO
+      pureB -= indigoValue * ratios.BLUE_COMPONENT;
+      pureB = Math.max(0, pureB);
       pureR -= indigoValue * ratios.RED_COMPONENT;
-      pureR = Math.max(0, pureR); // Ensure non-negative
+      pureR = Math.max(0, pureR);
     }
   }
 

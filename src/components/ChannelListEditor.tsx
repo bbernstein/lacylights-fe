@@ -22,10 +22,10 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChannelType, InstanceChannel, FixtureInstance, FixtureValue } from '@/types';
+import { InstanceChannel, FixtureInstance, FixtureValue } from '@/types';
 import ColorPickerModal from './ColorPickerModal';
 import UnsavedChangesModal from './UnsavedChangesModal';
-import { channelValuesToRgb, COLOR_CHANNEL_TYPES, createOptimizedColorMapping, EXTENDED_COLOR_RATIOS, INDIGO_AS_PRIMARY_RATIOS } from '@/utils/colorConversion';
+import { channelValuesToRgb, applyIntensityToRgb, COLOR_CHANNEL_TYPES, createOptimizedColorMapping, InstanceChannelWithValue } from '@/utils/colorConversion';
 import ChannelSlider from './ChannelSlider';
 import { generateUUID } from '@/utils/uuid';
 import { sparseToDense, denseToSparse } from '@/utils/channelConversion';
@@ -97,104 +97,18 @@ function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchPro
 
   const color = useMemo(() => {
     if (colorChannels.length === 0) return null;
-    let r = 0, g = 0, b = 0;
-    let hasIntensity = false;
-    let intensity = 1;
 
-    // Check for intensity channel
-    const intensityChannel = channels.find(channel => channel.type === ChannelType.INTENSITY);
-    if (intensityChannel) {
-      hasIntensity = true;
-      const intensityIndex = channels.indexOf(intensityChannel);
-      intensity = getChannelValue(intensityIndex) / 255;
-    }
+    // Build InstanceChannelWithValue array from current channel values
+    const channelsWithValues: InstanceChannelWithValue[] = channels.map((channel, index) => ({
+      ...channel,
+      value: getChannelValue(index),
+    }));
 
-    // Detect if INDIGO is the primary blue source (no BLUE channel present)
-    const hasBlueChannel = colorChannels.some(ch => ch.type === ChannelType.BLUE);
-    const indigoIsPrimary = !hasBlueChannel && colorChannels.some(ch => ch.type === ChannelType.INDIGO);
+    // Delegate to shared utility for consistent color mixing (handles INDIGO-as-primary, etc.)
+    const rgbWithIntensity = channelValuesToRgb(channelsWithValues);
+    const { r, g, b } = applyIntensityToRgb(rgbWithIntensity);
 
-    colorChannels.forEach((channel: InstanceChannel) => {
-      const channelIndex = channels.indexOf(channel);
-      const value = getChannelValue(channelIndex);
-      const normalizedValue = value / 255;
-
-      switch (channel.type) {
-        case ChannelType.RED:
-          r = Math.max(r, normalizedValue);
-          break;
-        case ChannelType.GREEN:
-          g = Math.max(g, normalizedValue);
-          break;
-        case ChannelType.BLUE:
-          b = Math.max(b, normalizedValue);
-          break;
-        case ChannelType.WHITE:
-          // White adds to all channels
-          r = Math.min(1, r + normalizedValue * 0.95);
-          g = Math.min(1, g + normalizedValue * 0.95);
-          b = Math.min(1, b + normalizedValue * 0.95);
-          break;
-        case ChannelType.AMBER:
-          // Amber is roughly orange (255, 191, 0)
-          r = Math.min(1, r + normalizedValue);
-          g = Math.min(1, g + normalizedValue * 0.75);
-          break;
-        case ChannelType.UV:
-          // UV is deep blue/purple (75, 0, 130)
-          r = Math.min(1, r + normalizedValue * 0.29);
-          b = Math.min(1, b + normalizedValue * 0.51);
-          break;
-        case ChannelType.CYAN:
-          // Cyan adds green and blue
-          g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.CYAN.GREEN_COMPONENT);
-          b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.CYAN.BLUE_COMPONENT);
-          break;
-        case ChannelType.MAGENTA:
-          // Magenta adds red and blue
-          r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.MAGENTA.RED_COMPONENT);
-          b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.MAGENTA.BLUE_COMPONENT);
-          break;
-        case ChannelType.YELLOW:
-          // Yellow adds red and green
-          r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.YELLOW.RED_COMPONENT);
-          g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.YELLOW.GREEN_COMPONENT);
-          break;
-        case ChannelType.LIME:
-          // Lime adds red (50%) and green (100%)
-          r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.LIME.RED_COMPONENT);
-          g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.LIME.GREEN_COMPONENT);
-          break;
-        case ChannelType.INDIGO: {
-          // When INDIGO is the only blue source, use primary ratios (near-blue)
-          const indigoRatios = indigoIsPrimary ? INDIGO_AS_PRIMARY_RATIOS : EXTENDED_COLOR_RATIOS.INDIGO;
-          r = Math.min(1, r + normalizedValue * indigoRatios.RED_COMPONENT);
-          b = Math.min(1, b + normalizedValue * indigoRatios.BLUE_COMPONENT);
-          break;
-        }
-        case ChannelType.COLD_WHITE:
-          // Cold White adds all RGB at ~6500K
-          r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.COLD_WHITE.RED_COMPONENT);
-          g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.COLD_WHITE.GREEN_COMPONENT);
-          b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.COLD_WHITE.BLUE_COMPONENT);
-          break;
-        case ChannelType.WARM_WHITE:
-          // Warm White adds all RGB at ~3000K
-          r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.WARM_WHITE.RED_COMPONENT);
-          g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.WARM_WHITE.GREEN_COMPONENT);
-          b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.WARM_WHITE.BLUE_COMPONENT);
-          break;
-      }
-    });
-
-    // Apply intensity if present
-    if (hasIntensity) {
-      r *= intensity;
-      g *= intensity;
-      b *= intensity;
-    }
-
-    // Convert to RGB values and format as hex
-    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    return `#${toHex(r / 255)}${toHex(g / 255)}${toHex(b / 255)}`;
   }, [colorChannels, channels, getChannelValue]);
 
   if (!color) return null;
