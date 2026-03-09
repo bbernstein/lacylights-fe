@@ -148,6 +148,20 @@ export const SECONDARY_COLOR_THRESHOLDS = {
 } as const;
 
 /**
+ * Color ratios for INDIGO when it serves as the primary blue source
+ * (fixture has INDIGO but no BLUE channel, e.g., ETC ColorSource Spot Deep Blue).
+ *
+ * The Deep Blue LED (~440nm) produces a color much closer to pure blue than
+ * the standard INDIGO ratios (0.29, 0, 0.51) suggest. When INDIGO replaces BLUE,
+ * we treat it as near-blue with a slight purple tint.
+ */
+export const INDIGO_AS_PRIMARY_RATIOS = {
+  RED_COMPONENT: 0.08,
+  GREEN_COMPONENT: 0,
+  BLUE_COMPONENT: 1.0,
+} as const;
+
+/**
  * Extended color channel mixing ratios for advanced LED fixtures
  * Based on typical LED wavelengths and color theory for maximum brightness output
  */
@@ -432,16 +446,16 @@ export function rgbToChannelValuesIntelligent(
   }
 
   // Handle cases where we need to use extended channels as fallbacks
-  // If no BLUE channel but we have INDIGO, use INDIGO to create blue
+  // If no BLUE channel but we have INDIGO, use INDIGO as the primary blue source
   if (!availableChannels.has(ChannelType.BLUE) && availableChannels.has(ChannelType.INDIGO) && pureB > 0) {
     const indigoChannel = channels.find(ch => ch.type === ChannelType.INDIGO);
     if (indigoChannel) {
-      // INDIGO contributes: RED_COMPONENT=0.29, BLUE_COMPONENT=0.51
-      // To get the blue we need: indigoValue = pureB / 0.51
-      const indigoValue = Math.min(1, pureB / EXTENDED_COLOR_RATIOS.INDIGO.BLUE_COMPONENT);
+      // Use primary ratios since INDIGO is replacing BLUE
+      const ratios = INDIGO_AS_PRIMARY_RATIOS;
+      const indigoValue = Math.min(1, pureB / ratios.BLUE_COMPONENT);
       channelValues[indigoChannel.id] = Math.round(indigoValue * 255);
       // Subtract the red contribution from INDIGO
-      pureR -= indigoValue * EXTENDED_COLOR_RATIOS.INDIGO.RED_COMPONENT;
+      pureR -= indigoValue * ratios.RED_COMPONENT;
       pureR = Math.max(0, pureR); // Ensure non-negative
     }
   }
@@ -613,6 +627,10 @@ export function channelValuesToRgb(channels: InstanceChannelWithValue[]): RGBCol
     intensity = intensityChannel.value / 255; // Convert DMX (0-255) to normalized (0-1)
   }
 
+  // Detect if INDIGO is the primary blue source (no BLUE channel present)
+  const hasBlueChannel = colorChannels.some(ch => ch.type === ChannelType.BLUE);
+  const indigoIsPrimary = !hasBlueChannel && colorChannels.some(ch => ch.type === ChannelType.INDIGO);
+
   colorChannels.forEach(channel => {
     const normalizedValue = channel.value / 255;
 
@@ -673,11 +691,14 @@ export function channelValuesToRgb(channels: InstanceChannelWithValue[]): RGBCol
         g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.LIME.GREEN_COMPONENT);
         break;
 
-      case ChannelType.INDIGO:
-        // Indigo adds red (at 29%) and blue (at 51%)
-        r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.INDIGO.RED_COMPONENT);
-        b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.INDIGO.BLUE_COMPONENT);
+      case ChannelType.INDIGO: {
+        // When INDIGO is the only blue source, use primary ratios (near-blue)
+        // When INDIGO supplements a BLUE channel, use standard indigo ratios
+        const ratios = indigoIsPrimary ? INDIGO_AS_PRIMARY_RATIOS : EXTENDED_COLOR_RATIOS.INDIGO;
+        r = Math.min(1, r + normalizedValue * ratios.RED_COMPONENT);
+        b = Math.min(1, b + normalizedValue * ratios.BLUE_COMPONENT);
         break;
+      }
 
       case ChannelType.COLD_WHITE:
         // Cold White adds all RGB at ~6500K color temperature

@@ -25,7 +25,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { ChannelType, InstanceChannel, FixtureInstance, FixtureValue } from '@/types';
 import ColorPickerModal from './ColorPickerModal';
 import UnsavedChangesModal from './UnsavedChangesModal';
-import { channelValuesToRgb, COLOR_CHANNEL_TYPES, createOptimizedColorMapping, EXTENDED_COLOR_RATIOS } from '@/utils/colorConversion';
+import { channelValuesToRgb, COLOR_CHANNEL_TYPES, createOptimizedColorMapping, EXTENDED_COLOR_RATIOS, INDIGO_AS_PRIMARY_RATIOS } from '@/utils/colorConversion';
 import ChannelSlider from './ChannelSlider';
 import { generateUUID } from '@/utils/uuid';
 import { sparseToDense, denseToSparse } from '@/utils/channelConversion';
@@ -109,6 +109,10 @@ function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchPro
       intensity = getChannelValue(intensityIndex) / 255;
     }
 
+    // Detect if INDIGO is the primary blue source (no BLUE channel present)
+    const hasBlueChannel = colorChannels.some(ch => ch.type === ChannelType.BLUE);
+    const indigoIsPrimary = !hasBlueChannel && colorChannels.some(ch => ch.type === ChannelType.INDIGO);
+
     colorChannels.forEach((channel: InstanceChannel) => {
       const channelIndex = channels.indexOf(channel);
       const value = getChannelValue(channelIndex);
@@ -160,11 +164,13 @@ function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchPro
           r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.LIME.RED_COMPONENT);
           g = Math.min(1, g + normalizedValue * EXTENDED_COLOR_RATIOS.LIME.GREEN_COMPONENT);
           break;
-        case ChannelType.INDIGO:
-          // Indigo adds red (29%) and blue (51%)
-          r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.INDIGO.RED_COMPONENT);
-          b = Math.min(1, b + normalizedValue * EXTENDED_COLOR_RATIOS.INDIGO.BLUE_COMPONENT);
+        case ChannelType.INDIGO: {
+          // When INDIGO is the only blue source, use primary ratios (near-blue)
+          const indigoRatios = indigoIsPrimary ? INDIGO_AS_PRIMARY_RATIOS : EXTENDED_COLOR_RATIOS.INDIGO;
+          r = Math.min(1, r + normalizedValue * indigoRatios.RED_COMPONENT);
+          b = Math.min(1, b + normalizedValue * indigoRatios.BLUE_COMPONENT);
           break;
+        }
         case ChannelType.COLD_WHITE:
           // Cold White adds all RGB at ~6500K
           r = Math.min(1, r + normalizedValue * EXTENDED_COLOR_RATIOS.COLD_WHITE.RED_COMPONENT);
