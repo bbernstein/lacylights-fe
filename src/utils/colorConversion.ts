@@ -394,7 +394,9 @@ export function rgbToChannelValuesIntelligent(
     }
   }
 
-  if (availableChannels.has(ChannelType.INDIGO) && isIndigo) {
+  // Only use INDIGO as an enhancer when BLUE is also present.
+  // When INDIGO is the only blue source, the fallback block below handles it.
+  if (availableChannels.has(ChannelType.INDIGO) && availableChannels.has(ChannelType.BLUE) && isIndigo) {
     const indigoChannel = channels.find(ch => ch.type === ChannelType.INDIGO);
     if (indigoChannel) {
       // Indigo enhances deep blues - use 50% of blue component for indigo

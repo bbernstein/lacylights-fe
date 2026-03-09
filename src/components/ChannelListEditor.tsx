@@ -108,6 +108,7 @@ function ColorSwatch({ channels, getChannelValue, onColorClick }: ColorSwatchPro
     const rgbWithIntensity = channelValuesToRgb(channelsWithValues);
     const { r, g, b } = applyIntensityToRgb(rgbWithIntensity);
 
+    // applyIntensityToRgb returns 0-255; toHex expects 0-1, so divide back
     return `#${toHex(r / 255)}${toHex(g / 255)}${toHex(b / 255)}`;
   }, [colorChannels, channels, getChannelValue]);
 
