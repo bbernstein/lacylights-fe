@@ -437,8 +437,8 @@ describe('colorConversion', () => {
         const channels = makeRGBIChannels(0, 0, 128, 128);
         const result = channelValuesToRgb(channels);
         // BLUE=128 contributes b=128
-        // INDIGO=128 contributes r=128*0.29≈15, b=128*0.51≈25 (standard ratios)
-        // Total b should be 128 + ~25 = ~153 (blue from both sources)
+        // INDIGO=128 contributes r=128*0.29≈37, b=128*0.51≈65 (standard ratios)
+        // Total b should be 128 + ~65 = ~193 (blue from both sources)
         expect(result.b).toBeGreaterThan(128);
         // Red should only come from INDIGO's standard contribution
         expect(result.r).toBeLessThan(40);
