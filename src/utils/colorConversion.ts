@@ -283,15 +283,17 @@ function shouldActivateUV(r: number, g: number, b: number, blueThreshold: number
  * extended color channels (Cyan, Magenta, Yellow, Lime, Indigo, Warm/Cold White).
  *
  * Algorithm:
- * 1. Extract white component (minimum of RGB)
+ * 1. Extract white component (minimum of RGB) — only if a white-type channel
+ *    (WHITE, WARM_WHITE, COLD_WHITE) is available; otherwise skip to preserve brightness
  * 2. Calculate pure color components after white extraction
  * 3. Detect and extract secondary colors (cyan, magenta, yellow, lime, indigo)
  * 4. Use extended channels for brightness boost
  * 5. Prioritize Warm/Cold White over generic White based on color temperature
  * 6. Calculate Amber from yellow content
  * 7. Activate UV for deep blues/purples
- * 8. Set RGB channels with remaining values
- * 9. Apply intensity scaling if provided
+ * 8. Use INDIGO as primary blue source if no BLUE channel is available
+ * 9. Set RGB channels with remaining values
+ * 10. Apply intensity scaling if provided
  *
  * @param targetColor RGB color (0-255)
  * @param channels Available fixture channels with current values
