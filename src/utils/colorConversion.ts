@@ -154,10 +154,13 @@ export const SECONDARY_COLOR_THRESHOLDS = {
  * The Deep Blue LED (~440nm) produces a color much closer to pure blue than
  * the standard INDIGO ratios (0.29, 0, 0.51) suggest. When INDIGO replaces BLUE,
  * we treat it as near-blue with a slight purple tint.
+ *
+ * RED_COMPONENT of 0.08 reflects the slight red/purple cast visible in Deep Blue
+ * LEDs at ~440nm, estimated from CIE color matching functions at that wavelength.
  */
 export const INDIGO_AS_PRIMARY_RATIOS = {
   RED_COMPONENT: 0.08,
-  GREEN_COMPONENT: 0,
+  GREEN_COMPONENT: 0, // Included for structural consistency with other ratio constants
   BLUE_COMPONENT: 1.0,
 } as const;
 

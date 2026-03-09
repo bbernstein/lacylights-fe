@@ -433,6 +433,17 @@ describe('colorConversion', () => {
         expect(result.r).toBe(Math.round(255 * 0.29));
       });
 
+      it('blends BLUE and INDIGO correctly when both are present', () => {
+        const channels = makeRGBIChannels(0, 0, 128, 128);
+        const result = channelValuesToRgb(channels);
+        // BLUE=128 contributes b=128
+        // INDIGO=128 contributes r=128*0.29≈15, b=128*0.51≈25 (standard ratios)
+        // Total b should be 128 + ~25 = ~153 (blue from both sources)
+        expect(result.b).toBeGreaterThan(128);
+        // Red should only come from INDIGO's standard contribution
+        expect(result.r).toBeLessThan(40);
+      });
+
       it('produces a bright color for user-selected blue on RGI fixture', () => {
         // Simulating the user's reported scenario: picked #ADC7FF
         // Forward mapping produces approximately: R=0, G=26, Indigo=82
