@@ -288,7 +288,7 @@ export default function ChannelSlider({
         disabled={isInactive}
         className={`${usePercent ? 'w-16' : 'w-12'} text-xs text-center font-mono text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0 focus:outline-none focus:ring-1 focus:ring-blue-500 select-none ${isInactive ? 'cursor-not-allowed' : 'cursor-ns-resize'}`}
         title={usePercent
-          ? 'Scroll to adjust, arrow keys for ±1%, Shift+arrow for ±0.1%. Touch and drag vertically to scrub.'
+          ? 'Scroll to adjust, arrow keys for ±1%, Shift+arrow for finer control (min 1 DMX). Touch and drag vertically to scrub.'
           : 'Scroll to adjust, arrow keys for ±1, Shift+arrow for ±10. Touch and drag vertically to scrub.'}
         {...touchScrubProps}
       />
