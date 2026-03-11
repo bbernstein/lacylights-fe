@@ -169,7 +169,14 @@ export default function ChannelSlider({
       const step = percentStep(e.shiftKey);
       const currentPercent = dmxToPercent(localValue, min, max);
       const newPercent = Math.max(0, Math.min(100, currentPercent + direction * step));
-      newDmxValue = percentToDmx(newPercent, min, max);
+      const percentBasedDmx = percentToDmx(newPercent, min, max);
+      // If the percent step rounds to the same DMX value (common with Shift+0.1%),
+      // fall back to a minimum 1-DMX change so keypresses aren't no-ops
+      if (percentBasedDmx === localValue) {
+        newDmxValue = Math.max(min, Math.min(max, localValue + direction));
+      } else {
+        newDmxValue = percentBasedDmx;
+      }
     } else {
       const step = dmxStep(e.shiftKey);
       newDmxValue = Math.max(min, Math.min(max, localValue + direction * step));

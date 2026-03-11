@@ -27,7 +27,8 @@ export function isPercentageChannel(channelType: ChannelType): boolean {
 export function dmxToPercent(dmxValue: number, min = 0, max = 255): number {
   const range = max - min;
   if (range === 0) return 0;
-  return ((dmxValue - min) / range) * 100;
+  const percent = ((dmxValue - min) / range) * 100;
+  return Math.max(0, Math.min(100, percent));
 }
 
 /**

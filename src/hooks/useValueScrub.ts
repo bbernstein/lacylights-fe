@@ -115,8 +115,11 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
     touchSensitivity = DEFAULT_TOUCH_SENSITIVITY,
     shiftMultiplier = DEFAULT_SHIFT_MULTIPLIER,
     invertWheelDirection = false,
-    step = 1,
+    step: rawStep = 1,
   } = options;
+
+  // Normalize step to a positive finite number (guards against 0, negative, NaN)
+  const step = Number.isFinite(rawStep) && rawStep > 0 ? rawStep : 1;
 
   // Track touch state
   const touchStartY = useRef<number | null>(null);
@@ -139,9 +142,8 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
   const clamp = useCallback(
     (val: number): number => {
       const clamped = Math.max(min, Math.min(max, val));
-      const effectiveStep = typeof step === 'number' && step > 0 ? step : 1;
-      if (effectiveStep === 1) return Math.round(clamped);
-      return Math.round(clamped / effectiveStep) * effectiveStep;
+      if (step === 1) return Math.round(clamped);
+      return Math.round(clamped / step) * step;
     },
     [min, max, step]
   );
