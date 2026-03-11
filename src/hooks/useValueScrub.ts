@@ -139,9 +139,9 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
   const clamp = useCallback(
     (val: number): number => {
       const clamped = Math.max(min, Math.min(max, val));
-      if (step >= 1) return Math.round(clamped);
-      // Quantize to step size (works for any step, not just powers of 10)
-      return Math.round(clamped / step) * step;
+      const effectiveStep = typeof step === 'number' && step > 0 ? step : 1;
+      if (effectiveStep === 1) return Math.round(clamped);
+      return Math.round(clamped / effectiveStep) * effectiveStep;
     },
     [min, max, step]
   );

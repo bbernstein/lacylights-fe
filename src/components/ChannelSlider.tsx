@@ -113,6 +113,7 @@ export default function ChannelSlider({
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = parseFloat(e.target.value);
     const dmxValue = usePercent ? percentToDmx(rawValue, min, max) : Math.round(rawValue);
+    if (dmxValue === localValue) return;
     setLocalValue(dmxValue);
     onChange(dmxValue);
   };
@@ -149,6 +150,7 @@ export default function ChannelSlider({
     const rawValue = parseFloat(inputValue);
     if (isNaN(rawValue)) return;
     const dmxValue = usePercent ? percentToDmx(rawValue, min, max) : Math.max(min, Math.min(max, Math.round(rawValue)));
+    if (dmxValue === localValue) return;
     setLocalValue(dmxValue);
     onChange(dmxValue);
     if (onChangeComplete) {

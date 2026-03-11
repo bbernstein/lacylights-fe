@@ -960,8 +960,9 @@ describe('useValueScrub', () => {
       const newValue = onChange.mock.calls[0][0];
       // Value should be quantized to step=0.1
       expect(newValue).toBeGreaterThan(50);
-      // Check it's a multiple of 0.1 (within floating point tolerance)
-      expect(Math.round(newValue * 10) % 1).toBe(0);
+      // Verify it's a multiple of 0.1 within floating-point tolerance
+      const multiple = newValue / 0.1;
+      expect(Math.abs(multiple - Math.round(multiple))).toBeLessThan(1e-6);
     });
 
     it('should quantize touch scrub to fractional step', () => {
@@ -1052,8 +1053,9 @@ describe('useValueScrub', () => {
 
       expect(onChange).toHaveBeenCalled();
       const newValue = onChange.mock.calls[0][0];
-      // Value should be quantized to 0.25 increments
-      expect(Math.round(newValue * 4) % 1).toBe(0);
+      // Value should be quantized to 0.25 increments (within floating-point tolerance)
+      const quantized = Math.round(newValue / 0.25) * 0.25;
+      expect(newValue).toBeCloseTo(quantized, 10);
     });
 
     it('should default step=1 and preserve integer behavior', () => {
