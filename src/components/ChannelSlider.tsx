@@ -5,6 +5,8 @@ import { abbreviateChannelName } from '@/utils/channelAbbreviation';
 import FadeBehaviorBadge from './FadeBehaviorBadge';
 import { useValueScrub } from '@/hooks/useValueScrub';
 import { useScrollDirectionPreference } from '@/hooks/useScrollDirectionPreference';
+import { useDisplayMode } from '@/hooks/useDisplayMode';
+import { dmxToPercent, percentToDmx, isPercentageChannel, percentStep, dmxStep } from '@/utils/dmxPercentage';
 
 // Default min/max values for DMX channels (standard range: 0-255)
 const DEFAULT_MIN_VALUE = 0;
@@ -66,16 +68,34 @@ export default function ChannelSlider({
   // Get scroll direction preference from localStorage
   const [, , invertWheelDirection] = useScrollDirectionPreference();
 
+  // Get display mode preference
+  const { isPercentMode } = useDisplayMode();
+
+  // Determine if this channel should show percentages
+  const min = channel.minValue || DEFAULT_MIN_VALUE;
+  const max = channel.maxValue || DEFAULT_MAX_VALUE;
+  const usePercent = isPercentMode && isPercentageChannel(channel.type);
+
+  // Compute display-space values
+  const displayValue = usePercent ? dmxToPercent(localValue, min, max) : localValue;
+  const displayMin = usePercent ? 0 : min;
+  const displayMax = usePercent ? 100 : max;
+  const displayStep = usePercent ? 0.1 : 1;
+
   // Set up value scrub gestures (wheel + touch)
   const { wheelProps, touchScrubProps, containerRef } = useValueScrub({
-    value: localValue,
-    min: channel.minValue || DEFAULT_MIN_VALUE,
-    max: channel.maxValue || DEFAULT_MAX_VALUE,
-    onChange: (newValue) => {
-      setLocalValue(newValue);
-      onChange(newValue);
+    value: displayValue,
+    min: displayMin,
+    max: displayMax,
+    onChange: (newDisplayValue) => {
+      const dmxValue = usePercent ? percentToDmx(newDisplayValue, min, max) : newDisplayValue;
+      setLocalValue(dmxValue);
+      onChange(dmxValue);
     },
-    onChangeComplete,
+    onChangeComplete: onChangeComplete ? (newDisplayValue) => {
+      const dmxValue = usePercent ? percentToDmx(newDisplayValue, min, max) : newDisplayValue;
+      onChangeComplete(dmxValue);
+    } : undefined,
     disabled: isInactive,
     invertWheelDirection,
   });
@@ -89,51 +109,61 @@ export default function ChannelSlider({
   }, [value, localValue]);
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = parseInt(e.target.value);
-    setLocalValue(newValue);
-    onChange(newValue);
+    const rawValue = parseFloat(e.target.value);
+    const dmxValue = usePercent ? percentToDmx(rawValue, min, max) : Math.round(rawValue);
+    setLocalValue(dmxValue);
+    onChange(dmxValue);
   };
 
   const handleSliderMouseUp = (e: React.MouseEvent<HTMLInputElement>) => {
-    const newValue = parseInt((e.target as HTMLInputElement).value);
+    const rawValue = parseFloat((e.target as HTMLInputElement).value);
+    const dmxValue = usePercent ? percentToDmx(rawValue, min, max) : Math.round(rawValue);
     if (onChangeComplete) {
-      onChangeComplete(newValue);
+      onChangeComplete(dmxValue);
     }
   };
 
   const handleSliderTouchEnd = (e: React.TouchEvent<HTMLInputElement>) => {
-    const newValue = parseInt((e.target as HTMLInputElement).value);
+    const rawValue = parseFloat((e.target as HTMLInputElement).value);
+    const dmxValue = usePercent ? percentToDmx(rawValue, min, max) : Math.round(rawValue);
     if (onChangeComplete) {
-      onChangeComplete(newValue);
+      onChangeComplete(dmxValue);
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = parseInt(e.target.value) || DEFAULT_MIN_VALUE;
-    const clampedValue = Math.max(channel.minValue || DEFAULT_MIN_VALUE, Math.min(channel.maxValue || DEFAULT_MAX_VALUE, newValue));
-    setLocalValue(clampedValue);
-    onChange(clampedValue);
+    const rawValue = parseFloat(e.target.value);
+    if (isNaN(rawValue)) return;
+    const dmxValue = usePercent ? percentToDmx(rawValue, min, max) : Math.max(min, Math.min(max, Math.round(rawValue)));
+    setLocalValue(dmxValue);
+    onChange(dmxValue);
     if (onChangeComplete) {
-      onChangeComplete(clampedValue);
+      onChangeComplete(dmxValue);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    let newValue = localValue;
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
 
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      newValue = Math.min((channel.maxValue || DEFAULT_MAX_VALUE), localValue + (e.shiftKey ? 10 : 1));
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      newValue = Math.max((channel.minValue || DEFAULT_MIN_VALUE), localValue - (e.shiftKey ? 10 : 1));
+    const direction = e.key === 'ArrowUp' ? 1 : -1;
+
+    let newDmxValue: number;
+    if (usePercent) {
+      const step = percentStep(e.shiftKey);
+      const currentPercent = dmxToPercent(localValue, min, max);
+      const newPercent = Math.max(0, Math.min(100, currentPercent + direction * step));
+      newDmxValue = percentToDmx(newPercent, min, max);
+    } else {
+      const step = dmxStep(e.shiftKey);
+      newDmxValue = Math.max(min, Math.min(max, localValue + direction * step));
     }
 
-    if (newValue !== localValue) {
-      setLocalValue(newValue);
-      onChange(newValue);
+    if (newDmxValue !== localValue) {
+      setLocalValue(newDmxValue);
+      onChange(newDmxValue);
       if (onChangeComplete) {
-        onChangeComplete(newValue);
+        onChangeComplete(newDmxValue);
       }
     }
   };
@@ -206,9 +236,10 @@ export default function ChannelSlider({
       {/* Range slider - uses native horizontal drag; wheel scroll captured by container */}
       <input
         type="range"
-        min={channel.minValue || DEFAULT_MIN_VALUE}
-        max={channel.maxValue || DEFAULT_MAX_VALUE}
-        value={localValue}
+        min={displayMin}
+        max={displayMax}
+        step={displayStep}
+        value={displayValue}
         onChange={handleSliderChange}
         onMouseUp={handleSliderMouseUp}
         onTouchEnd={handleSliderTouchEnd}
@@ -225,14 +256,17 @@ export default function ChannelSlider({
       {/* Number input with touch scrub support - drag vertically to adjust value */}
       <input
         type="number"
-        min={channel.minValue || DEFAULT_MIN_VALUE}
-        max={channel.maxValue || DEFAULT_MAX_VALUE}
-        value={localValue}
+        min={displayMin}
+        max={displayMax}
+        step={displayStep}
+        value={usePercent ? parseFloat(displayValue.toFixed(1)) : displayValue}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
         disabled={isInactive}
-        className={`w-12 text-xs text-center font-mono text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0 focus:outline-none focus:ring-1 focus:ring-blue-500 select-none ${isInactive ? 'cursor-not-allowed' : 'cursor-ns-resize'}`}
-        title="Scroll to adjust, arrow keys for ±1, Shift+arrow for ±10. Touch and drag vertically to scrub."
+        className={`${usePercent ? 'w-16' : 'w-12'} text-xs text-center font-mono text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0 focus:outline-none focus:ring-1 focus:ring-blue-500 select-none ${isInactive ? 'cursor-not-allowed' : 'cursor-ns-resize'}`}
+        title={usePercent
+          ? 'Scroll to adjust, arrow keys for ±1%, Shift+arrow for ±0.1%. Touch and drag vertically to scrub.'
+          : 'Scroll to adjust, arrow keys for ±1, Shift+arrow for ±10. Touch and drag vertically to scrub.'}
         {...touchScrubProps}
       />
       {showFadeBehavior && channel.fadeBehavior && (
