@@ -74,7 +74,7 @@ export default function ChannelSlider({
   // Determine if this channel should show percentages
   const min = channel.minValue || DEFAULT_MIN_VALUE;
   const max = channel.maxValue || DEFAULT_MAX_VALUE;
-  const usePercent = isPercentMode && isPercentageChannel(channel.type);
+  const usePercent = isPercentMode && !channel.isDiscrete && isPercentageChannel(channel.type);
 
   // Compute display-space values
   const displayValue = usePercent ? dmxToPercent(localValue, min, max) : localValue;
@@ -90,6 +90,7 @@ export default function ChannelSlider({
     step: usePercent ? 0.1 : 1,
     onChange: (newDisplayValue) => {
       const dmxValue = usePercent ? percentToDmx(newDisplayValue, min, max) : newDisplayValue;
+      if (dmxValue === localValue) return;
       setLocalValue(dmxValue);
       onChange(dmxValue);
     },
@@ -133,7 +134,19 @@ export default function ChannelSlider({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawValue = parseFloat(e.target.value);
+    const { value: inputValue } = e.target;
+
+    // Treat empty input as reset to minimum
+    if (inputValue === '') {
+      setLocalValue(min);
+      onChange(min);
+      if (onChangeComplete) {
+        onChangeComplete(min);
+      }
+      return;
+    }
+
+    const rawValue = parseFloat(inputValue);
     if (isNaN(rawValue)) return;
     const dmxValue = usePercent ? percentToDmx(rawValue, min, max) : Math.max(min, Math.min(max, Math.round(rawValue)));
     setLocalValue(dmxValue);

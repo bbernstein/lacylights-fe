@@ -416,6 +416,25 @@ describe('ChannelSlider', () => {
       expect(slider).toHaveAttribute('step', '0.1');
     });
 
+    it('displays raw DMX when channel has isDiscrete flag even for continuum type', () => {
+      const discreteStrobe: SliderChannel = {
+        name: 'Strobe',
+        type: ChannelType.STROBE,
+        minValue: 0,
+        maxValue: 255,
+        isDiscrete: true,
+      };
+      render(
+        <ChannelSlider
+          channel={discreteStrobe}
+          value={128}
+          onChange={jest.fn()}
+        />
+      );
+      // isDiscrete overrides channel type — shows raw DMX
+      expect(screen.getByRole('spinbutton')).toHaveValue(128);
+    });
+
     it('slider range remains 0-255 for discrete channels in percentage mode', () => {
       render(
         <ChannelSlider

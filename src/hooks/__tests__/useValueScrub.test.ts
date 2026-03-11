@@ -929,4 +929,158 @@ describe('useValueScrub', () => {
       }
     });
   });
+
+  describe('fractional step support', () => {
+    it('should accumulate wheel changes using fractional step threshold', () => {
+      const onChange = jest.fn();
+      const { result } = renderHook(() =>
+        useValueScrub({
+          value: 50,
+          min: 0,
+          max: 100,
+          step: 0.1,
+          onChange,
+          wheelSensitivity: 1, // 1 pixel = 1 unit for easier testing
+        })
+      );
+
+      // Small scroll that exceeds 0.1 step threshold
+      const wheelEvent = {
+        deltaY: 1,
+        shiftKey: false,
+        preventDefault: jest.fn(),
+        stopPropagation: jest.fn(),
+      } as unknown as React.WheelEvent;
+
+      act(() => {
+        result.current.wheelProps.onWheel(wheelEvent);
+      });
+
+      expect(onChange).toHaveBeenCalled();
+      const newValue = onChange.mock.calls[0][0];
+      // Value should be quantized to step=0.1
+      expect(newValue).toBeGreaterThan(50);
+      // Check it's a multiple of 0.1 (within floating point tolerance)
+      expect(Math.round(newValue * 10) % 1).toBe(0);
+    });
+
+    it('should quantize touch scrub to fractional step', () => {
+      const onChange = jest.fn();
+      const { result } = renderHook(() =>
+        useValueScrub({
+          value: 50,
+          min: 0,
+          max: 100,
+          step: 0.1,
+          onChange,
+          touchSensitivity: 1,
+        })
+      );
+
+      // Start touch
+      act(() => {
+        result.current.touchScrubProps.onTouchStart({
+          touches: [{ clientY: 100 }],
+        } as unknown as React.TouchEvent);
+      });
+
+      // Move up past threshold
+      act(() => {
+        result.current.touchScrubProps.onTouchMove({
+          touches: [{ clientY: 90 }], // 10px up
+          preventDefault: jest.fn(),
+        } as unknown as React.TouchEvent);
+      });
+
+      expect(onChange).toHaveBeenCalled();
+      const newValue = onChange.mock.calls[0][0];
+      expect(newValue).toBeGreaterThan(50);
+    });
+
+    it('should clamp fractional values to min/max', () => {
+      const onChange = jest.fn();
+      const { result } = renderHook(() =>
+        useValueScrub({
+          value: 99.9,
+          min: 0,
+          max: 100,
+          step: 0.1,
+          onChange,
+          wheelSensitivity: 1,
+        })
+      );
+
+      // Large scroll up
+      const wheelEvent = {
+        deltaY: 50,
+        shiftKey: false,
+        preventDefault: jest.fn(),
+        stopPropagation: jest.fn(),
+      } as unknown as React.WheelEvent;
+
+      act(() => {
+        result.current.wheelProps.onWheel(wheelEvent);
+      });
+
+      expect(onChange).toHaveBeenCalled();
+      expect(onChange.mock.calls[0][0]).toBeLessThanOrEqual(100);
+    });
+
+    it('should work with step=0.25', () => {
+      const onChange = jest.fn();
+      const { result } = renderHook(() =>
+        useValueScrub({
+          value: 50,
+          min: 0,
+          max: 100,
+          step: 0.25,
+          onChange,
+          wheelSensitivity: 1,
+        })
+      );
+
+      const wheelEvent = {
+        deltaY: 1,
+        shiftKey: false,
+        preventDefault: jest.fn(),
+        stopPropagation: jest.fn(),
+      } as unknown as React.WheelEvent;
+
+      act(() => {
+        result.current.wheelProps.onWheel(wheelEvent);
+      });
+
+      expect(onChange).toHaveBeenCalled();
+      const newValue = onChange.mock.calls[0][0];
+      // Value should be quantized to 0.25 increments
+      expect(Math.round(newValue * 4) % 1).toBe(0);
+    });
+
+    it('should default step=1 and preserve integer behavior', () => {
+      const onChange = jest.fn();
+      const { result } = renderHook(() =>
+        useValueScrub({
+          value: 128,
+          min: 0,
+          max: 255,
+          onChange,
+          wheelSensitivity: 1,
+        })
+      );
+
+      const wheelEvent = {
+        deltaY: 5,
+        shiftKey: false,
+        preventDefault: jest.fn(),
+        stopPropagation: jest.fn(),
+      } as unknown as React.WheelEvent;
+
+      act(() => {
+        result.current.wheelProps.onWheel(wheelEvent);
+      });
+
+      expect(onChange).toHaveBeenCalled();
+      expect(Number.isInteger(onChange.mock.calls[0][0])).toBe(true);
+    });
+  });
 });

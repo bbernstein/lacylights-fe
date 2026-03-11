@@ -134,19 +134,14 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
   }, [value]);
 
   /**
-   * Clamp value to min/max bounds.
-   * When step < 1 (e.g., percentage mode), round to step precision instead of integer.
+   * Clamp value to min/max bounds and quantize to step size.
    */
   const clamp = useCallback(
     (val: number): number => {
       const clamped = Math.max(min, Math.min(max, val));
-      if (step < 1) {
-        // Round to step precision (e.g., step=0.1 → 1 decimal place)
-        const precision = Math.round(-Math.log10(step));
-        const factor = Math.pow(10, precision);
-        return Math.round(clamped * factor) / factor;
-      }
-      return Math.round(clamped);
+      if (step >= 1) return Math.round(clamped);
+      // Quantize to step size (works for any step, not just powers of 10)
+      return Math.round(clamped / step) * step;
     },
     [min, max, step]
   );

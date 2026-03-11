@@ -380,6 +380,7 @@ export default function SettingsPage() {
             <button
               role="switch"
               aria-checked={displayMode === 'percent'}
+              aria-label="Show values as percentages"
               onClick={() => setDisplayMode(displayMode === 'percent' ? 'dmx' : 'percent')}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                 displayMode === 'percent'
