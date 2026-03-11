@@ -8,6 +8,19 @@ jest.mock('@/hooks/useScrollDirectionPreference', () => ({
   useScrollDirectionPreference: () => ['natural', jest.fn(), false],
 }));
 
+// Mock the display mode hook
+jest.mock('@/hooks/useDisplayMode', () => ({
+  useDisplayMode: jest.fn(() => ({
+    displayMode: 'dmx',
+    isDmxMode: true,
+    isPercentMode: false,
+    setDisplayMode: jest.fn(),
+  })),
+}));
+
+import { useDisplayMode } from '@/hooks/useDisplayMode';
+const mockUseDisplayMode = useDisplayMode as jest.MockedFunction<typeof useDisplayMode>;
+
 const mockRedChannel: SliderChannel = {
   name: 'Red',
   type: ChannelType.RED,
@@ -25,6 +38,13 @@ const mockIntensityChannel: SliderChannel = {
 const mockPanChannel: SliderChannel = {
   name: 'Pan',
   type: ChannelType.PAN,
+  minValue: 0,
+  maxValue: 255,
+};
+
+const mockGoboChannel: SliderChannel = {
+  name: 'Gobo',
+  type: ChannelType.GOBO,
   minValue: 0,
   maxValue: 255,
 };
@@ -321,6 +341,111 @@ describe('ChannelSlider', () => {
 
       const numberInput = container.querySelector('input[type="number"]');
       expect(numberInput).toHaveClass('cursor-not-allowed');
+    });
+  });
+
+  describe('percentage mode', () => {
+    beforeEach(() => {
+      mockUseDisplayMode.mockReturnValue({
+        displayMode: 'percent',
+        isDmxMode: false,
+        isPercentMode: true,
+        setDisplayMode: jest.fn(),
+      });
+    });
+
+    afterEach(() => {
+      mockUseDisplayMode.mockReturnValue({
+        displayMode: 'dmx',
+        isDmxMode: true,
+        isPercentMode: false,
+        setDisplayMode: jest.fn(),
+      });
+    });
+
+    it('displays percentage for continuum channels', () => {
+      render(
+        <ChannelSlider
+          channel={mockIntensityChannel}
+          value={128}
+          onChange={jest.fn()}
+        />
+      );
+      // Number input should show percentage value
+      expect(screen.getByRole('spinbutton')).toHaveValue(50.2);
+    });
+
+    it('displays raw DMX for discrete channels', () => {
+      render(
+        <ChannelSlider
+          channel={mockGoboChannel}
+          value={128}
+          onChange={jest.fn()}
+        />
+      );
+      // Discrete channels always show DMX
+      expect(screen.getByRole('spinbutton')).toHaveValue(128);
+    });
+
+    it('converts percentage input back to DMX for onChange', () => {
+      const handleChange = jest.fn();
+      render(
+        <ChannelSlider
+          channel={mockIntensityChannel}
+          value={128}
+          onChange={handleChange}
+        />
+      );
+      const numberInput = screen.getByRole('spinbutton');
+      fireEvent.change(numberInput, { target: { value: '75.0' } });
+      // 75% of 255 = 191.25 -> 191
+      expect(handleChange).toHaveBeenCalledWith(191);
+    });
+
+    it('slider range is 0-100 with step 0.1 in percentage mode for continuum channels', () => {
+      render(
+        <ChannelSlider
+          channel={mockIntensityChannel}
+          value={128}
+          onChange={jest.fn()}
+        />
+      );
+      const slider = screen.getByRole('slider');
+      expect(slider).toHaveAttribute('min', '0');
+      expect(slider).toHaveAttribute('max', '100');
+      expect(slider).toHaveAttribute('step', '0.1');
+    });
+
+    it('displays raw DMX when channel has isDiscrete flag even for continuum type', () => {
+      const discreteStrobe: SliderChannel = {
+        name: 'Strobe',
+        type: ChannelType.STROBE,
+        minValue: 0,
+        maxValue: 255,
+        isDiscrete: true,
+      };
+      render(
+        <ChannelSlider
+          channel={discreteStrobe}
+          value={128}
+          onChange={jest.fn()}
+        />
+      );
+      // isDiscrete overrides channel type — shows raw DMX
+      expect(screen.getByRole('spinbutton')).toHaveValue(128);
+    });
+
+    it('slider range remains 0-255 for discrete channels in percentage mode', () => {
+      render(
+        <ChannelSlider
+          channel={mockGoboChannel}
+          value={128}
+          onChange={jest.fn()}
+        />
+      );
+      const slider = screen.getByRole('slider');
+      expect(slider).toHaveAttribute('min', '0');
+      expect(slider).toHaveAttribute('max', '255');
     });
   });
 

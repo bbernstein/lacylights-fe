@@ -9,6 +9,7 @@ import VersionManagement from './VersionManagement';
 import OFLManagement from './OFLManagement';
 import ArtNetControl from './ArtNetControl';
 import UsersAccessSection from './UsersAccessSection';
+import { useDisplayMode } from '@/hooks/useDisplayMode';
 
 interface SettingDefinition {
   key: string;
@@ -33,6 +34,7 @@ const KNOWN_SETTINGS: SettingDefinition[] = [
 ];
 
 export default function SettingsPage() {
+  const { displayMode, setDisplayMode } = useDisplayMode();
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
   const [manualEntry, setManualEntry] = useState(false);
@@ -359,6 +361,41 @@ export default function SettingsPage() {
       <div>
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Version Management</h2>
         <VersionManagement />
+      </div>
+
+      {/* Display Preferences Section */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Display Preferences</h2>
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                Show values as percentages
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Display channel values as 0.0%-100.0% instead of DMX 0-255.
+                Discrete channels (gobo, color wheel, etc.) always show raw DMX values.
+              </p>
+            </div>
+            <button
+              role="switch"
+              aria-checked={displayMode === 'percent'}
+              aria-label="Show values as percentages"
+              onClick={() => setDisplayMode(displayMode === 'percent' ? 'dmx' : 'percent')}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                displayMode === 'percent'
+                  ? 'bg-blue-600'
+                  : 'bg-gray-200 dark:bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  displayMode === 'percent' ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Fade Engine Configuration Section */}

@@ -33,6 +33,12 @@ export interface UseValueScrubOptions {
    * - true: Traditional scrolling - drag UP = decrease value (Windows/Linux default)
    */
   invertWheelDirection?: boolean;
+  /**
+   * Base step size for value changes (default: 1).
+   * When using percentage mode, the caller passes the percentage step size
+   * and handles conversion externally.
+   */
+  step?: number;
 }
 
 /**
@@ -109,7 +115,11 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
     touchSensitivity = DEFAULT_TOUCH_SENSITIVITY,
     shiftMultiplier = DEFAULT_SHIFT_MULTIPLIER,
     invertWheelDirection = false,
+    step: rawStep = 1,
   } = options;
+
+  // Normalize step to a positive finite number (guards against 0, negative, NaN)
+  const step = Number.isFinite(rawStep) && rawStep > 0 ? rawStep : 1;
 
   // Track touch state
   const touchStartY = useRef<number | null>(null);
@@ -127,11 +137,17 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
   }, [value]);
 
   /**
-   * Clamp value to min/max bounds
+   * Clamp value to min/max bounds and quantize to step size.
    */
   const clamp = useCallback(
-    (val: number): number => Math.max(min, Math.min(max, Math.round(val))),
-    [min, max]
+    (val: number): number => {
+      const clamped = Math.max(min, Math.min(max, val));
+      if (step === 1) return Math.round(clamped);
+      // Quantize relative to min so values stay aligned with the range
+      const quantized = min + Math.round((clamped - min) / step) * step;
+      return Math.max(min, Math.min(max, quantized));
+    },
+    [min, max, step]
   );
 
   /**
@@ -161,12 +177,12 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
       // Accumulate sub-unit changes for smooth adjustment
       accumulatedDelta.current += delta;
 
-      // Only apply changes when we've accumulated at least 1 unit
-      if (Math.abs(accumulatedDelta.current) >= 1) {
-        const change = Math.trunc(accumulatedDelta.current);
-        accumulatedDelta.current -= change;
+      // Use step size for accumulation threshold
+      if (Math.abs(accumulatedDelta.current) >= step) {
+        const steps = Math.trunc(accumulatedDelta.current / step);
+        accumulatedDelta.current -= steps * step;
 
-        const newValue = clamp(lastValue.current + change);
+        const newValue = clamp(lastValue.current + steps * step);
         if (newValue !== lastValue.current) {
           lastValue.current = newValue;
           onChange(newValue);
@@ -176,7 +192,7 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
         }
       }
     },
-    [disabled, wheelSensitivity, shiftMultiplier, invertWheelDirection, clamp, onChange, onChangeComplete]
+    [disabled, wheelSensitivity, shiftMultiplier, invertWheelDirection, step, clamp, onChange, onChangeComplete]
   );
 
   /**
@@ -224,7 +240,9 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
 
         // Calculate new value based on movement from start position
         const valueChange = deltaY / touchSensitivity;
-        const newValue = clamp(touchStartValue.current + valueChange);
+        // Quantize to step size
+        const steppedChange = Math.round(valueChange / step) * step;
+        const newValue = clamp(touchStartValue.current + steppedChange);
 
         if (newValue !== lastValue.current) {
           lastValue.current = newValue;
@@ -232,7 +250,7 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
         }
       }
     },
-    [disabled, touchSensitivity, clamp, onChange]
+    [disabled, touchSensitivity, step, clamp, onChange]
   );
 
   /**
