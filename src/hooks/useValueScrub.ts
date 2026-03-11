@@ -143,7 +143,9 @@ export function useValueScrub(options: UseValueScrubOptions): UseValueScrubRetur
     (val: number): number => {
       const clamped = Math.max(min, Math.min(max, val));
       if (step === 1) return Math.round(clamped);
-      return Math.round(clamped / step) * step;
+      // Quantize relative to min so values stay aligned with the range
+      const quantized = min + Math.round((clamped - min) / step) * step;
+      return Math.max(min, Math.min(max, quantized));
     },
     [min, max, step]
   );
