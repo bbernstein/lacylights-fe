@@ -87,6 +87,7 @@ export default function ChannelSlider({
     value: displayValue,
     min: displayMin,
     max: displayMax,
+    step: usePercent ? 0.1 : 1,
     onChange: (newDisplayValue) => {
       const dmxValue = usePercent ? percentToDmx(newDisplayValue, min, max) : newDisplayValue;
       setLocalValue(dmxValue);
