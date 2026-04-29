@@ -203,12 +203,15 @@ export default function ImportExportButtons({
   const [importProjectFromEos] = useMutation(IMPORT_PROJECT_FROM_EOS, {
     onCompleted: (data) => {
       if (data?.importProjectFromEos?.projectId) {
-        // Set warnings first, then notify parent. The skip-ref above
-        // guards against the parent's resulting projectId change wiping
-        // these warnings out via the project-switch effect.
-        skipNextProjectClearRef.current = true;
         setEosWarnings(data.importProjectFromEos.warnings ?? []);
-        onImportComplete?.(data.importProjectFromEos.projectId);
+        // Only arm the skip-ref when we are actually going to call
+        // onImportComplete; otherwise no projectId change is on the way
+        // and a leftover `true` ref would suppress the next unrelated
+        // project switch's warning clear.
+        if (onImportComplete) {
+          skipNextProjectClearRef.current = true;
+          onImportComplete(data.importProjectFromEos.projectId);
+        }
       }
     },
   });

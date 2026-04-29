@@ -195,7 +195,6 @@ describe("ImportExportButtons - Eos format", () => {
             projectId: "p1",
             projectName: "Show One",
             asciiContent: "Ident 3:0\n",
-            filenameSuffix: ".asc",
             warnings: [
               {
                 code: "EFFECT_SKIPPED",
@@ -245,7 +244,7 @@ describe("ImportExportButtons - Eos format", () => {
     }
   });
 
-  it("ignores a hostile backend filenameSuffix and downloads as .asc", async () => {
+  it("always downloads the export as .asc regardless of backend response", async () => {
     const exportMock = {
       request: {
         query: EXPORT_PROJECT_TO_EOS,
@@ -257,8 +256,6 @@ describe("ImportExportButtons - Eos format", () => {
             projectId: "p1",
             projectName: "Show",
             asciiContent: "Ident 3:0\n",
-            // Malicious / unexpected suffix; the component must reject it.
-            filenameSuffix: "/../etc/passwd",
             warnings: [],
           },
         },

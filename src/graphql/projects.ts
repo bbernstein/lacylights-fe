@@ -224,7 +224,6 @@ export const EXPORT_PROJECT_TO_EOS = gql`
       projectId
       projectName
       asciiContent
-      filenameSuffix
       warnings {
         code
         severity
