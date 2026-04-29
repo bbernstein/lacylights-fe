@@ -6,6 +6,30 @@ import {
   EXPORT_PROJECT_TO_EOS,
 } from "@/graphql/projects";
 
+/**
+ * Spy on document.createElement so the dynamically created file <input> is
+ * captured (the component never appends it to the DOM, so it can't be queried
+ * the usual way) and so input.click() doesn't try to open the native picker.
+ */
+function captureFileInput() {
+  const realCreate = document.createElement.bind(document);
+  let capturedInput: HTMLInputElement | null = null;
+  const spy = jest
+    .spyOn(document, "createElement")
+    .mockImplementation((tag: string) => {
+      const el = realCreate(tag);
+      if (tag === "input") {
+        capturedInput = el as HTMLInputElement;
+        (el as HTMLInputElement).click = jest.fn();
+      }
+      return el;
+    });
+  return {
+    spy,
+    getInput: () => capturedInput,
+  };
+}
+
 describe("ImportExportButtons - Eos format", () => {
   it("offers ETC Eos in the import dropdown", () => {
     render(
@@ -54,20 +78,7 @@ describe("ImportExportButtons - Eos format", () => {
       },
     };
 
-    // Capture the file input the component creates dynamically.
-    const realCreate = document.createElement.bind(document);
-    let capturedInput: HTMLInputElement | null = null;
-    const createSpy = jest
-      .spyOn(document, "createElement")
-      .mockImplementation((tag: string) => {
-        const el = realCreate(tag);
-        if (tag === "input") {
-          capturedInput = el as HTMLInputElement;
-          // Suppress the native file picker that input.click() would trigger.
-          (el as HTMLInputElement).click = jest.fn();
-        }
-        return el;
-      });
+    const { spy: createSpy, getInput } = captureFileInput();
 
     try {
       const onImportComplete = jest.fn();
@@ -80,6 +91,7 @@ describe("ImportExportButtons - Eos format", () => {
       fireEvent.click(screen.getByRole("button", { name: /import/i }));
       fireEvent.click(screen.getByText(/ETC Eos \(\.asc\)/));
 
+      const capturedInput = getInput();
       expect(capturedInput).not.toBeNull();
       const file = new File([ascii], "show.asc", { type: "text/plain" });
       // jsdom's File doesn't implement .text(); polyfill on the instance.
@@ -135,18 +147,7 @@ describe("ImportExportButtons - Eos format", () => {
       },
     };
 
-    const realCreate = document.createElement.bind(document);
-    let capturedInput: HTMLInputElement | null = null;
-    const createSpy = jest
-      .spyOn(document, "createElement")
-      .mockImplementation((tag: string) => {
-        const el = realCreate(tag);
-        if (tag === "input") {
-          capturedInput = el as HTMLInputElement;
-          (el as HTMLInputElement).click = jest.fn();
-        }
-        return el;
-      });
+    const { spy: createSpy, getInput } = captureFileInput();
 
     try {
       render(
@@ -156,6 +157,7 @@ describe("ImportExportButtons - Eos format", () => {
       );
       fireEvent.click(screen.getByRole("button", { name: /import/i }));
       fireEvent.click(screen.getByText(/ETC Eos \(\.asc\)/));
+      const capturedInput = getInput();
       expect(capturedInput).not.toBeNull();
       const file = new File([ascii], "show.asc", { type: "text/plain" });
       file.text = jest.fn().mockResolvedValue(ascii);

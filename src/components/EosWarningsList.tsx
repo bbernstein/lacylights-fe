@@ -44,11 +44,15 @@ export default function EosWarningsList({ warnings }: Props) {
 
   if (warnings.length === 0) return null;
   return (
-    <div className="rounded border border-amber-200 bg-amber-50 p-4">
+    <div
+      role="region"
+      aria-label="Eos notices"
+      className="rounded border border-amber-200 bg-amber-50 p-4"
+    >
       <h3 className="mb-2 text-sm font-semibold text-amber-900">
         Eos notices
       </h3>
-      <ul className="space-y-3">
+      <ul className="space-y-3" aria-label="Eos warnings grouped by code">
         {Array.from(groups.entries()).map(([code, ws]) => (
           <li key={code}>
             <details>
