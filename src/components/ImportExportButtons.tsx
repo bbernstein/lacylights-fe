@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useLazyQuery } from '@apollo/client';
 import {
   IMPORT_PROJECT,
@@ -140,9 +140,19 @@ export default function ImportExportButtons({
   const [showFormatMenu, setShowFormatMenu] = useState(false);
   const [showExportFormatMenu, setShowExportFormatMenu] = useState(false);
   const [eosWarnings, setEosWarnings] = useState<ReadonlyArray<EosWarning> | null>(null);
+  // When an Eos import succeeds the parent typically updates `projectId`
+  // to the freshly-imported project, which would synchronously fire the
+  // "clear stale warnings on project switch" effect below and wipe out
+  // the warnings the import just produced. This ref tells the effect to
+  // skip exactly the next clear so the import-driven warnings stay visible.
+  const skipNextProjectClearRef = useRef(false);
 
   // Stale warnings from a previous project should not bleed across project switches.
   useEffect(() => {
+    if (skipNextProjectClearRef.current) {
+      skipNextProjectClearRef.current = false;
+      return;
+    }
     setEosWarnings(null);
   }, [projectId]);
 
@@ -193,6 +203,10 @@ export default function ImportExportButtons({
   const [importProjectFromEos] = useMutation(IMPORT_PROJECT_FROM_EOS, {
     onCompleted: (data) => {
       if (data?.importProjectFromEos?.projectId) {
+        // Set warnings first, then notify parent. The skip-ref above
+        // guards against the parent's resulting projectId change wiping
+        // these warnings out via the project-switch effect.
+        skipNextProjectClearRef.current = true;
         setEosWarnings(data.importProjectFromEos.warnings ?? []);
         onImportComplete?.(data.importProjectFromEos.projectId);
       }
@@ -235,7 +249,6 @@ export default function ImportExportButtons({
           detectedFormat = 'lacylights';
         } else {
           onError?.('Unable to determine file format. Supported formats: .asc (ETC Eos), .qxw (QLC+), .json (LacyLights).');
-          setIsImporting(false);
           return;
         }
 
@@ -294,12 +307,12 @@ export default function ImportExportButtons({
         const result = await exportProjectToEos({ variables: { projectId } });
         if (result.data?.exportProjectToEos) {
           const r = result.data.exportProjectToEos;
-          // Validate the backend-supplied suffix against a strict allowlist
-          // before concatenating it into a filename. We expect ".asc"; fall
-          // back to it for any deviation rather than trusting arbitrary text.
-          const suffix = /^\.[A-Za-z0-9]{1,8}$/.test(r.filenameSuffix)
-            ? r.filenameSuffix.toLowerCase()
-            : '.asc';
+          // The Eos export always produces ".asc". The backend's
+          // filenameSuffix is currently informational only; we hardcode
+          // the extension so that the downloaded filename and the
+          // downloadFile() MIME-type heuristic stay aligned even if a
+          // backend regression returns something else.
+          const suffix = '.asc';
           downloadFile(r.asciiContent, `${sanitizeFilename(r.projectName)}${suffix}`);
           setEosWarnings(r.warnings ?? []);
         }

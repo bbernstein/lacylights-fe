@@ -47,19 +47,19 @@ export default function EosWarningsList({ warnings }: Props) {
     <div
       role="region"
       aria-label="Eos notices"
-      className="rounded border border-amber-200 bg-amber-50 p-4"
+      className="rounded border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30"
     >
-      <h3 className="mb-2 text-sm font-semibold text-amber-900">
+      <h3 className="mb-2 text-sm font-semibold text-amber-900 dark:text-amber-100">
         Eos notices
       </h3>
       <ul className="space-y-3" aria-label="Eos warnings grouped by code">
         {Array.from(groups.entries()).map(([code, ws]) => (
           <li key={code}>
             <details>
-              <summary className="cursor-pointer font-medium text-amber-800">
+              <summary className="cursor-pointer font-medium text-amber-800 dark:text-amber-200">
                 {FRIENDLY_NAMES[code] ?? code} ({ws.length})
               </summary>
-              <ul className="mt-1 list-disc space-y-1 pl-5 text-xs text-amber-700">
+              <ul className="mt-1 list-disc space-y-1 pl-5 text-xs text-amber-700 dark:text-amber-300">
                 {ws.slice(0, 50).map((w, i) => (
                   <li key={`${code}-${i}`}>{w.message}</li>
                 ))}
