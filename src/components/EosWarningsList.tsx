@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { EosWarning } from "@/generated/graphql";
 
 interface Props {
@@ -31,13 +32,17 @@ const FRIENDLY_NAMES: Record<string, string> = {
 };
 
 export default function EosWarningsList({ warnings }: Props) {
+  const groups = useMemo(() => {
+    const m = new Map<string, EosWarning[]>();
+    warnings.forEach((w) => {
+      const list = m.get(w.code) ?? [];
+      list.push(w);
+      m.set(w.code, list);
+    });
+    return m;
+  }, [warnings]);
+
   if (warnings.length === 0) return null;
-  const groups = new Map<string, EosWarning[]>();
-  warnings.forEach((w) => {
-    const list = groups.get(w.code) ?? [];
-    list.push(w);
-    groups.set(w.code, list);
-  });
   return (
     <div className="rounded border border-amber-200 bg-amber-50 p-4">
       <h3 className="mb-2 text-sm font-semibold text-amber-900">

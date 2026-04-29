@@ -98,6 +98,80 @@ describe("ImportExportButtons - Eos format", () => {
     }
   });
 
+  it("renders the warnings panel after a successful Eos import", async () => {
+    const ascii = "Ident 3:0\n";
+    const importMock = {
+      request: {
+        query: IMPORT_PROJECT_FROM_EOS,
+        variables: { asciiContent: ascii, options: { newProjectName: "show" } },
+      },
+      result: {
+        data: {
+          importProjectFromEos: {
+            projectId: "p99",
+            fixtureDefinitionsCount: 0,
+            fixtureInstancesCount: 0,
+            looksCount: 0,
+            cueListsCount: 0,
+            cuesCount: 0,
+            groupsCount: 0,
+            warnings: [
+              {
+                code: "EFFECT_SKIPPED",
+                severity: "INFO",
+                message: "Effect FX1 skipped",
+                context: [],
+              },
+              {
+                code: "EFFECT_SKIPPED",
+                severity: "INFO",
+                message: "Effect FX2 skipped",
+                context: [],
+              },
+            ],
+            synthesizedDefinitionIds: [],
+          },
+        },
+      },
+    };
+
+    const realCreate = document.createElement.bind(document);
+    let capturedInput: HTMLInputElement | null = null;
+    const createSpy = jest
+      .spyOn(document, "createElement")
+      .mockImplementation((tag: string) => {
+        const el = realCreate(tag);
+        if (tag === "input") {
+          capturedInput = el as HTMLInputElement;
+          (el as HTMLInputElement).click = jest.fn();
+        }
+        return el;
+      });
+
+    try {
+      render(
+        <MockedProvider mocks={[importMock]} addTypename={false}>
+          <ImportExportButtons />
+        </MockedProvider>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: /import/i }));
+      fireEvent.click(screen.getByText(/ETC Eos \(\.asc\)/));
+      const file = new File([ascii], "show.asc", { type: "text/plain" });
+      file.text = jest.fn().mockResolvedValue(ascii);
+      Object.defineProperty(capturedInput, "files", {
+        value: [file],
+        configurable: true,
+      });
+      fireEvent.change(capturedInput!);
+
+      await waitFor(() =>
+        expect(screen.getByText(/Effects skipped \(2\)/)).toBeInTheDocument(),
+      );
+    } finally {
+      createSpy.mockRestore();
+    }
+  });
+
   it("exports an .asc file with the suffix from the backend", async () => {
     const exportMock = {
       request: {

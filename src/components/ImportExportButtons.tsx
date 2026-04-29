@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useLazyQuery } from '@apollo/client';
 import {
   IMPORT_PROJECT,
@@ -140,6 +140,11 @@ export default function ImportExportButtons({
   const [showFormatMenu, setShowFormatMenu] = useState(false);
   const [showExportFormatMenu, setShowExportFormatMenu] = useState(false);
   const [eosWarnings, setEosWarnings] = useState<ReadonlyArray<EosWarning> | null>(null);
+
+  // Stale warnings from a previous project should not bleed across project switches.
+  useEffect(() => {
+    setEosWarnings(null);
+  }, [projectId]);
 
   // GraphQL mutations
   const [importProject] = useMutation(IMPORT_PROJECT, {
@@ -350,6 +355,19 @@ export default function ImportExportButtons({
     }
   };
 
+  const warningsPanel =
+    eosWarnings && eosWarnings.length > 0 ? (
+      <div className="max-h-72 overflow-y-auto">
+        <EosWarningsList warnings={eosWarnings} />
+        <button
+          onClick={() => setEosWarnings(null)}
+          className="mt-2 text-xs text-gray-500 underline"
+        >
+          Dismiss
+        </button>
+      </div>
+    ) : null;
+
   // Dropdown menu items for use inside a parent dropdown
   if (inDropdown) {
     return (
@@ -428,17 +446,7 @@ export default function ImportExportButtons({
           </>
         )}
 
-        {eosWarnings && eosWarnings.length > 0 && (
-          <div className="mt-3 px-2">
-            <EosWarningsList warnings={eosWarnings} />
-            <button
-              onClick={() => setEosWarnings(null)}
-              className="mt-2 text-xs text-gray-500 underline"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
+        {warningsPanel && <div className="mt-3 px-2">{warningsPanel}</div>}
       </div>
     );
   }
@@ -548,17 +556,7 @@ export default function ImportExportButtons({
 
       </div>
 
-      {eosWarnings && eosWarnings.length > 0 && (
-        <div className="mt-1">
-          <EosWarningsList warnings={eosWarnings} />
-          <button
-            onClick={() => setEosWarnings(null)}
-            className="mt-2 text-xs text-gray-500 underline"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
+      {warningsPanel && <div className="mt-1">{warningsPanel}</div>}
     </div>
   );
 }

@@ -14,12 +14,14 @@ import { test, expect, Route } from '@playwright/test';
 
 type GqlBody = { operationName?: string; query?: string; variables?: Record<string, unknown> };
 
+// Use fixed timestamps so the GraphQL stub responses are deterministic across
+// test runs; otherwise re-running the suite produces different mocked payloads.
 const PROJECT = {
   id: 'p-eos-e2e',
   name: 'Eos E2E Project',
   description: '',
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
   layoutCanvasWidth: 2000,
   layoutCanvasHeight: 2000,
   groupId: 'g1',
