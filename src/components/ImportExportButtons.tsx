@@ -7,10 +7,14 @@ import {
   IMPORT_PROJECT_FROM_QLC,
   EXPORT_PROJECT,
   EXPORT_PROJECT_TO_QLC,
-  GET_QLC_FIXTURE_MAPPING_SUGGESTIONS
+  GET_QLC_FIXTURE_MAPPING_SUGGESTIONS,
+  IMPORT_PROJECT_FROM_EOS,
+  EXPORT_PROJECT_TO_EOS
 } from '@/graphql/projects';
 import { getFixtureKey, getManufacturer, getModel } from '@/constants/fixtures';
 import { ImportMode, FixtureConflictStrategy } from '@/constants/import';
+import EosImportWarningsList from './EosImportWarningsList';
+import type { EosWarning } from '@/generated/graphql';
 
 interface ImportExportButtonsProps {
   projectId?: string;
@@ -23,8 +27,8 @@ interface ImportExportButtonsProps {
   inDropdown?: boolean;
 }
 
-type ExportFormat = 'lacylights' | 'qlcplus';
-type ImportFormat = 'auto' | 'lacylights' | 'qlcplus';
+type ExportFormat = 'lacylights' | 'qlcplus' | 'eos';
+type ImportFormat = 'auto' | 'lacylights' | 'qlcplus' | 'eos';
 
 // Type definition for the native Mac app bridge
 interface LacyLightsBridge {
@@ -61,7 +65,11 @@ function downloadFile(content: string, filename: string): void {
   } else {
     // Fallback to browser download
     const blob = new Blob([content], {
-      type: filename.endsWith('.json') ? 'application/json' : 'application/xml'
+      type: filename.endsWith('.json')
+        ? 'application/json'
+        : filename.endsWith('.asc')
+          ? 'text/plain'
+          : 'application/xml'
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -131,6 +139,7 @@ export default function ImportExportButtons({
   const [isExporting, setIsExporting] = useState(false);
   const [showFormatMenu, setShowFormatMenu] = useState(false);
   const [showExportFormatMenu, setShowExportFormatMenu] = useState(false);
+  const [eosWarnings, setEosWarnings] = useState<ReadonlyArray<EosWarning> | null>(null);
 
   // GraphQL mutations
   const [importProject] = useMutation(IMPORT_PROJECT, {
@@ -173,6 +182,24 @@ export default function ImportExportButtons({
     },
   });
 
+  const [importProjectFromEos] = useMutation(IMPORT_PROJECT_FROM_EOS, {
+    onError: (error) => {
+      onError?.(`Failed to import project: ${error.message}`);
+    },
+    onCompleted: (data) => {
+      if (data?.importProjectFromEos?.projectId) {
+        setEosWarnings(data.importProjectFromEos.warnings ?? []);
+        onImportComplete?.(data.importProjectFromEos.projectId);
+      }
+    },
+  });
+
+  const [exportProjectToEos] = useMutation(EXPORT_PROJECT_TO_EOS, {
+    onError: (error) => {
+      onError?.(`Failed to export project: ${error.message}`);
+    },
+  });
+
   const handleImport = (format: ImportFormat) => {
     setShowFormatMenu(false);
     const input = document.createElement('input');
@@ -182,9 +209,11 @@ export default function ImportExportButtons({
       input.accept = '.qxw';
     } else if (format === 'lacylights') {
       input.accept = '.json';
+    } else if (format === 'eos') {
+      input.accept = '.asc';
     } else {
       // auto-detect
-      input.accept = '.qxw,.json';
+      input.accept = '.qxw,.json,.asc';
     }
 
     input.onchange = async (e) => {
@@ -195,20 +224,30 @@ export default function ImportExportButtons({
 
       try {
         // Determine format based on file extension or explicit format
-        let detectedFormat: 'lacylights' | 'qlcplus';
-        if (format === 'qlcplus' || file.name.endsWith('.qxw')) {
+        let detectedFormat: 'lacylights' | 'qlcplus' | 'eos';
+        if (format === 'eos' || file.name.toLowerCase().endsWith('.asc')) {
+          detectedFormat = 'eos';
+        } else if (format === 'qlcplus' || file.name.toLowerCase().endsWith('.qxw')) {
           detectedFormat = 'qlcplus';
-        } else if (format === 'lacylights' || file.name.endsWith('.json')) {
+        } else if (format === 'lacylights' || file.name.toLowerCase().endsWith('.json')) {
           detectedFormat = 'lacylights';
         } else {
-          onError?.('Unable to determine file format. Supported formats: .qxw (QLC+), .json/.lacylights (LacyLights).');
+          onError?.('Unable to determine file format. Supported formats: .asc (ETC Eos), .qxw (QLC+), .json/.lacylights (LacyLights).');
           setIsImporting(false);
           return;
         }
 
         const content = await file.text();
 
-        if (detectedFormat === 'qlcplus') {
+        if (detectedFormat === 'eos') {
+          const newProjectName = file.name.replace(/\.asc$/i, '');
+          await importProjectFromEos({
+            variables: {
+              asciiContent: content,
+              options: { newProjectName },
+            },
+          });
+        } else if (detectedFormat === 'qlcplus') {
           await importProjectFromQLC({
             variables: {
               xmlContent: content,
@@ -248,7 +287,15 @@ export default function ImportExportButtons({
     setIsExporting(true);
 
     try {
-      if (format === 'qlcplus') {
+      if (format === 'eos') {
+        const result = await exportProjectToEos({ variables: { projectId } });
+        if (result.data?.exportProjectToEos) {
+          const r = result.data.exportProjectToEos;
+          const suffix = r.filenameSuffix || '.asc';
+          downloadFile(r.asciiContent, `${sanitizeFilename(r.projectName)}${suffix}`);
+          setEosWarnings(r.warnings ?? []);
+        }
+      } else if (format === 'qlcplus') {
         // QLC+ export flow
         const mappingResult = await getFixtureMappingSuggestions({
           variables: { projectId }
@@ -335,6 +382,14 @@ export default function ImportExportButtons({
             >
               QLC+ (.qxw)
             </button>
+            <button
+              onClick={() => handleImport('eos')}
+              disabled={disabled || isImporting}
+              className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+              role="menuitem"
+            >
+              ETC Eos (.asc)
+            </button>
           </>
         )}
 
@@ -360,7 +415,27 @@ export default function ImportExportButtons({
             >
               QLC+ (.qxw)
             </button>
+            <button
+              onClick={() => handleExport('eos')}
+              disabled={disabled || isExporting}
+              className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+              role="menuitem"
+            >
+              ETC Eos (.asc)
+            </button>
           </>
+        )}
+
+        {eosWarnings && eosWarnings.length > 0 && (
+          <div className="mt-3 px-2">
+            <EosImportWarningsList warnings={eosWarnings} />
+            <button
+              onClick={() => setEosWarnings(null)}
+              className="mt-2 text-xs text-gray-500 underline"
+            >
+              Dismiss
+            </button>
+          </div>
         )}
       </div>
     );
@@ -368,7 +443,8 @@ export default function ImportExportButtons({
 
   // Standard button rendering
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-col gap-2">
+      <div className="flex gap-2">
       {/* Import Button with Dropdown - Only show if not export-only mode */}
       {!exportOnly && (
         <div className="relative">
@@ -405,6 +481,12 @@ export default function ImportExportButtons({
                 className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors"
               >
                 QLC+ (.qxw)
+              </button>
+              <button
+                onClick={() => handleImport('eos')}
+                className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors"
+              >
+                ETC Eos (.asc)
               </button>
             </div>
           )}
@@ -449,8 +531,28 @@ export default function ImportExportButtons({
               >
                 QLC+ (.qxw)
               </button>
+              <button
+                onClick={() => handleExport('eos')}
+                className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors"
+              >
+                ETC Eos (.asc)
+              </button>
             </div>
           )}
+        </div>
+      )}
+
+      </div>
+
+      {eosWarnings && eosWarnings.length > 0 && (
+        <div className="mt-1">
+          <EosImportWarningsList warnings={eosWarnings} />
+          <button
+            onClick={() => setEosWarnings(null)}
+            className="mt-2 text-xs text-gray-500 underline"
+          >
+            Dismiss
+          </button>
         </div>
       )}
     </div>
