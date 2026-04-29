@@ -183,7 +183,7 @@ describe("ImportExportButtons - Eos format", () => {
     }
   });
 
-  it("exports an .asc file with the suffix from the backend", async () => {
+  it("exports an .asc file via the browser download path and renders warnings", async () => {
     const exportMock = {
       request: {
         query: EXPORT_PROJECT_TO_EOS,
@@ -245,7 +245,7 @@ describe("ImportExportButtons - Eos format", () => {
     }
   });
 
-  it("falls back to .asc when the backend returns a malicious filenameSuffix", async () => {
+  it("ignores a hostile backend filenameSuffix and downloads as .asc", async () => {
     const exportMock = {
       request: {
         query: EXPORT_PROJECT_TO_EOS,

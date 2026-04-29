@@ -248,6 +248,8 @@ export default function ImportExportButtons({
         } else if (format === 'lacylights' || file.name.toLowerCase().endsWith('.json')) {
           detectedFormat = 'lacylights';
         } else {
+          // Returning here falls into the outer finally below, which
+          // resets isImporting; no need to reset it inline.
           onError?.('Unable to determine file format. Supported formats: .asc (ETC Eos), .qxw (QLC+), .json (LacyLights).');
           return;
         }
