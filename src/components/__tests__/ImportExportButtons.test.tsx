@@ -156,6 +156,7 @@ describe("ImportExportButtons - Eos format", () => {
       );
       fireEvent.click(screen.getByRole("button", { name: /import/i }));
       fireEvent.click(screen.getByText(/ETC Eos \(\.asc\)/));
+      expect(capturedInput).not.toBeNull();
       const file = new File([ascii], "show.asc", { type: "text/plain" });
       file.text = jest.fn().mockResolvedValue(ascii);
       Object.defineProperty(capturedInput, "files", {
@@ -166,6 +167,14 @@ describe("ImportExportButtons - Eos format", () => {
 
       await waitFor(() =>
         expect(screen.getByText(/Effects skipped \(2\)/)).toBeInTheDocument(),
+      );
+
+      // Dismiss button removes the panel.
+      fireEvent.click(screen.getByRole("button", { name: /dismiss/i }));
+      await waitFor(() =>
+        expect(
+          screen.queryByText(/Effects skipped \(2\)/),
+        ).not.toBeInTheDocument(),
       );
     } finally {
       createSpy.mockRestore();
@@ -227,6 +236,70 @@ describe("ImportExportButtons - Eos format", () => {
         expect(screen.getByText(/Effects skipped \(1\)/)).toBeInTheDocument(),
       );
       expect(URL.createObjectURL).toHaveBeenCalled();
+    } finally {
+      createSpy.mockRestore();
+      URL.createObjectURL = originalCreateURL;
+      URL.revokeObjectURL = originalRevokeURL;
+    }
+  });
+
+  it("falls back to .asc when the backend returns a malicious filenameSuffix", async () => {
+    const exportMock = {
+      request: {
+        query: EXPORT_PROJECT_TO_EOS,
+        variables: { projectId: "p1" },
+      },
+      result: {
+        data: {
+          exportProjectToEos: {
+            projectId: "p1",
+            projectName: "Show",
+            asciiContent: "Ident 3:0\n",
+            // Malicious / unexpected suffix; the component must reject it.
+            filenameSuffix: "/../etc/passwd",
+            warnings: [],
+          },
+        },
+      },
+    };
+
+    let capturedFilename: string | null = null;
+    const realCreate = document.createElement.bind(document);
+    const createSpy = jest
+      .spyOn(document, "createElement")
+      .mockImplementation((tag: string) => {
+        const el = realCreate(tag);
+        if (tag === "a") {
+          (el as HTMLAnchorElement).click = jest.fn();
+          // Intercept .download assignment so we can assert on it.
+          Object.defineProperty(el, "download", {
+            set(value: string) {
+              capturedFilename = value;
+            },
+            get() {
+              return capturedFilename ?? "";
+            },
+            configurable: true,
+          });
+        }
+        return el;
+      });
+    const originalCreateURL = URL.createObjectURL;
+    const originalRevokeURL = URL.revokeObjectURL;
+    URL.createObjectURL = jest.fn(() => "blob:mock");
+    URL.revokeObjectURL = jest.fn();
+
+    try {
+      render(
+        <MockedProvider mocks={[exportMock]} addTypename={false}>
+          <ImportExportButtons projectId="p1" exportOnly />
+        </MockedProvider>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: /export/i }));
+      fireEvent.click(screen.getByText(/ETC Eos \(\.asc\)/));
+
+      await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled());
+      expect(capturedFilename).toBe("Show.asc");
     } finally {
       createSpy.mockRestore();
       URL.createObjectURL = originalCreateURL;

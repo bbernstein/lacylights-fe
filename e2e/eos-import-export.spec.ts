@@ -59,7 +59,14 @@ async function handleGraphQL(route: Route): Promise<void> {
     case 'GetMyInvitations':
       return respond({ myInvitations: [] });
     case 'CheckDeviceAuthorization':
-      return respond({ checkDeviceAuthorization: { authorized: true, deviceId: 'dev-1', deviceName: 'e2e' } });
+      return respond({
+        checkDeviceAuthorization: {
+          isAuthorized: true,
+          isPending: false,
+          device: null,
+          defaultUser: null,
+        },
+      });
     case 'GetSystemInfo':
       return respond({ systemInfo: { version: '0.0.0', artnetEnabled: false, oflImportEnabled: false } });
     default:
