@@ -190,3 +190,49 @@ export const IMPORT_PROJECT = gql`
     }
   }
 `;
+
+export const IMPORT_PROJECT_FROM_EOS = gql`
+  mutation ImportProjectFromEos(
+    $asciiContent: String!
+    $options: EosImportOptionsInput
+  ) {
+    importProjectFromEos(asciiContent: $asciiContent, options: $options) {
+      projectId
+      fixtureDefinitionsCount
+      fixtureInstancesCount
+      looksCount
+      cueListsCount
+      cuesCount
+      groupsCount
+      warnings {
+        code
+        severity
+        message
+        context {
+          key
+          value
+        }
+      }
+      synthesizedDefinitionIds
+    }
+  }
+`;
+
+export const EXPORT_PROJECT_TO_EOS = gql`
+  mutation ExportProjectToEos($projectId: ID!) {
+    exportProjectToEos(projectId: $projectId) {
+      projectId
+      projectName
+      asciiContent
+      warnings {
+        code
+        severity
+        message
+        context {
+          key
+          value
+        }
+      }
+    }
+  }
+`;

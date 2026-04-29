@@ -1,16 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useLazyQuery } from '@apollo/client';
 import {
   IMPORT_PROJECT,
   IMPORT_PROJECT_FROM_QLC,
   EXPORT_PROJECT,
   EXPORT_PROJECT_TO_QLC,
-  GET_QLC_FIXTURE_MAPPING_SUGGESTIONS
+  GET_QLC_FIXTURE_MAPPING_SUGGESTIONS,
+  IMPORT_PROJECT_FROM_EOS,
+  EXPORT_PROJECT_TO_EOS,
 } from '@/graphql/projects';
 import { getFixtureKey, getManufacturer, getModel } from '@/constants/fixtures';
 import { ImportMode, FixtureConflictStrategy } from '@/constants/import';
+import EosWarningsList from './EosWarningsList';
+import type { EosWarning } from '@/generated/graphql';
 
 interface ImportExportButtonsProps {
   projectId?: string;
@@ -23,8 +27,8 @@ interface ImportExportButtonsProps {
   inDropdown?: boolean;
 }
 
-type ExportFormat = 'lacylights' | 'qlcplus';
-type ImportFormat = 'auto' | 'lacylights' | 'qlcplus';
+type ExportFormat = 'lacylights' | 'qlcplus' | 'eos';
+type ImportFormat = 'auto' | 'lacylights' | 'qlcplus' | 'eos';
 
 // Type definition for the native Mac app bridge
 interface LacyLightsBridge {
@@ -61,7 +65,11 @@ function downloadFile(content: string, filename: string): void {
   } else {
     // Fallback to browser download
     const blob = new Blob([content], {
-      type: filename.endsWith('.json') ? 'application/json' : 'application/xml'
+      type: filename.endsWith('.json')
+        ? 'application/json'
+        : filename.endsWith('.asc')
+          ? 'text/plain'
+          : 'application/xml'
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -131,6 +139,22 @@ export default function ImportExportButtons({
   const [isExporting, setIsExporting] = useState(false);
   const [showFormatMenu, setShowFormatMenu] = useState(false);
   const [showExportFormatMenu, setShowExportFormatMenu] = useState(false);
+  const [eosWarnings, setEosWarnings] = useState<ReadonlyArray<EosWarning> | null>(null);
+  // When an Eos import succeeds the parent typically updates `projectId`
+  // to the freshly-imported project, which would synchronously fire the
+  // "clear stale warnings on project switch" effect below and wipe out
+  // the warnings the import just produced. This ref tells the effect to
+  // skip exactly the next clear so the import-driven warnings stay visible.
+  const skipNextProjectClearRef = useRef(false);
+
+  // Stale warnings from a previous project should not bleed across project switches.
+  useEffect(() => {
+    if (skipNextProjectClearRef.current) {
+      skipNextProjectClearRef.current = false;
+      return;
+    }
+    setEosWarnings(null);
+  }, [projectId]);
 
   // GraphQL mutations
   const [importProject] = useMutation(IMPORT_PROJECT, {
@@ -173,8 +197,30 @@ export default function ImportExportButtons({
     },
   });
 
+  // Note: error reporting for both Eos mutations is handled by the
+  // surrounding try/catch in handleImport/handleExport, so no per-mutation
+  // onError handler here (avoids duplicate user-facing messages).
+  const [importProjectFromEos] = useMutation(IMPORT_PROJECT_FROM_EOS, {
+    onCompleted: (data) => {
+      if (data?.importProjectFromEos?.projectId) {
+        setEosWarnings(data.importProjectFromEos.warnings ?? []);
+        // Only arm the skip-ref when we are actually going to call
+        // onImportComplete; otherwise no projectId change is on the way
+        // and a leftover `true` ref would suppress the next unrelated
+        // project switch's warning clear.
+        if (onImportComplete) {
+          skipNextProjectClearRef.current = true;
+          onImportComplete(data.importProjectFromEos.projectId);
+        }
+      }
+    },
+  });
+
+  const [exportProjectToEos] = useMutation(EXPORT_PROJECT_TO_EOS);
+
   const handleImport = (format: ImportFormat) => {
     setShowFormatMenu(false);
+    setEosWarnings(null);
     const input = document.createElement('input');
     input.type = 'file';
 
@@ -182,9 +228,11 @@ export default function ImportExportButtons({
       input.accept = '.qxw';
     } else if (format === 'lacylights') {
       input.accept = '.json';
+    } else if (format === 'eos') {
+      input.accept = '.asc';
     } else {
       // auto-detect
-      input.accept = '.qxw,.json';
+      input.accept = '.qxw,.json,.asc';
     }
 
     input.onchange = async (e) => {
@@ -195,20 +243,31 @@ export default function ImportExportButtons({
 
       try {
         // Determine format based on file extension or explicit format
-        let detectedFormat: 'lacylights' | 'qlcplus';
-        if (format === 'qlcplus' || file.name.endsWith('.qxw')) {
+        let detectedFormat: 'lacylights' | 'qlcplus' | 'eos';
+        if (format === 'eos' || file.name.toLowerCase().endsWith('.asc')) {
+          detectedFormat = 'eos';
+        } else if (format === 'qlcplus' || file.name.toLowerCase().endsWith('.qxw')) {
           detectedFormat = 'qlcplus';
-        } else if (format === 'lacylights' || file.name.endsWith('.json')) {
+        } else if (format === 'lacylights' || file.name.toLowerCase().endsWith('.json')) {
           detectedFormat = 'lacylights';
         } else {
-          onError?.('Unable to determine file format. Supported formats: .qxw (QLC+), .json/.lacylights (LacyLights).');
-          setIsImporting(false);
+          // Returning here falls into the outer finally below, which
+          // resets isImporting; no need to reset it inline.
+          onError?.('Unable to determine file format. Supported formats: .asc (ETC Eos), .qxw (QLC+), .json (LacyLights).');
           return;
         }
 
         const content = await file.text();
 
-        if (detectedFormat === 'qlcplus') {
+        if (detectedFormat === 'eos') {
+          const newProjectName = file.name.replace(/\.asc$/i, '');
+          await importProjectFromEos({
+            variables: {
+              asciiContent: content,
+              options: { newProjectName },
+            },
+          });
+        } else if (detectedFormat === 'qlcplus') {
           await importProjectFromQLC({
             variables: {
               xmlContent: content,
@@ -245,10 +304,24 @@ export default function ImportExportButtons({
     }
 
     setShowExportFormatMenu(false);
+    setEosWarnings(null);
     setIsExporting(true);
 
     try {
-      if (format === 'qlcplus') {
+      if (format === 'eos') {
+        const result = await exportProjectToEos({ variables: { projectId } });
+        if (result.data?.exportProjectToEos) {
+          const r = result.data.exportProjectToEos;
+          // The Eos export always produces ".asc". The backend's
+          // filenameSuffix is currently informational only; we hardcode
+          // the extension so that the downloaded filename and the
+          // downloadFile() MIME-type heuristic stay aligned even if a
+          // backend regression returns something else.
+          const suffix = '.asc';
+          downloadFile(r.asciiContent, `${sanitizeFilename(r.projectName)}${suffix}`);
+          setEosWarnings(r.warnings ?? []);
+        }
+      } else if (format === 'qlcplus') {
         // QLC+ export flow
         const mappingResult = await getFixtureMappingSuggestions({
           variables: { projectId }
@@ -301,9 +374,23 @@ export default function ImportExportButtons({
     }
   };
 
+  const warningsPanel =
+    eosWarnings && eosWarnings.length > 0 ? (
+      <div className="max-h-72 overflow-y-auto">
+        <EosWarningsList warnings={eosWarnings} />
+        <button
+          onClick={() => setEosWarnings(null)}
+          className="mt-2 text-xs text-gray-500 underline"
+        >
+          Dismiss
+        </button>
+      </div>
+    ) : null;
+
   // Dropdown menu items for use inside a parent dropdown
   if (inDropdown) {
     return (
+      <>
       <div className="space-y-1" role="menu" aria-label="Import and Export options">
         {/* Import options - Only show if not export-only mode */}
         {!exportOnly && (
@@ -335,6 +422,14 @@ export default function ImportExportButtons({
             >
               QLC+ (.qxw)
             </button>
+            <button
+              onClick={() => handleImport('eos')}
+              disabled={disabled || isImporting}
+              className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+              role="menuitem"
+            >
+              ETC Eos (.asc)
+            </button>
           </>
         )}
 
@@ -360,15 +455,29 @@ export default function ImportExportButtons({
             >
               QLC+ (.qxw)
             </button>
+            <button
+              onClick={() => handleExport('eos')}
+              disabled={disabled || isExporting}
+              className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+              role="menuitem"
+            >
+              ETC Eos (.asc)
+            </button>
           </>
         )}
+
       </div>
+      {/* Warnings panel renders outside the role="menu" container so the
+          Dismiss button doesn't conflict with assistive-tech menu navigation. */}
+      {warningsPanel && <div className="mt-3 px-2">{warningsPanel}</div>}
+      </>
     );
   }
 
   // Standard button rendering
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-col gap-2">
+      <div className="flex gap-2">
       {/* Import Button with Dropdown - Only show if not export-only mode */}
       {!exportOnly && (
         <div className="relative">
@@ -405,6 +514,13 @@ export default function ImportExportButtons({
                 className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors"
               >
                 QLC+ (.qxw)
+              </button>
+              <button
+                onClick={() => handleImport('eos')}
+                disabled={disabled || isImporting}
+                className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ETC Eos (.asc)
               </button>
             </div>
           )}
@@ -449,10 +565,21 @@ export default function ImportExportButtons({
               >
                 QLC+ (.qxw)
               </button>
+              <button
+                onClick={() => handleExport('eos')}
+                disabled={disabled || isExporting}
+                className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ETC Eos (.asc)
+              </button>
             </div>
           )}
         </div>
       )}
+
+      </div>
+
+      {warningsPanel && <div className="mt-1">{warningsPanel}</div>}
     </div>
   );
 }
