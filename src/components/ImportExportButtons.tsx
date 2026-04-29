@@ -187,10 +187,10 @@ export default function ImportExportButtons({
     },
   });
 
+  // Note: error reporting for both Eos mutations is handled by the
+  // surrounding try/catch in handleImport/handleExport, so no per-mutation
+  // onError handler here (avoids duplicate user-facing messages).
   const [importProjectFromEos] = useMutation(IMPORT_PROJECT_FROM_EOS, {
-    onError: (error) => {
-      onError?.(`Failed to import project: ${error.message}`);
-    },
     onCompleted: (data) => {
       if (data?.importProjectFromEos?.projectId) {
         setEosWarnings(data.importProjectFromEos.warnings ?? []);
@@ -199,11 +199,7 @@ export default function ImportExportButtons({
     },
   });
 
-  const [exportProjectToEos] = useMutation(EXPORT_PROJECT_TO_EOS, {
-    onError: (error) => {
-      onError?.(`Failed to export project: ${error.message}`);
-    },
-  });
+  const [exportProjectToEos] = useMutation(EXPORT_PROJECT_TO_EOS);
 
   const handleImport = (format: ImportFormat) => {
     setShowFormatMenu(false);
@@ -298,7 +294,12 @@ export default function ImportExportButtons({
         const result = await exportProjectToEos({ variables: { projectId } });
         if (result.data?.exportProjectToEos) {
           const r = result.data.exportProjectToEos;
-          const suffix = r.filenameSuffix || '.asc';
+          // Validate the backend-supplied suffix against a strict allowlist
+          // before concatenating it into a filename. We expect ".asc"; fall
+          // back to it for any deviation rather than trusting arbitrary text.
+          const suffix = /^\.[A-Za-z0-9]{1,8}$/.test(r.filenameSuffix)
+            ? r.filenameSuffix.toLowerCase()
+            : '.asc';
           downloadFile(r.asciiContent, `${sanitizeFilename(r.projectName)}${suffix}`);
           setEosWarnings(r.warnings ?? []);
         }
@@ -371,6 +372,7 @@ export default function ImportExportButtons({
   // Dropdown menu items for use inside a parent dropdown
   if (inDropdown) {
     return (
+      <>
       <div className="space-y-1" role="menu" aria-label="Import and Export options">
         {/* Import options - Only show if not export-only mode */}
         {!exportOnly && (
@@ -446,8 +448,11 @@ export default function ImportExportButtons({
           </>
         )}
 
-        {warningsPanel && <div className="mt-3 px-2">{warningsPanel}</div>}
       </div>
+      {/* Warnings panel renders outside the role="menu" container so the
+          Dismiss button doesn't conflict with assistive-tech menu navigation. */}
+      {warningsPanel && <div className="mt-3 px-2">{warningsPanel}</div>}
+      </>
     );
   }
 

@@ -63,7 +63,20 @@ async function handleGraphQL(route: Route): Promise<void> {
     case 'GetSystemInfo':
       return respond({ systemInfo: { version: '0.0.0', artnetEnabled: false, oflImportEnabled: false } });
     default:
-      return respond(null);
+      // Fail fast on unhandled GraphQL operations so this test signals when
+      // the app starts issuing new queries the stub hasn't accounted for,
+      // rather than silently passing on `{ data: null }`.
+      return route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          errors: [
+            {
+              message: `Unhandled GraphQL operation in e2e stub: ${op || 'unknown'}`,
+            },
+          ],
+        }),
+      });
   }
 }
 
