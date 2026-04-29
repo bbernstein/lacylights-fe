@@ -218,7 +218,9 @@ render(
 - UI: `ImportExportButtons.tsx` exposes "ETC Eos (.asc)" alongside QLC+
   and native JSON
 - Auto-detection by file extension; explicit format selection in the dropdown
-- Warnings rendered via `EosImportWarningsList.tsx`, grouped by warning code
+- Warnings rendered via `EosWarningsList` (`src/components/EosWarningsList.tsx`),
+  grouped by warning code
 - Backend mutations: `IMPORT_PROJECT_FROM_EOS`, `EXPORT_PROJECT_TO_EOS`
   (`src/graphql/projects.ts`)
-- Downloaded filename uses the backend's `filenameSuffix` field
+- Downloaded Eos export filenames currently use a frontend-hardcoded `.asc`
+  suffix rather than the backend's `filenameSuffix` field
