@@ -69,31 +69,33 @@ describe("ImportExportButtons - Eos format", () => {
         return el;
       });
 
-    const onImportComplete = jest.fn();
-    render(
-      <MockedProvider mocks={[importMock]} addTypename={false}>
-        <ImportExportButtons onImportComplete={onImportComplete} />
-      </MockedProvider>,
-    );
+    try {
+      const onImportComplete = jest.fn();
+      render(
+        <MockedProvider mocks={[importMock]} addTypename={false}>
+          <ImportExportButtons onImportComplete={onImportComplete} />
+        </MockedProvider>,
+      );
 
-    fireEvent.click(screen.getByRole("button", { name: /import/i }));
-    fireEvent.click(screen.getByText(/ETC Eos \(\.asc\)/));
+      fireEvent.click(screen.getByRole("button", { name: /import/i }));
+      fireEvent.click(screen.getByText(/ETC Eos \(\.asc\)/));
 
-    expect(capturedInput).not.toBeNull();
-    const file = new File([ascii], "show.asc", { type: "text/plain" });
-    // jsdom's File doesn't implement .text(); polyfill on the instance.
-    file.text = jest.fn().mockResolvedValue(ascii);
-    Object.defineProperty(capturedInput, "files", {
-      value: [file],
-      configurable: true,
-    });
-    fireEvent.change(capturedInput!);
+      expect(capturedInput).not.toBeNull();
+      const file = new File([ascii], "show.asc", { type: "text/plain" });
+      // jsdom's File doesn't implement .text(); polyfill on the instance.
+      file.text = jest.fn().mockResolvedValue(ascii);
+      Object.defineProperty(capturedInput, "files", {
+        value: [file],
+        configurable: true,
+      });
+      fireEvent.change(capturedInput!);
 
-    await waitFor(() => {
-      expect(onImportComplete).toHaveBeenCalledWith("p42");
-    });
-
-    createSpy.mockRestore();
+      await waitFor(() => {
+        expect(onImportComplete).toHaveBeenCalledWith("p42");
+      });
+    } finally {
+      createSpy.mockRestore();
+    }
   });
 
   it("exports an .asc file with the suffix from the backend", async () => {
@@ -137,22 +139,24 @@ describe("ImportExportButtons - Eos format", () => {
     URL.createObjectURL = jest.fn(() => "blob:mock");
     URL.revokeObjectURL = jest.fn();
 
-    render(
-      <MockedProvider mocks={[exportMock]} addTypename={false}>
-        <ImportExportButtons projectId="p1" exportOnly />
-      </MockedProvider>,
-    );
+    try {
+      render(
+        <MockedProvider mocks={[exportMock]} addTypename={false}>
+          <ImportExportButtons projectId="p1" exportOnly />
+        </MockedProvider>,
+      );
 
-    fireEvent.click(screen.getByRole("button", { name: /export/i }));
-    fireEvent.click(screen.getByText(/ETC Eos \(\.asc\)/));
+      fireEvent.click(screen.getByRole("button", { name: /export/i }));
+      fireEvent.click(screen.getByText(/ETC Eos \(\.asc\)/));
 
-    await waitFor(() =>
-      expect(screen.getByText(/Effects skipped \(1\)/)).toBeInTheDocument(),
-    );
-    expect(URL.createObjectURL).toHaveBeenCalled();
-
-    createSpy.mockRestore();
-    URL.createObjectURL = originalCreateURL;
-    URL.revokeObjectURL = originalRevokeURL;
+      await waitFor(() =>
+        expect(screen.getByText(/Effects skipped \(1\)/)).toBeInTheDocument(),
+      );
+      expect(URL.createObjectURL).toHaveBeenCalled();
+    } finally {
+      createSpy.mockRestore();
+      URL.createObjectURL = originalCreateURL;
+      URL.revokeObjectURL = originalRevokeURL;
+    }
   });
 });

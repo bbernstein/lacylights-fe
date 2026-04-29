@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import EosImportWarningsList from "../EosImportWarningsList";
+import EosWarningsList from "../EosWarningsList";
 import { EosWarning, EosWarningSeverity } from "@/generated/graphql";
 
 const w = (code: string, message: string): EosWarning => ({
@@ -9,10 +9,10 @@ const w = (code: string, message: string): EosWarning => ({
   context: [],
 });
 
-describe("EosImportWarningsList", () => {
+describe("EosWarningsList", () => {
   it("groups warnings by code with counts", () => {
     render(
-      <EosImportWarningsList
+      <EosWarningsList
         warnings={[
           w("EFFECT_SKIPPED", "effect 1"),
           w("EFFECT_SKIPPED", "effect 2"),
@@ -25,13 +25,13 @@ describe("EosImportWarningsList", () => {
   });
 
   it("renders nothing when warnings is empty", () => {
-    const { container } = render(<EosImportWarningsList warnings={[]} />);
+    const { container } = render(<EosWarningsList warnings={[]} />);
     expect(container).toBeEmptyDOMElement();
   });
 
   it("falls back to the raw code when no friendly name is registered", () => {
     render(
-      <EosImportWarningsList
+      <EosWarningsList
         warnings={[w("BRAND_NEW_CODE", "future warning")]}
       />,
     );

@@ -9,11 +9,11 @@ import {
   EXPORT_PROJECT_TO_QLC,
   GET_QLC_FIXTURE_MAPPING_SUGGESTIONS,
   IMPORT_PROJECT_FROM_EOS,
-  EXPORT_PROJECT_TO_EOS
+  EXPORT_PROJECT_TO_EOS,
 } from '@/graphql/projects';
 import { getFixtureKey, getManufacturer, getModel } from '@/constants/fixtures';
 import { ImportMode, FixtureConflictStrategy } from '@/constants/import';
-import EosImportWarningsList from './EosImportWarningsList';
+import EosWarningsList from './EosWarningsList';
 import type { EosWarning } from '@/generated/graphql';
 
 interface ImportExportButtonsProps {
@@ -202,6 +202,7 @@ export default function ImportExportButtons({
 
   const handleImport = (format: ImportFormat) => {
     setShowFormatMenu(false);
+    setEosWarnings(null);
     const input = document.createElement('input');
     input.type = 'file';
 
@@ -232,7 +233,7 @@ export default function ImportExportButtons({
         } else if (format === 'lacylights' || file.name.toLowerCase().endsWith('.json')) {
           detectedFormat = 'lacylights';
         } else {
-          onError?.('Unable to determine file format. Supported formats: .asc (ETC Eos), .qxw (QLC+), .json/.lacylights (LacyLights).');
+          onError?.('Unable to determine file format. Supported formats: .asc (ETC Eos), .qxw (QLC+), .json (LacyLights).');
           setIsImporting(false);
           return;
         }
@@ -284,6 +285,7 @@ export default function ImportExportButtons({
     }
 
     setShowExportFormatMenu(false);
+    setEosWarnings(null);
     setIsExporting(true);
 
     try {
@@ -428,7 +430,7 @@ export default function ImportExportButtons({
 
         {eosWarnings && eosWarnings.length > 0 && (
           <div className="mt-3 px-2">
-            <EosImportWarningsList warnings={eosWarnings} />
+            <EosWarningsList warnings={eosWarnings} />
             <button
               onClick={() => setEosWarnings(null)}
               className="mt-2 text-xs text-gray-500 underline"
@@ -484,7 +486,8 @@ export default function ImportExportButtons({
               </button>
               <button
                 onClick={() => handleImport('eos')}
-                className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors"
+                disabled={disabled || isImporting}
+                className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 ETC Eos (.asc)
               </button>
@@ -533,7 +536,8 @@ export default function ImportExportButtons({
               </button>
               <button
                 onClick={() => handleExport('eos')}
-                className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors"
+                disabled={disabled || isExporting}
+                className="w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 ETC Eos (.asc)
               </button>
@@ -546,7 +550,7 @@ export default function ImportExportButtons({
 
       {eosWarnings && eosWarnings.length > 0 && (
         <div className="mt-1">
-          <EosImportWarningsList warnings={eosWarnings} />
+          <EosWarningsList warnings={eosWarnings} />
           <button
             onClick={() => setEosWarnings(null)}
             className="mt-2 text-xs text-gray-500 underline"

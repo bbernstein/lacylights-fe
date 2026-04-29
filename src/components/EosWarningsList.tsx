@@ -30,7 +30,7 @@ const FRIENDLY_NAMES: Record<string, string> = {
   PATCH_AMBIGUOUS_FIELDS: "Patch lines with ambiguous fields",
 };
 
-export default function EosImportWarningsList({ warnings }: Props) {
+export default function EosWarningsList({ warnings }: Props) {
   if (warnings.length === 0) return null;
   const groups = new Map<string, EosWarning[]>();
   warnings.forEach((w) => {
@@ -41,7 +41,7 @@ export default function EosImportWarningsList({ warnings }: Props) {
   return (
     <div className="rounded border border-amber-200 bg-amber-50 p-4">
       <h3 className="mb-2 text-sm font-semibold text-amber-900">
-        Import notices
+        Eos notices
       </h3>
       <ul className="space-y-3">
         {Array.from(groups.entries()).map(([code, ws]) => (
@@ -52,7 +52,7 @@ export default function EosImportWarningsList({ warnings }: Props) {
               </summary>
               <ul className="mt-1 list-disc space-y-1 pl-5 text-xs text-amber-700">
                 {ws.slice(0, 50).map((w, i) => (
-                  <li key={i}>{w.message}</li>
+                  <li key={`${code}-${i}`}>{w.message}</li>
                 ))}
                 {ws.length > 50 && <li>… and {ws.length - 50} more</li>}
               </ul>
