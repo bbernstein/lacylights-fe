@@ -9,57 +9,57 @@ import { test, expect } from '@playwright/test';
  */
 
 test.describe('Dynamic Route Navigation', () => {
-  test.describe('Scene Editor', () => {
-    test('should load scene editor page with dynamic sceneId', async ({ page }) => {
-      // Use a realistic scene ID (CUID format used by the app)
-      const sceneId = 'cmggobir40ntk4ipsxdkg2o9y';
+  test.describe('Look Editor', () => {
+    test('should load look editor page with dynamic lookId', async ({ page }) => {
+      // Use a realistic look ID (CUID format used by the app)
+      const lookId = 'cmggobir40ntk4ipsxdkg2o9y';
 
-      // Navigate directly to the scene editor URL
-      await page.goto(`/scenes/${sceneId}/edit/`);
+      // Navigate directly to the look editor URL
+      await page.goto(`/looks/${lookId}/edit/`);
 
       // Wait for page to load
       await page.waitForLoadState('networkidle');
 
-      // Verify we're on the scene editor page (not redirected to /fixtures/)
-      expect(page.url()).toContain(`/scenes/${sceneId}/edit`);
+      // Verify we're on the look editor page (not redirected to /fixtures/)
+      expect(page.url()).toContain(`/looks/${lookId}/edit`);
       expect(page.url()).not.toContain('/fixtures');
 
-      // Verify the page title or heading suggests scene editor
+      // Verify the page title or heading suggests look editor
       // (This will fail gracefully if backend is not running, which is okay for static export tests)
       // Use more specific selector to avoid false positives
       const heading = await page.textContent('main h1, main h2, main h3').catch(() => '');
-      console.log(`Scene editor heading: ${heading}`);
+      console.log(`Look editor heading: ${heading}`);
     });
 
-    test('should not redirect to /fixtures/ when scene ID is missing', async ({ page }) => {
-      // Use a realistic scene ID
-      const sceneId = 'test-scene-id-123';
+    test('should not redirect to /fixtures/ when look ID is missing', async ({ page }) => {
+      // Use a realistic look ID
+      const lookId = 'test-look-id-123';
 
-      // Navigate to scene editor
-      await page.goto(`/scenes/${sceneId}/edit/`);
+      // Navigate to look editor
+      await page.goto(`/looks/${lookId}/edit/`);
 
       // Wait for page to load
       await page.waitForLoadState('networkidle');
 
-      // Verify the URL still contains the scene editor route
-      expect(page.url()).toContain(`/scenes/${sceneId}/edit`);
+      // Verify the URL still contains the look editor route
+      expect(page.url()).toContain(`/looks/${lookId}/edit`);
 
       // Verify we didn't get redirected to fixtures page
       expect(page.url()).not.toContain('/fixtures');
     });
 
-    test('should extract scene ID from URL in static export mode', async ({ page }) => {
-      const sceneId = 'static-export-test-id';
+    test('should extract look ID from URL in static export mode', async ({ page }) => {
+      const lookId = 'static-export-test-id';
 
-      // Navigate to scene editor
-      await page.goto(`/scenes/${sceneId}/edit/`);
+      // Navigate to look editor
+      await page.goto(`/looks/${lookId}/edit/`);
 
       await page.waitForLoadState('networkidle');
 
-      // In static export mode, the page should extract the scene ID from the URL
+      // In static export mode, the page should extract the look ID from the URL
       // We can't easily test the internal state, but we can verify:
       // 1. The URL is correct
-      expect(page.url()).toContain(`/scenes/${sceneId}/edit`);
+      expect(page.url()).toContain(`/looks/${lookId}/edit`);
 
       // 2. The page loaded (no 404)
       const bodyText = await page.textContent('body');
