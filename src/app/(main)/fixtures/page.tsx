@@ -114,10 +114,13 @@ function SortableRow({ fixture, onEdit, onDuplicate, onDelete }: SortableRowProp
           {fixture.name}
         </div>
       </td>
-      <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+      <td className="px-6 py-4 text-xs text-gray-500 dark:text-gray-400 max-w-xs">
         <div className="break-words whitespace-normal">
           <div>{fixture.manufacturer || '—'}</div>
           <div>{fixture.model || '—'}</div>
+          {fixture.modeName && fixture.modeName !== 'default' && (
+            <div>{fixture.modeName}</div>
+          )}
         </div>
       </td>
       <td className="px-6 py-4 text-xs text-gray-500 dark:text-gray-400 max-w-xs">
@@ -126,7 +129,7 @@ function SortableRow({ fixture, onEdit, onDuplicate, onDelete }: SortableRowProp
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-        {fixture.modeName} ({fixture.channelCount} ch)
+        {fixture.channelCount} ch
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
         {fixture.universe}
@@ -468,12 +471,15 @@ export default function FixturesPage() {
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                   {fixture.manufacturer || '—'} / {fixture.model || '—'}
+                  {fixture.modeName && fixture.modeName !== 'default' && (
+                    <> / {fixture.modeName}</>
+                  )}
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                   {fixture.description || 'No description'}
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                  Mode: {fixture.modeName} ({fixture.channelCount} ch)
+                  Channels: {fixture.channelCount}
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                   Universe: {fixture.universe}
@@ -550,7 +556,7 @@ export default function FixturesPage() {
                         Description
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Mode
+                        Channels
                       </th>
                       <SortableHeader field="universe" currentField={sortField} currentDirection={sortDirection} onSort={handleSort}>
                         Universe
