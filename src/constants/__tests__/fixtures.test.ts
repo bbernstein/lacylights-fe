@@ -5,6 +5,7 @@ import {
   getFixtureKey,
   getManufacturer,
   getModel,
+  shouldDisplayModeName,
 } from '../fixtures';
 
 describe('fixtures constants', () => {
@@ -83,6 +84,32 @@ describe('fixtures constants', () => {
 
     it('should return fallback for undefined', () => {
       expect(getModel(undefined)).toBe(UNKNOWN_MODEL);
+    });
+  });
+
+  describe('shouldDisplayModeName', () => {
+    it('should display a real mode name', () => {
+      expect(shouldDisplayModeName('16-channel')).toBe(true);
+      expect(shouldDisplayModeName('Mode A')).toBe(true);
+    });
+
+    it('should hide the implicit default sentinel', () => {
+      expect(shouldDisplayModeName('default')).toBe(false);
+      expect(shouldDisplayModeName(DEFAULT_MODE_NAME)).toBe(false);
+    });
+
+    it('should hide null, undefined, and empty mode names', () => {
+      expect(shouldDisplayModeName(null)).toBe(false);
+      expect(shouldDisplayModeName(undefined)).toBe(false);
+      expect(shouldDisplayModeName('')).toBe(false);
+    });
+
+    it('should be case-sensitive (only the exact sentinel is suppressed)', () => {
+      // The backend sentinel is the lowercase string "default"; a mode that
+      // happens to be named "Default" with different casing should still be
+      // shown to the user — it is a real mode, not the implicit one.
+      expect(shouldDisplayModeName('Default')).toBe(true);
+      expect(shouldDisplayModeName('DEFAULT')).toBe(true);
     });
   });
 });
