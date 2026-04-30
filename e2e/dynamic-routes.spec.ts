@@ -31,8 +31,9 @@ test.describe('Dynamic Route Navigation', () => {
       console.log(`Look editor heading: ${heading}`);
     });
 
-    test('should not redirect to /fixtures/ when look ID is missing', async ({ page }) => {
-      // Use a realistic look ID
+    test('should not redirect to /fixtures/ for an unknown look ID', async ({ page }) => {
+      // Use a synthetic look ID that does not correspond to a real record;
+      // we only care that the dynamic route resolves and does not redirect.
       const lookId = 'test-look-id-123';
 
       // Navigate to look editor
