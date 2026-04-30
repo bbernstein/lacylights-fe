@@ -117,8 +117,14 @@ function SortableRow({ fixture, onEdit, onDuplicate, onDelete }: SortableRowProp
       </td>
       <td className="px-6 py-4 text-xs text-gray-500 dark:text-gray-400 max-w-xs">
         <div className="break-words whitespace-normal">
-          <div>{fixture.manufacturer || '—'}</div>
-          <div>{fixture.model || '—'}</div>
+          {fixture.manufacturer || fixture.model ? (
+            <>
+              <div>{fixture.manufacturer || '—'}</div>
+              <div>{fixture.model || '—'}</div>
+            </>
+          ) : (
+            <div>—</div>
+          )}
           {shouldDisplayModeName(fixture.modeName) && (
             <div>{fixture.modeName}</div>
           )}
@@ -470,11 +476,16 @@ export default function FixturesPage() {
                 <div className="font-medium text-gray-900 dark:text-white text-lg">
                   {fixture.name}
                 </div>
-                {(fixture.manufacturer || fixture.model) && (
+                {(fixture.manufacturer || fixture.model || shouldDisplayModeName(fixture.modeName)) && (
                   <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {fixture.manufacturer || '—'} / {fixture.model || '—'}
+                    {(fixture.manufacturer || fixture.model) && (
+                      <>{fixture.manufacturer || '—'} / {fixture.model || '—'}</>
+                    )}
                     {shouldDisplayModeName(fixture.modeName) && (
-                      <> / {fixture.modeName}</>
+                      <>
+                        {(fixture.manufacturer || fixture.model) ? ' / ' : ''}
+                        {fixture.modeName}
+                      </>
                     )}
                   </div>
                 )}
