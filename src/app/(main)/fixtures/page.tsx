@@ -114,6 +114,12 @@ function SortableRow({ fixture, onEdit, onDuplicate, onDelete }: SortableRowProp
           {fixture.name}
         </div>
       </td>
+      <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+        <div className="break-words whitespace-normal">
+          <div>{fixture.manufacturer || '—'}</div>
+          <div>{fixture.model || '—'}</div>
+        </div>
+      </td>
       <td className="px-6 py-4 text-xs text-gray-500 dark:text-gray-400 max-w-xs">
         <div className="break-words whitespace-normal">
           {fixture.description || 'No description'}
@@ -461,6 +467,9 @@ export default function FixturesPage() {
                   {fixture.name}
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
+                  {fixture.manufacturer || '—'} / {fixture.model || '—'}
+                </div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
                   {fixture.description || 'No description'}
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -534,6 +543,9 @@ export default function FixturesPage() {
                       <SortableHeader field="name" currentField={sortField} currentDirection={sortDirection} onSort={handleSort}>
                         Name
                       </SortableHeader>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Manufacturer / Model
+                      </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         Description
                       </th>
