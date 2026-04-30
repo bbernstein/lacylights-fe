@@ -9,6 +9,13 @@ export const UNKNOWN_MANUFACTURER = 'unknown';
 export const UNKNOWN_MODEL = 'unknown';
 
 /**
+ * Sentinel value used by the backend for the implicit default mode of a
+ * fixture. This is treated as "no real mode" by the UI and is hidden from
+ * mode-display affordances so users don't see a redundant "default" label.
+ */
+export const DEFAULT_MODE_NAME = 'default';
+
+/**
  * Generate a fixture key for mapping purposes
  * @param manufacturer - Fixture manufacturer (nullable)
  * @param model - Fixture model (nullable)
@@ -37,4 +44,21 @@ export function getManufacturer(manufacturer: string | null | undefined): string
  */
 export function getModel(model: string | null | undefined): string {
   return model ?? UNKNOWN_MODEL;
+}
+
+/**
+ * Returns true when a fixture's `modeName` is meaningful enough to display
+ * to the user. This is the UI guard used by the Fixtures list to decide
+ * whether to render the mode row in the Manufacturer / Model cell and the
+ * mobile card: empty / nullish values are hidden, and the backend's
+ * implicit-default sentinel ({@link DEFAULT_MODE_NAME}) is also hidden so
+ * simple fixtures don't show a redundant "default" label.
+ *
+ * Centralised here so both desktop and mobile layouts stay in sync if the
+ * sentinel ever changes, and so the behaviour is easy to unit-test.
+ */
+export function shouldDisplayModeName(
+  modeName: string | null | undefined
+): modeName is string {
+  return Boolean(modeName) && modeName !== DEFAULT_MODE_NAME;
 }
