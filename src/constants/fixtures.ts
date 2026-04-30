@@ -9,6 +9,13 @@ export const UNKNOWN_MANUFACTURER = 'unknown';
 export const UNKNOWN_MODEL = 'unknown';
 
 /**
+ * Sentinel value used by the backend for the implicit default mode of a
+ * fixture. This is treated as "no real mode" by the UI and is hidden from
+ * mode-display affordances so users don't see a redundant "default" label.
+ */
+export const DEFAULT_MODE_NAME = 'default';
+
+/**
  * Generate a fixture key for mapping purposes
  * @param manufacturer - Fixture manufacturer (nullable)
  * @param model - Fixture model (nullable)

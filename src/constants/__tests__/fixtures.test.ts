@@ -1,6 +1,7 @@
 import {
   UNKNOWN_MANUFACTURER,
   UNKNOWN_MODEL,
+  DEFAULT_MODE_NAME,
   getFixtureKey,
   getManufacturer,
   getModel,
@@ -16,6 +17,12 @@ describe('fixtures constants', () => {
   describe('UNKNOWN_MODEL', () => {
     it('should have the correct fallback value', () => {
       expect(UNKNOWN_MODEL).toBe('unknown');
+    });
+  });
+
+  describe('DEFAULT_MODE_NAME', () => {
+    it('should match the backend sentinel for the implicit default mode', () => {
+      expect(DEFAULT_MODE_NAME).toBe('default');
     });
   });
 

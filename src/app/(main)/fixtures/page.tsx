@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECT_FIXTURES, DELETE_FIXTURE_INSTANCE, REORDER_PROJECT_FIXTURES } from '@/graphql/fixtures';
+import { DEFAULT_MODE_NAME } from '@/constants/fixtures';
 import { useRouter } from 'next/navigation';
 import AddFixtureModal from '@/components/AddFixtureModal';
 import EditFixtureModal from '@/components/EditFixtureModal';
@@ -118,7 +119,7 @@ function SortableRow({ fixture, onEdit, onDuplicate, onDelete }: SortableRowProp
         <div className="break-words whitespace-normal">
           <div>{fixture.manufacturer || '—'}</div>
           <div>{fixture.model || '—'}</div>
-          {fixture.modeName && fixture.modeName !== 'default' && (
+          {fixture.modeName && fixture.modeName !== DEFAULT_MODE_NAME && (
             <div>{fixture.modeName}</div>
           )}
         </div>
@@ -469,17 +470,19 @@ export default function FixturesPage() {
                 <div className="font-medium text-gray-900 dark:text-white text-lg">
                   {fixture.name}
                 </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {fixture.manufacturer || '—'} / {fixture.model || '—'}
-                  {fixture.modeName && fixture.modeName !== 'default' && (
-                    <> / {fixture.modeName}</>
-                  )}
-                </div>
+                {(fixture.manufacturer || fixture.model) && (
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    {fixture.manufacturer || '—'} / {fixture.model || '—'}
+                    {fixture.modeName && fixture.modeName !== DEFAULT_MODE_NAME && (
+                      <> / {fixture.modeName}</>
+                    )}
+                  </div>
+                )}
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                   {fixture.description || 'No description'}
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                  Channels: {fixture.channelCount}
+                  {fixture.channelCount} ch
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                   Universe: {fixture.universe}
