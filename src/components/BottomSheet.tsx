@@ -217,6 +217,12 @@ export default function BottomSheet({
     []
   );
 
+  // A cancelled gesture (e.g. OS-interrupted touch) fires no `click`, so clear the
+  // flag here to avoid a stale "started inside" leaking into the next interaction.
+  const handleBackdropPointerCancel = useCallback(() => {
+    pressStartedInsideRef.current = false;
+  }, []);
+
   // Close on a backdrop click only when the press started on the backdrop.
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -311,6 +317,7 @@ export default function BottomSheet({
       <div
         className="fixed inset-0 bg-black bg-opacity-50 z-50"
         onPointerDown={handleBackdropPointerDown}
+        onPointerCancel={handleBackdropPointerCancel}
         onClick={handleBackdropClick}
         data-testid={`${testId}-backdrop`}
       >
@@ -320,6 +327,8 @@ export default function BottomSheet({
                      rounded-t-2xl shadow-xl transform transition-transform duration-300 ease-out
                      ${fullHeightMobile ? 'top-4' : 'max-h-[90vh]'}
                      flex flex-col animate-slide-up`}
+          // NOTE: do not add onPointerDown stopPropagation here — handleBackdropPointerDown
+          // relies on bubbled pointerdown to tell an inside-press-then-drag from a backdrop press.
           onClick={(e) => e.stopPropagation()}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -389,6 +398,7 @@ export default function BottomSheet({
       <div
         className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
         onPointerDown={handleBackdropPointerDown}
+        onPointerCancel={handleBackdropPointerCancel}
         onClick={handleBackdropClick}
         data-testid={`${testId}-backdrop`}
       >
@@ -396,6 +406,8 @@ export default function BottomSheet({
           ref={sheetRef}
           className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl ${maxWidth} w-full mx-4
                      max-h-[90vh] flex flex-col animate-fade-in`}
+          // NOTE: do not add onPointerDown stopPropagation here — handleBackdropPointerDown
+          // relies on bubbled pointerdown to tell an inside-press-then-drag from a backdrop press.
           onClick={(e) => e.stopPropagation()}
           role="dialog"
           aria-modal="true"

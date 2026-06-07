@@ -200,6 +200,20 @@ describe('BottomSheet', () => {
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
+    it('clears press-started-inside state when closed so a later backdrop click still closes', () => {
+      const onClose = jest.fn();
+      const { rerender } = render(<BottomSheet {...defaultProps} onClose={onClose} />);
+
+      fireEvent.pointerDown(screen.getByTestId('content'));
+      rerender(<BottomSheet {...defaultProps} onClose={onClose} isOpen={false} />);
+      rerender(<BottomSheet {...defaultProps} onClose={onClose} isOpen />);
+
+      // No backdrop pointerDown: the close-effect cleanup must be the only thing
+      // that cleared the stale ref (mirrors the desktop regression test).
+      fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
     it('shows drag handle by default on mobile', () => {
       render(<BottomSheet {...defaultProps} />);
       // The drag handle is a div with specific styling (w-10 h-1)
@@ -229,6 +243,22 @@ describe('BottomSheet', () => {
       render(<BottomSheet {...defaultProps} fullHeightMobile />);
       const sheet = screen.getByTestId('bottom-sheet');
       expect(sheet).toHaveClass('top-4');
+    });
+  });
+
+  describe('Pointer cancellation', () => {
+    it('does not block a later backdrop dismissal after a cancelled inside press', () => {
+      // An OS-interrupted gesture fires pointercancel (no click). The ref must be
+      // cleared so a subsequent direct backdrop click still dismisses the modal.
+      const onClose = jest.fn();
+      render(<BottomSheet {...defaultProps} onClose={onClose} />);
+
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      fireEvent.pointerDown(screen.getByTestId('content'));
+      fireEvent.pointerCancel(backdrop);
+
+      fireEvent.click(backdrop);
+      expect(onClose).toHaveBeenCalledTimes(1);
     });
   });
 
