@@ -110,6 +110,9 @@ describe('BottomSheet', () => {
       rerender(<BottomSheet {...defaultProps} onClose={onClose} isOpen={false} />);
       rerender(<BottomSheet {...defaultProps} onClose={onClose} isOpen />);
 
+      // Intentionally NO pointerDown on the backdrop here: the close-effect cleanup
+      // must be the only thing that cleared the stale ref. Firing a backdrop
+      // pointerDown would reset it independently and mask a cleanup regression.
       fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
       expect(onClose).toHaveBeenCalledTimes(1);
     });

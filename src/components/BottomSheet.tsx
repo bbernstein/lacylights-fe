@@ -127,10 +127,8 @@ export default function BottomSheet({
   const dragCurrentY = useRef<number | null>(null);
   const isDragging = useRef(false);
   const canSwipe = useRef(false); // Only true when touch starts on handle
-  // True when the most recent press began on a modal child rather than the
-  // backdrop itself. The browser dispatches `click` to the common ancestor of
-  // the press/release targets, so a press inside the modal (e.g. selecting text)
-  // that releases on the backdrop must not be treated as a backdrop dismissal.
+  // `click` fires on the common ancestor of the press/release targets, so track
+  // press origin: a drag out from modal content must not count as a backdrop dismissal.
   const pressStartedInsideRef = useRef(false);
 
   // Handle escape key to close and Tab key for focus trapping
