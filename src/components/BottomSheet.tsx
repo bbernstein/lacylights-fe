@@ -127,6 +127,11 @@ export default function BottomSheet({
   const dragCurrentY = useRef<number | null>(null);
   const isDragging = useRef(false);
   const canSwipe = useRef(false); // Only true when touch starts on handle
+  // True when the most recent press began on a modal child rather than the
+  // backdrop itself. The browser dispatches `click` to the common ancestor of
+  // the press/release targets, so a press inside the modal (e.g. selecting text)
+  // that releases on the backdrop must not be treated as a backdrop dismissal.
+  const pressStartedInsideRef = useRef(false);
 
   // Handle escape key to close and Tab key for focus trapping
   const handleKeyDown = useCallback(
@@ -197,29 +202,24 @@ export default function BottomSheet({
     };
   }, [isOpen, handleKeyDown]);
 
-  // Reset initial focus ref when modal closes
+  // Reset transient refs when modal closes so stale state can't leak into the
+  // next open (e.g. a press-inside followed by Escape, then a later backdrop click)
   useEffect(() => {
     if (!isOpen) {
       didInitialFocusRef.current = false;
+      pressStartedInsideRef.current = false;
     }
   }, [isOpen]);
 
-  // Tracks whether the most recent press started inside the modal content
-  // rather than on the backdrop itself.
-  const pressStartedInsideRef = useRef(false);
-
-  // Record where the press began. The browser dispatches `click` to the common
-  // ancestor of the mousedown and mouseup targets, so a press that starts inside
-  // the modal (e.g. selecting text in a field) and releases on the backdrop would
-  // otherwise be reported as a backdrop click and wrongly close the modal.
-  const handleBackdropMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+  // Pointer events cover mouse, touch, and pen, and fire before `click`.
+  const handleBackdropPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
       pressStartedInsideRef.current = e.target !== e.currentTarget;
     },
     []
   );
 
-  // Handle backdrop click to close
+  // Close on a backdrop click only when the press started on the backdrop.
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const startedInside = pressStartedInsideRef.current;
@@ -312,7 +312,7 @@ export default function BottomSheet({
     sheetContent = (
       <div
         className="fixed inset-0 bg-black bg-opacity-50 z-50"
-        onMouseDown={handleBackdropMouseDown}
+        onPointerDown={handleBackdropPointerDown}
         onClick={handleBackdropClick}
         data-testid={`${testId}-backdrop`}
       >
@@ -390,7 +390,7 @@ export default function BottomSheet({
     sheetContent = (
       <div
         className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-        onMouseDown={handleBackdropMouseDown}
+        onPointerDown={handleBackdropPointerDown}
         onClick={handleBackdropClick}
         data-testid={`${testId}-backdrop`}
       >

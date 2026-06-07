@@ -74,14 +74,16 @@ describe('BottomSheet', () => {
     });
 
     it('does not call onClose when the press starts inside the modal and releases on the backdrop', () => {
-      // Repro: selecting text in a field, dragging the mouse off the modal, and
+      // Repro: selecting text in a field, dragging the pointer off the modal, and
       // releasing. The browser dispatches the resulting click to the common
-      // ancestor of mousedown/mouseup (the backdrop), which must NOT close it.
+      // ancestor of the press/release targets (the backdrop), which must NOT close it.
       const onClose = jest.fn();
       render(<BottomSheet {...defaultProps} onClose={onClose} />);
 
-      fireEvent.mouseDown(screen.getByTestId('content'));
-      fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      fireEvent.pointerDown(screen.getByTestId('content'));
+      fireEvent.pointerUp(backdrop);
+      fireEvent.click(backdrop);
       expect(onClose).not.toHaveBeenCalled();
     });
 
@@ -90,8 +92,23 @@ describe('BottomSheet', () => {
       render(<BottomSheet {...defaultProps} onClose={onClose} />);
 
       const backdrop = screen.getByTestId('bottom-sheet-backdrop');
-      fireEvent.mouseDown(backdrop);
+      fireEvent.pointerDown(backdrop);
+      fireEvent.pointerUp(backdrop);
       fireEvent.click(backdrop);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears press-started-inside state when closed so a later backdrop click still closes', () => {
+      // Press inside, close via another path (e.g. Escape) without a click, then reopen.
+      // The stale "started inside" flag must not block the next backdrop dismissal.
+      const onClose = jest.fn();
+      const { rerender } = render(<BottomSheet {...defaultProps} onClose={onClose} />);
+
+      fireEvent.pointerDown(screen.getByTestId('content'));
+      rerender(<BottomSheet {...defaultProps} onClose={onClose} isOpen={false} />);
+      rerender(<BottomSheet {...defaultProps} onClose={onClose} isOpen />);
+
+      fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
