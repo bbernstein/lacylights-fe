@@ -229,8 +229,12 @@ export default function BottomSheet({
   // Close on a backdrop click only when the press started on the backdrop.
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      // Read then clear unconditionally: every click ends a press, so the flag must
+      // not survive into the next interaction even when this click does not dismiss.
       const startedInside = pressStartedInsideRef.current;
       pressStartedInsideRef.current = false;
+      // The e.target === e.currentTarget guard is kept deliberately: it also rejects
+      // synthetic clicks that bypass the pointer flow, so it is not redundant.
       if (e.target === e.currentTarget && closeOnBackdrop && !startedInside) {
         onClose();
       }
