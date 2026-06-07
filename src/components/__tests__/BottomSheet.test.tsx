@@ -61,7 +61,9 @@ describe('BottomSheet', () => {
       const onClose = jest.fn();
       render(<BottomSheet {...defaultProps} onClose={onClose} />);
 
-      fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      fireEvent.pointerDown(backdrop);
+      fireEvent.click(backdrop);
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
@@ -171,6 +173,28 @@ describe('BottomSheet', () => {
       render(<BottomSheet {...defaultProps} title="Mobile Sheet" />);
       expect(screen.getByTestId('bottom-sheet')).toBeInTheDocument();
       expect(screen.getByText('Mobile Sheet')).toBeInTheDocument();
+    });
+
+    it('does not call onClose when the press starts inside the sheet and releases on the backdrop', () => {
+      const onClose = jest.fn();
+      render(<BottomSheet {...defaultProps} onClose={onClose} />);
+
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      fireEvent.pointerDown(screen.getByTestId('content'));
+      fireEvent.pointerUp(backdrop);
+      fireEvent.click(backdrop);
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('calls onClose when the press starts and releases on the backdrop', () => {
+      const onClose = jest.fn();
+      render(<BottomSheet {...defaultProps} onClose={onClose} />);
+
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      fireEvent.pointerDown(backdrop);
+      fireEvent.pointerUp(backdrop);
+      fireEvent.click(backdrop);
+      expect(onClose).toHaveBeenCalledTimes(1);
     });
 
     it('shows drag handle by default on mobile', () => {
