@@ -73,6 +73,28 @@ describe('BottomSheet', () => {
       expect(onClose).not.toHaveBeenCalled();
     });
 
+    it('does not call onClose when the press starts inside the modal and releases on the backdrop', () => {
+      // Repro: selecting text in a field, dragging the mouse off the modal, and
+      // releasing. The browser dispatches the resulting click to the common
+      // ancestor of mousedown/mouseup (the backdrop), which must NOT close it.
+      const onClose = jest.fn();
+      render(<BottomSheet {...defaultProps} onClose={onClose} />);
+
+      fireEvent.mouseDown(screen.getByTestId('content'));
+      fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('calls onClose when the press starts and releases on the backdrop', () => {
+      const onClose = jest.fn();
+      render(<BottomSheet {...defaultProps} onClose={onClose} />);
+
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      fireEvent.mouseDown(backdrop);
+      fireEvent.click(backdrop);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
     it('calls onClose when Escape is pressed', () => {
       const onClose = jest.fn();
       render(<BottomSheet {...defaultProps} onClose={onClose} />);

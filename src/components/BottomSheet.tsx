@@ -204,10 +204,27 @@ export default function BottomSheet({
     }
   }, [isOpen]);
 
+  // Tracks whether the most recent press started inside the modal content
+  // rather than on the backdrop itself.
+  const pressStartedInsideRef = useRef(false);
+
+  // Record where the press began. The browser dispatches `click` to the common
+  // ancestor of the mousedown and mouseup targets, so a press that starts inside
+  // the modal (e.g. selecting text in a field) and releases on the backdrop would
+  // otherwise be reported as a backdrop click and wrongly close the modal.
+  const handleBackdropMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      pressStartedInsideRef.current = e.target !== e.currentTarget;
+    },
+    []
+  );
+
   // Handle backdrop click to close
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target === e.currentTarget && closeOnBackdrop) {
+      const startedInside = pressStartedInsideRef.current;
+      pressStartedInsideRef.current = false;
+      if (e.target === e.currentTarget && closeOnBackdrop && !startedInside) {
         onClose();
       }
     },
@@ -295,6 +312,7 @@ export default function BottomSheet({
     sheetContent = (
       <div
         className="fixed inset-0 bg-black bg-opacity-50 z-50"
+        onMouseDown={handleBackdropMouseDown}
         onClick={handleBackdropClick}
         data-testid={`${testId}-backdrop`}
       >
@@ -372,6 +390,7 @@ export default function BottomSheet({
     sheetContent = (
       <div
         className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        onMouseDown={handleBackdropMouseDown}
         onClick={handleBackdropClick}
         data-testid={`${testId}-backdrop`}
       >
