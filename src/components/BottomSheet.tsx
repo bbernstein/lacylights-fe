@@ -209,7 +209,10 @@ export default function BottomSheet({
     }
   }, [isOpen]);
 
-  // Pointer events cover mouse, touch, and pen, and fire before `click`.
+  // Registered on the backdrop in the capture phase so it fires before the event
+  // reaches any child: arbitrary `children` (sliders, color pickers, etc.) may call
+  // stopPropagation() on pointer events, which would otherwise prevent us from
+  // recording the press origin. Pointer events also cover mouse, touch, and pen.
   const handleBackdropPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       pressStartedInsideRef.current = e.target !== e.currentTarget;
@@ -316,8 +319,8 @@ export default function BottomSheet({
     sheetContent = (
       <div
         className="fixed inset-0 bg-black bg-opacity-50 z-50"
-        onPointerDown={handleBackdropPointerDown}
-        onPointerCancel={handleBackdropPointerCancel}
+        onPointerDownCapture={handleBackdropPointerDown}
+        onPointerCancelCapture={handleBackdropPointerCancel}
         onClick={handleBackdropClick}
         data-testid={`${testId}-backdrop`}
       >
@@ -327,8 +330,6 @@ export default function BottomSheet({
                      rounded-t-2xl shadow-xl transform transition-transform duration-300 ease-out
                      ${fullHeightMobile ? 'top-4' : 'max-h-[90vh]'}
                      flex flex-col animate-slide-up`}
-          // NOTE: do not add onPointerDown stopPropagation here — handleBackdropPointerDown
-          // relies on bubbled pointerdown to tell an inside-press-then-drag from a backdrop press.
           onClick={(e) => e.stopPropagation()}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -397,8 +398,8 @@ export default function BottomSheet({
     sheetContent = (
       <div
         className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-        onPointerDown={handleBackdropPointerDown}
-        onPointerCancel={handleBackdropPointerCancel}
+        onPointerDownCapture={handleBackdropPointerDown}
+        onPointerCancelCapture={handleBackdropPointerCancel}
         onClick={handleBackdropClick}
         data-testid={`${testId}-backdrop`}
       >
@@ -406,8 +407,6 @@ export default function BottomSheet({
           ref={sheetRef}
           className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl ${maxWidth} w-full mx-4
                      max-h-[90vh] flex flex-col animate-fade-in`}
-          // NOTE: do not add onPointerDown stopPropagation here — handleBackdropPointerDown
-          // relies on bubbled pointerdown to tell an inside-press-then-drag from a backdrop press.
           onClick={(e) => e.stopPropagation()}
           role="dialog"
           aria-modal="true"

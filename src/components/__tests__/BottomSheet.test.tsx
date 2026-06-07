@@ -250,15 +250,40 @@ describe('BottomSheet', () => {
     it('does not block a later backdrop dismissal after a cancelled inside press', () => {
       // An OS-interrupted gesture fires pointercancel (no click). The ref must be
       // cleared so a subsequent direct backdrop click still dismisses the modal.
+      // pointercancel is dispatched to the element that got the pointerdown (the
+      // content) and propagates from there, as in a real browser.
       const onClose = jest.fn();
       render(<BottomSheet {...defaultProps} onClose={onClose} />);
 
       const backdrop = screen.getByTestId('bottom-sheet-backdrop');
-      fireEvent.pointerDown(screen.getByTestId('content'));
-      fireEvent.pointerCancel(backdrop);
+      const content = screen.getByTestId('content');
+      fireEvent.pointerDown(content);
+      fireEvent.pointerCancel(content);
 
       fireEvent.click(backdrop);
       expect(onClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Press-origin tracking resilience', () => {
+    it('tracks an inside press even when a child stops pointer-event propagation', () => {
+      // The backdrop uses capture-phase pointer handlers, so a child calling
+      // stopPropagation() (e.g. a slider/color picker) cannot prevent press-origin
+      // tracking. The bubble-phase approach would regress here.
+      const onClose = jest.fn();
+      render(
+        <BottomSheet {...defaultProps} onClose={onClose}>
+          <button data-testid="grabby" onPointerDown={(e) => e.stopPropagation()}>
+            grab
+          </button>
+        </BottomSheet>
+      );
+
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      fireEvent.pointerDown(screen.getByTestId('grabby'));
+      fireEvent.pointerUp(backdrop);
+      fireEvent.click(backdrop);
+      expect(onClose).not.toHaveBeenCalled();
     });
   });
 
