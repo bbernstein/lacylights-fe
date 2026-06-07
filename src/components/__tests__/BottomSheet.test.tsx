@@ -61,7 +61,9 @@ describe('BottomSheet', () => {
       const onClose = jest.fn();
       render(<BottomSheet {...defaultProps} onClose={onClose} />);
 
-      fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      fireEvent.pointerDown(backdrop);
+      fireEvent.click(backdrop);
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
@@ -71,6 +73,48 @@ describe('BottomSheet', () => {
 
       fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
       expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('does not call onClose when the press starts inside the modal and releases on the backdrop', () => {
+      // Repro: selecting text in a field, dragging the pointer off the modal, and
+      // releasing. The browser dispatches the resulting click to the common
+      // ancestor of the press/release targets (the backdrop), which must NOT close it.
+      const onClose = jest.fn();
+      render(<BottomSheet {...defaultProps} onClose={onClose} />);
+
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      fireEvent.pointerDown(screen.getByTestId('content'));
+      fireEvent.pointerUp(backdrop);
+      fireEvent.click(backdrop);
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('calls onClose when the press starts and releases on the backdrop', () => {
+      const onClose = jest.fn();
+      render(<BottomSheet {...defaultProps} onClose={onClose} />);
+
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      fireEvent.pointerDown(backdrop);
+      fireEvent.pointerUp(backdrop);
+      fireEvent.click(backdrop);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears press-started-inside state when closed so a later backdrop click still closes', () => {
+      // Press inside, close via another path (e.g. Escape) without a click, then reopen.
+      // The stale "started inside" flag must not block the next backdrop dismissal.
+      const onClose = jest.fn();
+      const { rerender } = render(<BottomSheet {...defaultProps} onClose={onClose} />);
+
+      fireEvent.pointerDown(screen.getByTestId('content'));
+      rerender(<BottomSheet {...defaultProps} onClose={onClose} isOpen={false} />);
+      rerender(<BottomSheet {...defaultProps} onClose={onClose} isOpen />);
+
+      // Intentionally NO pointerDown on the backdrop here: the close-effect cleanup
+      // must be the only thing that cleared the stale ref. Firing a backdrop
+      // pointerDown would reset it independently and mask a cleanup regression.
+      fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+      expect(onClose).toHaveBeenCalledTimes(1);
     });
 
     it('calls onClose when Escape is pressed', () => {
@@ -134,6 +178,42 @@ describe('BottomSheet', () => {
       expect(screen.getByText('Mobile Sheet')).toBeInTheDocument();
     });
 
+    it('does not call onClose when the press starts inside the sheet and releases on the backdrop', () => {
+      const onClose = jest.fn();
+      render(<BottomSheet {...defaultProps} onClose={onClose} />);
+
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      fireEvent.pointerDown(screen.getByTestId('content'));
+      fireEvent.pointerUp(backdrop);
+      fireEvent.click(backdrop);
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('calls onClose when the press starts and releases on the backdrop', () => {
+      const onClose = jest.fn();
+      render(<BottomSheet {...defaultProps} onClose={onClose} />);
+
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      fireEvent.pointerDown(backdrop);
+      fireEvent.pointerUp(backdrop);
+      fireEvent.click(backdrop);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears press-started-inside state when closed so a later backdrop click still closes', () => {
+      const onClose = jest.fn();
+      const { rerender } = render(<BottomSheet {...defaultProps} onClose={onClose} />);
+
+      fireEvent.pointerDown(screen.getByTestId('content'));
+      rerender(<BottomSheet {...defaultProps} onClose={onClose} isOpen={false} />);
+      rerender(<BottomSheet {...defaultProps} onClose={onClose} isOpen />);
+
+      // No backdrop pointerDown: the close-effect cleanup must be the only thing
+      // that cleared the stale ref (mirrors the desktop regression test).
+      fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
     it('shows drag handle by default on mobile', () => {
       render(<BottomSheet {...defaultProps} />);
       // The drag handle is a div with specific styling (w-10 h-1)
@@ -163,6 +243,47 @@ describe('BottomSheet', () => {
       render(<BottomSheet {...defaultProps} fullHeightMobile />);
       const sheet = screen.getByTestId('bottom-sheet');
       expect(sheet).toHaveClass('top-4');
+    });
+  });
+
+  describe('Pointer cancellation', () => {
+    it('does not block a later backdrop dismissal after a cancelled inside press', () => {
+      // An OS-interrupted gesture fires pointercancel (no click). The ref must be
+      // cleared so a subsequent direct backdrop click still dismisses the modal.
+      // pointercancel is dispatched to the element that got the pointerdown (the
+      // content) and propagates from there, as in a real browser.
+      const onClose = jest.fn();
+      render(<BottomSheet {...defaultProps} onClose={onClose} />);
+
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      const content = screen.getByTestId('content');
+      fireEvent.pointerDown(content);
+      fireEvent.pointerCancel(content);
+
+      fireEvent.click(backdrop);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Press-origin tracking resilience', () => {
+    it('tracks an inside press even when a child stops pointer-event propagation', () => {
+      // The backdrop uses capture-phase pointer handlers, so a child calling
+      // stopPropagation() (e.g. a slider/color picker) cannot prevent press-origin
+      // tracking. The bubble-phase approach would regress here.
+      const onClose = jest.fn();
+      render(
+        <BottomSheet {...defaultProps} onClose={onClose}>
+          <button data-testid="grabby" onPointerDown={(e) => e.stopPropagation()}>
+            grab
+          </button>
+        </BottomSheet>
+      );
+
+      const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+      fireEvent.pointerDown(screen.getByTestId('grabby'));
+      fireEvent.pointerUp(backdrop);
+      fireEvent.click(backdrop);
+      expect(onClose).not.toHaveBeenCalled();
     });
   });
 

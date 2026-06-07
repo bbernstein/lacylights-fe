@@ -127,6 +127,9 @@ export default function BottomSheet({
   const dragCurrentY = useRef<number | null>(null);
   const isDragging = useRef(false);
   const canSwipe = useRef(false); // Only true when touch starts on handle
+  // `click` fires on the common ancestor of the press/release targets, so track
+  // press origin: a drag out from modal content must not count as a backdrop dismissal.
+  const pressStartedInsideRef = useRef(false);
 
   // Handle escape key to close and Tab key for focus trapping
   const handleKeyDown = useCallback(
@@ -197,17 +200,42 @@ export default function BottomSheet({
     };
   }, [isOpen, handleKeyDown]);
 
-  // Reset initial focus ref when modal closes
+  // Reset transient refs when modal closes so stale state can't leak into the
+  // next open (e.g. a press-inside followed by Escape, then a later backdrop click)
   useEffect(() => {
     if (!isOpen) {
       didInitialFocusRef.current = false;
+      pressStartedInsideRef.current = false;
     }
   }, [isOpen]);
 
-  // Handle backdrop click to close
+  // Registered on the backdrop in the capture phase so it fires before the event
+  // reaches any child: arbitrary `children` (sliders, color pickers, etc.) may call
+  // stopPropagation() on pointer events, which would otherwise prevent us from
+  // recording the press origin. Pointer events also cover mouse, touch, and pen.
+  const handleBackdropPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      pressStartedInsideRef.current = e.target !== e.currentTarget;
+    },
+    []
+  );
+
+  // A cancelled gesture (e.g. OS-interrupted touch) fires no `click`, so clear the
+  // flag here to avoid a stale "started inside" leaking into the next interaction.
+  const handleBackdropPointerCancel = useCallback(() => {
+    pressStartedInsideRef.current = false;
+  }, []);
+
+  // Close on a backdrop click only when the press started on the backdrop.
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target === e.currentTarget && closeOnBackdrop) {
+      // Read then clear unconditionally: every click ends a press, so the flag must
+      // not survive into the next interaction even when this click does not dismiss.
+      const startedInside = pressStartedInsideRef.current;
+      pressStartedInsideRef.current = false;
+      // The e.target === e.currentTarget guard is kept deliberately: it also rejects
+      // synthetic clicks that bypass the pointer flow, so it is not redundant.
+      if (e.target === e.currentTarget && closeOnBackdrop && !startedInside) {
         onClose();
       }
     },
@@ -295,6 +323,8 @@ export default function BottomSheet({
     sheetContent = (
       <div
         className="fixed inset-0 bg-black bg-opacity-50 z-50"
+        onPointerDownCapture={handleBackdropPointerDown}
+        onPointerCancelCapture={handleBackdropPointerCancel}
         onClick={handleBackdropClick}
         data-testid={`${testId}-backdrop`}
       >
@@ -372,6 +402,8 @@ export default function BottomSheet({
     sheetContent = (
       <div
         className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        onPointerDownCapture={handleBackdropPointerDown}
+        onPointerCancelCapture={handleBackdropPointerCancel}
         onClick={handleBackdropClick}
         data-testid={`${testId}-backdrop`}
       >
