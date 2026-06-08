@@ -250,12 +250,12 @@ describe('useCueListDataUpdates', () => {
       );
     });
 
-    it('handles SCENE_NAME_CHANGED change type', async () => {
+    it('handles LOOK_NAME_CHANGED change type', async () => {
       const onDataChange = jest.fn();
       const mockSubscriptionData = {
         cueListDataChanged: {
           cueListId: mockCueListId,
-          changeType: 'SCENE_NAME_CHANGED' as CueListDataChangeType,
+          changeType: 'LOOK_NAME_CHANGED' as CueListDataChangeType,
           affectedCueIds: ['cue-1', 'cue-2'],
           affectedLookId: 'look-1',
           newLookName: 'New Look Name',
@@ -304,7 +304,7 @@ describe('useCueListDataUpdates', () => {
 
       await waitFor(
         () => {
-          expect(onDataChange).toHaveBeenCalledWith('SCENE_NAME_CHANGED');
+          expect(onDataChange).toHaveBeenCalledWith('LOOK_NAME_CHANGED');
         },
         { timeout: 2000 }
       );

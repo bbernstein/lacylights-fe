@@ -65,8 +65,8 @@ interface AddCueDialogProps {
  *   onClose={() => setShowDialog(false)}
  *   cueListId="list-123"
  *   currentCueNumber={5}
- *   currentLookId="scene-456"
- *   scenes={availableScenes}
+ *   currentLookId="look-456"
+ *   looks={availableLooks}
  *   externalError={error}
  *   onAdd={handleAddCue}
  * />
