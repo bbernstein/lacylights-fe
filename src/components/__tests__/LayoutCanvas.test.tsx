@@ -1992,6 +1992,44 @@ describe("LayoutCanvas", () => {
       window.matchMedia = originalMatchMedia;
     });
 
+    it("watches devicePixelRatio via the legacy addListener API on older Safari", () => {
+      const listeners: Array<() => void> = [];
+      const removeListener = jest.fn();
+      const originalMatchMedia = window.matchMedia;
+      window.matchMedia = jest.fn(
+        (query: string) =>
+          ({
+            matches: false,
+            media: query,
+            // No addEventListener/removeEventListener (Safari < 14)
+            addListener: (cb: () => void) => listeners.push(cb),
+            removeListener,
+          }) as unknown as MediaQueryList,
+      );
+
+      try {
+        const { unmount } = renderWithApollo(<LayoutCanvas {...defaultProps} />);
+        const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+        expect(listeners).toHaveLength(1);
+
+        Object.defineProperty(window, "devicePixelRatio", {
+          configurable: true,
+          value: 2,
+        });
+        act(() => {
+          listeners[0]();
+        });
+        expect(canvas.width).toBe(1600);
+        expect(removeListener).toHaveBeenCalledTimes(1); // Re-armed for the new ratio
+        expect(listeners).toHaveLength(2);
+
+        unmount();
+        expect(removeListener).toHaveBeenCalledTimes(2);
+      } finally {
+        window.matchMedia = originalMatchMedia;
+      }
+    });
+
     it("disconnects the observer on unmount", () => {
       const { unmount } = renderWithApollo(<LayoutCanvas {...defaultProps} />);
       expect(roDisconnect).not.toHaveBeenCalled();

@@ -524,17 +524,29 @@ export default function LayoutCanvas({
     // devicePixelRatio changes (e.g. moving between monitors) without
     // necessarily resizing the container, so watch for it separately.
     // watchDpr and handleDprChange reference each other; both are function
-    // declarations so either can be called first.
+    // declarations so either can be called first. Older Safari (< 14) only
+    // supports the deprecated addListener/removeListener on MediaQueryList.
     let dprQuery: MediaQueryList | null = null;
+    function unwatchDpr() {
+      if (!dprQuery) return;
+      if (typeof dprQuery.removeEventListener === "function") {
+        dprQuery.removeEventListener("change", handleDprChange);
+      } else {
+        dprQuery.removeListener?.(handleDprChange);
+      }
+      dprQuery = null;
+    }
     function watchDpr() {
-      dprQuery?.removeEventListener?.("change", handleDprChange);
+      unwatchDpr();
       if (typeof window.matchMedia !== "function") return;
       dprQuery = window.matchMedia(
         `(resolution: ${window.devicePixelRatio || 1}dppx)`,
       );
-      // addEventListener is optional-chained for older Safari (< 14), whose
-      // MediaQueryList only supports the deprecated addListener
-      dprQuery.addEventListener?.("change", handleDprChange);
+      if (typeof dprQuery.addEventListener === "function") {
+        dprQuery.addEventListener("change", handleDprChange);
+      } else {
+        dprQuery.addListener?.(handleDprChange);
+      }
     }
     function handleDprChange() {
       measure();
@@ -545,7 +557,7 @@ export default function LayoutCanvas({
     return () => {
       resizeObserver?.disconnect();
       window.removeEventListener("resize", measure);
-      dprQuery?.removeEventListener?.("change", handleDprChange);
+      unwatchDpr();
     };
   }, []);
 
