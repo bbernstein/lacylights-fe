@@ -486,6 +486,8 @@ export default function LayoutCanvas({
       // dpr) stay in exact proportion; a fractional box would be CSS-scaled
       // by a sub-pixel amount and blur. The container's matching background
       // hides any leftover sub-pixel sliver.
+      // (Hit-testing is unaffected: pointer offsets come from the canvas's
+      // bounding rect position, and the dropped sliver is under 1px.)
       const width = Math.floor(rawWidth);
       const height = Math.floor(rawHeight);
       const dpr = window.devicePixelRatio || 1;
@@ -1378,12 +1380,13 @@ export default function LayoutCanvas({
     }));
   };
 
-  const handleFitToView = useCallback(() => {
-    if (!canvasRef.current) return;
+  // Returns whether the viewport was fitted
+  const handleFitToView = useCallback((): boolean => {
+    if (!canvasRef.current) return false;
     const rect = canvasSize;
 
     // Guard against division by zero during initial render
-    if (rect.width <= 0 || rect.height <= 0) return;
+    if (rect.width <= 0 || rect.height <= 0) return false;
 
     // If no fixtures, just center the canvas at 1x zoom
     if (fixturePositions.size === 0) {
@@ -1392,7 +1395,7 @@ export default function LayoutCanvas({
         y: rect.height / 2 - canvasHeight / 2,
         scale: 1,
       });
-      return;
+      return true;
     }
 
     // Calculate bounds of all fixtures (in pixel coordinates)
@@ -1427,7 +1430,7 @@ export default function LayoutCanvas({
         y: rect.height / 2 - centerY,
         scale: 1,
       });
-      return;
+      return true;
     }
 
     // Calculate scale to fit all fixtures within the viewport
@@ -1446,6 +1449,7 @@ export default function LayoutCanvas({
       y: rect.height / 2 - centerY * scale,
       scale: Math.max(MIN_ZOOM, scale),
     });
+    return true;
   }, [fixturePositions, canvasWidth, canvasHeight, canvasSize]);
 
   // Auto-fit view on initial load, once fixtures are ready and the container
@@ -1453,8 +1457,9 @@ export default function LayoutCanvas({
   const hasMeasuredSize = canvasSize.width > 0 && canvasSize.height > 0;
   useEffect(() => {
     if (!hasInitialFit.current && fixturePositions.size > 0 && hasMeasuredSize) {
-      hasInitialFit.current = true;
-      handleFitToView();
+      // Mark done only once a fit actually happened, so an early return
+      // can't permanently skip the initial fit
+      hasInitialFit.current = handleFitToView();
     }
   }, [fixturePositions.size, hasMeasuredSize, handleFitToView]);
 
