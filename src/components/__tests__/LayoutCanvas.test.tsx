@@ -1960,7 +1960,8 @@ describe("LayoutCanvas", () => {
 
     it("re-sizes the bitmap when devicePixelRatio changes (e.g. moving monitors)", () => {
       const listeners: Array<() => void> = [];
-      const matchMediaSpy = jest.spyOn(window, "matchMedia").mockImplementation(
+      const originalMatchMedia = window.matchMedia;
+      const matchMediaSpy = jest.fn(
         (query: string) =>
           ({
             matches: false,
@@ -1969,6 +1970,7 @@ describe("LayoutCanvas", () => {
             removeEventListener: jest.fn(),
           }) as unknown as MediaQueryList,
       );
+      window.matchMedia = matchMediaSpy;
 
       renderWithApollo(<LayoutCanvas {...defaultProps} />);
       const canvas = document.querySelector("canvas") as HTMLCanvasElement;
@@ -1987,7 +1989,7 @@ describe("LayoutCanvas", () => {
       expect(canvas.style.width).toBe("800px");
       // Re-subscribes for the new ratio
       expect(matchMediaSpy).toHaveBeenLastCalledWith("(resolution: 2dppx)");
-      matchMediaSpy.mockRestore();
+      window.matchMedia = originalMatchMedia;
     });
 
     it("disconnects the observer on unmount", () => {
@@ -2108,6 +2110,93 @@ describe("LayoutCanvas", () => {
       fireEvent.mouseUp(canvas, { clientX: x, clientY: y });
 
       expect(onSelectionChange).toHaveBeenCalledWith(new Set([mockFixtures[0].id]));
+    });
+
+    describe("position updates interleaved with drags and saves", () => {
+      const fixtureA: FixtureInstance = { ...mockFixtures[0], id: "a", layoutX: 500, layoutY: 500, layoutRotation: 0 };
+      const fixtureB: FixtureInstance = { ...mockFixtures[1], id: "b", layoutX: 900, layoutY: 500, layoutRotation: 0 };
+      const values = new Map([["a", [255, 0, 0, 255]], ["b", [0, 255, 0]]]);
+      const delayedSaveMock = {
+        request: { query: UPDATE_FIXTURE_POSITIONS },
+        variableMatcher: () => true,
+        delay: 50,
+        result: { data: { updateFixturePositions: true } },
+        maxUsageCount: 10,
+      };
+      let alertSpy: jest.SpyInstance;
+
+      beforeEach(() => {
+        alertSpy = jest.spyOn(window, "alert").mockImplementation(() => {});
+      });
+      afterEach(() => {
+        alertSpy.mockRestore();
+      });
+
+      const ui = (fixtures: FixtureInstance[]) => (
+        <MockedProvider mocks={[delayedSaveMock]} addTypename={false}>
+          <LayoutCanvas fixtures={fixtures} fixtureValues={values} />
+        </MockedProvider>
+      );
+
+      // Drawn centers of a and b (translate is called once per fixture, in order)
+      const drawnCenters = () => {
+        const calls = translateCalls();
+        return calls.slice(-2) as [number[], number[]];
+      };
+
+      it("keeps both a drag and a concurrent database update", () => {
+        const { rerender } = render(ui([fixtureA, fixtureB]));
+        mockContext.translate.mockClear();
+        triggerResize(1000, 700);
+        const [[ax, ay], [bx, by]] = drawnCenters();
+        const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+
+        // Start dragging a
+        fireEvent.mouseDown(canvas, { clientX: ax, clientY: ay });
+        fireEvent.mouseMove(canvas, { clientX: ax + 40, clientY: ay });
+
+        // Database update for b arrives mid-drag, then the drag continues
+        act(() => {
+          rerender(ui([fixtureA, { ...fixtureB, layoutY: 900 }]));
+        });
+        mockContext.translate.mockClear();
+        fireEvent.mouseMove(canvas, { clientX: ax + 80, clientY: ay });
+
+        const [[ax2, ay2], [bx2, by2]] = drawnCenters();
+        expect(ax2).toBeGreaterThan(ax); // Drag applied (horizontally)
+        expect(Math.abs(ay2 - ay)).toBeLessThan(20); // Only grid-snap shift
+        expect(bx2).toBe(bx); // Database update kept
+        expect(by2).toBeGreaterThan(by);
+
+        fireEvent.mouseUp(canvas);
+      });
+
+      it("keeps changes made while a save is in flight flagged as unsaved", async () => {
+        render(ui([fixtureA, fixtureB]));
+        mockContext.translate.mockClear();
+        triggerResize(1000, 700);
+        const [[ax, ay]] = drawnCenters();
+        const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+        const saveButton = screen.getByRole("button", { name: /Save Layout/i });
+
+        // Drag a; releasing auto-saves (the save is now in flight)
+        fireEvent.mouseDown(canvas, { clientX: ax, clientY: ay });
+        fireEvent.mouseMove(canvas, { clientX: ax + 40, clientY: ay });
+        fireEvent.mouseMove(canvas, { clientX: ax + 80, clientY: ay });
+        fireEvent.mouseUp(canvas, { clientX: ax + 80, clientY: ay });
+
+        // Move a again before the save completes, without releasing
+        mockContext.translate.mockClear();
+        triggerResize(1000, 701); // redraw to read the current position
+        const [[movedX, movedY]] = drawnCenters();
+        fireEvent.mouseDown(canvas, { clientX: movedX, clientY: movedY });
+        fireEvent.mouseMove(canvas, { clientX: movedX, clientY: movedY + 40 });
+        fireEvent.mouseMove(canvas, { clientX: movedX, clientY: movedY + 80 });
+
+        // Once the first save resolves, the newer move is still unsaved
+        await waitFor(() => expect(saveButton).toBeEnabled());
+        expect(alertSpy).not.toHaveBeenCalled();
+      });
     });
 
     it("falls back to window resize events when ResizeObserver is unavailable", () => {

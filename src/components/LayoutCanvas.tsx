@@ -523,6 +523,8 @@ export default function LayoutCanvas({
 
     // devicePixelRatio changes (e.g. moving between monitors) without
     // necessarily resizing the container, so watch for it separately.
+    // watchDpr and handleDprChange reference each other; both are function
+    // declarations so either can be called first.
     let dprQuery: MediaQueryList | null = null;
     function watchDpr() {
       dprQuery?.removeEventListener?.("change", handleDprChange);
@@ -530,7 +532,9 @@ export default function LayoutCanvas({
       dprQuery = window.matchMedia(
         `(resolution: ${window.devicePixelRatio || 1}dppx)`,
       );
-      dprQuery?.addEventListener?.("change", handleDprChange);
+      // addEventListener is optional-chained for older Safari (< 14), whose
+      // MediaQueryList only supports the deprecated addListener
+      dprQuery.addEventListener?.("change", handleDprChange);
     }
     function handleDprChange() {
       measure();

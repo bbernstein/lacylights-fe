@@ -348,8 +348,9 @@ export function reconcileFixturePositions(
     }
   }
 
-  // A fixture counts as initialized only if it is also present in the
-  // positions this updater was given
+  // A fixture counts as initialized only if it also has a position. The two
+  // can't diverge within a single FixtureLayoutState; this is a defensive
+  // guard so a fixture is never left without a position.
   const isInitialized = (fixtureId: string) =>
     initializedIds.has(fixtureId) && positions.has(fixtureId);
 
@@ -502,8 +503,9 @@ export function reconcileFixturePositions(
         y: autoPos.y,
         rotation: 0,
       });
-      // Note: auto-layout positions are NOT added to savedPositions
-      // They will be tracked as unsaved changes
+      // Note: auto-layout positions are NOT added to savedPositions, so they
+      // are included in the next save. They don't enable the Save button on
+      // their own (see hasUnsavedChanges below).
 
       autoLayoutIndex++;
     }
@@ -517,12 +519,42 @@ export function reconcileFixturePositions(
   // This ensures the Save button state is correct after undo/redo operations.
   // Only recompute when database updates occurred to avoid interfering with
   // initial auto-layout (which intentionally creates unsaved positions).
+  const hasUnsavedChanges = hadDatabaseUpdate
+    ? hasUnsavedPositionChanges(positions, saved)
+    : prev.hasUnsavedChanges;
+
+  // Keep the previous state object when nothing changed, so routine fixture
+  // prop refreshes (e.g. subscription updates) don't re-render and redraw
+  if (
+    hasUnsavedChanges === prev.hasUnsavedChanges &&
+    sameMapEntries(positions, prev.positions) &&
+    sameMapEntries(saved, prev.savedPositions) &&
+    sameSetMembers(initializedIds, prev.initializedIds)
+  ) {
+    return prev;
+  }
+
   return {
     positions,
     initializedIds,
     savedPositions: saved,
-    hasUnsavedChanges: hadDatabaseUpdate
-      ? hasUnsavedPositionChanges(positions, saved)
-      : prev.hasUnsavedChanges,
+    hasUnsavedChanges,
   };
+}
+
+/** Same keys mapping to the identical (===) values */
+function sameMapEntries<K, V>(a: Map<K, V>, b: Map<K, V>): boolean {
+  if (a.size !== b.size) return false;
+  for (const [key, value] of a) {
+    if (!b.has(key) || b.get(key) !== value) return false;
+  }
+  return true;
+}
+
+function sameSetMembers<T>(a: Set<T>, b: Set<T>): boolean {
+  if (a.size !== b.size) return false;
+  for (const value of a) {
+    if (!b.has(value)) return false;
+  }
+  return true;
 }

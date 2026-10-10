@@ -451,6 +451,12 @@ describe('layoutCanvasUtils', () => {
       expect(next.savedPositions.has('gone')).toBe(false);
     });
 
+    it('returns the previous state object when nothing changed', () => {
+      const first = reconcile(EMPTY_FIXTURE_LAYOUT_STATE, [fixture('a', 500, 500), fixture('b')]);
+
+      expect(reconcile(first, [fixture('a', 500, 500), fixture('b')])).toBe(first);
+    });
+
     it('re-initializes a fixture marked initialized but missing from positions', () => {
       const prev = state({
         initializedIds: new Set(['a']),
