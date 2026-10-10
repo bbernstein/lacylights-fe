@@ -11,12 +11,10 @@ import {
   DEFAULT_CANVAS_WIDTH,
   DEFAULT_CANVAS_HEIGHT,
   ViewportTransform,
-  screenToPixel,
   pixelToScreen,
-  clampToCanvas,
-  snapToGrid,
   reconcileFixturePositions,
   hasUnsavedPositionChanges,
+  applyDragToLayoutState,
   EMPTY_FIXTURE_LAYOUT_STATE,
   type FixturePosition,
   type FixtureLayoutState,
@@ -251,14 +249,6 @@ export default function LayoutCanvas({
   const positionToScreen = useCallback(
     (px: number, py: number): { x: number; y: number } => {
       return pixelToScreen(px, py, viewport);
-    },
-    [viewport],
-  );
-
-  // Convert screen coordinates to pixel position (virtual canvas)
-  const screenToPosition = useCallback(
-    (sx: number, sy: number): { x: number; y: number } => {
-      return screenToPixel(sx, sy, viewport);
     },
     [viewport],
   );
@@ -867,38 +857,17 @@ export default function LayoutCanvas({
 
       // Drag fixtures
       // Functional update so the drag applies on top of any queued update
-      setLayoutState((prev) => {
-        const newPositions = new Map(prev.positions);
-
-        draggedFixtures.forEach((fixtureId) => {
-          const offset = dragOffset.get(fixtureId);
-          if (!offset) return;
-
-          // Calculate new canvas position
-          const newCanvasX = x + offset.x;
-          const newCanvasY = y + offset.y;
-
-          // Convert to pixel coordinates (virtual canvas)
-          const pixelPos = screenToPosition(newCanvasX, newCanvasY);
-
-          // Apply snap-to-grid (in canvas pixel coordinates - appears larger/smaller with zoom)
-          const snapped = snapToGrid(pixelPos.x, pixelPos.y, GRID_SIZE);
-
-          // Clamp to canvas bounds (pixel coordinates)
-          const clamped = clampToCanvas(snapped.x, snapped.y, canvasWidth, canvasHeight);
-
-          const existingPos = newPositions.get(fixtureId);
-          if (existingPos) {
-            newPositions.set(fixtureId, {
-              ...existingPos,
-              x: clamped.x,
-              y: clamped.y,
-            });
-          }
-        });
-
-        return { ...prev, positions: newPositions, hasUnsavedChanges: true };
-      });
+      setLayoutState((prev) =>
+        applyDragToLayoutState(prev, {
+          draggedFixtureIds: draggedFixtures,
+          dragOffsets: dragOffset,
+          pointer: { x, y },
+          viewport,
+          canvasWidth,
+          canvasHeight,
+          gridSize: GRID_SIZE,
+        }),
+      );
     } else if (isMarqueeSelecting && marqueeStart) {
       // Update marquee selection box
       setMarqueeCurrent({ x, y });
@@ -1237,38 +1206,17 @@ export default function LayoutCanvas({
       } else if (isTouchDragging && draggedFixtures.size > 0) {
         // Drag fixtures
         // Functional update so the drag applies on top of any queued update
-        setLayoutState((prev) => {
-          const newPositions = new Map(prev.positions);
-
-          draggedFixtures.forEach((fixtureId) => {
-            const offset = dragOffset.get(fixtureId);
-            if (!offset) return;
-
-            // Calculate new canvas position
-            const newCanvasX = x + offset.x;
-            const newCanvasY = y + offset.y;
-
-            // Convert to pixel coordinates (virtual canvas)
-            const pixelPos = screenToPosition(newCanvasX, newCanvasY);
-
-            // Apply snap-to-grid (in canvas pixel coordinates - appears larger/smaller with zoom)
-            const snapped = snapToGrid(pixelPos.x, pixelPos.y, GRID_SIZE);
-
-            // Clamp to canvas bounds (pixel coordinates)
-            const clamped = clampToCanvas(snapped.x, snapped.y, canvasWidth, canvasHeight);
-
-            const existingPos = newPositions.get(fixtureId);
-            if (existingPos) {
-              newPositions.set(fixtureId, {
-                ...existingPos,
-                x: clamped.x,
-                y: clamped.y,
-              });
-            }
-          });
-
-          return { ...prev, positions: newPositions, hasUnsavedChanges: true };
-        });
+        setLayoutState((prev) =>
+          applyDragToLayoutState(prev, {
+            draggedFixtureIds: draggedFixtures,
+            dragOffsets: dragOffset,
+            pointer: { x, y },
+            viewport,
+            canvasWidth,
+            canvasHeight,
+            gridSize: GRID_SIZE,
+          }),
+        );
       }
     }
   };
@@ -1487,7 +1435,9 @@ export default function LayoutCanvas({
     setIsSaving(true);
 
     // Positions sent by earlier passes of this run; their state update may
-    // not have committed yet, so they take precedence over savedPositions
+    // not have committed yet, so they take precedence over savedPositions.
+    // If a later pass fails, earlier passes' saved-state updates still
+    // stand (those positions did reach the database).
     const sentThisRun = new Map<string, FixturePosition>();
 
     try {

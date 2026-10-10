@@ -558,3 +558,50 @@ function sameSetMembers<T>(a: Set<T>, b: Set<T>): boolean {
   }
   return true;
 }
+
+/**
+ * Move the dragged fixtures to follow the pointer. Each fixture keeps its
+ * grab offset (in screen pixels), is snapped to the grid and clamped to the
+ * canvas. Marks the layout as having unsaved changes.
+ *
+ * Pure, so it can be used as a React state updater.
+ */
+export function applyDragToLayoutState(
+  prev: FixtureLayoutState,
+  drag: {
+    draggedFixtureIds: Iterable<string>;
+    dragOffsets: Map<string, Point>; // Screen-pixel offset from pointer to fixture center
+    pointer: Point; // Pointer position in canvas screen coordinates
+    viewport: ViewportTransform;
+    canvasWidth: number;
+    canvasHeight: number;
+    gridSize: number;
+  },
+): FixtureLayoutState {
+  const positions = new Map(prev.positions);
+
+  for (const fixtureId of drag.draggedFixtureIds) {
+    const offset = drag.dragOffsets.get(fixtureId);
+    const existingPos = positions.get(fixtureId);
+    if (!offset || !existingPos) continue;
+
+    // Convert the fixture's new screen position to virtual canvas pixels,
+    // snap to the grid (in canvas pixels), and clamp to the canvas bounds
+    const pixelPos = screenToPixel(
+      drag.pointer.x + offset.x,
+      drag.pointer.y + offset.y,
+      drag.viewport,
+    );
+    const snapped = snapToGrid(pixelPos.x, pixelPos.y, drag.gridSize);
+    const clamped = clampToCanvas(
+      snapped.x,
+      snapped.y,
+      drag.canvasWidth,
+      drag.canvasHeight,
+    );
+
+    positions.set(fixtureId, { ...existingPos, x: clamped.x, y: clamped.y });
+  }
+
+  return { ...prev, positions, hasUnsavedChanges: true };
+}

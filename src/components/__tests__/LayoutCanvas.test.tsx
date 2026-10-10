@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MockedProvider } from "@apollo/client/testing";
+import { GraphQLError } from "graphql";
 import LayoutCanvas from "../LayoutCanvas";
 import { ChannelType, FadeBehavior, FixtureType, FixtureInstance } from "../../types";
 import { UPDATE_FIXTURE_POSITIONS } from "../../graphql/fixtures";
@@ -2257,6 +2258,49 @@ describe("LayoutCanvas", () => {
           expect(screen.getByRole("button", { name: /Save Layout/i })).toBeDisabled(),
         );
         expect(alertSpy).not.toHaveBeenCalled();
+      });
+
+      it("recovers after a failed save so the next save still goes through", async () => {
+        let attempt = 0;
+        const flakyMock = {
+          request: { query: UPDATE_FIXTURE_POSITIONS },
+          variableMatcher: () => true,
+          result: () => {
+            attempt += 1;
+            return attempt === 1
+              ? { errors: [new GraphQLError("network down")] }
+              : { data: { updateFixturePositions: true } };
+          },
+          maxUsageCount: 10,
+        };
+        const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+        render(
+          <MockedProvider mocks={[flakyMock]} addTypename={false}>
+            <LayoutCanvas fixtures={[fixtureA, fixtureB]} fixtureValues={values} />
+          </MockedProvider>,
+        );
+        mockContext.translate.mockClear();
+        triggerResize(1000, 700);
+        const [[ax, ay]] = drawnCenters();
+        const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+        const saveButton = screen.getByRole("button", { name: /Save Layout/i });
+
+        // Drag + release: the auto-save fails
+        fireEvent.mouseDown(canvas, { clientX: ax, clientY: ay });
+        fireEvent.mouseMove(canvas, { clientX: ax + 40, clientY: ay });
+        fireEvent.mouseMove(canvas, { clientX: ax + 80, clientY: ay });
+        fireEvent.mouseUp(canvas, { clientX: ax + 80, clientY: ay });
+
+        await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+        // Still unsaved, and saving isn't stuck
+        await waitFor(() => expect(saveButton).toBeEnabled());
+
+        // Retrying via the button succeeds
+        fireEvent.click(saveButton);
+        await waitFor(() => expect(attempt).toBe(2));
+        await waitFor(() => expect(saveButton).toBeDisabled());
+        expect(alertSpy).toHaveBeenCalledTimes(1);
+        consoleErrorSpy.mockRestore();
       });
 
       it("keeps changes made while a save is in flight flagged as unsaved", async () => {

@@ -14,6 +14,7 @@ import {
   snapToGrid,
   reconcileFixturePositions,
   hasUnsavedPositionChanges,
+  applyDragToLayoutState,
   EMPTY_FIXTURE_LAYOUT_STATE,
   type FixturePosition,
   type FixtureLayoutState,
@@ -464,6 +465,76 @@ describe('layoutCanvasUtils', () => {
       });
 
       expect(reconcile(prev, [fixture('a', 500, 500)]).positions.get('a')).toEqual(pos('a', 500, 500));
+    });
+  });
+
+  describe('applyDragToLayoutState', () => {
+    const pos = (fixtureId: string, x: number, y: number): FixturePosition => ({
+      fixtureId,
+      x,
+      y,
+      rotation: 15,
+    });
+    const prev: FixtureLayoutState = {
+      positions: new Map([
+        ['a', pos('a', 400, 400)],
+        ['b', pos('b', 800, 400)],
+        ['c', pos('c', 1200, 400)],
+      ]),
+      initializedIds: new Set(['a', 'b', 'c']),
+      savedPositions: new Map(),
+      hasUnsavedChanges: false,
+    };
+    const drag = (overrides: Partial<Parameters<typeof applyDragToLayoutState>[1]> = {}) => ({
+      draggedFixtureIds: ['a', 'b'],
+      dragOffsets: new Map([
+        ['a', { x: 0, y: 0 }],
+        ['b', { x: 400, y: 0 }],
+      ]),
+      pointer: { x: 500, y: 300 },
+      viewport: { x: 0, y: 0, scale: 1 },
+      canvasWidth: 2000,
+      canvasHeight: 2000,
+      gridSize: 8,
+      ...overrides,
+    });
+
+    it('moves dragged fixtures by their grab offsets, snapped to the grid', () => {
+      const next = applyDragToLayoutState(prev, drag());
+
+      expect(next.positions.get('a')).toEqual({ ...pos('a', 504, 304) });
+      expect(next.positions.get('b')).toEqual({ ...pos('b', 904, 304) });
+      // Undragged fixtures and rotation are untouched
+      expect(next.positions.get('c')).toBe(prev.positions.get('c'));
+      expect(next.hasUnsavedChanges).toBe(true);
+    });
+
+    it('accounts for the viewport transform', () => {
+      const next = applyDragToLayoutState(
+        prev,
+        drag({ draggedFixtureIds: ['a'], viewport: { x: 100, y: 100, scale: 2 } }),
+      );
+
+      // (500 - 100) / 2 = 200, (300 - 100) / 2 = 100
+      expect(next.positions.get('a')).toMatchObject({ x: 200, y: 104 });
+    });
+
+    it('clamps to the canvas bounds', () => {
+      const next = applyDragToLayoutState(prev, drag({ draggedFixtureIds: ['a'], pointer: { x: -500, y: 5000 } }));
+
+      expect(next.positions.get('a')).toMatchObject({
+        x: FIXTURE_SIZE / 2,
+        y: 2000 - FIXTURE_SIZE / 2,
+      });
+    });
+
+    it('skips fixtures without an offset or position, and never mutates prev', () => {
+      const before = JSON.stringify([...prev.positions]);
+      const next = applyDragToLayoutState(prev, drag({ draggedFixtureIds: ['c', 'missing'] }));
+
+      expect(next.positions.get('c')).toBe(prev.positions.get('c')); // No offset for c
+      expect(next.positions.has('missing')).toBe(false);
+      expect(JSON.stringify([...prev.positions])).toBe(before);
     });
   });
 });
