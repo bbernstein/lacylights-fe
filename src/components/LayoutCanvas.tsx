@@ -223,10 +223,8 @@ export default function LayoutCanvas({
   // Coordinates are in pixel space (0 to canvasWidth/Height)
   useEffect(() => {
     if (fixtures.length === 0) {
-      setLayoutState((prev) => ({
-        ...EMPTY_FIXTURE_LAYOUT_STATE,
-        hasUnsavedChanges: prev.hasUnsavedChanges,
-      }));
+      // Nothing left to position or save
+      setLayoutState(EMPTY_FIXTURE_LAYOUT_STATE);
       return;
     }
 
@@ -498,6 +496,8 @@ export default function LayoutCanvas({
       );
     };
 
+    // The container has no padding, border or transform (its classes are
+    // owned here), so its bounding rect and the observer's contentRect agree.
     const measure = () => {
       const rect = container.getBoundingClientRect();
       applySize(rect.width, rect.height);
@@ -561,8 +561,10 @@ export default function LayoutCanvas({
     };
   }, []);
 
-  // Render the canvas
-  useEffect(() => {
+  // Render the canvas. A layout effect, so the bitmap is resized and redrawn
+  // in the same commit that changes the canvas's CSS size, before the browser
+  // paints; a passive effect could let a CSS-scaled stale bitmap show.
+  useIsomorphicLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -1461,6 +1463,9 @@ export default function LayoutCanvas({
     setIsSaving(true);
 
     try {
+      // Diff against the state from this render. That snapshot is
+      // intentional: anything changed while the save is in flight is caught
+      // by the hasUnsavedChanges recompute after the save completes.
       // Find positions that have actually changed from saved state
       const changedPositions: Array<{
         fixtureId: string;
