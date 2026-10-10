@@ -16,8 +16,9 @@ import {
   clampToCanvas,
   snapToGrid,
   reconcileFixturePositions,
-  type FixturePosition,
-  type PositionSync,
+  hasUnsavedPositionChanges,
+  EMPTY_FIXTURE_LAYOUT_STATE,
+  type FixtureLayoutState,
 } from "@/lib/layoutCanvasUtils";
 
 interface LayoutCanvasProps {
@@ -38,7 +39,9 @@ interface LayoutCanvasProps {
   highlightedFixtureId?: string | null;
 }
 
-
+// Canvas background; also used for the container so any sub-pixel sliver left
+// by flooring the canvas size is invisible
+const CANVAS_BACKGROUND = "#1a202c";
 
 interface CanvasSize {
   width: number; // CSS pixels
@@ -130,23 +133,17 @@ export default function LayoutCanvas({
     scale: 1,
   });
 
-  // Fixture positions (pixel coordinates in virtual canvas)
-  const [fixturePositions, setFixturePositions] = useState<
-    Map<string, FixturePosition>
-  >(new Map());
-
-  // Track initialized fixture IDs to preserve positions across re-renders
-  const initializedFixtureIds = useRef<Set<string>>(new Set());
-
-  // Track "saved" positions (what's in database) to detect changes for efficient saves
-  const savedPositions = useRef<Map<string, FixturePosition>>(new Map());
-
-  // Ref updates computed by the position-initialization updater, keyed by the
-  // positions Map it returned. The updater must stay pure because React may
-  // replay it (StrictMode, or rebasing behind a synchronous resize flush), so
-  // instead of mutating the refs it records the new values here; they are
-  // applied after commit, only for the Map that React actually committed.
-  const pendingPositionSync = useRef(new WeakMap<Map<string, FixturePosition>, PositionSync>());
+  // Fixture positions (pixel coordinates in virtual canvas) together with the
+  // bookkeeping that goes with them: which fixtures are initialized, their
+  // saved (database) positions, and whether there are unsaved changes. Kept in
+  // one state value and only changed through pure functional updates, so that
+  // replayed or interleaved updates (React may replay updaters; a drag can be
+  // queued behind a database sync) always compose correctly.
+  const [layoutState, setLayoutState] = useState<FixtureLayoutState>(
+    EMPTY_FIXTURE_LAYOUT_STATE,
+  );
+  const fixturePositions = layoutState.positions;
+  const hasUnsavedChanges = layoutState.hasUnsavedChanges;
 
   // Interaction state
   const [isPanning, setIsPanning] = useState(false);
@@ -210,7 +207,6 @@ export default function LayoutCanvas({
   } | null>(null);
 
   // Save state tracking
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Track whether we've done the initial fit-to-view
@@ -227,44 +223,17 @@ export default function LayoutCanvas({
   // Coordinates are in pixel space (0 to canvasWidth/Height)
   useEffect(() => {
     if (fixtures.length === 0) {
-      setFixturePositions(new Map());
-      initializedFixtureIds.current = new Set();
-      savedPositions.current = new Map();
+      setLayoutState((prev) => ({
+        ...EMPTY_FIXTURE_LAYOUT_STATE,
+        hasUnsavedChanges: prev.hasUnsavedChanges,
+      }));
       return;
     }
 
-    // The updater must be pure because React may replay it. Its baseline is
-    // the refs, or the not-yet-committed result of an earlier queued run; the
-    // new ref values are applied after commit by the effect below.
-    setFixturePositions((prevPositions) => {
-      const baseline = pendingPositionSync.current.get(prevPositions) ?? {
-        initializedIds: initializedFixtureIds.current,
-        savedPositions: savedPositions.current,
-      };
-      const { positions, sync } = reconcileFixturePositions(
-        prevPositions,
-        fixtures,
-        baseline,
-        canvasWidth,
-        canvasHeight,
-      );
-      pendingPositionSync.current.set(positions, sync);
-      return positions;
-    });
+    setLayoutState((prev) =>
+      reconcileFixturePositions(prev, fixtures, canvasWidth, canvasHeight),
+    );
   }, [fixtures, canvasWidth, canvasHeight]); // Re-run when fixtures or canvas size changes
-
-  // Apply the ref updates computed by the initialization updater, once the
-  // positions Map it produced has actually been committed
-  useIsomorphicLayoutEffect(() => {
-    const sync = pendingPositionSync.current.get(fixturePositions);
-    if (!sync) return;
-    pendingPositionSync.current.delete(fixturePositions);
-    initializedFixtureIds.current = sync.initializedIds;
-    savedPositions.current = sync.savedPositions;
-    if (sync.hasUnsavedChanges !== undefined) {
-      setHasUnsavedChanges(sync.hasUnsavedChanges);
-    }
-  }, [fixturePositions]);
 
   // Helper to update selection (internal or external)
   const updateSelection = useCallback(
@@ -596,7 +565,7 @@ export default function LayoutCanvas({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // Clear canvas
-    ctx.fillStyle = "#1a202c";
+    ctx.fillStyle = CANVAS_BACKGROUND;
     ctx.fillRect(0, 0, width, height);
 
     // Draw grid (fixed pixel size)
@@ -876,37 +845,39 @@ export default function LayoutCanvas({
       }
 
       // Drag fixtures
-      const newPositions = new Map(fixturePositions);
+      // Functional update so the drag applies on top of any queued update
+      setLayoutState((prev) => {
+        const newPositions = new Map(prev.positions);
 
-      draggedFixtures.forEach((fixtureId) => {
-        const offset = dragOffset.get(fixtureId);
-        if (!offset) return;
+        draggedFixtures.forEach((fixtureId) => {
+          const offset = dragOffset.get(fixtureId);
+          if (!offset) return;
 
-        // Calculate new canvas position
-        const newCanvasX = x + offset.x;
-        const newCanvasY = y + offset.y;
+          // Calculate new canvas position
+          const newCanvasX = x + offset.x;
+          const newCanvasY = y + offset.y;
 
-        // Convert to pixel coordinates (virtual canvas)
-        const pixelPos = screenToPosition(newCanvasX, newCanvasY);
+          // Convert to pixel coordinates (virtual canvas)
+          const pixelPos = screenToPosition(newCanvasX, newCanvasY);
 
-        // Apply snap-to-grid (in canvas pixel coordinates - appears larger/smaller with zoom)
-        const snapped = snapToGrid(pixelPos.x, pixelPos.y, GRID_SIZE);
+          // Apply snap-to-grid (in canvas pixel coordinates - appears larger/smaller with zoom)
+          const snapped = snapToGrid(pixelPos.x, pixelPos.y, GRID_SIZE);
 
-        // Clamp to canvas bounds (pixel coordinates)
-        const clamped = clampToCanvas(snapped.x, snapped.y, canvasWidth, canvasHeight);
+          // Clamp to canvas bounds (pixel coordinates)
+          const clamped = clampToCanvas(snapped.x, snapped.y, canvasWidth, canvasHeight);
 
-        const existingPos = newPositions.get(fixtureId);
-        if (existingPos) {
-          newPositions.set(fixtureId, {
-            ...existingPos,
-            x: clamped.x,
-            y: clamped.y,
-          });
-        }
+          const existingPos = newPositions.get(fixtureId);
+          if (existingPos) {
+            newPositions.set(fixtureId, {
+              ...existingPos,
+              x: clamped.x,
+              y: clamped.y,
+            });
+          }
+        });
+
+        return { ...prev, positions: newPositions, hasUnsavedChanges: true };
       });
-
-      setFixturePositions(newPositions);
-      setHasUnsavedChanges(true);
     } else if (isMarqueeSelecting && marqueeStart) {
       // Update marquee selection box
       setMarqueeCurrent({ x, y });
@@ -1244,37 +1215,39 @@ export default function LayoutCanvas({
         }));
       } else if (isTouchDragging && draggedFixtures.size > 0) {
         // Drag fixtures
-        const newPositions = new Map(fixturePositions);
+        // Functional update so the drag applies on top of any queued update
+        setLayoutState((prev) => {
+          const newPositions = new Map(prev.positions);
 
-        draggedFixtures.forEach((fixtureId) => {
-          const offset = dragOffset.get(fixtureId);
-          if (!offset) return;
+          draggedFixtures.forEach((fixtureId) => {
+            const offset = dragOffset.get(fixtureId);
+            if (!offset) return;
 
-          // Calculate new canvas position
-          const newCanvasX = x + offset.x;
-          const newCanvasY = y + offset.y;
+            // Calculate new canvas position
+            const newCanvasX = x + offset.x;
+            const newCanvasY = y + offset.y;
 
-          // Convert to pixel coordinates (virtual canvas)
-          const pixelPos = screenToPosition(newCanvasX, newCanvasY);
+            // Convert to pixel coordinates (virtual canvas)
+            const pixelPos = screenToPosition(newCanvasX, newCanvasY);
 
-          // Apply snap-to-grid (in canvas pixel coordinates - appears larger/smaller with zoom)
-          const snapped = snapToGrid(pixelPos.x, pixelPos.y, GRID_SIZE);
+            // Apply snap-to-grid (in canvas pixel coordinates - appears larger/smaller with zoom)
+            const snapped = snapToGrid(pixelPos.x, pixelPos.y, GRID_SIZE);
 
-          // Clamp to canvas bounds (pixel coordinates)
-          const clamped = clampToCanvas(snapped.x, snapped.y, canvasWidth, canvasHeight);
+            // Clamp to canvas bounds (pixel coordinates)
+            const clamped = clampToCanvas(snapped.x, snapped.y, canvasWidth, canvasHeight);
 
-          const existingPos = newPositions.get(fixtureId);
-          if (existingPos) {
-            newPositions.set(fixtureId, {
-              ...existingPos,
-              x: clamped.x,
-              y: clamped.y,
-            });
-          }
+            const existingPos = newPositions.get(fixtureId);
+            if (existingPos) {
+              newPositions.set(fixtureId, {
+                ...existingPos,
+                x: clamped.x,
+                y: clamped.y,
+              });
+            }
+          });
+
+          return { ...prev, positions: newPositions, hasUnsavedChanges: true };
         });
-
-        setFixturePositions(newPositions);
-        setHasUnsavedChanges(true);
       }
     }
   };
@@ -1481,7 +1454,7 @@ export default function LayoutCanvas({
       }> = [];
 
       fixturePositions.forEach((pos) => {
-        const saved = savedPositions.current.get(pos.fixtureId);
+        const saved = layoutState.savedPositions.get(pos.fixtureId);
         // Position changed if: no saved position, or x/y/rotation differs
         const hasChanged = !saved ||
           pos.x !== saved.x ||
@@ -1500,7 +1473,7 @@ export default function LayoutCanvas({
 
       // Skip if no changes
       if (changedPositions.length === 0) {
-        setHasUnsavedChanges(false);
+        setLayoutState((prev) => ({ ...prev, hasUnsavedChanges: false }));
         return;
       }
 
@@ -1508,17 +1481,25 @@ export default function LayoutCanvas({
         variables: { positions: changedPositions },
       });
 
-      // Update savedPositions to reflect the new saved state
-      changedPositions.forEach((pos) => {
-        savedPositions.current.set(pos.fixtureId, {
-          fixtureId: pos.fixtureId,
-          x: pos.layoutX,
-          y: pos.layoutY,
-          rotation: pos.layoutRotation,
+      // Record the new saved state. Functional update so it composes with any
+      // update queued meanwhile, and recompute unsaved changes in case
+      // fixtures were moved while the save was in flight.
+      setLayoutState((prev) => {
+        const savedPositions = new Map(prev.savedPositions);
+        changedPositions.forEach((pos) => {
+          savedPositions.set(pos.fixtureId, {
+            fixtureId: pos.fixtureId,
+            x: pos.layoutX,
+            y: pos.layoutY,
+            rotation: pos.layoutRotation,
+          });
         });
+        return {
+          ...prev,
+          savedPositions,
+          hasUnsavedChanges: hasUnsavedPositionChanges(prev.positions, savedPositions),
+        };
       });
-
-      setHasUnsavedChanges(false);
     } catch (error) {
       console.error("Failed to save layout:", error);
       const errorMessage =
@@ -1595,7 +1576,7 @@ export default function LayoutCanvas({
     <div
       ref={containerRef}
       className="relative w-full h-full overflow-hidden"
-      style={{ backgroundColor: "#1a202c" }}
+      style={{ backgroundColor: CANVAS_BACKGROUND }}
     >
       <canvas
         ref={canvasRef}

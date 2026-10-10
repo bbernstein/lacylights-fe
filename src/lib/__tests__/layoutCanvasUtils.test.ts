@@ -13,8 +13,10 @@ import {
   calculateAutoLayoutPositions,
   snapToGrid,
   reconcileFixturePositions,
+  hasUnsavedPositionChanges,
+  EMPTY_FIXTURE_LAYOUT_STATE,
   type FixturePosition,
-  type PositionSync,
+  type FixtureLayoutState,
 } from '../layoutCanvasUtils';
 import type { FixtureInstance } from '../../types';
 
@@ -282,6 +284,32 @@ describe('layoutCanvasUtils', () => {
     });
   });
 
+  describe('hasUnsavedPositionChanges', () => {
+    const pos = (fixtureId: string, x: number, y: number, rotation = 0): FixturePosition => ({
+      fixtureId,
+      x,
+      y,
+      rotation,
+    });
+
+    it('is false when every position matches its saved position', () => {
+      expect(
+        hasUnsavedPositionChanges(new Map([['a', pos('a', 1, 2)]]), new Map([['a', pos('a', 1, 2)]])),
+      ).toBe(false);
+    });
+
+    it('is true when a position has no saved position', () => {
+      expect(hasUnsavedPositionChanges(new Map([['a', pos('a', 1, 2)]]), new Map())).toBe(true);
+    });
+
+    it('is true when x, y or rotation differs', () => {
+      const saved = new Map([['a', pos('a', 1, 2)]]);
+      expect(hasUnsavedPositionChanges(new Map([['a', pos('a', 9, 2)]]), saved)).toBe(true);
+      expect(hasUnsavedPositionChanges(new Map([['a', pos('a', 1, 9)]]), saved)).toBe(true);
+      expect(hasUnsavedPositionChanges(new Map([['a', pos('a', 1, 2, 45)]]), saved)).toBe(true);
+    });
+  });
+
   describe('reconcileFixturePositions', () => {
     const fixture = (id: string, layoutX?: number, layoutY?: number): FixtureInstance =>
       ({ id, name: id, layoutX, layoutY, layoutRotation: 0 }) as FixtureInstance;
@@ -291,135 +319,145 @@ describe('layoutCanvasUtils', () => {
       y,
       rotation: 0,
     });
-    const emptyBaseline = (): Pick<PositionSync, 'initializedIds' | 'savedPositions'> => ({
+    const state = (overrides: Partial<FixtureLayoutState> = {}): FixtureLayoutState => ({
+      positions: new Map(),
       initializedIds: new Set(),
       savedPositions: new Map(),
+      hasUnsavedChanges: false,
+      ...overrides,
     });
-    const reconcile = (
-      prev: Map<string, FixturePosition>,
-      fixtures: FixtureInstance[],
-      baseline: Pick<PositionSync, 'initializedIds' | 'savedPositions'>,
-    ) => reconcileFixturePositions(prev, fixtures, baseline, 2000, 2000);
+    const reconcile = (prev: FixtureLayoutState, fixtures: FixtureInstance[]) =>
+      reconcileFixturePositions(prev, fixtures, 2000, 2000);
 
     it('initializes fixtures from their saved layout and records them as saved', () => {
-      const { positions, sync } = reconcile(new Map(), [fixture('a', 500, 400)], emptyBaseline());
+      const next = reconcile(EMPTY_FIXTURE_LAYOUT_STATE, [fixture('a', 500, 400)]);
 
-      expect(positions.get('a')).toEqual(pos('a', 500, 400));
-      expect(sync.savedPositions.get('a')).toEqual(pos('a', 500, 400));
-      expect(sync.initializedIds.has('a')).toBe(true);
-      expect(sync.hasUnsavedChanges).toBeUndefined();
+      expect(next.positions.get('a')).toEqual(pos('a', 500, 400));
+      expect(next.savedPositions.get('a')).toEqual(pos('a', 500, 400));
+      expect(next.initializedIds.has('a')).toBe(true);
+      expect(next.hasUnsavedChanges).toBe(false);
     });
 
     it('auto-lays out fixtures without a saved layout and does not mark them saved', () => {
-      const { positions, sync } = reconcile(new Map(), [fixture('a')], emptyBaseline());
+      const next = reconcile(EMPTY_FIXTURE_LAYOUT_STATE, [fixture('a')]);
 
-      expect(positions.has('a')).toBe(true);
-      expect(sync.savedPositions.has('a')).toBe(false);
-      expect(sync.initializedIds.has('a')).toBe(true);
+      expect(next.positions.has('a')).toBe(true);
+      expect(next.savedPositions.has('a')).toBe(false);
+      expect(next.initializedIds.has('a')).toBe(true);
+      // Initial auto-layout intentionally doesn't flag unsaved changes
+      expect(next.hasUnsavedChanges).toBe(false);
     });
 
-    it('never mutates its arguments', () => {
-      const prev = new Map([['a', pos('a', 500, 500)]]);
-      const baseline = {
+    it('never mutates the previous state', () => {
+      const prev = state({
+        positions: new Map([['a', pos('a', 500, 500)]]),
         initializedIds: new Set(['a', 'gone']),
         savedPositions: new Map([
           ['a', pos('a', 500, 500)],
           ['gone', pos('gone', 1, 1)],
         ]),
-      };
-      const snapshot = JSON.stringify({
-        prev: [...prev],
-        ids: [...baseline.initializedIds],
-        saved: [...baseline.savedPositions],
       });
-
-      reconcile(prev, [fixture('a', 700, 500), fixture('b')], baseline);
-
-      expect(
+      const snapshot = () =>
         JSON.stringify({
-          prev: [...prev],
-          ids: [...baseline.initializedIds],
-          saved: [...baseline.savedPositions],
-        }),
-      ).toBe(snapshot);
+          positions: [...prev.positions],
+          ids: [...prev.initializedIds],
+          saved: [...prev.savedPositions],
+          unsaved: prev.hasUnsavedChanges,
+        });
+      const before = snapshot();
+
+      reconcile(prev, [fixture('a', 700, 500), fixture('b')]);
+
+      expect(snapshot()).toBe(before);
+      expect(EMPTY_FIXTURE_LAYOUT_STATE.positions.size).toBe(0);
     });
 
     it('returns the same result when replayed with the same inputs (database update)', () => {
       // Existing fixture whose database position changed (undo/redo)
-      const prev = new Map([['a', pos('a', 500, 500)]]);
-      const baseline = {
+      const prev = state({
+        positions: new Map([['a', pos('a', 500, 500)]]),
         initializedIds: new Set(['a']),
         savedPositions: new Map([['a', pos('a', 500, 500)]]),
-      };
+      });
       const fixtures = [fixture('a', 700, 500)];
 
-      const first = reconcile(prev, fixtures, baseline);
-      const replay = reconcile(prev, fixtures, baseline);
+      const first = reconcile(prev, fixtures);
+      const replay = reconcile(prev, fixtures);
 
       expect(first.positions.get('a')).toEqual(pos('a', 700, 500));
-      expect(replay.positions).toEqual(first.positions);
-      expect(replay.sync).toEqual(first.sync);
-      expect(first.sync.savedPositions.get('a')).toEqual(pos('a', 700, 500));
-      expect(first.sync.hasUnsavedChanges).toBe(false);
+      expect(first.savedPositions.get('a')).toEqual(pos('a', 700, 500));
+      expect(first.hasUnsavedChanges).toBe(false);
+      expect(replay).toEqual(first);
     });
 
     it('preserves unsaved local edits when the database position changes', () => {
-      const prev = new Map([['a', pos('a', 600, 600)]]); // Dragged, not saved
-      const baseline = {
+      const prev = state({
+        positions: new Map([['a', pos('a', 600, 600)]]), // Dragged, not saved
         initializedIds: new Set(['a']),
         savedPositions: new Map([['a', pos('a', 500, 500)]]),
-      };
+        hasUnsavedChanges: true,
+      });
 
-      const { positions, sync } = reconcile(prev, [fixture('a', 700, 500)], baseline);
+      const next = reconcile(prev, [fixture('a', 700, 500)]);
 
-      expect(positions.get('a')).toEqual(pos('a', 600, 600));
-      expect(sync.savedPositions.get('a')).toEqual(pos('a', 500, 500));
-      expect(sync.hasUnsavedChanges).toBe(true);
+      expect(next.positions.get('a')).toEqual(pos('a', 600, 600));
+      expect(next.savedPositions.get('a')).toEqual(pos('a', 500, 500));
+      expect(next.hasUnsavedChanges).toBe(true);
     });
 
     it('clears stale unsaved state when the database now matches the local position', () => {
-      const prev = new Map([['a', pos('a', 700, 500)]]);
-      const baseline = {
+      const prev = state({
+        positions: new Map([['a', pos('a', 700, 500)]]),
         initializedIds: new Set(['a']),
         savedPositions: new Map([['a', pos('a', 500, 500)]]),
-      };
+        hasUnsavedChanges: true,
+      });
 
-      const { positions, sync } = reconcile(prev, [fixture('a', 700, 500)], baseline);
+      const next = reconcile(prev, [fixture('a', 700, 500)]);
 
-      expect(positions.get('a')).toEqual(pos('a', 700, 500));
-      expect(sync.savedPositions.get('a')).toEqual(pos('a', 700, 500));
-      expect(sync.hasUnsavedChanges).toBe(false);
+      expect(next.positions.get('a')).toEqual(pos('a', 700, 500));
+      expect(next.savedPositions.get('a')).toEqual(pos('a', 700, 500));
+      expect(next.hasUnsavedChanges).toBe(false);
+    });
+
+    it('keeps the previous unsaved flag when no database update occurred', () => {
+      const prev = state({
+        positions: new Map([['a', pos('a', 600, 600)]]),
+        initializedIds: new Set(['a']),
+        savedPositions: new Map([['a', pos('a', 500, 500)]]),
+        hasUnsavedChanges: true,
+      });
+
+      expect(reconcile(prev, [fixture('a', 500, 500)]).hasUnsavedChanges).toBe(true);
     });
 
     it('drops removed fixtures from positions and bookkeeping', () => {
-      const prev = new Map([
-        ['a', pos('a', 500, 500)],
-        ['gone', pos('gone', 900, 900)],
-      ]);
-      const baseline = {
+      const prev = state({
+        positions: new Map([
+          ['a', pos('a', 500, 500)],
+          ['gone', pos('gone', 900, 900)],
+        ]),
         initializedIds: new Set(['a', 'gone']),
         savedPositions: new Map([
           ['a', pos('a', 500, 500)],
           ['gone', pos('gone', 900, 900)],
         ]),
-      };
+      });
 
-      const { positions, sync } = reconcile(prev, [fixture('a', 500, 500)], baseline);
+      const next = reconcile(prev, [fixture('a', 500, 500)]);
 
-      expect([...positions.keys()]).toEqual(['a']);
-      expect(sync.initializedIds.has('gone')).toBe(false);
-      expect(sync.savedPositions.has('gone')).toBe(false);
+      expect([...next.positions.keys()]).toEqual(['a']);
+      expect(next.initializedIds.has('gone')).toBe(false);
+      expect(next.savedPositions.has('gone')).toBe(false);
     });
 
-    it('re-initializes a fixture marked initialized but missing from the positions it was given', () => {
-      const baseline = {
+    it('re-initializes a fixture marked initialized but missing from positions', () => {
+      const prev = state({
         initializedIds: new Set(['a']),
         savedPositions: new Map([['a', pos('a', 500, 500)]]),
-      };
+      });
 
-      const { positions } = reconcile(new Map(), [fixture('a', 500, 500)], baseline);
-
-      expect(positions.get('a')).toEqual(pos('a', 500, 500));
+      expect(reconcile(prev, [fixture('a', 500, 500)]).positions.get('a')).toEqual(pos('a', 500, 500));
     });
   });
 });

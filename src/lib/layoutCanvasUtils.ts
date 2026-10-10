@@ -273,14 +273,44 @@ export interface FixturePosition {
 }
 
 /**
- * Fixture-position bookkeeping that the canvas keeps alongside its positions:
- * which fixtures have been initialized and their last-saved (database)
- * positions.
+ * The 2D Layout canvas's fixture-position state. Kept as one value so every
+ * change (initialization, database sync, drag, save) is a single pure state
+ * update and queued updates compose instead of racing.
  */
-export interface PositionSync {
-  initializedIds: Set<string>;
-  savedPositions: Map<string, FixturePosition>;
-  hasUnsavedChanges?: boolean; // Set only when a database update was processed
+export interface FixtureLayoutState {
+  positions: Map<string, FixturePosition>; // Current (possibly unsaved) positions
+  initializedIds: Set<string>; // Fixtures whose positions have been initialized
+  savedPositions: Map<string, FixturePosition>; // Last positions known to be in the database
+  hasUnsavedChanges: boolean;
+}
+
+export const EMPTY_FIXTURE_LAYOUT_STATE: FixtureLayoutState = {
+  positions: new Map(),
+  initializedIds: new Set(),
+  savedPositions: new Map(),
+  hasUnsavedChanges: false,
+};
+
+/**
+ * Whether any current position is missing from, or differs from, the saved
+ * (database) positions.
+ */
+export function hasUnsavedPositionChanges(
+  positions: Map<string, FixturePosition>,
+  savedPositions: Map<string, FixturePosition>,
+): boolean {
+  for (const [fixtureId, pos] of positions) {
+    const savedPos = savedPositions.get(fixtureId);
+    if (
+      !savedPos ||
+      pos.x !== savedPos.x ||
+      pos.y !== savedPos.y ||
+      (pos.rotation ?? 0) !== (savedPos.rotation ?? 0)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -289,21 +319,19 @@ export interface PositionSync {
  * removed ones, and accepts database position changes (undo/redo) for
  * fixtures without unsaved local edits.
  *
- * Pure: it never mutates its arguments, so it is safe to call from a React
- * state updater that React may replay. The new ref values are returned in
- * `sync` for the caller to apply after commit.
+ * Pure: it never mutates its arguments, so it is safe to use as a React
+ * state updater, which React may replay.
  */
 export function reconcileFixturePositions(
-  prevPositions: Map<string, FixturePosition>,
+  prev: FixtureLayoutState,
   fixtures: FixtureInstance[],
-  baseline: Pick<PositionSync, "initializedIds" | "savedPositions">,
   canvasWidth: number,
   canvasHeight: number,
-): { positions: Map<string, FixturePosition>; sync: PositionSync } {
+): FixtureLayoutState {
   const currentFixtureIds = new Set(fixtures.map((f) => f.id));
-  const positions = new Map(prevPositions); // Start with existing positions
-  const initializedIds = new Set(baseline.initializedIds);
-  const saved = new Map(baseline.savedPositions);
+  const positions = new Map(prev.positions); // Start with existing positions
+  const initializedIds = new Set(prev.initializedIds);
+  const saved = new Map(prev.savedPositions);
 
   // Clean up saved positions for removed fixtures
   for (const [fixtureId] of saved) {
@@ -489,33 +517,12 @@ export function reconcileFixturePositions(
   // This ensures the Save button state is correct after undo/redo operations.
   // Only recompute when database updates occurred to avoid interfering with
   // initial auto-layout (which intentionally creates unsaved positions).
-  let anyUnsavedChanges: boolean | undefined;
-  if (hadDatabaseUpdate) {
-    anyUnsavedChanges = false;
-    for (const [fixtureId, pos] of positions) {
-      const savedPos = saved.get(fixtureId);
-      if (!savedPos) {
-        // New fixture without saved position = unsaved change
-        anyUnsavedChanges = true;
-        break;
-      }
-      if (
-        pos.x !== savedPos.x ||
-        pos.y !== savedPos.y ||
-        (pos.rotation ?? 0) !== (savedPos.rotation ?? 0)
-      ) {
-        anyUnsavedChanges = true;
-        break;
-      }
-    }
-  }
-
   return {
     positions,
-    sync: {
-      initializedIds,
-      savedPositions: saved,
-      hasUnsavedChanges: anyUnsavedChanges,
-    },
+    initializedIds,
+    savedPositions: saved,
+    hasUnsavedChanges: hadDatabaseUpdate
+      ? hasUnsavedPositionChanges(positions, saved)
+      : prev.hasUnsavedChanges,
   };
 }
