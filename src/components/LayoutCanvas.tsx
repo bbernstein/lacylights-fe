@@ -18,6 +18,7 @@ import {
   reconcileFixturePositions,
   hasUnsavedPositionChanges,
   EMPTY_FIXTURE_LAYOUT_STATE,
+  type FixturePosition,
   type FixtureLayoutState,
 } from "@/lib/layoutCanvasUtils";
 
@@ -1463,75 +1464,99 @@ export default function LayoutCanvas({
     }
   }, [fixturePositions.size, hasMeasuredSize, handleFitToView]);
 
+  // Saves are serialized: a save requested while one is in flight (e.g. an
+  // auto-save on drag release) sets a flag, and one more pass runs with the
+  // latest state when the current request finishes. Overlapping mutations
+  // could otherwise complete out of order and move the saved baseline back.
+  const saveInFlightRef = useRef(false);
+  const saveRequestedRef = useRef(false);
+
+  // Latest committed layout state, for save passes that run after an await
+  const layoutStateRef = useRef(layoutState);
+  useIsomorphicLayoutEffect(() => {
+    layoutStateRef.current = layoutState;
+  }, [layoutState]);
+
   // Save layout positions to database (only sends changed positions)
   const handleSaveLayout = async () => {
+    if (saveInFlightRef.current) {
+      saveRequestedRef.current = true;
+      return;
+    }
+    saveInFlightRef.current = true;
     setIsSaving(true);
 
+    // Positions sent by earlier passes of this run; their state update may
+    // not have committed yet, so they take precedence over savedPositions
+    const sentThisRun = new Map<string, FixturePosition>();
+
     try {
-      // Diff against the state from this render. That snapshot is
-      // intentional: anything changed while the save is in flight is caught
-      // by the hasUnsavedChanges recompute after the save completes.
-      // Find positions that have actually changed from saved state
-      const changedPositions: Array<{
-        fixtureId: string;
-        layoutX: number;
-        layoutY: number;
-        layoutRotation: number;
-      }> = [];
+      do {
+        saveRequestedRef.current = false;
+        const { positions, savedPositions } = layoutStateRef.current;
 
-      fixturePositions.forEach((pos) => {
-        const saved = layoutState.savedPositions.get(pos.fixtureId);
-        // Position changed if: no saved position, or x/y/rotation differs
-        const hasChanged = !saved ||
-          pos.x !== saved.x ||
-          pos.y !== saved.y ||
-          (pos.rotation ?? 0) !== (saved.rotation ?? 0);
-
-        if (hasChanged) {
-          changedPositions.push({
-            fixtureId: pos.fixtureId,
-            layoutX: pos.x,
-            layoutY: pos.y,
-            layoutRotation: pos.rotation ?? 0,
-          });
-        }
-      });
-
-      // Skip if no changes
-      if (changedPositions.length === 0) {
-        setLayoutState((prev) => ({ ...prev, hasUnsavedChanges: false }));
-        return;
-      }
-
-      await updateFixturePositions({
-        variables: { positions: changedPositions },
-      });
-
-      // Record the new saved state. Functional update so it composes with any
-      // update queued meanwhile, and recompute unsaved changes in case
-      // fixtures were moved while the save was in flight.
-      setLayoutState((prev) => {
-        const savedPositions = new Map(prev.savedPositions);
-        changedPositions.forEach((pos) => {
-          savedPositions.set(pos.fixtureId, {
-            fixtureId: pos.fixtureId,
-            x: pos.layoutX,
-            y: pos.layoutY,
-            rotation: pos.layoutRotation,
-          });
+        // Find positions that have actually changed from saved state
+        const changedPositions: FixturePosition[] = [];
+        positions.forEach((pos) => {
+          const saved =
+            sentThisRun.get(pos.fixtureId) ?? savedPositions.get(pos.fixtureId);
+          // Position changed if: no saved position, or x/y/rotation differs
+          const hasChanged =
+            !saved ||
+            pos.x !== saved.x ||
+            pos.y !== saved.y ||
+            (pos.rotation ?? 0) !== (saved.rotation ?? 0);
+          if (hasChanged) {
+            changedPositions.push({ ...pos, rotation: pos.rotation ?? 0 });
+          }
         });
-        return {
+
+        if (changedPositions.length === 0) continue;
+
+        await updateFixturePositions({
+          variables: {
+            positions: changedPositions.map((pos) => ({
+              fixtureId: pos.fixtureId,
+              layoutX: pos.x,
+              layoutY: pos.y,
+              layoutRotation: pos.rotation,
+            })),
+          },
+        });
+
+        // Record the new saved state. Functional update so it composes with
+        // any update queued meanwhile, and recompute unsaved changes in case
+        // fixtures were moved while the save was in flight.
+        changedPositions.forEach((pos) => sentThisRun.set(pos.fixtureId, pos));
+        setLayoutState((prev) => {
+          const nextSaved = new Map(prev.savedPositions);
+          changedPositions.forEach((pos) => nextSaved.set(pos.fixtureId, pos));
+          return {
+            ...prev,
+            savedPositions: nextSaved,
+            hasUnsavedChanges: hasUnsavedPositionChanges(prev.positions, nextSaved),
+          };
+        });
+      } while (saveRequestedRef.current);
+
+      if (sentThisRun.size === 0) {
+        // Nothing needed saving
+        setLayoutState((prev) => ({
           ...prev,
-          savedPositions,
-          hasUnsavedChanges: hasUnsavedPositionChanges(prev.positions, savedPositions),
-        };
-      });
+          hasUnsavedChanges: hasUnsavedPositionChanges(
+            prev.positions,
+            prev.savedPositions,
+          ),
+        }));
+      }
     } catch (error) {
       console.error("Failed to save layout:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       alert(`Failed to save layout: ${errorMessage}`);
     } finally {
+      saveInFlightRef.current = false;
+      saveRequestedRef.current = false;
       setIsSaving(false);
     }
   };
@@ -1601,6 +1626,8 @@ export default function LayoutCanvas({
   return (
     <div
       ref={containerRef}
+      // No padding/border here: the size tracking assumes the container's
+      // bounding rect equals the ResizeObserver contentRect
       className="relative w-full h-full overflow-hidden"
       style={{ backgroundColor: CANVAS_BACKGROUND }}
     >

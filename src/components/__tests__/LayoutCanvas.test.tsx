@@ -2209,6 +2209,56 @@ describe("LayoutCanvas", () => {
         fireEvent.mouseUp(canvas);
       });
 
+      it("serializes auto-saves: a save requested mid-flight runs after, with the newer position", async () => {
+        const calls: Array<{ at: number; positions: Array<{ fixtureId: string; layoutY: number }> }> = [];
+        const recordingMock = {
+          request: { query: UPDATE_FIXTURE_POSITIONS },
+          variableMatcher: () => true,
+          delay: 80,
+          result: (variables: { positions: Array<{ fixtureId: string; layoutY: number }> }) => {
+            calls.push({ at: Date.now(), positions: variables.positions });
+            return { data: { updateFixturePositions: true } };
+          },
+          maxUsageCount: 10,
+        };
+        render(
+          <MockedProvider mocks={[recordingMock]} addTypename={false}>
+            <LayoutCanvas fixtures={[fixtureA, fixtureB]} fixtureValues={values} />
+          </MockedProvider>,
+        );
+        mockContext.translate.mockClear();
+        triggerResize(1000, 700);
+        const [[ax, ay]] = drawnCenters();
+        const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+
+        // First drag + release starts an auto-save
+        fireEvent.mouseDown(canvas, { clientX: ax, clientY: ay });
+        fireEvent.mouseMove(canvas, { clientX: ax + 40, clientY: ay });
+        fireEvent.mouseMove(canvas, { clientX: ax + 80, clientY: ay });
+        fireEvent.mouseUp(canvas, { clientX: ax + 80, clientY: ay });
+
+        // Second drag + release while the first save is still in flight
+        mockContext.translate.mockClear();
+        triggerResize(1000, 701);
+        const [[movedX, movedY]] = drawnCenters();
+        fireEvent.mouseDown(canvas, { clientX: movedX, clientY: movedY });
+        fireEvent.mouseMove(canvas, { clientX: movedX, clientY: movedY + 40 });
+        fireEvent.mouseMove(canvas, { clientX: movedX, clientY: movedY + 80 });
+        fireEvent.mouseUp(canvas, { clientX: movedX, clientY: movedY + 80 });
+
+        await waitFor(() => expect(calls).toHaveLength(2), { timeout: 2000 });
+        // The second request was only sent after the first one completed
+        expect(calls[1].at - calls[0].at).toBeGreaterThanOrEqual(70);
+        // ...and carries a's newer (lower) position
+        const firstY = calls[0].positions.find((p) => p.fixtureId === "a")!.layoutY;
+        const secondY = calls[1].positions.find((p) => p.fixtureId === "a")!.layoutY;
+        expect(secondY).toBeGreaterThan(firstY);
+        await waitFor(() =>
+          expect(screen.getByRole("button", { name: /Save Layout/i })).toBeDisabled(),
+        );
+        expect(alertSpy).not.toHaveBeenCalled();
+      });
+
       it("keeps changes made while a save is in flight flagged as unsaved", async () => {
         render(ui([fixtureA, fixtureB]));
         mockContext.translate.mockClear();
