@@ -2013,6 +2013,103 @@ describe("LayoutCanvas", () => {
       expect(mockContext.translate).toHaveBeenCalledTimes(mockFixtures.length);
     });
 
+    it("accepts database position updates for existing fixtures under StrictMode", () => {
+      const fixtureA: FixtureInstance = { ...mockFixtures[0], id: "a", layoutX: 500, layoutY: 500, layoutRotation: 0 };
+      const fixtureB: FixtureInstance = { ...mockFixtures[1], id: "b", layoutX: 900, layoutY: 500, layoutRotation: 0 };
+      const values = new Map([["a", [255, 0, 0, 255]], ["b", [0, 255, 0]]]);
+      const ui = (fixtures: FixtureInstance[]) => (
+        <React.StrictMode>
+          <MockedProvider mocks={mocks} addTypename={false}>
+            <LayoutCanvas fixtures={fixtures} fixtureValues={values} />
+          </MockedProvider>
+        </React.StrictMode>
+      );
+
+      const { rerender } = render(ui([fixtureA, fixtureB]));
+      mockContext.translate.mockClear();
+      triggerResize(1000, 700);
+      const [beforeA, beforeB] = translateCalls();
+
+      // Database position for A changes (e.g. undo/redo from the backend)
+      mockContext.translate.mockClear();
+      act(() => {
+        rerender(ui([{ ...fixtureA, layoutX: 700 }, fixtureB]));
+      });
+      const [afterA, afterB] = translateCalls().slice(-2);
+
+      expect(afterA[0]).toBeGreaterThan(beforeA[0]);
+      expect(afterA[1]).toBe(beforeA[1]);
+      expect(afterB).toEqual(beforeB);
+    });
+
+    it("lays out a fixture added mid-session without moving existing ones", () => {
+      const { rerender } = renderWithApollo(<LayoutCanvas {...defaultProps} />);
+      mockContext.translate.mockClear();
+      triggerResize(1000, 700);
+      const before = translateCalls();
+      expect(before).toHaveLength(mockFixtures.length);
+
+      const added: FixtureInstance = { ...mockFixtures[0], id: "added", name: "Added", layoutX: undefined, layoutY: undefined };
+      mockContext.translate.mockClear();
+      act(() => {
+        rerender(
+          <MockedProvider mocks={mocks} addTypename={false}>
+            <LayoutCanvas {...defaultProps} fixtures={[...mockFixtures, added]} />
+          </MockedProvider>,
+        );
+      });
+      const after = translateCalls().slice(-(mockFixtures.length + 1));
+      expect(after.slice(0, mockFixtures.length)).toEqual(before);
+      expect(after).toHaveLength(mockFixtures.length + 1);
+    });
+
+    it("survives a collapse to 0x0 and back without changing the viewport", () => {
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
+      const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+
+      mockContext.translate.mockClear();
+      triggerResize(900, 650);
+      const before = translateCalls();
+      expect(before).toHaveLength(mockFixtures.length);
+
+      triggerResize(0, 0);
+      expect(canvas.width).toBe(0);
+      expect(canvas.height).toBe(0);
+
+      mockContext.translate.mockClear();
+      triggerResize(900, 650);
+      expect(translateCalls()).toEqual(before);
+      expect(canvas.width).toBe(900);
+    });
+
+    it("floors fractional container sizes so the bitmap matches the CSS box exactly", () => {
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
+      const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+
+      triggerResize(1000.6, 700.4);
+      expect(canvas.width).toBe(1000);
+      expect(canvas.height).toBe(700);
+      expect(canvas.style.width).toBe("1000px");
+      expect(canvas.style.height).toBe("700px");
+    });
+
+    it("hit-tests fixtures at their drawn screen position after a resize", () => {
+      const onSelectionChange = jest.fn();
+      renderWithApollo(
+        <LayoutCanvas {...defaultProps} selectedFixtureIds={new Set()} onSelectionChange={onSelectionChange} />,
+      );
+      const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+
+      mockContext.translate.mockClear();
+      triggerResize(1200, 900);
+      const [[x, y]] = translateCalls(); // First fixture's drawn center
+
+      fireEvent.mouseDown(canvas, { clientX: x, clientY: y });
+      fireEvent.mouseUp(canvas, { clientX: x, clientY: y });
+
+      expect(onSelectionChange).toHaveBeenCalledWith(new Set([mockFixtures[0].id]));
+    });
+
     it("falls back to window resize events when ResizeObserver is unavailable", () => {
       // @ts-expect-error - simulate an environment without ResizeObserver
       delete global.ResizeObserver;

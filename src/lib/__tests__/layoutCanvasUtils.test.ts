@@ -12,7 +12,11 @@ import {
   isPointInFixture,
   calculateAutoLayoutPositions,
   snapToGrid,
+  reconcileFixturePositions,
+  type FixturePosition,
+  type PositionSync,
 } from '../layoutCanvasUtils';
+import type { FixtureInstance } from '../../types';
 
 describe('layoutCanvasUtils', () => {
   describe('constants', () => {
@@ -275,6 +279,147 @@ describe('layoutCanvasUtils', () => {
 
     it('handles different grid sizes', () => {
       expect(snapToGrid(35, 67, 25)).toEqual({ x: 25, y: 75 });
+    });
+  });
+
+  describe('reconcileFixturePositions', () => {
+    const fixture = (id: string, layoutX?: number, layoutY?: number): FixtureInstance =>
+      ({ id, name: id, layoutX, layoutY, layoutRotation: 0 }) as FixtureInstance;
+    const pos = (fixtureId: string, x: number, y: number): FixturePosition => ({
+      fixtureId,
+      x,
+      y,
+      rotation: 0,
+    });
+    const emptyBaseline = (): Pick<PositionSync, 'initializedIds' | 'savedPositions'> => ({
+      initializedIds: new Set(),
+      savedPositions: new Map(),
+    });
+    const reconcile = (
+      prev: Map<string, FixturePosition>,
+      fixtures: FixtureInstance[],
+      baseline: Pick<PositionSync, 'initializedIds' | 'savedPositions'>,
+    ) => reconcileFixturePositions(prev, fixtures, baseline, 2000, 2000);
+
+    it('initializes fixtures from their saved layout and records them as saved', () => {
+      const { positions, sync } = reconcile(new Map(), [fixture('a', 500, 400)], emptyBaseline());
+
+      expect(positions.get('a')).toEqual(pos('a', 500, 400));
+      expect(sync.savedPositions.get('a')).toEqual(pos('a', 500, 400));
+      expect(sync.initializedIds.has('a')).toBe(true);
+      expect(sync.hasUnsavedChanges).toBeUndefined();
+    });
+
+    it('auto-lays out fixtures without a saved layout and does not mark them saved', () => {
+      const { positions, sync } = reconcile(new Map(), [fixture('a')], emptyBaseline());
+
+      expect(positions.has('a')).toBe(true);
+      expect(sync.savedPositions.has('a')).toBe(false);
+      expect(sync.initializedIds.has('a')).toBe(true);
+    });
+
+    it('never mutates its arguments', () => {
+      const prev = new Map([['a', pos('a', 500, 500)]]);
+      const baseline = {
+        initializedIds: new Set(['a', 'gone']),
+        savedPositions: new Map([
+          ['a', pos('a', 500, 500)],
+          ['gone', pos('gone', 1, 1)],
+        ]),
+      };
+      const snapshot = JSON.stringify({
+        prev: [...prev],
+        ids: [...baseline.initializedIds],
+        saved: [...baseline.savedPositions],
+      });
+
+      reconcile(prev, [fixture('a', 700, 500), fixture('b')], baseline);
+
+      expect(
+        JSON.stringify({
+          prev: [...prev],
+          ids: [...baseline.initializedIds],
+          saved: [...baseline.savedPositions],
+        }),
+      ).toBe(snapshot);
+    });
+
+    it('returns the same result when replayed with the same inputs (database update)', () => {
+      // Existing fixture whose database position changed (undo/redo)
+      const prev = new Map([['a', pos('a', 500, 500)]]);
+      const baseline = {
+        initializedIds: new Set(['a']),
+        savedPositions: new Map([['a', pos('a', 500, 500)]]),
+      };
+      const fixtures = [fixture('a', 700, 500)];
+
+      const first = reconcile(prev, fixtures, baseline);
+      const replay = reconcile(prev, fixtures, baseline);
+
+      expect(first.positions.get('a')).toEqual(pos('a', 700, 500));
+      expect(replay.positions).toEqual(first.positions);
+      expect(replay.sync).toEqual(first.sync);
+      expect(first.sync.savedPositions.get('a')).toEqual(pos('a', 700, 500));
+      expect(first.sync.hasUnsavedChanges).toBe(false);
+    });
+
+    it('preserves unsaved local edits when the database position changes', () => {
+      const prev = new Map([['a', pos('a', 600, 600)]]); // Dragged, not saved
+      const baseline = {
+        initializedIds: new Set(['a']),
+        savedPositions: new Map([['a', pos('a', 500, 500)]]),
+      };
+
+      const { positions, sync } = reconcile(prev, [fixture('a', 700, 500)], baseline);
+
+      expect(positions.get('a')).toEqual(pos('a', 600, 600));
+      expect(sync.savedPositions.get('a')).toEqual(pos('a', 500, 500));
+      expect(sync.hasUnsavedChanges).toBe(true);
+    });
+
+    it('clears stale unsaved state when the database now matches the local position', () => {
+      const prev = new Map([['a', pos('a', 700, 500)]]);
+      const baseline = {
+        initializedIds: new Set(['a']),
+        savedPositions: new Map([['a', pos('a', 500, 500)]]),
+      };
+
+      const { positions, sync } = reconcile(prev, [fixture('a', 700, 500)], baseline);
+
+      expect(positions.get('a')).toEqual(pos('a', 700, 500));
+      expect(sync.savedPositions.get('a')).toEqual(pos('a', 700, 500));
+      expect(sync.hasUnsavedChanges).toBe(false);
+    });
+
+    it('drops removed fixtures from positions and bookkeeping', () => {
+      const prev = new Map([
+        ['a', pos('a', 500, 500)],
+        ['gone', pos('gone', 900, 900)],
+      ]);
+      const baseline = {
+        initializedIds: new Set(['a', 'gone']),
+        savedPositions: new Map([
+          ['a', pos('a', 500, 500)],
+          ['gone', pos('gone', 900, 900)],
+        ]),
+      };
+
+      const { positions, sync } = reconcile(prev, [fixture('a', 500, 500)], baseline);
+
+      expect([...positions.keys()]).toEqual(['a']);
+      expect(sync.initializedIds.has('gone')).toBe(false);
+      expect(sync.savedPositions.has('gone')).toBe(false);
+    });
+
+    it('re-initializes a fixture marked initialized but missing from the positions it was given', () => {
+      const baseline = {
+        initializedIds: new Set(['a']),
+        savedPositions: new Map([['a', pos('a', 500, 500)]]),
+      };
+
+      const { positions } = reconcile(new Map(), [fixture('a', 500, 500)], baseline);
+
+      expect(positions.get('a')).toEqual(pos('a', 500, 500));
     });
   });
 });

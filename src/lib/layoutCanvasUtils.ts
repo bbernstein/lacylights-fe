@@ -13,6 +13,8 @@
  * Both fixture positions AND sizes scale together, keeping proportions consistent.
  */
 
+import type { FixtureInstance } from "@/types";
+
 /**
  * Base fixture size in pixels (scales with zoom: 80px at 1x zoom)
  */
@@ -260,5 +262,260 @@ export function snapToGrid(x: number, y: number, gridSize: number): Point {
   return {
     x: Math.round(x / gridSize) * gridSize,
     y: Math.round(y / gridSize) * gridSize,
+  };
+}
+
+export interface FixturePosition {
+  fixtureId: string;
+  x: number; // Pixel coordinates in virtual canvas; valid fixture centers are clamped to FIXTURE_SIZE/2 .. canvasWidth - FIXTURE_SIZE/2
+  y: number; // Pixel coordinates in virtual canvas; valid fixture centers are clamped to FIXTURE_SIZE/2 .. canvasHeight - FIXTURE_SIZE/2
+  rotation?: number; // Degrees, for beam direction
+}
+
+/**
+ * Fixture-position bookkeeping that the canvas keeps alongside its positions:
+ * which fixtures have been initialized and their last-saved (database)
+ * positions.
+ */
+export interface PositionSync {
+  initializedIds: Set<string>;
+  savedPositions: Map<string, FixturePosition>;
+  hasUnsavedChanges?: boolean; // Set only when a database update was processed
+}
+
+/**
+ * Reconcile the canvas's fixture positions with the current fixtures prop.
+ * Initializes new fixtures (from their saved layout or auto-layout), drops
+ * removed ones, and accepts database position changes (undo/redo) for
+ * fixtures without unsaved local edits.
+ *
+ * Pure: it never mutates its arguments, so it is safe to call from a React
+ * state updater that React may replay. The new ref values are returned in
+ * `sync` for the caller to apply after commit.
+ */
+export function reconcileFixturePositions(
+  prevPositions: Map<string, FixturePosition>,
+  fixtures: FixtureInstance[],
+  baseline: Pick<PositionSync, "initializedIds" | "savedPositions">,
+  canvasWidth: number,
+  canvasHeight: number,
+): { positions: Map<string, FixturePosition>; sync: PositionSync } {
+  const currentFixtureIds = new Set(fixtures.map((f) => f.id));
+  const positions = new Map(prevPositions); // Start with existing positions
+  const initializedIds = new Set(baseline.initializedIds);
+  const saved = new Map(baseline.savedPositions);
+
+  // Clean up saved positions for removed fixtures
+  for (const [fixtureId] of saved) {
+    if (!currentFixtureIds.has(fixtureId)) {
+      saved.delete(fixtureId);
+    }
+  }
+
+  // Remove positions for fixtures that no longer exist
+  for (const [fixtureId] of positions) {
+    if (!currentFixtureIds.has(fixtureId)) {
+      positions.delete(fixtureId);
+      initializedIds.delete(fixtureId);
+    }
+  }
+
+  // A fixture counts as initialized only if it is also present in the
+  // positions this updater was given
+  const isInitialized = (fixtureId: string) =>
+    initializedIds.has(fixtureId) && positions.has(fixtureId);
+
+  // Pre-calculate auto-layout positions for fixtures without saved positions
+  const fixturesNeedingAutoLayout = fixtures.filter(
+    (f) =>
+      !isInitialized(f.id) &&
+      (f.layoutX === null || f.layoutX === undefined || f.layoutY === null || f.layoutY === undefined)
+  );
+  const autoLayoutPositions = calculateAutoLayoutPositions(
+    fixturesNeedingAutoLayout.length,
+    canvasWidth,
+    canvasHeight
+  );
+  let autoLayoutIndex = 0;
+
+  // Track whether any database-triggered position update occurred
+  // Used to determine if we need to recompute hasUnsavedChanges after processing
+  let hadDatabaseUpdate = false;
+
+  fixtures.forEach((fixture) => {
+    // Check if already initialized
+    if (isInitialized(fixture.id)) {
+      // For already-initialized fixtures, check if database position changed
+      // This handles undo/redo updates from the backend
+      const currentPos = positions.get(fixture.id);
+      const savedPos = saved.get(fixture.id);
+
+      if (
+        fixture.layoutX !== null &&
+        fixture.layoutX !== undefined &&
+        fixture.layoutY !== null &&
+        fixture.layoutY !== undefined &&
+        savedPos &&
+        currentPos
+      ) {
+        // Check if database position differs from what we last saved
+        const dbX = fixture.layoutX;
+        const dbY = fixture.layoutY;
+        const dbRotation = fixture.layoutRotation ?? 0;
+
+        const dbChanged =
+          dbX !== savedPos.x ||
+          dbY !== savedPos.y ||
+          dbRotation !== (savedPos.rotation ?? 0);
+
+        // Check if local position has unsaved changes (user is actively dragging).
+        // This prevents undo/redo from overwriting user's in-progress drag.
+        // The comparison uses savedPositions (last synced to database) as the baseline:
+        // - If currentPos === savedPos: no local changes, safe to accept database update
+        // - If currentPos !== savedPos: user has unsaved changes, preserve their work
+        const hasLocalChanges =
+          currentPos.x !== savedPos.x ||
+          currentPos.y !== savedPos.y ||
+          (currentPos.rotation ?? 0) !== (savedPos.rotation ?? 0);
+
+        // Check if database position now matches current local position.
+        // This can happen when undo/redo reverts database to match user's current layout.
+        const dbMatchesCurrent =
+          currentPos.x === dbX &&
+          currentPos.y === dbY &&
+          (currentPos.rotation ?? 0) === dbRotation;
+
+        // Update local state only if:
+        // 1. Database changed (from undo/redo or another client)
+        // 2a. User doesn't have local unsaved changes (not mid-drag), OR
+        // 2b. Database now matches current local position (clear stale "unsaved" indication)
+        if (dbChanged) {
+          hadDatabaseUpdate = true;
+          if (!hasLocalChanges) {
+            // No local changes: accept database update into both positions and savedPositions
+            const newPosition: FixturePosition = {
+              fixtureId: fixture.id,
+              x: dbX,
+              y: dbY,
+              rotation: dbRotation,
+            };
+            positions.set(fixture.id, newPosition);
+            saved.set(fixture.id, { ...newPosition });
+          } else if (dbMatchesCurrent) {
+            // Local position already matches database: update savedPositions to clear
+            // stale "unsaved" state without overwriting user's current position
+            saved.set(fixture.id, { ...currentPos });
+          }
+          // If hasLocalChanges && !dbMatchesCurrent: preserve user's unsaved work
+        }
+      }
+      return;
+    }
+
+    // Check if fixture has saved position in database
+    if (
+      fixture.layoutX !== null &&
+      fixture.layoutX !== undefined &&
+      fixture.layoutY !== null &&
+      fixture.layoutY !== undefined
+    ) {
+      let x = fixture.layoutX;
+      let y = fixture.layoutY;
+
+      // Backward compatibility: detect and convert normalized coordinates
+      // The backend should already convert these, but this is a safety net.
+      // Check each axis independently to handle edge cases like (0.5, 0.0) or (1.0, 0.5).
+      // Values in the normalized range [0, 1] are treated as normalized coordinates.
+      //
+      // KNOWN LIMITATION: Pixel positions 0 or 1 would be incorrectly treated as normalized.
+      // In practice this is very unlikely since:
+      // 1. Fixtures are clamped to FIXTURE_SIZE/2 (40px) minimum
+      // 2. After migration, all coordinates should be in pixel range
+      // 3. The backend migration script handles the authoritative conversion
+      const xIsNormalized =
+        isNormalizedCoordinate(x) || x === 0 || x === 1;
+      const yIsNormalized =
+        isNormalizedCoordinate(y) || y === 0 || y === 1;
+
+      if (xIsNormalized || yIsNormalized) {
+        // Log when conversion is applied to help identify migration issues
+        if (process.env.NODE_ENV === "development") {
+          console.debug(
+            `[LayoutCanvas] Converting legacy coordinates for fixture ${fixture.id}: (${fixture.layoutX}, ${fixture.layoutY}) → pixel space`
+          );
+        }
+        if (xIsNormalized) {
+          x = x * canvasWidth;
+        }
+        if (yIsNormalized) {
+          y = y * canvasHeight;
+        }
+        // Clamp converted coordinates to valid canvas bounds
+        const clamped = clampToCanvas(x, y, canvasWidth, canvasHeight);
+        x = clamped.x;
+        y = clamped.y;
+      }
+
+      const position: FixturePosition = {
+        fixtureId: fixture.id,
+        x,
+        y,
+        rotation: fixture.layoutRotation ?? 0,
+      };
+      positions.set(fixture.id, position);
+      // Track this as the saved position (from database)
+      saved.set(fixture.id, { ...position });
+    } else {
+      // Use auto-layout for new fixtures without saved positions (pixel coordinates)
+      const autoPos = autoLayoutPositions[autoLayoutIndex] || { x: canvasWidth / 2, y: canvasHeight / 2 };
+      positions.set(fixture.id, {
+        fixtureId: fixture.id,
+        x: autoPos.x,
+        y: autoPos.y,
+        rotation: 0,
+      });
+      // Note: auto-layout positions are NOT added to savedPositions
+      // They will be tracked as unsaved changes
+
+      autoLayoutIndex++;
+    }
+
+    // Mark this fixture as initialized
+    initializedIds.add(fixture.id);
+  });
+
+  // After processing all fixtures, if there was a database update, recompute
+  // hasUnsavedChanges by comparing current positions with savedPositions.
+  // This ensures the Save button state is correct after undo/redo operations.
+  // Only recompute when database updates occurred to avoid interfering with
+  // initial auto-layout (which intentionally creates unsaved positions).
+  let anyUnsavedChanges: boolean | undefined;
+  if (hadDatabaseUpdate) {
+    anyUnsavedChanges = false;
+    for (const [fixtureId, pos] of positions) {
+      const savedPos = saved.get(fixtureId);
+      if (!savedPos) {
+        // New fixture without saved position = unsaved change
+        anyUnsavedChanges = true;
+        break;
+      }
+      if (
+        pos.x !== savedPos.x ||
+        pos.y !== savedPos.y ||
+        (pos.rotation ?? 0) !== (savedPos.rotation ?? 0)
+      ) {
+        anyUnsavedChanges = true;
+        break;
+      }
+    }
+  }
+
+  return {
+    positions,
+    sync: {
+      initializedIds,
+      savedPositions: saved,
+      hasUnsavedChanges: anyUnsavedChanges,
+    },
   };
 }
