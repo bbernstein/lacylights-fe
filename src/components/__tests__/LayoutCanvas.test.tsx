@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MockedProvider } from "@apollo/client/testing";
 import LayoutCanvas from "../LayoutCanvas";
@@ -36,6 +36,7 @@ const mockContext = {
   fillText: jest.fn(),
   clearRect: jest.fn(),
   setLineDash: jest.fn(),
+  setTransform: jest.fn(),
   measureText: jest.fn((text: string) => ({ width: text.length * 8 })), // ~8px per char
 };
 
@@ -1826,6 +1827,206 @@ describe("LayoutCanvas", () => {
         saveButton = screen.getByRole("button", { name: /Save Layout/i });
         expect(saveButton).toBeDisabled();
       });
+    });
+  });
+
+  describe("container resize (issue #173)", () => {
+    type ROCallback = (entries: Array<{ contentRect: { width: number; height: number } }>) => void;
+    let roCallbacks: ROCallback[];
+    let roDisconnect: jest.Mock;
+    let roObserve: jest.Mock;
+    let originalRO: typeof ResizeObserver;
+    let originalDpr: number;
+    let rectSpy: jest.SpyInstance;
+
+    const triggerResize = (width: number, height: number) => {
+      act(() => {
+        roCallbacks.forEach((cb) => cb([{ contentRect: { width, height } }]));
+      });
+    };
+
+    const translateCalls = () =>
+      mockContext.translate.mock.calls.map((args: number[]) => [...args]);
+
+    beforeEach(() => {
+      roCallbacks = [];
+      roDisconnect = jest.fn();
+      roObserve = jest.fn();
+      originalRO = global.ResizeObserver;
+      global.ResizeObserver = jest.fn().mockImplementation((cb: ROCallback) => {
+        roCallbacks.push(cb);
+        return { observe: roObserve, unobserve: jest.fn(), disconnect: roDisconnect };
+      }) as unknown as typeof ResizeObserver;
+      originalDpr = window.devicePixelRatio;
+      rectSpy = jest
+        .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+        .mockReturnValue({
+          width: 800,
+          height: 600,
+          top: 0,
+          left: 0,
+          right: 800,
+          bottom: 600,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        } as DOMRect);
+    });
+
+    afterEach(() => {
+      global.ResizeObserver = originalRO;
+      Object.defineProperty(window, "devicePixelRatio", {
+        configurable: true,
+        value: originalDpr,
+      });
+      rectSpy.mockRestore();
+    });
+
+    it("observes the container and resizes the bitmap and CSS box together", () => {
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
+      const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+
+      expect(roObserve).toHaveBeenCalledTimes(1);
+      expect(canvas.width).toBe(800);
+      expect(canvas.height).toBe(600);
+      expect(canvas.style.width).toBe("800px");
+      expect(canvas.style.height).toBe("600px");
+      expect(canvas.style.position).toBe("absolute");
+
+      mockContext.fillRect.mockClear();
+      triggerResize(1200, 900);
+
+      expect(canvas.width).toBe(1200);
+      expect(canvas.height).toBe(900);
+      expect(canvas.style.width).toBe("1200px");
+      expect(canvas.style.height).toBe("900px");
+      // Redrawn immediately, clearing the full new area
+      expect(mockContext.fillRect).toHaveBeenCalledWith(0, 0, 1200, 900);
+    });
+
+    it("does not change the viewport (zoom or pan) when resizing", () => {
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
+
+      mockContext.translate.mockClear();
+      triggerResize(1200, 900);
+      const afterGrow = translateCalls();
+
+      mockContext.translate.mockClear();
+      triggerResize(400, 300);
+      const afterShrink = translateCalls();
+
+      mockContext.translate.mockClear();
+      triggerResize(800, 600);
+      const afterRestore = translateCalls();
+
+      // Fixtures are drawn at identical screen positions at every size,
+      // so neither scale nor x/y changed and no refit happened
+      expect(afterGrow.length).toBeGreaterThan(0);
+      expect(afterShrink).toEqual(afterGrow);
+      expect(afterRestore).toEqual(afterGrow);
+    });
+
+    it("waits for a non-zero size before the initial fit, and fits only once", () => {
+      rectSpy.mockReturnValue({ width: 0, height: 0 } as DOMRect);
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
+      const unfitted = translateCalls().slice(-mockFixtures.length);
+
+      mockContext.translate.mockClear();
+      triggerResize(800, 600);
+      const fitted = translateCalls().slice(-mockFixtures.length);
+      expect(fitted).not.toEqual(unfitted);
+
+      // A later resize must not refit (positions stay put)
+      mockContext.translate.mockClear();
+      triggerResize(1600, 1200);
+      expect(translateCalls().slice(-mockFixtures.length)).toEqual(fitted);
+    });
+
+    it("sizes the bitmap for high-DPI displays and draws in CSS pixels", () => {
+      Object.defineProperty(window, "devicePixelRatio", {
+        configurable: true,
+        value: 2,
+      });
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
+      const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+
+      expect(canvas.width).toBe(1600);
+      expect(canvas.height).toBe(1200);
+      expect(canvas.style.width).toBe("800px");
+      expect(canvas.style.height).toBe("600px");
+      expect(mockContext.setTransform).toHaveBeenLastCalledWith(2, 0, 0, 2, 0, 0);
+      expect(mockContext.fillRect).toHaveBeenCalledWith(0, 0, 800, 600);
+    });
+
+    it("re-sizes the bitmap when devicePixelRatio changes (e.g. moving monitors)", () => {
+      const listeners: Array<() => void> = [];
+      const matchMediaSpy = jest.spyOn(window, "matchMedia").mockImplementation(
+        (query: string) =>
+          ({
+            matches: false,
+            media: query,
+            addEventListener: (_: string, cb: () => void) => listeners.push(cb),
+            removeEventListener: jest.fn(),
+          }) as unknown as MediaQueryList,
+      );
+
+      renderWithApollo(<LayoutCanvas {...defaultProps} />);
+      const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+      expect(canvas.width).toBe(800);
+      expect(matchMediaSpy).toHaveBeenLastCalledWith("(resolution: 1dppx)");
+
+      Object.defineProperty(window, "devicePixelRatio", {
+        configurable: true,
+        value: 2,
+      });
+      act(() => {
+        listeners[listeners.length - 1]();
+      });
+
+      expect(canvas.width).toBe(1600);
+      expect(canvas.style.width).toBe("800px");
+      // Re-subscribes for the new ratio
+      expect(matchMediaSpy).toHaveBeenLastCalledWith("(resolution: 2dppx)");
+      matchMediaSpy.mockRestore();
+    });
+
+    it("disconnects the observer on unmount", () => {
+      const { unmount } = renderWithApollo(<LayoutCanvas {...defaultProps} />);
+      expect(roDisconnect).not.toHaveBeenCalled();
+      unmount();
+      expect(roDisconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it("still draws fixtures when React replays the position updater (StrictMode)", () => {
+      // StrictMode double-invokes state updaters, like React does when it
+      // rebases an update behind a synchronous resize flush
+      render(
+        <React.StrictMode>
+          <MockedProvider mocks={mocks} addTypename={false}>
+            <LayoutCanvas {...defaultProps} />
+          </MockedProvider>
+        </React.StrictMode>,
+      );
+
+      mockContext.translate.mockClear();
+      triggerResize(1000, 700);
+      expect(mockContext.translate).toHaveBeenCalledTimes(mockFixtures.length);
+    });
+
+    it("falls back to window resize events when ResizeObserver is unavailable", () => {
+      // @ts-expect-error - simulate an environment without ResizeObserver
+      delete global.ResizeObserver;
+      const { unmount } = renderWithApollo(<LayoutCanvas {...defaultProps} />);
+      const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+      expect(canvas.width).toBe(800);
+
+      rectSpy.mockReturnValue({ width: 1000, height: 700 } as DOMRect);
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+      expect(canvas.width).toBe(1000);
+      expect(canvas.height).toBe(700);
+      unmount();
     });
   });
 });

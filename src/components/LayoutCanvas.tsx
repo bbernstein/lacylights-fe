@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useLayoutEffect, useState, useCallback } from "react";
+import { flushSync } from "react-dom";
 import { useMutation } from "@apollo/client";
 import { FixtureInstance } from "@/types";
 import { UPDATE_FIXTURE_POSITIONS } from "@/graphql/fixtures";
@@ -42,6 +43,16 @@ interface FixturePosition {
   y: number; // Pixel coordinates in virtual canvas; valid fixture centers are clamped to FIXTURE_SIZE/2 .. canvasHeight - FIXTURE_SIZE/2
   rotation?: number; // Degrees, for beam direction
 }
+
+interface CanvasSize {
+  width: number; // CSS pixels
+  height: number; // CSS pixels
+  dpr: number; // Device pixel ratio used for the bitmap
+}
+
+// useLayoutEffect warns during server rendering; fall back to useEffect there
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 // FIXTURE_SIZE is imported from layoutCanvasUtils (80px fixed)
 const MIN_ZOOM = 0.1;
@@ -106,6 +117,15 @@ export default function LayoutCanvas({
   const selectedFixtureIds = externalSelectedIds || internalSelection;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Observed container size in CSS pixels, plus the device pixel ratio used to
+  // size the canvas bitmap. Tracked explicitly so the bitmap always matches the
+  // on-screen box and the browser never CSS-scales a stale bitmap (issue #173).
+  const [canvasSize, setCanvasSize] = useState<CanvasSize>({
+    width: 0,
+    height: 0,
+    dpr: 1,
+  });
 
   // Viewport state (pan and zoom)
   const [viewport, setViewport] = useState<ViewportTransform>({
@@ -229,10 +249,18 @@ export default function LayoutCanvas({
         }
       }
 
+      // A fixture counts as initialized only if it is also present in the
+      // positions this updater was given. React may replay updaters (e.g. when
+      // a synchronous update rebases this one); the refs below are mutated on
+      // the first run, so trusting them alone would skip every fixture on the
+      // replay and leave the map empty.
+      const isInitialized = (fixtureId: string) =>
+        initializedFixtureIds.current.has(fixtureId) && positions.has(fixtureId);
+
       // Pre-calculate auto-layout positions for fixtures without saved positions
       const fixturesNeedingAutoLayout = fixtures.filter(
         (f) =>
-          !initializedFixtureIds.current.has(f.id) &&
+          !isInitialized(f.id) &&
           (f.layoutX === null || f.layoutX === undefined || f.layoutY === null || f.layoutY === undefined)
       );
       const autoLayoutPositions = calculateAutoLayoutPositions(
@@ -248,7 +276,7 @@ export default function LayoutCanvas({
 
       fixtures.forEach((fixture) => {
         // Check if already initialized
-        if (initializedFixtureIds.current.has(fixture.id)) {
+        if (isInitialized(fixture.id)) {
           // For already-initialized fixtures, check if database position changed
           // This handles undo/redo updates from the backend
           const currentPos = positions.get(fixture.id);
@@ -659,40 +687,105 @@ export default function LayoutCanvas({
     [abbreviateName],
   );
 
+  // Track the container size. Resizing only changes how much of the layout is
+  // visible; it never touches the viewport (scale/x/y). Updates are flushed
+  // synchronously so every resize step is redrawn before the browser paints.
+  useIsomorphicLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const applySize = (width: number, height: number) => {
+      const dpr = window.devicePixelRatio || 1;
+      setCanvasSize((prev) =>
+        prev.width === width && prev.height === height && prev.dpr === dpr
+          ? prev
+          : { width, height, dpr },
+      );
+    };
+
+    const measure = () => {
+      const rect = container.getBoundingClientRect();
+      applySize(rect.width, rect.height);
+    };
+
+    measure();
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver((entries) => {
+        const entry = entries[entries.length - 1];
+        if (!entry) return;
+        const { width, height } = entry.contentRect;
+        flushSync(() => applySize(width, height));
+      });
+      resizeObserver.observe(container);
+    } else {
+      window.addEventListener("resize", measure);
+    }
+
+    // devicePixelRatio changes (e.g. moving between monitors) without
+    // necessarily resizing the container, so watch for it separately.
+    let dprQuery: MediaQueryList | null = null;
+    const handleDprChange = () => {
+      measure();
+      watchDpr();
+    };
+    const watchDpr = () => {
+      dprQuery?.removeEventListener?.("change", handleDprChange);
+      if (typeof window.matchMedia !== "function") return;
+      dprQuery = window.matchMedia(
+        `(resolution: ${window.devicePixelRatio || 1}dppx)`,
+      );
+      dprQuery?.addEventListener?.("change", handleDprChange);
+    };
+    watchDpr();
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", measure);
+      dprQuery?.removeEventListener?.("change", handleDprChange);
+    };
+  }, []);
+
   // Render the canvas
   useEffect(() => {
     const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
+    if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Set canvas size to container size
-    const rect = container.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
+    // Size the bitmap to exactly match the CSS box (scaled for high-DPI).
+    // Only reassign when it changes: assigning width/height clears the canvas.
+    const { width, height, dpr } = canvasSize;
+    const bitmapWidth = Math.round(width * dpr);
+    const bitmapHeight = Math.round(height * dpr);
+    if (canvas.width !== bitmapWidth) canvas.width = bitmapWidth;
+    if (canvas.height !== bitmapHeight) canvas.height = bitmapHeight;
+
+    // Draw in CSS pixels; the transform maps them onto device pixels
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // Clear canvas
     ctx.fillStyle = "#1a202c";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, width, height);
 
     // Draw grid (fixed pixel size)
     ctx.strokeStyle = "#2d3748";
     ctx.lineWidth = 1;
     const gridSize = 50 * viewport.scale;
 
-    for (let x = viewport.x % gridSize; x < canvas.width; x += gridSize) {
+    for (let x = viewport.x % gridSize; x < width; x += gridSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
-      ctx.lineTo(x, canvas.height);
+      ctx.lineTo(x, height);
       ctx.stroke();
     }
 
-    for (let y = viewport.y % gridSize; y < canvas.height; y += gridSize) {
+    for (let y = viewport.y % gridSize; y < height; y += gridSize) {
       ctx.beginPath();
       ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
+      ctx.lineTo(width, y);
       ctx.stroke();
     }
 
@@ -823,6 +916,7 @@ export default function LayoutCanvas({
       ctx.setLineDash([]);
     }
   }, [
+    canvasSize,
     fixtures,
     fixturePositions,
     viewport,
@@ -1465,9 +1559,8 @@ export default function LayoutCanvas({
   };
 
   const handleFitToView = useCallback(() => {
-    if (!canvasRef.current || !containerRef.current) return;
-    const container = containerRef.current;
-    const rect = container.getBoundingClientRect();
+    if (!canvasRef.current) return;
+    const rect = canvasSize;
 
     // Guard against division by zero during initial render
     if (rect.width <= 0 || rect.height <= 0) return;
@@ -1533,24 +1626,17 @@ export default function LayoutCanvas({
       y: rect.height / 2 - centerY * scale,
       scale: Math.max(MIN_ZOOM, scale),
     });
-  }, [fixturePositions, canvasWidth, canvasHeight]);
+  }, [fixturePositions, canvasWidth, canvasHeight, canvasSize]);
 
-  // Auto-fit view on initial load when fixtures are ready
+  // Auto-fit view on initial load, once fixtures are ready and the container
+  // has a measured, non-zero size. Runs only once: later resizes never refit.
+  const hasMeasuredSize = canvasSize.width > 0 && canvasSize.height > 0;
   useEffect(() => {
-    // Only fit once, when we have fixtures and container is ready
-    if (
-      !hasInitialFit.current &&
-      fixturePositions.size > 0 &&
-      containerRef.current
-    ) {
-      // Small delay to ensure container has its final dimensions
-      const timeoutId = setTimeout(() => {
-        handleFitToView();
-        hasInitialFit.current = true;
-      }, 50);
-      return () => clearTimeout(timeoutId);
+    if (!hasInitialFit.current && fixturePositions.size > 0 && hasMeasuredSize) {
+      hasInitialFit.current = true;
+      handleFitToView();
     }
-  }, [fixturePositions.size, handleFitToView]);
+  }, [fixturePositions.size, hasMeasuredSize, handleFitToView]);
 
   // Save layout positions to database (only sends changed positions)
   const handleSaveLayout = async () => {
@@ -1677,7 +1763,11 @@ export default function LayoutCanvas({
   };
 
   return (
-    <div ref={containerRef} className="relative w-full h-full">
+    <div
+      ref={containerRef}
+      className="relative w-full h-full overflow-hidden"
+      style={{ backgroundColor: "#1a202c" }}
+    >
       <canvas
         ref={canvasRef}
         onMouseDown={handleMouseDown}
@@ -1689,13 +1779,21 @@ export default function LayoutCanvas({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={{
+          // Absolutely positioned with an explicit pixel size matching the
+          // bitmap, so the browser never CSS-scales it and the canvas can't
+          // feed back into its container's size.
+          position: "absolute",
+          top: 0,
+          left: 0,
+          display: "block",
+          width: `${canvasSize.width}px`,
+          height: `${canvasSize.height}px`,
           cursor: getCursorStyle(),
           touchAction: "none",
           WebkitUserSelect: "none",
           userSelect: "none",
           WebkitTouchCallout: "none",
         }}
-        className="w-full h-full"
       />
 
       {/* Control panel */}
