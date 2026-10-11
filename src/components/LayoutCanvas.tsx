@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useLayoutEffect, useState, useCallback } from "react";
+import { flushSync } from "react-dom";
 import { useMutation } from "@apollo/client";
 import { FixtureInstance } from "@/types";
 import { UPDATE_FIXTURE_POSITIONS } from "@/graphql/fixtures";
@@ -10,12 +11,13 @@ import {
   DEFAULT_CANVAS_WIDTH,
   DEFAULT_CANVAS_HEIGHT,
   ViewportTransform,
-  screenToPixel,
   pixelToScreen,
-  isNormalizedCoordinate,
-  clampToCanvas,
-  calculateAutoLayoutPositions,
-  snapToGrid,
+  reconcileFixturePositions,
+  hasUnsavedPositionChanges,
+  applyDragToLayoutState,
+  EMPTY_FIXTURE_LAYOUT_STATE,
+  type FixturePosition,
+  type FixtureLayoutState,
 } from "@/lib/layoutCanvasUtils";
 
 interface LayoutCanvasProps {
@@ -36,12 +38,19 @@ interface LayoutCanvasProps {
   highlightedFixtureId?: string | null;
 }
 
-interface FixturePosition {
-  fixtureId: string;
-  x: number; // Pixel coordinates in virtual canvas; valid fixture centers are clamped to FIXTURE_SIZE/2 .. canvasWidth - FIXTURE_SIZE/2
-  y: number; // Pixel coordinates in virtual canvas; valid fixture centers are clamped to FIXTURE_SIZE/2 .. canvasHeight - FIXTURE_SIZE/2
-  rotation?: number; // Degrees, for beam direction
+// Canvas background; also used for the container so any sub-pixel sliver left
+// by flooring the canvas size is invisible
+const CANVAS_BACKGROUND = "#1a202c";
+
+interface CanvasSize {
+  width: number; // CSS pixels
+  height: number; // CSS pixels
+  dpr: number; // Device pixel ratio used for the bitmap
 }
+
+// useLayoutEffect warns during server rendering; fall back to useEffect there
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 // FIXTURE_SIZE is imported from layoutCanvasUtils (80px fixed)
 const MIN_ZOOM = 0.1;
@@ -107,6 +116,15 @@ export default function LayoutCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Observed container size in CSS pixels, plus the device pixel ratio used to
+  // size the canvas bitmap. Tracked explicitly so the bitmap always matches the
+  // on-screen box and the browser never CSS-scales a stale bitmap (issue #173).
+  const [canvasSize, setCanvasSize] = useState<CanvasSize>({
+    width: 0,
+    height: 0,
+    dpr: 1,
+  });
+
   // Viewport state (pan and zoom)
   const [viewport, setViewport] = useState<ViewportTransform>({
     x: 0,
@@ -114,16 +132,17 @@ export default function LayoutCanvas({
     scale: 1,
   });
 
-  // Fixture positions (pixel coordinates in virtual canvas)
-  const [fixturePositions, setFixturePositions] = useState<
-    Map<string, FixturePosition>
-  >(new Map());
-
-  // Track initialized fixture IDs to preserve positions across re-renders
-  const initializedFixtureIds = useRef<Set<string>>(new Set());
-
-  // Track "saved" positions (what's in database) to detect changes for efficient saves
-  const savedPositions = useRef<Map<string, FixturePosition>>(new Map());
+  // Fixture positions (pixel coordinates in virtual canvas) together with the
+  // bookkeeping that goes with them: which fixtures are initialized, their
+  // saved (database) positions, and whether there are unsaved changes. Kept in
+  // one state value and only changed through pure functional updates, so that
+  // replayed or interleaved updates (React may replay updaters; a drag can be
+  // queued behind a database sync) always compose correctly.
+  const [layoutState, setLayoutState] = useState<FixtureLayoutState>(
+    EMPTY_FIXTURE_LAYOUT_STATE,
+  );
+  const fixturePositions = layoutState.positions;
+  const hasUnsavedChanges = layoutState.hasUnsavedChanges;
 
   // Interaction state
   const [isPanning, setIsPanning] = useState(false);
@@ -187,7 +206,6 @@ export default function LayoutCanvas({
   } | null>(null);
 
   // Save state tracking
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Track whether we've done the initial fit-to-view
@@ -204,218 +222,14 @@ export default function LayoutCanvas({
   // Coordinates are in pixel space (0 to canvasWidth/Height)
   useEffect(() => {
     if (fixtures.length === 0) {
-      setFixturePositions(new Map());
-      initializedFixtureIds.current = new Set();
-      savedPositions.current = new Map();
+      // Nothing left to position or save
+      setLayoutState(EMPTY_FIXTURE_LAYOUT_STATE);
       return;
     }
 
-    // Clean up savedPositions for removed fixtures
-    const currentFixtureIds = new Set(fixtures.map((f) => f.id));
-    for (const [fixtureId] of savedPositions.current) {
-      if (!currentFixtureIds.has(fixtureId)) {
-        savedPositions.current.delete(fixtureId);
-      }
-    }
-
-    setFixturePositions((prevPositions) => {
-      const positions = new Map(prevPositions); // Start with existing positions
-
-      // Remove positions for fixtures that no longer exist
-      for (const [fixtureId] of positions) {
-        if (!currentFixtureIds.has(fixtureId)) {
-          positions.delete(fixtureId);
-          initializedFixtureIds.current.delete(fixtureId);
-        }
-      }
-
-      // Pre-calculate auto-layout positions for fixtures without saved positions
-      const fixturesNeedingAutoLayout = fixtures.filter(
-        (f) =>
-          !initializedFixtureIds.current.has(f.id) &&
-          (f.layoutX === null || f.layoutX === undefined || f.layoutY === null || f.layoutY === undefined)
-      );
-      const autoLayoutPositions = calculateAutoLayoutPositions(
-        fixturesNeedingAutoLayout.length,
-        canvasWidth,
-        canvasHeight
-      );
-      let autoLayoutIndex = 0;
-
-      // Track whether any database-triggered position update occurred
-      // Used to determine if we need to recompute hasUnsavedChanges after processing
-      let hadDatabaseUpdate = false;
-
-      fixtures.forEach((fixture) => {
-        // Check if already initialized
-        if (initializedFixtureIds.current.has(fixture.id)) {
-          // For already-initialized fixtures, check if database position changed
-          // This handles undo/redo updates from the backend
-          const currentPos = positions.get(fixture.id);
-          const savedPos = savedPositions.current.get(fixture.id);
-
-          if (
-            fixture.layoutX !== null &&
-            fixture.layoutX !== undefined &&
-            fixture.layoutY !== null &&
-            fixture.layoutY !== undefined &&
-            savedPos &&
-            currentPos
-          ) {
-            // Check if database position differs from what we last saved
-            const dbX = fixture.layoutX;
-            const dbY = fixture.layoutY;
-            const dbRotation = fixture.layoutRotation ?? 0;
-
-            const dbChanged =
-              dbX !== savedPos.x ||
-              dbY !== savedPos.y ||
-              dbRotation !== (savedPos.rotation ?? 0);
-
-            // Check if local position has unsaved changes (user is actively dragging).
-            // This prevents undo/redo from overwriting user's in-progress drag.
-            // The comparison uses savedPositions (last synced to database) as the baseline:
-            // - If currentPos === savedPos: no local changes, safe to accept database update
-            // - If currentPos !== savedPos: user has unsaved changes, preserve their work
-            const hasLocalChanges =
-              currentPos.x !== savedPos.x ||
-              currentPos.y !== savedPos.y ||
-              (currentPos.rotation ?? 0) !== (savedPos.rotation ?? 0);
-
-            // Check if database position now matches current local position.
-            // This can happen when undo/redo reverts database to match user's current layout.
-            const dbMatchesCurrent =
-              currentPos.x === dbX &&
-              currentPos.y === dbY &&
-              (currentPos.rotation ?? 0) === dbRotation;
-
-            // Update local state only if:
-            // 1. Database changed (from undo/redo or another client)
-            // 2a. User doesn't have local unsaved changes (not mid-drag), OR
-            // 2b. Database now matches current local position (clear stale "unsaved" indication)
-            if (dbChanged) {
-              hadDatabaseUpdate = true;
-              if (!hasLocalChanges) {
-                // No local changes: accept database update into both positions and savedPositions
-                const newPosition: FixturePosition = {
-                  fixtureId: fixture.id,
-                  x: dbX,
-                  y: dbY,
-                  rotation: dbRotation,
-                };
-                positions.set(fixture.id, newPosition);
-                savedPositions.current.set(fixture.id, { ...newPosition });
-              } else if (dbMatchesCurrent) {
-                // Local position already matches database: update savedPositions to clear
-                // stale "unsaved" state without overwriting user's current position
-                savedPositions.current.set(fixture.id, { ...currentPos });
-              }
-              // If hasLocalChanges && !dbMatchesCurrent: preserve user's unsaved work
-            }
-          }
-          return;
-        }
-
-        // Check if fixture has saved position in database
-        if (
-          fixture.layoutX !== null &&
-          fixture.layoutX !== undefined &&
-          fixture.layoutY !== null &&
-          fixture.layoutY !== undefined
-        ) {
-          let x = fixture.layoutX;
-          let y = fixture.layoutY;
-
-          // Backward compatibility: detect and convert normalized coordinates
-          // The backend should already convert these, but this is a safety net.
-          // Check each axis independently to handle edge cases like (0.5, 0.0) or (1.0, 0.5).
-          // Values in the normalized range [0, 1] are treated as normalized coordinates.
-          //
-          // KNOWN LIMITATION: Pixel positions 0 or 1 would be incorrectly treated as normalized.
-          // In practice this is very unlikely since:
-          // 1. Fixtures are clamped to FIXTURE_SIZE/2 (40px) minimum
-          // 2. After migration, all coordinates should be in pixel range
-          // 3. The backend migration script handles the authoritative conversion
-          const xIsNormalized =
-            isNormalizedCoordinate(x) || x === 0 || x === 1;
-          const yIsNormalized =
-            isNormalizedCoordinate(y) || y === 0 || y === 1;
-
-          if (xIsNormalized || yIsNormalized) {
-            // Log when conversion is applied to help identify migration issues
-            if (process.env.NODE_ENV === "development") {
-              console.debug(
-                `[LayoutCanvas] Converting legacy coordinates for fixture ${fixture.id}: (${fixture.layoutX}, ${fixture.layoutY}) → pixel space`
-              );
-            }
-            if (xIsNormalized) {
-              x = x * canvasWidth;
-            }
-            if (yIsNormalized) {
-              y = y * canvasHeight;
-            }
-            // Clamp converted coordinates to valid canvas bounds
-            const clamped = clampToCanvas(x, y, canvasWidth, canvasHeight);
-            x = clamped.x;
-            y = clamped.y;
-          }
-
-          const position: FixturePosition = {
-            fixtureId: fixture.id,
-            x,
-            y,
-            rotation: fixture.layoutRotation ?? 0,
-          };
-          positions.set(fixture.id, position);
-          // Track this as the saved position (from database)
-          savedPositions.current.set(fixture.id, { ...position });
-        } else {
-          // Use auto-layout for new fixtures without saved positions (pixel coordinates)
-          const autoPos = autoLayoutPositions[autoLayoutIndex] || { x: canvasWidth / 2, y: canvasHeight / 2 };
-          positions.set(fixture.id, {
-            fixtureId: fixture.id,
-            x: autoPos.x,
-            y: autoPos.y,
-            rotation: 0,
-          });
-          // Note: auto-layout positions are NOT added to savedPositions
-          // They will be tracked as unsaved changes
-
-          autoLayoutIndex++;
-        }
-
-        // Mark this fixture as initialized
-        initializedFixtureIds.current.add(fixture.id);
-      });
-
-      // After processing all fixtures, if there was a database update, recompute
-      // hasUnsavedChanges by comparing current positions with savedPositions.
-      // This ensures the Save button state is correct after undo/redo operations.
-      // Only recompute when database updates occurred to avoid interfering with
-      // initial auto-layout (which intentionally creates unsaved positions).
-      if (hadDatabaseUpdate) {
-        let anyUnsavedChanges = false;
-        for (const [fixtureId, pos] of positions) {
-          const savedPos = savedPositions.current.get(fixtureId);
-          if (!savedPos) {
-            // New fixture without saved position = unsaved change
-            anyUnsavedChanges = true;
-            break;
-          }
-          if (
-            pos.x !== savedPos.x ||
-            pos.y !== savedPos.y ||
-            (pos.rotation ?? 0) !== (savedPos.rotation ?? 0)
-          ) {
-            anyUnsavedChanges = true;
-            break;
-          }
-        }
-        setHasUnsavedChanges(anyUnsavedChanges);
-      }
-
-      return positions;
-    });
+    setLayoutState((prev) =>
+      reconcileFixturePositions(prev, fixtures, canvasWidth, canvasHeight),
+    );
   }, [fixtures, canvasWidth, canvasHeight]); // Re-run when fixtures or canvas size changes
 
   // Helper to update selection (internal or external)
@@ -435,14 +249,6 @@ export default function LayoutCanvas({
   const positionToScreen = useCallback(
     (px: number, py: number): { x: number; y: number } => {
       return pixelToScreen(px, py, viewport);
-    },
-    [viewport],
-  );
-
-  // Convert screen coordinates to pixel position (virtual canvas)
-  const screenToPosition = useCallback(
-    (sx: number, sy: number): { x: number; y: number } => {
-      return screenToPixel(sx, sy, viewport);
     },
     [viewport],
   );
@@ -659,40 +465,136 @@ export default function LayoutCanvas({
     [abbreviateName],
   );
 
-  // Render the canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
+  // Track the container size. Resizing only changes how much of the layout is
+  // visible; it never touches the viewport (scale/x/y). Updates are flushed
+  // synchronously so every resize step is redrawn before the browser paints.
+  useIsomorphicLayoutEffect(() => {
     const container = containerRef.current;
-    if (!canvas || !container) return;
+    if (!container) return;
+
+    const applySize = (rawWidth: number, rawHeight: number) => {
+      // Floor to whole CSS pixels so the CSS box and the bitmap (CSS size *
+      // dpr) stay in exact proportion; a fractional box would be CSS-scaled
+      // by a sub-pixel amount and blur. The container's matching background
+      // hides any leftover sub-pixel sliver.
+      // (Hit-testing is unaffected: pointer offsets come from the canvas's
+      // bounding rect position, and the dropped sliver is under 1px.)
+      const width = Math.floor(rawWidth);
+      const height = Math.floor(rawHeight);
+      const dpr = window.devicePixelRatio || 1;
+      setCanvasSize((prev) =>
+        prev.width === width && prev.height === height && prev.dpr === dpr
+          ? prev
+          : { width, height, dpr },
+      );
+    };
+
+    // The container has no padding, border or transform (its classes are
+    // owned here), so its bounding rect and the observer's contentRect agree.
+    const measure = () => {
+      const rect = container.getBoundingClientRect();
+      applySize(rect.width, rect.height);
+    };
+
+    measure();
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver((entries) => {
+        const entry = entries[entries.length - 1];
+        if (!entry) return;
+        const { width, height } = entry.contentRect;
+        // Render synchronously so the resized canvas is redrawn before paint.
+        // Safe only because observer callbacks run outside React's render and
+        // commit phases; never call flushSync from render or lifecycle code.
+        flushSync(() => applySize(width, height));
+      });
+      resizeObserver.observe(container);
+    } else {
+      window.addEventListener("resize", measure);
+    }
+
+    // devicePixelRatio changes (e.g. moving between monitors) without
+    // necessarily resizing the container, so watch for it separately.
+    // watchDpr and handleDprChange reference each other; both are function
+    // declarations so either can be called first. Older Safari (< 14) only
+    // supports the deprecated addListener/removeListener on MediaQueryList.
+    let dprQuery: MediaQueryList | null = null;
+    function unwatchDpr() {
+      if (!dprQuery) return;
+      if (typeof dprQuery.removeEventListener === "function") {
+        dprQuery.removeEventListener("change", handleDprChange);
+      } else {
+        dprQuery.removeListener?.(handleDprChange);
+      }
+      dprQuery = null;
+    }
+    function watchDpr() {
+      unwatchDpr();
+      if (typeof window.matchMedia !== "function") return;
+      dprQuery = window.matchMedia(
+        `(resolution: ${window.devicePixelRatio || 1}dppx)`,
+      );
+      if (typeof dprQuery.addEventListener === "function") {
+        dprQuery.addEventListener("change", handleDprChange);
+      } else {
+        dprQuery.addListener?.(handleDprChange);
+      }
+    }
+    function handleDprChange() {
+      measure();
+      watchDpr();
+    }
+    watchDpr();
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", measure);
+      unwatchDpr();
+    };
+  }, []);
+
+  // Render the canvas. A layout effect, so the bitmap is resized and redrawn
+  // in the same commit that changes the canvas's CSS size, before the browser
+  // paints; a passive effect could let a CSS-scaled stale bitmap show.
+  useIsomorphicLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Set canvas size to container size
-    const rect = container.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
+    // Size the bitmap to exactly match the CSS box (scaled for high-DPI).
+    // Only reassign when it changes: assigning width/height clears the canvas.
+    const { width, height, dpr } = canvasSize;
+    const bitmapWidth = Math.round(width * dpr);
+    const bitmapHeight = Math.round(height * dpr);
+    if (canvas.width !== bitmapWidth) canvas.width = bitmapWidth;
+    if (canvas.height !== bitmapHeight) canvas.height = bitmapHeight;
+
+    // Draw in CSS pixels; the transform maps them onto device pixels
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // Clear canvas
-    ctx.fillStyle = "#1a202c";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = CANVAS_BACKGROUND;
+    ctx.fillRect(0, 0, width, height);
 
     // Draw grid (fixed pixel size)
     ctx.strokeStyle = "#2d3748";
     ctx.lineWidth = 1;
     const gridSize = 50 * viewport.scale;
 
-    for (let x = viewport.x % gridSize; x < canvas.width; x += gridSize) {
+    for (let x = viewport.x % gridSize; x < width; x += gridSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
-      ctx.lineTo(x, canvas.height);
+      ctx.lineTo(x, height);
       ctx.stroke();
     }
 
-    for (let y = viewport.y % gridSize; y < canvas.height; y += gridSize) {
+    for (let y = viewport.y % gridSize; y < height; y += gridSize) {
       ctx.beginPath();
       ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
+      ctx.lineTo(width, y);
       ctx.stroke();
     }
 
@@ -823,6 +725,7 @@ export default function LayoutCanvas({
       ctx.setLineDash([]);
     }
   }, [
+    canvasSize,
     fixtures,
     fixturePositions,
     viewport,
@@ -953,37 +856,18 @@ export default function LayoutCanvas({
       }
 
       // Drag fixtures
-      const newPositions = new Map(fixturePositions);
-
-      draggedFixtures.forEach((fixtureId) => {
-        const offset = dragOffset.get(fixtureId);
-        if (!offset) return;
-
-        // Calculate new canvas position
-        const newCanvasX = x + offset.x;
-        const newCanvasY = y + offset.y;
-
-        // Convert to pixel coordinates (virtual canvas)
-        const pixelPos = screenToPosition(newCanvasX, newCanvasY);
-
-        // Apply snap-to-grid (in canvas pixel coordinates - appears larger/smaller with zoom)
-        const snapped = snapToGrid(pixelPos.x, pixelPos.y, GRID_SIZE);
-
-        // Clamp to canvas bounds (pixel coordinates)
-        const clamped = clampToCanvas(snapped.x, snapped.y, canvasWidth, canvasHeight);
-
-        const existingPos = newPositions.get(fixtureId);
-        if (existingPos) {
-          newPositions.set(fixtureId, {
-            ...existingPos,
-            x: clamped.x,
-            y: clamped.y,
-          });
-        }
-      });
-
-      setFixturePositions(newPositions);
-      setHasUnsavedChanges(true);
+      // Functional update so the drag applies on top of any queued update
+      setLayoutState((prev) =>
+        applyDragToLayoutState(prev, {
+          draggedFixtureIds: draggedFixtures,
+          dragOffsets: dragOffset,
+          pointer: { x, y },
+          viewport,
+          canvasWidth,
+          canvasHeight,
+          gridSize: GRID_SIZE,
+        }),
+      );
     } else if (isMarqueeSelecting && marqueeStart) {
       // Update marquee selection box
       setMarqueeCurrent({ x, y });
@@ -1321,37 +1205,18 @@ export default function LayoutCanvas({
         }));
       } else if (isTouchDragging && draggedFixtures.size > 0) {
         // Drag fixtures
-        const newPositions = new Map(fixturePositions);
-
-        draggedFixtures.forEach((fixtureId) => {
-          const offset = dragOffset.get(fixtureId);
-          if (!offset) return;
-
-          // Calculate new canvas position
-          const newCanvasX = x + offset.x;
-          const newCanvasY = y + offset.y;
-
-          // Convert to pixel coordinates (virtual canvas)
-          const pixelPos = screenToPosition(newCanvasX, newCanvasY);
-
-          // Apply snap-to-grid (in canvas pixel coordinates - appears larger/smaller with zoom)
-          const snapped = snapToGrid(pixelPos.x, pixelPos.y, GRID_SIZE);
-
-          // Clamp to canvas bounds (pixel coordinates)
-          const clamped = clampToCanvas(snapped.x, snapped.y, canvasWidth, canvasHeight);
-
-          const existingPos = newPositions.get(fixtureId);
-          if (existingPos) {
-            newPositions.set(fixtureId, {
-              ...existingPos,
-              x: clamped.x,
-              y: clamped.y,
-            });
-          }
-        });
-
-        setFixturePositions(newPositions);
-        setHasUnsavedChanges(true);
+        // Functional update so the drag applies on top of any queued update
+        setLayoutState((prev) =>
+          applyDragToLayoutState(prev, {
+            draggedFixtureIds: draggedFixtures,
+            dragOffsets: dragOffset,
+            pointer: { x, y },
+            viewport,
+            canvasWidth,
+            canvasHeight,
+            gridSize: GRID_SIZE,
+          }),
+        );
       }
     }
   };
@@ -1464,13 +1329,13 @@ export default function LayoutCanvas({
     }));
   };
 
-  const handleFitToView = useCallback(() => {
-    if (!canvasRef.current || !containerRef.current) return;
-    const container = containerRef.current;
-    const rect = container.getBoundingClientRect();
+  // Returns whether the viewport was fitted
+  const handleFitToView = useCallback((): boolean => {
+    if (!canvasRef.current) return false;
+    const rect = canvasSize;
 
     // Guard against division by zero during initial render
-    if (rect.width <= 0 || rect.height <= 0) return;
+    if (rect.width <= 0 || rect.height <= 0) return false;
 
     // If no fixtures, just center the canvas at 1x zoom
     if (fixturePositions.size === 0) {
@@ -1479,7 +1344,7 @@ export default function LayoutCanvas({
         y: rect.height / 2 - canvasHeight / 2,
         scale: 1,
       });
-      return;
+      return true;
     }
 
     // Calculate bounds of all fixtures (in pixel coordinates)
@@ -1514,7 +1379,7 @@ export default function LayoutCanvas({
         y: rect.height / 2 - centerY,
         scale: 1,
       });
-      return;
+      return true;
     }
 
     // Calculate scale to fit all fixtures within the viewport
@@ -1533,83 +1398,115 @@ export default function LayoutCanvas({
       y: rect.height / 2 - centerY * scale,
       scale: Math.max(MIN_ZOOM, scale),
     });
-  }, [fixturePositions, canvasWidth, canvasHeight]);
+    return true;
+  }, [fixturePositions, canvasWidth, canvasHeight, canvasSize]);
 
-  // Auto-fit view on initial load when fixtures are ready
+  // Auto-fit view on initial load, once fixtures are ready and the container
+  // has a measured, non-zero size. Runs only once: later resizes never refit.
+  const hasMeasuredSize = canvasSize.width > 0 && canvasSize.height > 0;
   useEffect(() => {
-    // Only fit once, when we have fixtures and container is ready
-    if (
-      !hasInitialFit.current &&
-      fixturePositions.size > 0 &&
-      containerRef.current
-    ) {
-      // Small delay to ensure container has its final dimensions
-      const timeoutId = setTimeout(() => {
-        handleFitToView();
-        hasInitialFit.current = true;
-      }, 50);
-      return () => clearTimeout(timeoutId);
+    if (!hasInitialFit.current && fixturePositions.size > 0 && hasMeasuredSize) {
+      // Mark done only once a fit actually happened, so an early return
+      // can't permanently skip the initial fit
+      hasInitialFit.current = handleFitToView();
     }
-  }, [fixturePositions.size, handleFitToView]);
+  }, [fixturePositions.size, hasMeasuredSize, handleFitToView]);
+
+  // Saves are serialized: a save requested while one is in flight (e.g. an
+  // auto-save on drag release) sets a flag, and one more pass runs with the
+  // latest state when the current request finishes. Overlapping mutations
+  // could otherwise complete out of order and move the saved baseline back.
+  const saveInFlightRef = useRef(false);
+  const saveRequestedRef = useRef(false);
+
+  // Latest committed layout state, for save passes that run after an await
+  const layoutStateRef = useRef(layoutState);
+  useIsomorphicLayoutEffect(() => {
+    layoutStateRef.current = layoutState;
+  }, [layoutState]);
 
   // Save layout positions to database (only sends changed positions)
   const handleSaveLayout = async () => {
+    if (saveInFlightRef.current) {
+      saveRequestedRef.current = true;
+      return;
+    }
+    saveInFlightRef.current = true;
     setIsSaving(true);
 
+    // Positions sent by earlier passes of this run; their state update may
+    // not have committed yet, so they take precedence over savedPositions.
+    // If a later pass fails, earlier passes' saved-state updates still
+    // stand (those positions did reach the database).
+    const sentThisRun = new Map<string, FixturePosition>();
+
     try {
-      // Find positions that have actually changed from saved state
-      const changedPositions: Array<{
-        fixtureId: string;
-        layoutX: number;
-        layoutY: number;
-        layoutRotation: number;
-      }> = [];
+      do {
+        saveRequestedRef.current = false;
+        const { positions, savedPositions } = layoutStateRef.current;
 
-      fixturePositions.forEach((pos) => {
-        const saved = savedPositions.current.get(pos.fixtureId);
-        // Position changed if: no saved position, or x/y/rotation differs
-        const hasChanged = !saved ||
-          pos.x !== saved.x ||
-          pos.y !== saved.y ||
-          (pos.rotation ?? 0) !== (saved.rotation ?? 0);
-
-        if (hasChanged) {
-          changedPositions.push({
-            fixtureId: pos.fixtureId,
-            layoutX: pos.x,
-            layoutY: pos.y,
-            layoutRotation: pos.rotation ?? 0,
-          });
-        }
-      });
-
-      // Skip if no changes
-      if (changedPositions.length === 0) {
-        setHasUnsavedChanges(false);
-        return;
-      }
-
-      await updateFixturePositions({
-        variables: { positions: changedPositions },
-      });
-
-      // Update savedPositions to reflect the new saved state
-      changedPositions.forEach((pos) => {
-        savedPositions.current.set(pos.fixtureId, {
-          fixtureId: pos.fixtureId,
-          x: pos.layoutX,
-          y: pos.layoutY,
-          rotation: pos.layoutRotation,
+        // Find positions that have actually changed from saved state
+        const changedPositions: FixturePosition[] = [];
+        positions.forEach((pos) => {
+          const saved =
+            sentThisRun.get(pos.fixtureId) ?? savedPositions.get(pos.fixtureId);
+          // Position changed if: no saved position, or x/y/rotation differs
+          const hasChanged =
+            !saved ||
+            pos.x !== saved.x ||
+            pos.y !== saved.y ||
+            (pos.rotation ?? 0) !== (saved.rotation ?? 0);
+          if (hasChanged) {
+            changedPositions.push({ ...pos, rotation: pos.rotation ?? 0 });
+          }
         });
-      });
 
-      setHasUnsavedChanges(false);
+        if (changedPositions.length === 0) continue;
+
+        await updateFixturePositions({
+          variables: {
+            positions: changedPositions.map((pos) => ({
+              fixtureId: pos.fixtureId,
+              layoutX: pos.x,
+              layoutY: pos.y,
+              layoutRotation: pos.rotation,
+            })),
+          },
+        });
+
+        // Record the new saved state. Functional update so it composes with
+        // any update queued meanwhile, and recompute unsaved changes in case
+        // fixtures were moved while the save was in flight.
+        changedPositions.forEach((pos) => sentThisRun.set(pos.fixtureId, pos));
+        setLayoutState((prev) => {
+          const nextSaved = new Map(prev.savedPositions);
+          changedPositions.forEach((pos) => nextSaved.set(pos.fixtureId, pos));
+          return {
+            ...prev,
+            savedPositions: nextSaved,
+            hasUnsavedChanges: hasUnsavedPositionChanges(prev.positions, nextSaved),
+          };
+        });
+      } while (saveRequestedRef.current);
+
+      if (sentThisRun.size === 0) {
+        // Nothing needed saving
+        setLayoutState((prev) => ({
+          ...prev,
+          hasUnsavedChanges: hasUnsavedPositionChanges(
+            prev.positions,
+            prev.savedPositions,
+          ),
+        }));
+      }
     } catch (error) {
       console.error("Failed to save layout:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       alert(`Failed to save layout: ${errorMessage}`);
     } finally {
+      saveInFlightRef.current = false;
+      saveRequestedRef.current = false;
       setIsSaving(false);
     }
   };
@@ -1677,7 +1574,13 @@ export default function LayoutCanvas({
   };
 
   return (
-    <div ref={containerRef} className="relative w-full h-full">
+    <div
+      ref={containerRef}
+      // No padding/border here: the size tracking assumes the container's
+      // bounding rect equals the ResizeObserver contentRect
+      className="relative w-full h-full overflow-hidden"
+      style={{ backgroundColor: CANVAS_BACKGROUND }}
+    >
       <canvas
         ref={canvasRef}
         onMouseDown={handleMouseDown}
@@ -1689,13 +1592,21 @@ export default function LayoutCanvas({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={{
+          // Absolutely positioned with an explicit pixel size matching the
+          // bitmap, so the browser never CSS-scales it and the canvas can't
+          // feed back into its container's size.
+          position: "absolute",
+          top: 0,
+          left: 0,
+          display: "block",
+          width: `${canvasSize.width}px`,
+          height: `${canvasSize.height}px`,
           cursor: getCursorStyle(),
           touchAction: "none",
           WebkitUserSelect: "none",
           userSelect: "none",
           WebkitTouchCallout: "none",
         }}
-        className="w-full h-full"
       />
 
       {/* Control panel */}

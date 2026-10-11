@@ -12,7 +12,14 @@ import {
   isPointInFixture,
   calculateAutoLayoutPositions,
   snapToGrid,
+  reconcileFixturePositions,
+  hasUnsavedPositionChanges,
+  applyDragToLayoutState,
+  EMPTY_FIXTURE_LAYOUT_STATE,
+  type FixturePosition,
+  type FixtureLayoutState,
 } from '../layoutCanvasUtils';
+import type { FixtureInstance } from '../../types';
 
 describe('layoutCanvasUtils', () => {
   describe('constants', () => {
@@ -275,6 +282,259 @@ describe('layoutCanvasUtils', () => {
 
     it('handles different grid sizes', () => {
       expect(snapToGrid(35, 67, 25)).toEqual({ x: 25, y: 75 });
+    });
+  });
+
+  describe('hasUnsavedPositionChanges', () => {
+    const pos = (fixtureId: string, x: number, y: number, rotation = 0): FixturePosition => ({
+      fixtureId,
+      x,
+      y,
+      rotation,
+    });
+
+    it('is false when every position matches its saved position', () => {
+      expect(
+        hasUnsavedPositionChanges(new Map([['a', pos('a', 1, 2)]]), new Map([['a', pos('a', 1, 2)]])),
+      ).toBe(false);
+    });
+
+    it('is true when a position has no saved position', () => {
+      expect(hasUnsavedPositionChanges(new Map([['a', pos('a', 1, 2)]]), new Map())).toBe(true);
+    });
+
+    it('is true when x, y or rotation differs', () => {
+      const saved = new Map([['a', pos('a', 1, 2)]]);
+      expect(hasUnsavedPositionChanges(new Map([['a', pos('a', 9, 2)]]), saved)).toBe(true);
+      expect(hasUnsavedPositionChanges(new Map([['a', pos('a', 1, 9)]]), saved)).toBe(true);
+      expect(hasUnsavedPositionChanges(new Map([['a', pos('a', 1, 2, 45)]]), saved)).toBe(true);
+    });
+  });
+
+  describe('reconcileFixturePositions', () => {
+    const fixture = (id: string, layoutX?: number, layoutY?: number): FixtureInstance =>
+      ({ id, name: id, layoutX, layoutY, layoutRotation: 0 }) as FixtureInstance;
+    const pos = (fixtureId: string, x: number, y: number): FixturePosition => ({
+      fixtureId,
+      x,
+      y,
+      rotation: 0,
+    });
+    const state = (overrides: Partial<FixtureLayoutState> = {}): FixtureLayoutState => ({
+      positions: new Map(),
+      initializedIds: new Set(),
+      savedPositions: new Map(),
+      hasUnsavedChanges: false,
+      ...overrides,
+    });
+    const reconcile = (prev: FixtureLayoutState, fixtures: FixtureInstance[]) =>
+      reconcileFixturePositions(prev, fixtures, 2000, 2000);
+
+    it('initializes fixtures from their saved layout and records them as saved', () => {
+      const next = reconcile(EMPTY_FIXTURE_LAYOUT_STATE, [fixture('a', 500, 400)]);
+
+      expect(next.positions.get('a')).toEqual(pos('a', 500, 400));
+      expect(next.savedPositions.get('a')).toEqual(pos('a', 500, 400));
+      expect(next.initializedIds.has('a')).toBe(true);
+      expect(next.hasUnsavedChanges).toBe(false);
+    });
+
+    it('auto-lays out fixtures without a saved layout and does not mark them saved', () => {
+      const next = reconcile(EMPTY_FIXTURE_LAYOUT_STATE, [fixture('a')]);
+
+      expect(next.positions.has('a')).toBe(true);
+      expect(next.savedPositions.has('a')).toBe(false);
+      expect(next.initializedIds.has('a')).toBe(true);
+      // Initial auto-layout intentionally doesn't flag unsaved changes
+      expect(next.hasUnsavedChanges).toBe(false);
+    });
+
+    it('never mutates the previous state', () => {
+      const prev = state({
+        positions: new Map([['a', pos('a', 500, 500)]]),
+        initializedIds: new Set(['a', 'gone']),
+        savedPositions: new Map([
+          ['a', pos('a', 500, 500)],
+          ['gone', pos('gone', 1, 1)],
+        ]),
+      });
+      const snapshot = () =>
+        JSON.stringify({
+          positions: [...prev.positions],
+          ids: [...prev.initializedIds],
+          saved: [...prev.savedPositions],
+          unsaved: prev.hasUnsavedChanges,
+        });
+      const before = snapshot();
+
+      reconcile(prev, [fixture('a', 700, 500), fixture('b')]);
+
+      expect(snapshot()).toBe(before);
+      expect(EMPTY_FIXTURE_LAYOUT_STATE.positions.size).toBe(0);
+    });
+
+    it('returns the same result when replayed with the same inputs (database update)', () => {
+      // Existing fixture whose database position changed (undo/redo)
+      const prev = state({
+        positions: new Map([['a', pos('a', 500, 500)]]),
+        initializedIds: new Set(['a']),
+        savedPositions: new Map([['a', pos('a', 500, 500)]]),
+      });
+      const fixtures = [fixture('a', 700, 500)];
+
+      const first = reconcile(prev, fixtures);
+      const replay = reconcile(prev, fixtures);
+
+      expect(first.positions.get('a')).toEqual(pos('a', 700, 500));
+      expect(first.savedPositions.get('a')).toEqual(pos('a', 700, 500));
+      expect(first.hasUnsavedChanges).toBe(false);
+      expect(replay).toEqual(first);
+    });
+
+    it('preserves unsaved local edits when the database position changes', () => {
+      const prev = state({
+        positions: new Map([['a', pos('a', 600, 600)]]), // Dragged, not saved
+        initializedIds: new Set(['a']),
+        savedPositions: new Map([['a', pos('a', 500, 500)]]),
+        hasUnsavedChanges: true,
+      });
+
+      const next = reconcile(prev, [fixture('a', 700, 500)]);
+
+      expect(next.positions.get('a')).toEqual(pos('a', 600, 600));
+      expect(next.savedPositions.get('a')).toEqual(pos('a', 500, 500));
+      expect(next.hasUnsavedChanges).toBe(true);
+    });
+
+    it('clears stale unsaved state when the database now matches the local position', () => {
+      const prev = state({
+        positions: new Map([['a', pos('a', 700, 500)]]),
+        initializedIds: new Set(['a']),
+        savedPositions: new Map([['a', pos('a', 500, 500)]]),
+        hasUnsavedChanges: true,
+      });
+
+      const next = reconcile(prev, [fixture('a', 700, 500)]);
+
+      expect(next.positions.get('a')).toEqual(pos('a', 700, 500));
+      expect(next.savedPositions.get('a')).toEqual(pos('a', 700, 500));
+      expect(next.hasUnsavedChanges).toBe(false);
+    });
+
+    it('keeps the previous unsaved flag when no database update occurred', () => {
+      const prev = state({
+        positions: new Map([['a', pos('a', 600, 600)]]),
+        initializedIds: new Set(['a']),
+        savedPositions: new Map([['a', pos('a', 500, 500)]]),
+        hasUnsavedChanges: true,
+      });
+
+      expect(reconcile(prev, [fixture('a', 500, 500)]).hasUnsavedChanges).toBe(true);
+    });
+
+    it('drops removed fixtures from positions and bookkeeping', () => {
+      const prev = state({
+        positions: new Map([
+          ['a', pos('a', 500, 500)],
+          ['gone', pos('gone', 900, 900)],
+        ]),
+        initializedIds: new Set(['a', 'gone']),
+        savedPositions: new Map([
+          ['a', pos('a', 500, 500)],
+          ['gone', pos('gone', 900, 900)],
+        ]),
+      });
+
+      const next = reconcile(prev, [fixture('a', 500, 500)]);
+
+      expect([...next.positions.keys()]).toEqual(['a']);
+      expect(next.initializedIds.has('gone')).toBe(false);
+      expect(next.savedPositions.has('gone')).toBe(false);
+    });
+
+    it('returns the previous state object when nothing changed', () => {
+      const first = reconcile(EMPTY_FIXTURE_LAYOUT_STATE, [fixture('a', 500, 500), fixture('b')]);
+
+      expect(reconcile(first, [fixture('a', 500, 500), fixture('b')])).toBe(first);
+    });
+
+    it('re-initializes a fixture marked initialized but missing from positions', () => {
+      const prev = state({
+        initializedIds: new Set(['a']),
+        savedPositions: new Map([['a', pos('a', 500, 500)]]),
+      });
+
+      expect(reconcile(prev, [fixture('a', 500, 500)]).positions.get('a')).toEqual(pos('a', 500, 500));
+    });
+  });
+
+  describe('applyDragToLayoutState', () => {
+    const pos = (fixtureId: string, x: number, y: number): FixturePosition => ({
+      fixtureId,
+      x,
+      y,
+      rotation: 15,
+    });
+    const prev: FixtureLayoutState = {
+      positions: new Map([
+        ['a', pos('a', 400, 400)],
+        ['b', pos('b', 800, 400)],
+        ['c', pos('c', 1200, 400)],
+      ]),
+      initializedIds: new Set(['a', 'b', 'c']),
+      savedPositions: new Map(),
+      hasUnsavedChanges: false,
+    };
+    const drag = (overrides: Partial<Parameters<typeof applyDragToLayoutState>[1]> = {}) => ({
+      draggedFixtureIds: ['a', 'b'],
+      dragOffsets: new Map([
+        ['a', { x: 0, y: 0 }],
+        ['b', { x: 400, y: 0 }],
+      ]),
+      pointer: { x: 500, y: 300 },
+      viewport: { x: 0, y: 0, scale: 1 },
+      canvasWidth: 2000,
+      canvasHeight: 2000,
+      gridSize: 8,
+      ...overrides,
+    });
+
+    it('moves dragged fixtures by their grab offsets, snapped to the grid', () => {
+      const next = applyDragToLayoutState(prev, drag());
+
+      expect(next.positions.get('a')).toEqual({ ...pos('a', 504, 304) });
+      expect(next.positions.get('b')).toEqual({ ...pos('b', 904, 304) });
+      // Undragged fixtures and rotation are untouched
+      expect(next.positions.get('c')).toBe(prev.positions.get('c'));
+      expect(next.hasUnsavedChanges).toBe(true);
+    });
+
+    it('accounts for the viewport transform', () => {
+      const next = applyDragToLayoutState(
+        prev,
+        drag({ draggedFixtureIds: ['a'], viewport: { x: 100, y: 100, scale: 2 } }),
+      );
+
+      // (500 - 100) / 2 = 200, (300 - 100) / 2 = 100
+      expect(next.positions.get('a')).toMatchObject({ x: 200, y: 104 });
+    });
+
+    it('clamps to the canvas bounds', () => {
+      const next = applyDragToLayoutState(prev, drag({ draggedFixtureIds: ['a'], pointer: { x: -500, y: 5000 } }));
+
+      expect(next.positions.get('a')).toMatchObject({
+        x: FIXTURE_SIZE / 2,
+        y: 2000 - FIXTURE_SIZE / 2,
+      });
+    });
+
+    it('skips fixtures without an offset or position, and never mutates prev', () => {
+      const before = JSON.stringify([...prev.positions]);
+      const next = applyDragToLayoutState(prev, drag({ draggedFixtureIds: ['c', 'missing'] }));
+
+      expect(next.positions.get('c')).toBe(prev.positions.get('c')); // No offset for c
+      expect(next.positions.has('missing')).toBe(false);
+      expect(JSON.stringify([...prev.positions])).toBe(before);
     });
   });
 });
