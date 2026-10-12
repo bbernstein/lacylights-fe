@@ -244,11 +244,13 @@ describe('ProjectImportPanel', () => {
     selectFile(makeFile('Ident 3:0\n', 'show.asc'));
     fireEvent.click(screen.getByRole('button', { name: /^import$/i }));
 
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(
+    const warning = await screen.findByTestId('import-refresh-warning');
+    expect(warning).toHaveTextContent(
       'The project was imported, but the project list could not be refreshed. Error: network down',
     );
-    expect(alert).not.toHaveTextContent('Failed to import project');
+    expect(warning).toHaveAttribute('role', 'status');
+    // Shown as a warning on the success result, not as an import error.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     // The successful import result stays visible so the user doesn't retry
     // (which would create a duplicate project).
     expect(screen.getByTestId('import-result')).toBeInTheDocument();

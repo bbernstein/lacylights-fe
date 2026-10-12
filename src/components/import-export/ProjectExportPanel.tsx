@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useApolloClient } from '@apollo/client';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import EosWarningsList from '@/components/EosWarningsList';
@@ -41,10 +41,14 @@ export default function ProjectExportPanel({ projects, defaultProjectId }: Proje
   const [error, setError] = useState<string | null>(null);
   const [lastExport, setLastExport] = useState<ProjectExportResult | null>(null);
 
+  // Set once the user picks a project, so later default changes (e.g.
+  // switching to an imported project) don't override their choice.
+  const userChoseProjectRef = useRef(false);
+
   // Follow changes to the default (e.g. query param or current project
-  // loading after first render).
+  // loading after first render) until the user picks a project.
   useEffect(() => {
-    if (defaultProjectId) {
+    if (defaultProjectId && !userChoseProjectRef.current) {
       setSelectedProjectId(defaultProjectId);
     }
   }, [defaultProjectId]);
@@ -106,7 +110,10 @@ export default function ProjectExportPanel({ projects, defaultProjectId }: Proje
         <select
           id={projectSelectId}
           value={selectedProjectId}
-          onChange={(e) => setSelectedProjectId(e.target.value)}
+          onChange={(e) => {
+            userChoseProjectRef.current = true;
+            setSelectedProjectId(e.target.value);
+          }}
           disabled={exportingFormat !== null}
           className="w-full sm:max-w-md px-3 py-2 min-h-[44px] rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base"
         >

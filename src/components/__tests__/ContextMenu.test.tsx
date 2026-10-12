@@ -435,6 +435,22 @@ describe('ContextMenu', () => {
       expect(alpha).toHaveFocus();
     });
 
+    it('ignores navigation keys when no item is enabled', () => {
+      render(
+        <ContextMenu
+          x={0}
+          y={0}
+          options={[{ label: 'Only', onClick: jest.fn(), disabled: true }]}
+          onDismiss={mockOnDismiss}
+          autoFocus
+        />,
+      );
+      const menu = screen.getByRole('menu');
+      expect(() => fireEvent.keyDown(menu, { key: 'ArrowDown' })).not.toThrow();
+      expect(() => fireEvent.keyDown(menu, { key: 'End' })).not.toThrow();
+      expect(mockOnDismiss).not.toHaveBeenCalled();
+    });
+
     it('handles Escape inside the menu without letting it reach document listeners', async () => {
       const documentListener = jest.fn();
       document.addEventListener('keydown', documentListener);

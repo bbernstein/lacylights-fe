@@ -76,7 +76,7 @@ export default function ContextMenu({
       menuRef.current?.querySelectorAll<HTMLElement>(ITEM_SELECTOR) ?? [],
     );
     const current = items.indexOf(document.activeElement as HTMLElement);
-    let next: number | null = null;
+    let next: number;
     switch (e.key) {
       case 'ArrowDown':
         next = current < 0 ? 0 : (current + 1) % items.length;
@@ -101,7 +101,7 @@ export default function ContextMenu({
     }
     e.preventDefault();
     e.stopPropagation();
-    items[next]?.focus();
+    if (items.length > 0) items[next].focus();
   };
 
   // Handle click outside to close menu
