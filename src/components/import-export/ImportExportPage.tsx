@@ -86,10 +86,11 @@ export default function ImportExportPage() {
   // an accessible project in another group, so look that one up and offer
   // it too. Projects the user cannot access fail the lookup and are ignored.
   const requestedInList = !!params.projectId && projects.some((p) => p.id === params.projectId);
-  const { data: requestedProjectData } = useQuery<GetProjectNameQuery>(GET_PROJECT_NAME, {
-    variables: { id: params.projectId ?? '' },
-    skip: !params.projectId || requestedInList,
-  });
+  const { data: requestedProjectData, loading: requestedProjectLoading } =
+    useQuery<GetProjectNameQuery>(GET_PROJECT_NAME, {
+      variables: { id: params.projectId ?? '' },
+      skip: !params.projectId || requestedInList,
+    });
   const requestedExtraProject =
     !requestedInList && requestedProjectData?.project?.id === params.projectId
       ? requestedProjectData.project
@@ -105,6 +106,21 @@ export default function ImportExportPage() {
   // Only honour ?project= when it refers to a project the user can see.
   const requestedProjectId = requestedInList || requestedExtraProject ? params.projectId : null;
   const defaultExportProjectId = requestedProjectId ?? currentProject?.id ?? null;
+
+  // While a deep-linked project is being looked up the export panels are
+  // disabled (a native disabled fieldset), so a quick export cannot download
+  // the current project instead. They are keyed by the default project, so
+  // they start over with the right project and linked scope once resolved.
+  const exportPanelKey = defaultExportProjectId ?? 'none';
+  const holdWhileResolving = (panel: ReactNode) => (
+    <fieldset
+      disabled={requestedProjectLoading}
+      aria-busy={requestedProjectLoading || undefined}
+      className="min-w-0 border-0 p-0 m-0"
+    >
+      {panel}
+    </fieldset>
+  );
 
   const sections: SectionDefinition[] = [
     {
@@ -125,8 +141,12 @@ export default function ImportExportPage() {
       id: 'export',
       title: 'Export project',
       description: 'Download a whole project to back it up or move it to another console.',
-      content: (
-        <ProjectExportPanel projects={exportProjects} defaultProjectId={defaultExportProjectId} />
+      content: holdWhileResolving(
+        <ProjectExportPanel
+          key={exportPanelKey}
+          projects={exportProjects}
+          defaultProjectId={defaultExportProjectId}
+        />,
       ),
     },
     {
@@ -134,13 +154,14 @@ export default function ImportExportPage() {
       title: 'Export data (CSV / Excel)',
       description:
         'Download a list (fixtures, looks, cue lists, …) as a spreadsheet, or every list in one Excel workbook.',
-      content: (
+      content: holdWhileResolving(
         <DataExportPanel
+          key={exportPanelKey}
           projects={exportProjects}
           defaultProjectId={defaultExportProjectId}
           defaultTable={params.table}
           defaultScopeId={params.scopeId}
-        />
+        />,
       ),
     },
   ];

@@ -121,9 +121,26 @@ describe('ImportExportPage', () => {
         result: { data: { project: { id: 'p9', name: 'Other Group Show' } } },
       },
     ]);
-    const select = screen.getByLabelText('Project');
-    await waitFor(() => expect(select).toHaveValue('p9'));
-    expect(within(select).getByRole('option', { name: 'Other Group Show' })).toBeInTheDocument();
+    // The panel remounts once the project resolves, so query it again.
+    await waitFor(() => expect(screen.getByLabelText('Project')).toHaveValue('p9'));
+    expect(
+      within(screen.getByLabelText('Project')).getByRole('option', { name: 'Other Group Show' }),
+    ).toBeInTheDocument();
+  });
+
+  it('disables the export panels while a deep-linked project is looked up', async () => {
+    mockSearchParams = new URLSearchParams('section=data&table=LOOKS&project=p9');
+    renderPage([
+      {
+        request: { query: GET_PROJECT_NAME, variables: { id: 'p9' } },
+        result: { data: { project: { id: 'p9', name: 'Other Group Show' } } },
+        delay: 20,
+      },
+    ]);
+    const exportRegion = screen.getByRole('region', { name: 'Export project' });
+    expect(within(exportRegion).getByLabelText('Project')).toBeDisabled();
+    await waitFor(() => expect(within(exportRegion).getByLabelText('Project')).toBeEnabled());
+    expect(within(exportRegion).getByLabelText('Project')).toHaveValue('p9');
   });
 
   it('ignores a deep-linked project the server does not return', async () => {
