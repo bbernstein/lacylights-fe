@@ -2,7 +2,13 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider } from '@apollo/client/testing';
 import ProjectManagementModal from '../ProjectManagementModal';
-import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '../../graphql/projects';
+import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT, EXPORT_PROJECT } from '../../graphql/projects';
+
+// Mock the router so navigation can be asserted
+const mockPush = jest.fn();
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
 
 // Mock heroicons - need to include XMarkIcon as BottomSheet uses it
 jest.mock('@heroicons/react/24/outline', () => ({
@@ -10,6 +16,9 @@ jest.mock('@heroicons/react/24/outline', () => ({
   TrashIcon: ({ className }: { className?: string }) => <div className={className} data-testid="trash-icon">🗑</div>,
   PlusIcon: ({ className }: { className?: string }) => <div className={className} data-testid="plus-icon">+</div>,
   PencilIcon: ({ className }: { className?: string }) => <div className={className} data-testid="pencil-icon">✏️</div>,
+  ArrowDownTrayIcon: ({ className }: { className?: string }) => <div className={className} data-testid="arrow-down-tray-icon" />,
+  ArrowsUpDownIcon: ({ className }: { className?: string }) => <div className={className} data-testid="arrows-up-down-icon" />,
+  EllipsisVerticalIcon: ({ className }: { className?: string }) => <div className={className} data-testid="ellipsis-vertical-icon" />,
 }));
 
 // Mock useIsMobile hook
@@ -416,6 +425,100 @@ describe('ProjectManagementModal', () => {
       );
 
       expect(screen.getByText('Manage Projects')).toBeInTheDocument();
+    });
+  });
+  describe('import / export', () => {
+    const exportMock = {
+      request: {
+        query: EXPORT_PROJECT,
+        variables: {
+          projectId: 'project-2',
+          options: { includeFixtures: true, includeLooks: true, includeCueLists: true },
+        },
+      },
+      result: {
+        data: {
+          exportProject: {
+            projectId: 'project-2',
+            projectName: 'Test Project 2',
+            jsonContent: '{"project":2}',
+            stats: {
+              fixtureDefinitionsCount: 0,
+              fixtureInstancesCount: 0,
+              looksCount: 0,
+              cueListsCount: 0,
+              cuesCount: 0,
+            },
+          },
+        },
+      },
+    };
+
+    afterEach(() => {
+      delete window.lacylights;
+    });
+
+    it('toolbar Import / Export… button opens the page and closes the modal', () => {
+      const onClose = jest.fn();
+      renderWithProvider(createMocks(), { onClose });
+
+      fireEvent.click(screen.getByRole('button', { name: /Import \/ Export…/ }));
+
+      expect(onClose).toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith('/import-export');
+    });
+
+    it('each row has a Save button that downloads LacyLights JSON in one click', async () => {
+      const nativeDownload = jest.fn();
+      window.lacylights = {
+        download: nativeDownload,
+        send: jest.fn(),
+        log: jest.fn(),
+        error: jest.fn(),
+        getAppVersion: jest.fn(),
+      };
+      renderWithProvider([...createMocks(), exportMock]);
+
+      const saveButtons = await screen.findAllByRole('button', {
+        name: 'Save project as LacyLights file (.json)',
+      });
+      expect(saveButtons).toHaveLength(2);
+      expect(saveButtons[1]).toHaveAttribute('title', 'Save project as LacyLights file (.json)');
+
+      fireEvent.click(saveButtons[1]);
+
+      await waitFor(() =>
+        expect(nativeDownload).toHaveBeenCalledWith('{"project":2}', 'Test Project 2.json'),
+      );
+      // No format menu is shown on the row.
+      expect(screen.queryByText(/QLC\+/)).not.toBeInTheDocument();
+    });
+
+    it('shows an error when saving fails', async () => {
+      renderWithProvider([
+        ...createMocks(),
+        { request: exportMock.request, error: new Error('export broke') },
+      ]);
+
+      const saveButtons = await screen.findAllByRole('button', {
+        name: 'Save project as LacyLights file (.json)',
+      });
+      fireEvent.click(saveButtons[1]);
+
+      expect(await screen.findByText('Failed to export project. export broke')).toBeInTheDocument();
+    });
+
+    it('row overflow menu links to more export options for that project', async () => {
+      const onClose = jest.fn();
+      renderWithProvider(createMocks(), { onClose });
+
+      fireEvent.click(await screen.findByRole('button', { name: 'More actions for Test Project 2' }));
+      const item = screen.getByRole('menuitem', { name: /More export options…/ });
+      fireEvent.click(item);
+
+      expect(onClose).toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith('/import-export?section=export&project=project-2');
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
   });
 });
