@@ -5,6 +5,7 @@ import {
   downloadBlob,
   downloadFile,
   mimeTypeForFilename,
+  REVOKE_OBJECT_URL_DELAY_MS,
 } from '../download';
 import { getNativeBridge, hasNativeBinaryDownload, hasNativeTextDownload } from '../bridge';
 import { readFileAsText } from '../files';
@@ -103,7 +104,8 @@ describe('importExport/download', () => {
   });
 
   describe('downloadBlob', () => {
-    it('clicks a temporary anchor and revokes the URL', () => {
+    it('clicks a temporary anchor and revokes the URL after a delay', () => {
+      jest.useFakeTimers();
       const env = setupBrowserDownload();
       try {
         downloadBlob(new Blob(['x']), 'x.txt');
@@ -111,9 +113,15 @@ describe('importExport/download', () => {
         expect(env.anchors[0].download).toBe('x.txt');
         expect(env.anchors[0].click).toHaveBeenCalled();
         expect(document.body.contains(env.anchors[0])).toBe(false);
+        // Not revoked right away (Safari / large files need the URL a bit longer).
+        expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+        jest.advanceTimersByTime(REVOKE_OBJECT_URL_DELAY_MS - 1);
+        expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+        jest.advanceTimersByTime(1);
         expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock');
       } finally {
         env.restore();
+        jest.useRealTimers();
       }
     });
   });

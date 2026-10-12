@@ -38,6 +38,13 @@ export function base64ToBlob(base64: string, mimeType: string): Blob {
   return new Blob([base64ToBytes(base64)], { type: mimeType });
 }
 
+/**
+ * How long to keep a download's object URL alive after clicking the link.
+ * Revoking it immediately can cancel the download in Safari and for large
+ * files (e.g. big XLSX workbooks) that the browser has not started reading.
+ */
+export const REVOKE_OBJECT_URL_DELAY_MS = 1000;
+
 /** Trigger a browser download for a Blob via a temporary anchor element. */
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -47,7 +54,10 @@ export function downloadBlob(blob: Blob, filename: string): void {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // Look up revokeObjectURL now so the deferred call uses the same API that
+  // created the URL, then release the Blob once the download has started.
+  const revoke = URL.revokeObjectURL.bind(URL);
+  setTimeout(() => revoke(url), REVOKE_OBJECT_URL_DELAY_MS);
 }
 
 /**
