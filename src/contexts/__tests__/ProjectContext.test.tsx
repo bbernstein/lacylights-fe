@@ -207,6 +207,44 @@ describe('ProjectContext', () => {
       });
     });
 
+    it('exposes every auth-visible project as allProjects, unfiltered by group', async () => {
+      const otherGroupProject = {
+        ...mockProjects[1],
+        id: 'other',
+        name: 'Other Group Show',
+        groupId: 'group-2',
+        group: { id: 'group-2', name: 'Team', isPersonal: false },
+      };
+      const mocks = [
+        {
+          request: { query: GET_PROJECTS },
+          result: { data: { projects: [...mockProjects, otherGroupProject] } },
+        },
+      ];
+      function AllProjectsProbe() {
+        const { projects, allProjects } = useProject();
+        return (
+          <>
+            <div data-testid="group-projects">{projects.map((p) => p.id).join(',')}</div>
+            <div data-testid="all-projects">{allProjects.map((p) => p.id).join(',')}</div>
+          </>
+        );
+      }
+
+      render(
+        React.createElement(
+          createMockProvider(mocks),
+          null,
+          React.createElement(ProjectProvider, null, React.createElement(AllProjectsProbe)),
+        ),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('all-projects')).toHaveTextContent('1,2,other');
+      });
+      expect(screen.getByTestId('group-projects')).toHaveTextContent(/^1,2$/);
+    });
+
     it('handles query errors', async () => {
       const error = new Error('Failed to fetch projects');
       const mocks = [

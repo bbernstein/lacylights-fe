@@ -214,13 +214,22 @@ render(
 - Fade time editing
 - Playback controls
 
-### Import/Export (Eos ASCII)
-- UI: `ImportExportButtons.tsx` exposes "ETC Eos (.asc)" alongside QLC+
-  and native JSON
-- Auto-detection by file extension; explicit format selection in the dropdown
-- Warnings rendered via `EosWarningsList` (`src/components/EosWarningsList.tsx`),
-  grouped by warning code
-- Backend mutations: `IMPORT_PROJECT_FROM_EOS`, `EXPORT_PROJECT_TO_EOS`
-  (`src/graphql/projects.ts`)
-- Downloaded Eos export filenames currently use a frontend-hardcoded `.asc`
-  suffix rather than the backend's `filenameSuffix` field
+### Import/Export
+- Page: `/import-export` (`src/app/(main)/import-export/page.tsx` wraps
+  `src/components/import-export/ImportExportPage.tsx` in a Suspense boundary
+  for `useSearchParams`). Query params: `section` (`import` | `export`),
+  `project`, and reserved `table` / `scopeId` for data export.
+- Panels: `ProjectImportPanel` (auto-detect + explicit format override,
+  results, "Switch to imported project") and `ProjectExportPanel`
+  (project picker, LacyLights JSON / QLC+ / ETC Eos ASCII).
+- Pure logic lives in `src/lib/importExport/` (format detection, filenames,
+  GraphQL helpers, `downloadFile` / `downloadBase64` with Mac bridge
+  `window.lacylights.download` / `downloadBinary` and Blob fallback).
+- Entry points: Project menu → "Import / Export…", Manage Projects toolbar
+  button, per-row Save (LacyLights JSON) + ⋯ → "More export options…",
+  Settings → OFL "More import/export options…".
+- Eos warnings rendered via `EosWarningsList` (`src/components/EosWarningsList.tsx`),
+  grouped by warning code. Backend mutations: `IMPORT_PROJECT_FROM_EOS`,
+  `EXPORT_PROJECT_TO_EOS` (`src/graphql/projects.ts`).
+- Downloaded export filenames use the frontend format table's extension
+  (e.g. `.asc`) rather than the backend's `filenameSuffix` field

@@ -1,8 +1,14 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MockedProvider } from '@apollo/client/testing';
+import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import ProjectManagementModal from '../ProjectManagementModal';
-import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '../../graphql/projects';
+import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT, EXPORT_PROJECT } from '../../graphql/projects';
+
+// Mock the router so navigation can be asserted
+const mockPush = jest.fn();
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
 
 // Mock heroicons - need to include XMarkIcon as BottomSheet uses it
 jest.mock('@heroicons/react/24/outline', () => ({
@@ -10,6 +16,9 @@ jest.mock('@heroicons/react/24/outline', () => ({
   TrashIcon: ({ className }: { className?: string }) => <div className={className} data-testid="trash-icon">🗑</div>,
   PlusIcon: ({ className }: { className?: string }) => <div className={className} data-testid="plus-icon">+</div>,
   PencilIcon: ({ className }: { className?: string }) => <div className={className} data-testid="pencil-icon">✏️</div>,
+  ArrowDownTrayIcon: ({ className }: { className?: string }) => <div className={className} data-testid="arrow-down-tray-icon" />,
+  ArrowsUpDownIcon: ({ className }: { className?: string }) => <div className={className} data-testid="arrows-up-down-icon" />,
+  EllipsisVerticalIcon: ({ className }: { className?: string }) => <div className={className} data-testid="ellipsis-vertical-icon" />,
 }));
 
 // Mock useIsMobile hook
@@ -159,7 +168,7 @@ const createMocks = () => [
   },
 ];
 
-const renderWithProvider = (mocks = createMocks(), props = {}) => {
+const renderWithProvider = (mocks: ReadonlyArray<MockedResponse> = createMocks(), props = {}) => {
   const { useProject } = require('../../contexts/ProjectContext');
   useProject.mockReturnValue(mockUseProject);
 
@@ -418,4 +427,195 @@ describe('ProjectManagementModal', () => {
       expect(screen.getByText('Manage Projects')).toBeInTheDocument();
     });
   });
+  describe('import / export', () => {
+    const exportMock = {
+      request: {
+        query: EXPORT_PROJECT,
+        variables: {
+          projectId: 'project-2',
+          options: { includeFixtures: true, includeLooks: true, includeCueLists: true },
+        },
+      },
+      result: {
+        data: {
+          exportProject: {
+            projectId: 'project-2',
+            projectName: 'Test Project 2',
+            jsonContent: '{"project":2}',
+            stats: {
+              fixtureDefinitionsCount: 0,
+              fixtureInstancesCount: 0,
+              looksCount: 0,
+              cueListsCount: 0,
+              cuesCount: 0,
+            },
+          },
+        },
+      },
+    };
+
+    afterEach(() => {
+      delete window.lacylights;
+    });
+
+    it('toolbar Import / Export… button opens the page and closes the modal', () => {
+      const onClose = jest.fn();
+      renderWithProvider(createMocks(), { onClose });
+
+      fireEvent.click(screen.getByRole('button', { name: /Import \/ Export…/ }));
+
+      expect(onClose).toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith('/import-export');
+    });
+
+    it('each row has a Save button that downloads LacyLights JSON in one click', async () => {
+      const nativeDownload = jest.fn();
+      window.lacylights = {
+        download: nativeDownload,
+        send: jest.fn(),
+        log: jest.fn(),
+        error: jest.fn(),
+        getAppVersion: jest.fn(),
+      };
+      renderWithProvider([...createMocks(), exportMock]);
+
+      const saveButtons = await screen.findAllByRole('button', {
+        name: 'Save project as LacyLights file (.json)',
+      });
+      expect(saveButtons).toHaveLength(2);
+      expect(saveButtons[1]).toHaveAttribute('title', 'Save project as LacyLights file (.json)');
+
+      fireEvent.click(saveButtons[1]);
+
+      await waitFor(() =>
+        expect(nativeDownload).toHaveBeenCalledWith('{"project":2}', 'Test Project 2.json'),
+      );
+      // No format menu is shown on the row.
+      expect(screen.queryByText(/QLC\+/)).not.toBeInTheDocument();
+    });
+
+    it('tracks concurrent row saves independently', async () => {
+      const nativeDownload = jest.fn();
+      window.lacylights = {
+        download: nativeDownload,
+        send: jest.fn(),
+        log: jest.fn(),
+        error: jest.fn(),
+        getAppVersion: jest.fn(),
+      };
+      const exportMock1 = {
+        request: {
+          query: EXPORT_PROJECT,
+          variables: { ...exportMock.request.variables, projectId: 'project-1' },
+        },
+        delay: 20,
+        result: {
+          data: {
+            exportProject: {
+              ...exportMock.result.data.exportProject,
+              projectId: 'project-1',
+              projectName: 'Test Project 1',
+              jsonContent: '{"project":1}',
+            },
+          },
+        },
+      };
+      renderWithProvider([...createMocks(), exportMock1, { ...exportMock, delay: 300 }]);
+
+      const saveButtons = await screen.findAllByRole('button', {
+        name: 'Save project as LacyLights file (.json)',
+      });
+      fireEvent.click(saveButtons[0]);
+      fireEvent.click(saveButtons[1]);
+      expect(saveButtons[0]).toBeDisabled();
+      expect(saveButtons[1]).toBeDisabled();
+
+      // The first save finishing must not re-enable the second, still-running one.
+      await waitFor(() =>
+        expect(nativeDownload).toHaveBeenCalledWith('{"project":1}', 'Test Project 1.json'),
+      );
+      await waitFor(() => expect(saveButtons[0]).toBeEnabled());
+      expect(saveButtons[1]).toBeDisabled();
+
+      await waitFor(() =>
+        expect(nativeDownload).toHaveBeenCalledWith('{"project":2}', 'Test Project 2.json'),
+      );
+      await waitFor(() => expect(saveButtons[1]).toBeEnabled());
+    });
+
+    it('shows an error when saving fails', async () => {
+      renderWithProvider([
+        ...createMocks(),
+        { request: exportMock.request, error: new Error('export broke') },
+      ]);
+
+      const saveButtons = await screen.findAllByRole('button', {
+        name: 'Save project as LacyLights file (.json)',
+      });
+      fireEvent.click(saveButtons[1]);
+
+      expect(await screen.findByText('Failed to export project. export broke')).toBeInTheDocument();
+    });
+
+    it('row overflow menu links to more export options for that project', async () => {
+      const onClose = jest.fn();
+      renderWithProvider(createMocks(), { onClose });
+
+      fireEvent.click(await screen.findByRole('button', { name: 'More actions for Test Project 2' }));
+      const item = screen.getByRole('menuitem', { name: /More export options…/ });
+      fireEvent.click(item);
+
+      expect(onClose).toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith('/import-export?section=export&project=project-2');
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+      it('clears the row menu when the modal is closed and reopened', async () => {
+      const { rerender } = renderWithProvider(createMocks());
+      fireEvent.click(await screen.findByRole('button', { name: 'More actions for Test Project 2' }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+
+      const renderModal = (isOpen: boolean) => (
+        <MockedProvider mocks={createMocks()} addTypename={false}>
+          <ProjectManagementModal {...defaultProps} isOpen={isOpen} />
+        </MockedProvider>
+      );
+      rerender(renderModal(false));
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+      rerender(renderModal(true));
+      await screen.findByRole('button', { name: 'More actions for Test Project 2' });
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ['footer Close button', () => screen.getByText('Close', { selector: 'button' })],
+      ['header X button', () => screen.getByTestId('project-management-modal-close-button')],
+    ])('clears the row menu when the modal is closed via the %s', async (_label, getButton) => {
+      const onClose = jest.fn();
+      renderWithProvider(createMocks(), { onClose });
+      fireEvent.click(await screen.findByRole('button', { name: 'More actions for Test Project 2' }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+
+      fireEvent.click(getButton());
+
+      expect(onClose).toHaveBeenCalled();
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('row menu is keyboard accessible: focus moves in, Escape closes only the menu', async () => {
+      const onClose = jest.fn();
+      renderWithProvider(createMocks(), { onClose });
+      const trigger = await screen.findByRole('button', { name: 'More actions for Test Project 2' });
+      trigger.focus();
+      fireEvent.click(trigger);
+
+      const item = screen.getByRole('menuitem', { name: /More export options…/ });
+      expect(item).toHaveFocus();
+
+      fireEvent.keyDown(item, { key: 'Escape' });
+
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+      expect(trigger).toHaveFocus();
+    });
+});
 });

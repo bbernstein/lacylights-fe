@@ -2,15 +2,15 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useProject } from '@/contexts/ProjectContext';
-import { CogIcon } from '@heroicons/react/24/outline';
+import { useRouter } from 'next/navigation';
+import { ArrowsUpDownIcon, CogIcon } from '@heroicons/react/24/outline';
 import ProjectManagementModal from './ProjectManagementModal';
-import ImportExportButtons from './ImportExportButtons';
 
 export default function ProjectSelector() {
-  const { currentProject, projects, loading, selectProject, refetchAndSelectById } = useProject();
+  const router = useRouter();
+  const { currentProject, projects, loading, selectProject } = useProject();
   const [isOpen, setIsOpen] = useState(false);
   const [showManagementModal, setShowManagementModal] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -29,16 +29,6 @@ export default function ProjectSelector() {
     };
   }, []);
 
-  const handleImportComplete = async (projectId: string) => {
-    await refetchAndSelectById(projectId);
-    setIsOpen(false);
-  };
-
-  const handleError = (errorMessage: string) => {
-    setError(errorMessage);
-    setTimeout(() => setError(null), 5000);
-  };
-
   if (loading) {
     return (
       <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -53,12 +43,6 @@ export default function ProjectSelector() {
 
   return (
     <>
-      {error && (
-        <div className="fixed top-20 right-4 z-50 max-w-md p-3 bg-red-500/90 text-white rounded shadow-lg">
-          {error}
-        </div>
-      )}
-
       <div className="flex items-center gap-2">
         <div className="relative" ref={dropdownRef}>
           <button
@@ -95,18 +79,16 @@ export default function ProjectSelector() {
                   </button>
                 ))}
                 <div className="border-t border-gray-200 dark:border-gray-600"></div>
-
-                {/* Import/Export Options */}
-                <div className="px-2 py-1">
-                  <ImportExportButtons
-                    projectId={currentProject?.id}
-                    onImportComplete={handleImportComplete}
-                    onError={handleError}
-                    inDropdown={true}
-                  />
-                </div>
-
-                <div className="border-t border-gray-200 dark:border-gray-600"></div>
+                <button
+                  onClick={() => {
+                    setIsOpen(false);
+                    router.push('/import-export');
+                  }}
+                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center gap-2"
+                >
+                  <ArrowsUpDownIcon className="h-4 w-4" />
+                  Import / Export…
+                </button>
                 <button
                   onClick={() => {
                     setShowManagementModal(true);
