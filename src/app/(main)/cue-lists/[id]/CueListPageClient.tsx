@@ -26,13 +26,23 @@ export default function CueListPageClient({
   // The cue list's own project. The route loads the cue list by id, so the
   // selected project may be a different one; scoped exports must use the
   // owning project or the backend rejects them.
-  const [cueListProjectId, setCueListProjectId] = useState<string | null>(null);
+  // Remembered with the cue list it belongs to, so a client-side navigation
+  // to another cue list never reuses the previous list's project.
+  const [cueListOwner, setCueListOwner] = useState<{
+    cueListId: string;
+    projectId: string | null;
+  } | null>(null);
 
-  const handleCueListLoaded = useCallback((name: string, projectId?: string | null) => {
-    setCueListName(name);
-    if (projectId) setCueListProjectId(projectId);
-  }, []);
+  const handleCueListLoaded = useCallback(
+    (name: string, projectId?: string | null) => {
+      setCueListName(name);
+      setCueListOwner({ cueListId, projectId: projectId ?? null });
+    },
+    [cueListId],
+  );
 
+  const cueListProjectId =
+    cueListOwner?.cueListId === cueListId ? cueListOwner.projectId : null;
   const exportProjectId = cueListProjectId ?? currentProject?.id ?? null;
 
   const mode = searchParams.get("mode") || "player";

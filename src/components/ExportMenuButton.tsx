@@ -170,6 +170,11 @@ export default function ExportMenuButton({
   // so this hits the network at most once per session.
   useEffect(() => {
     if (!open || dataExportUnsupported) return;
+    // Promise.resolve() so a synchronous throw from client.query is caught
+    // too. Only the "unknown field" error matters here; any other failure
+    // (e.g. a transient network error) is ignored on purpose, leaves CSV /
+    // Excel visible, and is retried the next time the menu opens because
+    // Apollo does not cache errors.
     Promise.resolve()
       .then(() => client.query({ query: GET_DATA_EXPORT_TABLES }))
       .catch((err: unknown) => {

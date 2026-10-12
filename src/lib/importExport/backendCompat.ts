@@ -16,7 +16,13 @@
  * What a backend lacks is remembered per Apollo client (one client per
  * session/backend), so later requests skip the doomed attempt.
  */
-import type { ApolloClient, DocumentNode, OperationVariables, TypedDocumentNode } from '@apollo/client';
+import {
+  ApolloError,
+  type ApolloClient,
+  type DocumentNode,
+  type OperationVariables,
+  type TypedDocumentNode,
+} from '@apollo/client';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyApolloClient = ApolloClient<any>;
@@ -46,7 +52,11 @@ function graphQLMessages(list: unknown): string[] {
  */
 function errorMessages(error: unknown): string[] {
   if (!(error instanceof Error)) return [];
-  if (error.name !== 'ApolloError') return [error.message];
+  // instanceof covers the normal case; the name check also covers an
+  // ApolloError from a duplicated @apollo/client bundle. Revisit on an
+  // Apollo Client 4 upgrade (errors are restructured there); the tests use
+  // real ApolloError instances and will fail if the shape changes.
+  if (!(error instanceof ApolloError) && error.name !== 'ApolloError') return [error.message];
   const apollo = error as Error & {
     graphQLErrors?: unknown;
     networkError?: { result?: unknown } | null;
@@ -133,7 +143,9 @@ function pickField<T>(data: unknown, field: string): T {
 
 /**
  * Run a read-only export Query, falling back to the legacy export Mutation
- * when the backend does not know the Query field yet. Any other error is
+ * when the backend does not know the Query field yet. Only for legacy
+ * Mutations that are side-effect free apart from what the Query does too
+ * (the deprecated project export Mutations). Any other error is
  * rethrown. Both requests use `fetchPolicy: 'no-cache'` so large file
  * contents never land in the Apollo cache.
  *

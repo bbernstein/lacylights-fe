@@ -61,6 +61,15 @@ describe('CueListPageClient export menu', () => {
     expect(screen.getByTestId('export-menu')).toHaveAttribute('data-project-id', 'selected-project');
   });
 
+  it("does not reuse the previous cue list's project after navigating", () => {
+    const { rerender } = render(<CueListPageClient cueListId="cl1" />);
+    expect(screen.getByTestId('export-menu')).toHaveAttribute('data-project-id', 'owner-project');
+    // The next list has not reported its project yet.
+    mockReportedProjectId = null;
+    rerender(<CueListPageClient cueListId="cl2" />);
+    expect(screen.getByTestId('export-menu')).toHaveAttribute('data-project-id', 'selected-project');
+  });
+
   it('hides the export menu without any project', () => {
     mockReportedProjectId = null;
     mockCurrentProject = null;
