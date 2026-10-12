@@ -70,20 +70,36 @@ export default function ProjectImportPanel({
     setIsImporting(true);
     setError(null);
     setResult(null);
+    let importResult: ProjectImportResult;
     try {
       const content = await readFileAsText(file);
-      const importResult = await importProjectContent(client, content, file.name, target);
-      setResult(importResult);
-      setFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      await onImported?.(importResult);
+      importResult = await importProjectContent(client, content, file.name, target);
     } catch (err) {
       setError(
         formatErrorMessage(
           err,
           'Failed to import project. Please check the file and try again. Error:',
+        ),
+      );
+      setIsImporting(false);
+      return;
+    }
+
+    setResult(importResult);
+    setFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    // The import itself succeeded; a failure here (e.g. refreshing the
+    // project list) must not be reported as a failed import, or the user
+    // may retry and create a duplicate project.
+    try {
+      await onImported?.(importResult);
+    } catch (err) {
+      setError(
+        formatErrorMessage(
+          err,
+          'The project was imported, but the project list could not be refreshed. Error:',
         ),
       );
     } finally {
@@ -94,8 +110,11 @@ export default function ProjectImportPanel({
   const handleSwitch = async () => {
     if (!result || !onSwitchToProject) return;
     setIsSwitching(true);
+    setError(null);
     try {
       await onSwitchToProject(result.projectId);
+    } catch (err) {
+      setError(formatErrorMessage(err, 'Failed to switch to the imported project. Error:'));
     } finally {
       setIsSwitching(false);
     }
