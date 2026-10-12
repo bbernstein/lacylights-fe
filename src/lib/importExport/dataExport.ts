@@ -1,10 +1,12 @@
 /**
  * CSV / Excel (XLSX) data-list exports.
  *
- * The backend generates the file and returns it inline as base64. Every
- * export (data tables, workbooks and project exports) MUST run through
- * {@link runExportQuery}, which forces `fetchPolicy: 'no-cache'` so large
- * payloads never land in the Apollo cache (plan: "Caching caveat").
+ * The backend generates the file and returns it inline as base64. Data
+ * table and workbook exports MUST run through {@link runExportQuery}, which
+ * forces `fetchPolicy: 'no-cache'` so large payloads never land in the
+ * Apollo cache (plan: "Caching caveat"). Project exports use
+ * `queryWithLegacyMutationFallback` (backendCompat.ts) instead, which is
+ * also no-cache and adds the fallback for older backends.
  */
 import type { ApolloClient, DocumentNode, OperationVariables, TypedDocumentNode } from '@apollo/client';
 import { EXPORT_DATA_TABLE, EXPORT_DATA_WORKBOOK } from '@/graphql/dataExport';

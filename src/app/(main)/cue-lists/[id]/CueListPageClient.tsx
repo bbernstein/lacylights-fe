@@ -23,10 +23,17 @@ export default function CueListPageClient({
 
   // Cue list name is provided by child components via callback to avoid duplicate queries
   const [cueListName, setCueListName] = useState("");
+  // The cue list's own project. The route loads the cue list by id, so the
+  // selected project may be a different one; scoped exports must use the
+  // owning project or the backend rejects them.
+  const [cueListProjectId, setCueListProjectId] = useState<string | null>(null);
 
-  const handleCueListLoaded = useCallback((name: string) => {
+  const handleCueListLoaded = useCallback((name: string, projectId?: string | null) => {
     setCueListName(name);
+    if (projectId) setCueListProjectId(projectId);
   }, []);
+
+  const exportProjectId = cueListProjectId ?? currentProject?.id ?? null;
 
   const mode = searchParams.get("mode") || "player";
   const isEditMode = mode === "edit";
@@ -74,11 +81,11 @@ export default function CueListPageClient({
         </h1>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          {currentProject?.id && (
+          {exportProjectId && (
             <ExportMenuButton
               table={DataExportTable.CueListDetails}
               scopeId={cueListId}
-              projectId={currentProject.id}
+              projectId={exportProjectId}
               appearance="toolbar"
               compact
             />

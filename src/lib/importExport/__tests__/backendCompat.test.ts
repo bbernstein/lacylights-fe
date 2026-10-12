@@ -195,9 +195,10 @@ describe('importExport/backendCompat', () => {
 
       query.mockRejectedValue(validationGraphQLError('projectExport'));
       mutate.mockResolvedValue({ data: { exportProject: null } });
-      await expect(
-        queryWithLegacyMutationFallback(makeClient().client, primary, legacy, variables),
-      ).rejects.toThrow();
+      await expect(queryWithLegacyMutationFallback(client, primary, legacy, variables)).rejects.toThrow(
+        'No export data was returned by the server.',
+      );
+      expect(mutate).toHaveBeenCalledTimes(1);
     });
   });
 });

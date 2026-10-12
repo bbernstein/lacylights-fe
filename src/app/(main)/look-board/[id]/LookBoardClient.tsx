@@ -2327,11 +2327,14 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
             </div>
 
             {/* Export menu (all sizes; icon-only on phones) */}
-            {currentProject?.id && (
+            {/* Use the board's own project: the route loads the board by id,
+                so the selected project may differ and the backend requires
+                the scope to belong to projectId. */}
+            {(board.project?.id ?? currentProject?.id) && (
               <ExportMenuButton
                 table={DataExportTable.LookBoardEntries}
                 scopeId={board.id}
-                projectId={currentProject.id}
+                projectId={board.project?.id ?? currentProject?.id}
                 compact
                 className="mr-2 md:mr-3 shrink-0"
               />
