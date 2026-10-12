@@ -1617,11 +1617,11 @@ export type Mutation = {
   readonly deleteUserGroup: Scalars['Boolean']['output'];
   readonly disconnectWiFi: WiFiConnectionResult;
   readonly duplicateLook: Look;
-  /** @deprecated Use Query.projectExport* */
+  /** @deprecated Use Query.projectExport */
   readonly exportProject: ExportResult;
-  /** @deprecated Use Query.projectExport* */
+  /** @deprecated Use Query.projectExportEos */
   readonly exportProjectToEos: EosExportResult;
-  /** @deprecated Use Query.projectExport* */
+  /** @deprecated Use Query.projectExportQLC */
   readonly exportProjectToQLC: QlcExportResult;
   readonly fadeToBlack: Scalars['Boolean']['output'];
   readonly forgetWiFiNetwork: Scalars['Boolean']['output'];
@@ -2984,12 +2984,20 @@ export type Query = {
   /**
    * Export one data list as CSV or XLSX. projectId may be null only for
    * FIXTURE_LIBRARY. scopeId selects the look / cue list / look board for
-   * scoped tables and must belong to projectId.
+   * scoped tables and must belong to projectId. For FIXTURE_LIBRARY a
+   * projectId, if given, is only access-checked; the library is global.
+   * CSV is not a lossless round-trip format: text cells starting with
+   * = + - @ tab, CR or LF get a leading ' to prevent formula injection.
+   * XLSX stores text unchanged. Exports have no size limit by default; a
+   * server configured with limits, or an XLSX sheet wider than Excel's
+   * 16,384 columns, fails with a "too large" error.
    */
   readonly exportDataTable: DataExportResult;
   /**
    * Export several project-level tables as one XLSX workbook, one sheet per
-   * table. Defaults to every project-level table when tables is omitted.
+   * table. Defaults to every project-level table when tables is omitted; an
+   * explicit empty list is an error. Repeated tables are included once.
+   * FIXTURE_LIBRARY and scoped tables cannot be included.
    */
   readonly exportDataWorkbook: DataExportResult;
   readonly fixtureDefinition?: Maybe<FixtureDefinition>;
@@ -3038,9 +3046,13 @@ export type Query = {
   readonly project?: Maybe<Project>;
   /** Export a project as LacyLights JSON */
   readonly projectExport: ExportResult;
-  /** Export a project as ETC Eos ASCII */
+  /**
+   * Export a project as ETC Eos ASCII. On first export, fixture groups without
+   * an Eos group number are assigned one and it is saved, so later exports stay
+   * stable. This is idempotent: once every group has a number, nothing is written.
+   */
   readonly projectExportEos: EosExportResult;
-  /** Export a project as a QLC+ workspace */
+  /** Export a project as a QLC+ workspace (not available on all platforms; currently always returns an error) */
   readonly projectExportQLC: QlcExportResult;
   readonly projects: ReadonlyArray<Project>;
   readonly projectsByIds: ReadonlyArray<Project>;
@@ -4994,6 +5006,29 @@ export type ProjectExportEosQueryVariables = Exact<{
 
 export type ProjectExportEosQuery = { readonly __typename?: 'Query', readonly projectExportEos: { readonly __typename?: 'EosExportResult', readonly projectId: string, readonly projectName: string, readonly asciiContent: string, readonly warnings: ReadonlyArray<{ readonly __typename?: 'EosWarning', readonly code: string, readonly severity: EosWarningSeverity, readonly message: string, readonly context: ReadonlyArray<{ readonly __typename?: 'EosWarningContextEntry', readonly key: string, readonly value: string }> }> } };
 
+export type ExportProjectToQlcMutationVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+  fixtureMappings: ReadonlyArray<FixtureMappingInput> | FixtureMappingInput;
+}>;
+
+
+export type ExportProjectToQlcMutation = { readonly __typename?: 'Mutation', readonly exportProjectToQLC: { readonly __typename?: 'QLCExportResult', readonly projectName: string, readonly xmlContent: string, readonly fixtureCount: number, readonly lookCount: number, readonly cueListCount: number } };
+
+export type ExportProjectMutationVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+  options?: InputMaybe<ExportOptionsInput>;
+}>;
+
+
+export type ExportProjectMutation = { readonly __typename?: 'Mutation', readonly exportProject: { readonly __typename?: 'ExportResult', readonly projectId: string, readonly projectName: string, readonly jsonContent: string, readonly stats: { readonly __typename?: 'ExportStats', readonly fixtureDefinitionsCount: number, readonly fixtureInstancesCount: number, readonly looksCount: number, readonly cueListsCount: number, readonly cuesCount: number } } };
+
+export type ExportProjectToEosMutationVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+}>;
+
+
+export type ExportProjectToEosMutation = { readonly __typename?: 'Mutation', readonly exportProjectToEos: { readonly __typename?: 'EosExportResult', readonly projectId: string, readonly projectName: string, readonly asciiContent: string, readonly warnings: ReadonlyArray<{ readonly __typename?: 'EosWarning', readonly code: string, readonly severity: EosWarningSeverity, readonly message: string, readonly context: ReadonlyArray<{ readonly __typename?: 'EosWarningContextEntry', readonly key: string, readonly value: string }> }> } };
+
 export type GetSettingsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -5389,6 +5424,9 @@ export const ProjectExportDocument = {"kind":"Document","definitions":[{"kind":"
 export const ImportProjectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ImportProject"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"jsonContent"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"options"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ImportOptionsInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"importProject"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"jsonContent"},"value":{"kind":"Variable","name":{"kind":"Name","value":"jsonContent"}}},{"kind":"Argument","name":{"kind":"Name","value":"options"},"value":{"kind":"Variable","name":{"kind":"Name","value":"options"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"stats"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fixtureDefinitionsCreated"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureInstancesCreated"}},{"kind":"Field","name":{"kind":"Name","value":"looksCreated"}},{"kind":"Field","name":{"kind":"Name","value":"cueListsCreated"}},{"kind":"Field","name":{"kind":"Name","value":"cuesCreated"}}]}},{"kind":"Field","name":{"kind":"Name","value":"warnings"}}]}}]}}]} as unknown as DocumentNode<ImportProjectMutation, ImportProjectMutationVariables>;
 export const ImportProjectFromEosDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ImportProjectFromEos"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"asciiContent"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"options"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"EosImportOptionsInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"importProjectFromEos"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"asciiContent"},"value":{"kind":"Variable","name":{"kind":"Name","value":"asciiContent"}}},{"kind":"Argument","name":{"kind":"Name","value":"options"},"value":{"kind":"Variable","name":{"kind":"Name","value":"options"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureDefinitionsCount"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureInstancesCount"}},{"kind":"Field","name":{"kind":"Name","value":"looksCount"}},{"kind":"Field","name":{"kind":"Name","value":"cueListsCount"}},{"kind":"Field","name":{"kind":"Name","value":"cuesCount"}},{"kind":"Field","name":{"kind":"Name","value":"groupsCount"}},{"kind":"Field","name":{"kind":"Name","value":"warnings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"severity"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"context"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"value"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"synthesizedDefinitionIds"}}]}}]}}]} as unknown as DocumentNode<ImportProjectFromEosMutation, ImportProjectFromEosMutationVariables>;
 export const ProjectExportEosDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ProjectExportEos"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectExportEos"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"projectName"}},{"kind":"Field","name":{"kind":"Name","value":"asciiContent"}},{"kind":"Field","name":{"kind":"Name","value":"warnings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"severity"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"context"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"value"}}]}}]}}]}}]}}]} as unknown as DocumentNode<ProjectExportEosQuery, ProjectExportEosQueryVariables>;
+export const ExportProjectToQlcDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ExportProjectToQLC"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"fixtureMappings"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"FixtureMappingInput"}}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exportProjectToQLC"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"fixtureMappings"},"value":{"kind":"Variable","name":{"kind":"Name","value":"fixtureMappings"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectName"}},{"kind":"Field","name":{"kind":"Name","value":"xmlContent"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureCount"}},{"kind":"Field","name":{"kind":"Name","value":"lookCount"}},{"kind":"Field","name":{"kind":"Name","value":"cueListCount"}}]}}]}}]} as unknown as DocumentNode<ExportProjectToQlcMutation, ExportProjectToQlcMutationVariables>;
+export const ExportProjectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ExportProject"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"options"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"ExportOptionsInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exportProject"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"options"},"value":{"kind":"Variable","name":{"kind":"Name","value":"options"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"projectName"}},{"kind":"Field","name":{"kind":"Name","value":"jsonContent"}},{"kind":"Field","name":{"kind":"Name","value":"stats"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fixtureDefinitionsCount"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureInstancesCount"}},{"kind":"Field","name":{"kind":"Name","value":"looksCount"}},{"kind":"Field","name":{"kind":"Name","value":"cueListsCount"}},{"kind":"Field","name":{"kind":"Name","value":"cuesCount"}}]}}]}}]}}]} as unknown as DocumentNode<ExportProjectMutation, ExportProjectMutationVariables>;
+export const ExportProjectToEosDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ExportProjectToEos"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exportProjectToEos"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"projectName"}},{"kind":"Field","name":{"kind":"Name","value":"asciiContent"}},{"kind":"Field","name":{"kind":"Name","value":"warnings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"severity"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"context"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"value"}}]}}]}}]}}]}}]} as unknown as DocumentNode<ExportProjectToEosMutation, ExportProjectToEosMutationVariables>;
 export const GetSettingsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSettings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"settings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<GetSettingsQuery, GetSettingsQueryVariables>;
 export const GetSettingDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSetting"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"key"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setting"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"key"},"value":{"kind":"Variable","name":{"kind":"Name","value":"key"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<GetSettingQuery, GetSettingQueryVariables>;
 export const UpdateSettingDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateSetting"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateSettingInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateSetting"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<UpdateSettingMutation, UpdateSettingMutationVariables>;

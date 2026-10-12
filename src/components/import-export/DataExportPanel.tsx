@@ -8,7 +8,9 @@ import { GET_PROJECT_LOOKS } from '@/graphql/looks';
 import { GET_PROJECT_CUE_LISTS } from '@/graphql/cueLists';
 import { GET_PROJECT_LOOK_BOARDS } from '@/graphql/lookBoards';
 import type { GetDataExportTablesQuery } from '@/generated/graphql';
+import { useDataExportUnsupported } from '@/hooks/useDataExportUnsupported';
 import {
+  DATA_EXPORT_UNSUPPORTED_MESSAGE,
   DATA_EXPORT_FORMATS,
   DATA_EXPORT_SCOPE_LABELS,
   DataExportFormat,
@@ -16,9 +18,11 @@ import {
   exportAndDownloadDataTable,
   exportAndDownloadDataWorkbook,
   formatErrorMessage,
+  isDataExportUnsupportedError,
   isItemScope,
   isProjectOptional,
   isScopeRequired,
+  noteDataExportError,
   parseDataExportTable,
   type DataExportFile,
   type DataExportItemScope,
@@ -59,6 +63,10 @@ function pluralRows(n: number): string {
  * Export a data list (fixtures, looks, cue lists, …) as CSV or Excel, or
  * a whole project as a multi-sheet Excel workbook. The table list comes
  * from the server (`dataExportTables`); the files are generated there too.
+ *
+ * Older backends have no data export; when they reject `dataExportTables`
+ * (or an export) with "Cannot query field", the panel explains that the
+ * server needs an update instead of showing an error.
  */
 export default function DataExportPanel({
   projects,
@@ -72,8 +80,15 @@ export default function DataExportPanel({
   const scopeSelectId = useId();
   const formatGroupName = useId();
 
+  const knownUnsupported = useDataExportUnsupported();
   const { data: tablesData, loading: tablesLoading, error: tablesError } =
-    useQuery<GetDataExportTablesQuery>(GET_DATA_EXPORT_TABLES);
+    useQuery<GetDataExportTablesQuery>(GET_DATA_EXPORT_TABLES, { skip: knownUnsupported });
+  const unsupported = knownUnsupported || isDataExportUnsupportedError(tablesError);
+
+  // Remember an old backend for the session so Export ▾ menus adapt too.
+  useEffect(() => {
+    if (tablesError) noteDataExportError(client, tablesError);
+  }, [tablesError, client]);
   const tables = useMemo(() => tablesData?.dataExportTables ?? [], [tablesData]);
 
   const [projectId, setProjectId] = useState<string>(defaultProjectId ?? projects[0]?.id ?? '');
@@ -194,11 +209,25 @@ export default function DataExportPanel({
             });
       setLastExport(file);
     } catch (err) {
-      setError(formatErrorMessage(err, 'Export failed.'));
+      // An older backend: the panel switches to the "update LacyLights" note.
+      if (!noteDataExportError(client, err)) {
+        setError(formatErrorMessage(err, 'Export failed.'));
+      }
     } finally {
       setRunning(null);
     }
   };
+
+  if (unsupported) {
+    return (
+      <div
+        role="status"
+        className="p-3 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-sm text-amber-800 dark:text-amber-200"
+      >
+        {DATA_EXPORT_UNSUPPORTED_MESSAGE}
+      </div>
+    );
+  }
 
   if (tablesError) {
     return (

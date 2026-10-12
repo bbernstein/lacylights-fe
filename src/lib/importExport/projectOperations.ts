@@ -7,6 +7,9 @@ import {
   PROJECT_EXPORT_QLC,
   PROJECT_EXPORT_EOS,
   GET_QLC_FIXTURE_MAPPING_SUGGESTIONS,
+  LEGACY_EXPORT_PROJECT,
+  LEGACY_EXPORT_PROJECT_TO_QLC,
+  LEGACY_EXPORT_PROJECT_TO_EOS,
 } from '@/graphql/projects';
 import { getFixtureKey, getManufacturer, getModel } from '@/constants/fixtures';
 import { ImportMode, FixtureConflictStrategy } from '@/constants/import';
@@ -23,7 +26,7 @@ import type {
 import { PROJECT_FORMATS, type ProjectExportFormat, type ProjectFileFormat } from './formats';
 import { buildProjectExportFilename, projectNameFromFilename } from './filenames';
 import { downloadFile } from './download';
-import { runExportQuery } from './dataExport';
+import { queryWithLegacyMutationFallback } from './backendCompat';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyApolloClient = ApolloClient<any>;
@@ -200,8 +203,10 @@ export async function importProjectContent(
  * downloadProjectExport / exportAndDownloadProject. Throws on failure.
  *
  * Uses the read-only `Query.projectExport*` fields (the old export
- * Mutations are deprecated) with `fetchPolicy: 'no-cache'` via
- * runExportQuery so file contents are not cached.
+ * Mutations are deprecated) with `fetchPolicy: 'no-cache'` so file contents
+ * are not cached. Older backends without those Queries reject them with
+ * `Cannot query field ...`; the export then retries with the legacy export
+ * Mutation (see queryWithLegacyMutationFallback).
  */
 export async function exportProjectAs(
   client: AnyApolloClient,
@@ -211,13 +216,12 @@ export async function exportProjectAs(
   const { mimeType } = PROJECT_FORMATS[format];
 
   if (format === 'eos') {
-    const data = await runExportQuery<ProjectExportEosQuery>(client, PROJECT_EXPORT_EOS, {
-      projectId,
-    });
-    const r = data.projectExportEos;
-    if (!r) {
-      throw new Error('No export data was returned by the server.');
-    }
+    const r = await queryWithLegacyMutationFallback<ProjectExportEosQuery['projectExportEos']>(
+      client,
+      { query: PROJECT_EXPORT_EOS, field: 'projectExportEos' },
+      { mutation: LEGACY_EXPORT_PROJECT_TO_EOS, field: 'exportProjectToEos' },
+      { projectId },
+    );
     return {
       format,
       projectId,
@@ -245,14 +249,12 @@ export async function exportProjectAs(
       mappingData.defaultMappings,
       mappingData.lacyLightsFixtures,
     );
-    const data = await runExportQuery<ProjectExportQlcQuery>(client, PROJECT_EXPORT_QLC, {
-      projectId,
-      fixtureMappings,
-    });
-    const r = data.projectExportQLC;
-    if (!r) {
-      throw new Error('No export data was returned by the server.');
-    }
+    const r = await queryWithLegacyMutationFallback<ProjectExportQlcQuery['projectExportQLC']>(
+      client,
+      { query: PROJECT_EXPORT_QLC, field: 'projectExportQLC' },
+      { mutation: LEGACY_EXPORT_PROJECT_TO_QLC, field: 'exportProjectToQLC' },
+      { projectId, fixtureMappings },
+    );
     return {
       format,
       projectId,
@@ -265,18 +267,19 @@ export async function exportProjectAs(
   }
 
   // LacyLights native export
-  const data = await runExportQuery<ProjectExportQuery>(client, PROJECT_EXPORT, {
-    projectId,
-    options: {
-      includeFixtures: true,
-      includeLooks: true,
-      includeCueLists: true,
+  const r = await queryWithLegacyMutationFallback<ProjectExportQuery['projectExport']>(
+    client,
+    { query: PROJECT_EXPORT, field: 'projectExport' },
+    { mutation: LEGACY_EXPORT_PROJECT, field: 'exportProject' },
+    {
+      projectId,
+      options: {
+        includeFixtures: true,
+        includeLooks: true,
+        includeCueLists: true,
+      },
     },
-  });
-  const r = data.projectExport;
-  if (!r) {
-    throw new Error('No export data was returned by the server.');
-  }
+  );
   return {
     format,
     projectId,

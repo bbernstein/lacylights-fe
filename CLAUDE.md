@@ -245,5 +245,13 @@ render(
   …); project exports are Queries (`PROJECT_EXPORT`, `PROJECT_EXPORT_QLC`,
   `PROJECT_EXPORT_EOS` in `src/graphql/projects.ts`; the old export
   Mutations are deprecated in the backend).
+- Older backends (Mac / Pi update frontend and backend separately):
+  `src/lib/importExport/backendCompat.ts`. Project exports call the
+  Query first and, on `Cannot query field "projectExport…" on type "Query"`,
+  retry with the legacy Mutation (`LEGACY_EXPORT_PROJECT*`); other errors
+  propagate. When `dataExportTables` / `exportDataTable` /
+  `exportDataWorkbook` is unknown, `DataExportPanel` and `ExportMenuButton`
+  show "update LacyLights" instead of CSV / Excel. Both outcomes are
+  remembered per Apollo client (`useDataExportUnsupported`).
 - Downloaded export filenames use the frontend format table's extension
   (e.g. `.asc`) rather than the backend's `filenameSuffix` field

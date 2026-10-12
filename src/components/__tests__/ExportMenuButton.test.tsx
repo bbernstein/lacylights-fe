@@ -1,7 +1,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
+import { GraphQLError } from 'graphql';
 import ExportMenuButton, { type ExportMenuButtonProps } from '../ExportMenuButton';
-import { EXPORT_DATA_TABLE } from '@/graphql/dataExport';
+import { EXPORT_DATA_TABLE, GET_DATA_EXPORT_TABLES } from '@/graphql/dataExport';
 import { DataExportTable } from '@/generated/graphql';
 
 function installBridge() {
@@ -207,5 +208,54 @@ describe('ExportMenuButton', () => {
     expect(button.className).toContain('bg-gray-700');
     expect(screen.getByText('Export')).toHaveClass('hidden', 'sm:inline');
     expect(button.parentElement).toHaveClass('extra');
+  });
+
+  describe('with an older backend that has no data export', () => {
+    const unsupportedText = "This server version doesn't support CSV/Excel export; update LacyLights.";
+    const unknownField = (field: string) => ({
+      errors: [new GraphQLError(`Cannot query field "${field}" on type "Query".`)],
+    });
+
+    it('replaces CSV / Excel with an explanation once the menu learns the server is too old', async () => {
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' }, [
+        { request: { query: GET_DATA_EXPORT_TABLES }, result: unknownField('dataExportTables') },
+      ]);
+      openMenu();
+      expect(await screen.findByText(unsupportedText)).toBeInTheDocument();
+      expect(screen.getAllByRole('menuitem').map((el) => el.textContent)).toEqual([
+        'More import/export options…',
+      ]);
+    });
+
+    it('keeps CSV / Excel when the server lists the data tables', async () => {
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' }, [
+        {
+          request: { query: GET_DATA_EXPORT_TABLES },
+          result: { data: { dataExportTables: [] } },
+        },
+      ]);
+      openMenu();
+      await waitFor(() => expect(screen.getByRole('menuitem', { name: 'CSV' })).toBeInTheDocument());
+      expect(screen.queryByText(unsupportedText)).not.toBeInTheDocument();
+    });
+
+    it('shows the explanation when an export finds the field missing', async () => {
+      const downloadBinary = installBridge();
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' }, [
+        {
+          request: {
+            query: EXPORT_DATA_TABLE,
+            variables: { projectId: 'p1', table: 'LOOKS', format: 'CSV', scopeId: null },
+          },
+          result: unknownField('exportDataTable'),
+        },
+      ]);
+      openMenu();
+      fireEvent.click(screen.getByRole('menuitem', { name: 'CSV' }));
+      expect(await screen.findByText(unsupportedText)).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.queryByRole('menuitem', { name: 'CSV' })).not.toBeInTheDocument();
+      expect(downloadBinary).not.toHaveBeenCalled();
+    });
   });
 });

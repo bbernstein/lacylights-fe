@@ -1,4 +1,5 @@
-import type { ApolloClient } from '@apollo/client';
+import { ApolloError, type ApolloClient } from '@apollo/client';
+import { GraphQLError } from 'graphql';
 import {
   IMPORT_PROJECT,
   IMPORT_PROJECT_FROM_QLC,
@@ -7,6 +8,9 @@ import {
   PROJECT_EXPORT_QLC,
   PROJECT_EXPORT_EOS,
   GET_QLC_FIXTURE_MAPPING_SUGGESTIONS,
+  LEGACY_EXPORT_PROJECT,
+  LEGACY_EXPORT_PROJECT_TO_QLC,
+  LEGACY_EXPORT_PROJECT_TO_EOS,
 } from '@/graphql/projects';
 import {
   createFixtureMappings,
@@ -336,6 +340,114 @@ describe('importExport/projectOperations', () => {
         ),
       );
       await expect(exportProjectAs(client, 'p1', 'qlcplus')).rejects.toThrow(/No export data/);
+    });
+  });
+
+  describe('exportProjectAs with an older backend (no projectExport* Queries)', () => {
+    const unknownField = (field: string) =>
+      new ApolloError({
+        networkError: Object.assign(new Error('Response not successful: Received status code 422'), {
+          name: 'ServerError',
+          statusCode: 422,
+          result: { errors: [{ message: `Cannot query field "${field}" on type "Query".` }] },
+        }),
+      });
+
+    it('falls back to the legacy Eos export Mutation', async () => {
+      const { client, mutate, query } = makeClient();
+      query.mockRejectedValue(unknownField('projectExportEos'));
+      mutate.mockResolvedValue({
+        data: {
+          exportProjectToEos: {
+            projectId: 'p1',
+            projectName: 'Old Show',
+            asciiContent: 'Ident 3:0\n',
+            warnings: [eosWarning],
+          },
+        },
+      });
+      const result = await exportProjectAs(client, 'p1', 'eos');
+      expect(mutate).toHaveBeenCalledWith({
+        mutation: LEGACY_EXPORT_PROJECT_TO_EOS,
+        variables: { projectId: 'p1' },
+        fetchPolicy: 'no-cache',
+      });
+      expect(result).toMatchObject({
+        filename: 'Old Show.asc',
+        content: 'Ident 3:0\n',
+        eosWarnings: [eosWarning],
+      });
+    });
+
+    it('falls back to the legacy QLC+ export Mutation with the fixture mappings', async () => {
+      const { client, mutate, query } = makeClient();
+      query.mockImplementation(({ query: doc }) =>
+        doc === GET_QLC_FIXTURE_MAPPING_SUGGESTIONS
+          ? Promise.resolve({
+              data: {
+                getQLCFixtureMappingSuggestions: {
+                  lacyLightsFixtures: [{ manufacturer: 'A', model: 'B' }],
+                  defaultMappings: [],
+                },
+              },
+            })
+          : Promise.reject(unknownField('projectExportQLC')),
+      );
+      mutate.mockResolvedValue({
+        data: {
+          exportProjectToQLC: {
+            projectName: 'Old',
+            xmlContent: '<Workspace/>',
+            fixtureCount: 1,
+            lookCount: 0,
+            cueListCount: 0,
+          },
+        },
+      });
+      const result = await exportProjectAs(client, 'p1', 'qlcplus');
+      expect(mutate).toHaveBeenCalledWith({
+        mutation: LEGACY_EXPORT_PROJECT_TO_QLC,
+        variables: {
+          projectId: 'p1',
+          fixtureMappings: [expect.objectContaining({ qlcManufacturer: 'A', qlcModel: 'B' })],
+        },
+        fetchPolicy: 'no-cache',
+      });
+      expect(result).toMatchObject({ filename: 'Old.qxw', content: '<Workspace/>' });
+    });
+
+    it('falls back to the legacy JSON export Mutation and skips the Query next time', async () => {
+      const { client, mutate, query } = makeClient();
+      query.mockRejectedValue(unknownField('projectExport'));
+      mutate.mockResolvedValue({
+        data: {
+          exportProject: { projectId: 'p1', projectName: 'Old', jsonContent: '{}', stats: {} },
+        },
+      });
+      const result = await exportProjectAs(client, 'p1', 'lacylights');
+      expect(mutate).toHaveBeenCalledWith({
+        mutation: LEGACY_EXPORT_PROJECT,
+        variables: {
+          projectId: 'p1',
+          options: { includeFixtures: true, includeLooks: true, includeCueLists: true },
+        },
+        fetchPolicy: 'no-cache',
+      });
+      expect(result).toMatchObject({ filename: 'Old.json', content: '{}' });
+
+      query.mockClear();
+      await exportProjectAs(client, 'p1', 'lacylights');
+      expect(query).not.toHaveBeenCalled();
+      expect(mutate).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not fall back on errors other than an unknown Query field', async () => {
+      const { client, mutate, query } = makeClient();
+      query.mockRejectedValue(
+        new ApolloError({ graphQLErrors: [new GraphQLError('project not found')] }),
+      );
+      await expect(exportProjectAs(client, 'p1', 'eos')).rejects.toThrow('project not found');
+      expect(mutate).not.toHaveBeenCalled();
     });
   });
 

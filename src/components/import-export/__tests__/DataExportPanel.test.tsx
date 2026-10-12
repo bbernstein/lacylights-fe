@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
+import { GraphQLError } from 'graphql';
 import DataExportPanel, { type DataExportPanelProps } from '../DataExportPanel';
 import {
   EXPORT_DATA_TABLE,
@@ -340,5 +341,41 @@ describe('DataExportPanel', () => {
       </MockedProvider>,
     );
     expect(screen.getByLabelText('Project')).toHaveValue('p2');
+  });
+
+  describe('with an older backend that has no data export', () => {
+    const unsupportedText = "This server version doesn't support CSV/Excel export; update LacyLights.";
+
+    it('explains that the server needs an update instead of showing an error', async () => {
+      renderPanel([
+        {
+          request: { query: GET_DATA_EXPORT_TABLES },
+          result: { errors: [new GraphQLError('Cannot query field "dataExportTables" on type "Query".')] },
+        },
+      ]);
+      expect(await screen.findByText(unsupportedText)).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Export' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Export all (workbook)' })).not.toBeInTheDocument();
+    });
+
+    it('switches to the explanation when an export finds the field missing', async () => {
+      const downloadBinary = installBridge();
+      renderPanel([
+        tablesMock,
+        {
+          request: {
+            query: EXPORT_DATA_TABLE,
+            variables: { projectId: 'p1', table: 'FIXTURES', format: 'CSV', scopeId: null },
+          },
+          result: { errors: [new GraphQLError('Cannot query field "exportDataTable" on type "Query".')] },
+        },
+      ]);
+      await screen.findByLabelText('Data');
+      fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+      expect(await screen.findByText(unsupportedText)).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(downloadBinary).not.toHaveBeenCalled();
+    });
   });
 });
