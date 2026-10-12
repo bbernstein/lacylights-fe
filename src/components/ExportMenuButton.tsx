@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useId, useState } from 'react';
+import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useApolloClient } from '@apollo/client';
 import {
@@ -57,6 +57,13 @@ const FORMAT_ITEMS: ReadonlyArray<{ format: DataExportFormat; label: string; ico
   { format: DataExportFormat.Xlsx, label: 'Excel', icon: TableCellsIcon },
 ];
 
+const ITEM_SELECTOR = '[role="menuitem"]:not([disabled])';
+
+/** Stable key for a menu entry; the same table may appear with different scopes. */
+function itemKey(item: ExportMenuTable): string {
+  return `${item.table}:${item.scopeId ?? ''}`;
+}
+
 const BUTTON_CLASSES: Record<NonNullable<ExportMenuButtonProps['appearance']>, string> = {
   default:
     'inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] sm:min-h-0 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation',
@@ -73,6 +80,10 @@ const BUTTON_CLASSES: Record<NonNullable<ExportMenuButtonProps['appearance']>, s
  * checks `dataExportTables` (cached for the session), and when the server
  * rejects it with "Cannot query field" the CSV / Excel items are replaced
  * by a note asking to update LacyLights.
+ *
+ * Keyboard: opening moves focus to the first item; Arrow Up/Down, Home and
+ * End move between items; Escape closes and returns focus to the button;
+ * Tab closes.
  */
 export default function ExportMenuButton({
   table,
@@ -85,6 +96,8 @@ export default function ExportMenuButton({
 }: ExportMenuButtonProps) {
   const client = useApolloClient();
   const menuId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -100,15 +113,57 @@ export default function ExportMenuButton({
     setError(null);
   }, []);
 
-  // Close on Escape.
+  // Close on Escape (anywhere) and give focus back to the button.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
+      if (e.key === 'Escape') {
+        close();
+        triggerRef.current?.focus();
+      }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [open, close]);
+
+  // Move focus into the menu when it opens, and again if the focused item
+  // disappears (e.g. CSV / Excel replaced by the "update LacyLights" note).
+  useEffect(() => {
+    if (!open) return;
+    const menu = menuRef.current;
+    if (menu && !menu.contains(document.activeElement)) {
+      menu.querySelector<HTMLElement>(ITEM_SELECTOR)?.focus();
+    }
+  }, [open, dataExportUnsupported]);
+
+  const handleMenuKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Tab') {
+      close();
+      return;
+    }
+    const menuItems = Array.from(menuRef.current?.querySelectorAll<HTMLElement>(ITEM_SELECTOR) ?? []);
+    if (menuItems.length === 0) return;
+    const current = menuItems.indexOf(document.activeElement as HTMLElement);
+    let next: number;
+    switch (e.key) {
+      case 'ArrowDown':
+        next = current < 0 ? 0 : (current + 1) % menuItems.length;
+        break;
+      case 'ArrowUp':
+        next = current < 0 ? menuItems.length - 1 : (current - 1 + menuItems.length) % menuItems.length;
+        break;
+      case 'Home':
+        next = 0;
+        break;
+      case 'End':
+        next = menuItems.length - 1;
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    menuItems[next].focus();
+  };
 
   // On open, find out whether the backend has data export at all. The
   // result is cached by Apollo (and the "unsupported" outcome per client),
@@ -125,7 +180,7 @@ export default function ExportMenuButton({
   const canExport = (item: ExportMenuTable) => isProjectOptional(item.table) || !!projectId;
 
   const handleExport = async (item: ExportMenuTable, format: DataExportFormat) => {
-    const key = `${item.table}:${format}`;
+    const key = `${itemKey(item)}:${format}`;
     setBusyKey(key);
     setError(null);
     try {
@@ -148,6 +203,8 @@ export default function ExportMenuButton({
 
   if (!primary) return null;
 
+  // With several tables (e.g. Fixtures + Fixture types) the link preselects
+  // the first one; the other tables are one click away in the panel.
   const moreHref = buildDataExportPageHref({
     table: primary.table,
     scopeId: primary.scopeId,
@@ -157,6 +214,7 @@ export default function ExportMenuButton({
   return (
     <div className={`relative inline-block text-left ${className}`}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => (open ? close() : setOpen(true))}
         className={BUTTON_CLASSES[appearance]}
@@ -180,8 +238,10 @@ export default function ExportMenuButton({
           <div className="fixed inset-0 z-40" onClick={close} aria-hidden="true" data-testid="export-menu-backdrop" />
           <div
             id={menuId}
+            ref={menuRef}
             role="menu"
             aria-label="Export options"
+            onKeyDown={handleMenuKeyDown}
             className="absolute right-0 top-full mt-1 z-50 min-w-[220px] max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1"
           >
             {dataExportUnsupported ? (
@@ -190,7 +250,7 @@ export default function ExportMenuButton({
               </p>
             ) : (
               items.map((item, idx) => (
-                <Fragment key={item.table}>
+                <Fragment key={itemKey(item)}>
                   {showHeadings && (
                     <div
                       className={`px-4 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 ${
@@ -202,15 +262,16 @@ export default function ExportMenuButton({
                     </div>
                   )}
                   {FORMAT_ITEMS.map(({ format, label, icon: Icon }) => {
-                    const key = `${item.table}:${format}`;
-                    const disabled = busyKey !== null || !canExport(item);
+                    const key = `${itemKey(item)}:${format}`;
+                    const needsProject = !canExport(item);
+                    const disabled = busyKey !== null || needsProject;
                     return (
                       <button
                         key={key}
                         type="button"
                         role="menuitem"
                         disabled={disabled}
-                        aria-disabled={disabled}
+                        title={needsProject ? 'Open a project to export this list' : undefined}
                         aria-label={showHeadings ? `${item.label} as ${label}` : label}
                         onClick={() => handleExport(item, format)}
                         className="w-full text-left px-4 py-3 sm:py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"

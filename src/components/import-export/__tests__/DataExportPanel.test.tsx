@@ -216,6 +216,21 @@ describe('DataExportPanel', () => {
     await waitFor(() => expect(select).toHaveValue('c1'));
   });
 
+  it('shows an error when the scope list cannot be loaded and keeps a deep-linked scope', async () => {
+    installBridge();
+    renderPanel(
+      [
+        tablesMock,
+        { request: { query: GET_PROJECT_LOOKS, variables: { projectId: 'p1' } }, error: new Error('offline') },
+        tableExportMock({ projectId: 'p1', table: 'LOOK_DETAILS', format: 'CSV', scopeId: 'l2' }, 'l2.csv'),
+      ],
+      { defaultTable: 'LOOK_DETAILS', defaultScopeId: 'l2' },
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the looks. offline');
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    expect(await screen.findByTestId('data-export-result')).toHaveTextContent('Saved l2.csv');
+  });
+
   it('disables export when a required scope has no items', async () => {
     renderPanel([tablesMock, looksMock('p1', [])], { defaultTable: 'LOOK_DETAILS' });
     expect(await screen.findByText('This project has no looks.')).toBeInTheDocument();

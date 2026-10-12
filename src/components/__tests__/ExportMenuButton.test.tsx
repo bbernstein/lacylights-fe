@@ -202,6 +202,68 @@ describe('ExportMenuButton', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
+  it('supports keyboard navigation and returns focus on Escape', () => {
+    renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
+    const trigger = screen.getByRole('button', { name: 'Export' });
+    trigger.focus();
+    openMenu();
+    const menu = screen.getByRole('menu');
+    const [csv, excel, more] = screen.getAllByRole('menuitem');
+    expect(csv).toHaveFocus();
+
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    expect(excel).toHaveFocus();
+    fireEvent.keyDown(menu, { key: 'End' });
+    expect(more).toHaveFocus();
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    expect(csv).toHaveFocus();
+    fireEvent.keyDown(menu, { key: 'ArrowUp' });
+    expect(more).toHaveFocus();
+    fireEvent.keyDown(menu, { key: 'Home' });
+    expect(csv).toHaveFocus();
+    fireEvent.keyDown(menu, { key: 'a' });
+    expect(csv).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it('closes on Tab', () => {
+    renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
+    openMenu();
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Tab' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  it('explains disabled items and skips them when navigating', () => {
+    renderButton({ table: DataExportTable.Looks, projectId: null });
+    openMenu();
+    const csv = screen.getByRole('menuitem', { name: 'CSV' });
+    expect(csv).toBeDisabled();
+    expect(csv).toHaveAttribute('title', 'Open a project to export this list');
+    expect(screen.getByRole('menuitem', { name: 'More import/export options…' })).toHaveFocus();
+  });
+
+  it('keeps entries for the same table with different scopes apart', async () => {
+    installBridge();
+    renderButton(
+      {
+        tables: [
+          { table: DataExportTable.LookBoardEntries, label: 'Board A', scopeId: 'a' },
+          { table: DataExportTable.LookBoardEntries, label: 'Board B', scopeId: 'b' },
+        ],
+        projectId: 'p1',
+      },
+      [exportMock({ projectId: 'p1', table: 'LOOK_BOARD_ENTRIES', format: 'CSV', scopeId: 'b' }, 'b.csv')],
+    );
+    openMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Board B as CSV' }));
+    expect(screen.getByRole('menuitem', { name: 'Board B as CSV' })).toHaveTextContent('Exporting...');
+    expect(screen.getByRole('menuitem', { name: 'Board A as CSV' })).toHaveTextContent('CSV');
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+  });
+
   it('supports the toolbar appearance and compact label', () => {
     renderButton({ table: DataExportTable.Looks, projectId: 'p1', appearance: 'toolbar', compact: true, className: 'extra' });
     const button = screen.getByRole('button', { name: 'Export' });

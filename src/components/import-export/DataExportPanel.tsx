@@ -97,7 +97,11 @@ export default function DataExportPanel({
   const [format, setFormat] = useState<DataExportFormat>(DataExportFormat.Csv);
   const [running, setRunning] = useState<ExportAction | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [lastExport, setLastExport] = useState<DataExportFile | null>(null);
+  // Only what the success message needs, so large base64 payloads can be
+  // garbage-collected after the download.
+  const [lastExport, setLastExport] = useState<Pick<DataExportFile, 'filename' | 'rowCount'> | null>(
+    null,
+  );
 
   // Follow changes to the defaults (query params / current project loading).
   useEffect(() => {
@@ -163,6 +167,12 @@ export default function DataExportPanel({
     }
   }, [itemScope, looksQuery.data, cueListsQuery.data, lookBoardsQuery.data]);
 
+  const scopeError =
+    (itemScope === 'look' && looksQuery.error) ||
+    (itemScope === 'cueList' && cueListsQuery.error) ||
+    (itemScope === 'lookBoard' && lookBoardsQuery.error) ||
+    null;
+
   const scopeLoading =
     (itemScope === 'look' && looksQuery.loading) ||
     (itemScope === 'cueList' && cueListsQuery.loading) ||
@@ -171,14 +181,14 @@ export default function DataExportPanel({
   // Pick a valid scope item once the list loads; keep "all boards" ('')
   // when the scope is optional.
   useEffect(() => {
-    if (!itemScope || scopeLoading) return;
+    if (!itemScope || scopeLoading || scopeError) return;
     if (scopeId && scopeItems.some((i) => i.id === scopeId)) return;
     if (scopeRequired) {
       setScopeId(scopeItems[0]?.id ?? '');
     } else if (scopeId) {
       setScopeId('');
     }
-  }, [itemScope, scopeItems, scopeId, scopeRequired, scopeLoading]);
+  }, [itemScope, scopeItems, scopeId, scopeRequired, scopeLoading, scopeError]);
 
   // Results from another selection should not linger.
   useEffect(() => {
@@ -207,7 +217,7 @@ export default function DataExportPanel({
               projectId: projectId || null,
               scopeId: itemScope ? scopeId || null : null,
             });
-      setLastExport(file);
+      setLastExport({ filename: file.filename, rowCount: file.rowCount });
     } catch (err) {
       // An older backend: the panel switches to the "update LacyLights" note.
       if (!noteDataExportError(client, err)) {
@@ -308,6 +318,13 @@ export default function DataExportPanel({
             </label>
             {scopeLoading ? (
               <p className="text-sm text-gray-600 dark:text-gray-400">Loading...</p>
+            ) : scopeError ? (
+              <p role="alert" className="text-sm text-red-700 dark:text-red-300">
+                {formatErrorMessage(
+                  scopeError,
+                  `Could not load the ${DATA_EXPORT_SCOPE_LABELS[itemScope].toLowerCase()}s.`,
+                )}
+              </p>
             ) : scopeRequired && scopeItems.length === 0 ? (
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 This project has no {DATA_EXPORT_SCOPE_LABELS[itemScope].toLowerCase()}s.

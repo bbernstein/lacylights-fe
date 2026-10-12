@@ -15,6 +15,7 @@ import {
   type ExportDataWorkbookQuery,
 } from '@/generated/graphql';
 import { downloadBase64 } from './download';
+import { sanitizeFilename } from './filenames';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyApolloClient = ApolloClient<any>;
@@ -55,6 +56,8 @@ export type DataExportItemScope = 'look' | 'cueList' | 'lookBoard';
  * Tables whose item scope is optional. The API has no flag for this, so it
  * is kept here: LOOK_BOARD_ENTRIES exports every board when scopeId is
  * omitted.
+ * TODO: replace with a `scopeRequired` field on DataExportTableInfo once the
+ * backend exposes one (handoff follow-up).
  */
 export const SCOPE_OPTIONAL_TABLES: ReadonlySet<DataExportTable> = new Set([
   DataExportTable.LookBoardEntries,
@@ -103,13 +106,11 @@ export const DATA_EXPORT_FORMATS: ReadonlyArray<DataExportFormatInfo> = [
   { id: DataExportFormat.Xlsx, label: 'Excel', menuLabel: 'Excel (.xlsx)' },
 ];
 
-/** A generated export file. */
-export interface DataExportFile {
-  filename: string;
-  mimeType: string;
-  contentBase64: string;
-  rowCount: number;
-}
+/** Export result as returned by the server (generated type). */
+type DataExportResultData = ExportDataTableQuery['exportDataTable'] | ExportDataWorkbookQuery['exportDataWorkbook'];
+
+/** A generated export file (the server result without `__typename`). */
+export type DataExportFile = Pick<DataExportResultData, 'filename' | 'mimeType' | 'contentBase64' | 'rowCount'>;
 
 export interface DataTableExportRequest {
   table: DataExportTable;
@@ -126,7 +127,9 @@ export interface DataWorkbookExportRequest {
   tables?: ReadonlyArray<DataExportTable> | null;
 }
 
-function toFile(r: DataExportFile | null | undefined): DataExportFile {
+// Typed from the generated query result so schema drift fails to compile;
+// copies only the file fields (drops __typename).
+function toFile(r: DataExportResultData | null | undefined): DataExportFile {
   if (!r) {
     throw new Error('No export data was returned by the server.');
   }
@@ -164,9 +167,13 @@ export async function fetchDataWorkbookExport(
   return toFile(data.exportDataWorkbook);
 }
 
-/** Save a generated export file (binary-safe; uses the Mac bridge when present). */
+/**
+ * Save a generated export file (binary-safe; uses the Mac bridge when
+ * present). The server-supplied filename is sanitized first so it cannot
+ * carry path separators or characters invalid on common filesystems.
+ */
 export function downloadDataExport(file: DataExportFile): void {
-  downloadBase64(file.contentBase64, file.filename, file.mimeType);
+  downloadBase64(file.contentBase64, sanitizeFilename(file.filename), file.mimeType);
 }
 
 /** Generate one table and immediately download it. */

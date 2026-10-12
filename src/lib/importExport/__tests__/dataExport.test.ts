@@ -197,6 +197,12 @@ describe('importExport/dataExport', () => {
   });
 
   describe('downloads', () => {
+    it('downloadDataExport sanitizes the server-supplied filename', () => {
+      const downloadBinary = installBinaryBridge();
+      downloadDataExport({ ...file, filename: '../etc/pass:wd.csv' });
+      expect(downloadBinary).toHaveBeenCalledWith(file.contentBase64, '-etc-pass-wd.csv', 'text/csv');
+    });
+
     it('downloadDataExport uses the binary download path', () => {
       const downloadBinary = installBinaryBridge();
       downloadDataExport(file);
