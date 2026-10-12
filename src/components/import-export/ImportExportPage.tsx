@@ -1,10 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useQuery } from '@apollo/client';
-import { GET_PROJECT_NAME } from '@/graphql/projects';
-import type { GetProjectNameQuery } from '@/generated/graphql';
 import { useProject } from '@/contexts/ProjectContext';
 import ProjectImportPanel from './ProjectImportPanel';
 import ProjectExportPanel from './ProjectExportPanel';
@@ -69,7 +66,9 @@ interface SectionDefinition {
 export default function ImportExportPage() {
   const searchParams = useSearchParams();
   const params = parseImportExportParams(searchParams);
-  const { currentProject, projects, refetchAndGet, refetchAndSelectById } = useProject();
+  // Use every project the user can access (not just the active group):
+  // Manage Projects lists all of them and deep-links here with ?project=.
+  const { currentProject, allProjects, refetchAndGet, refetchAndSelectById } = useProject();
   const sectionRefs = useRef<Partial<Record<ImportExportSectionId, HTMLElement | null>>>({});
 
   // Scroll to and focus the requested section.
@@ -81,46 +80,18 @@ export default function ImportExportPage() {
     el.focus?.({ preventScroll: true });
   }, [params.section]);
 
-  // ProjectContext.projects only holds the active group's projects. A deep
-  // link (e.g. "More import/export options…" on a look board) can point at
-  // an accessible project in another group, so look that one up and offer
-  // it too. Projects the user cannot access fail the lookup and are ignored.
-  const requestedInList = !!params.projectId && projects.some((p) => p.id === params.projectId);
-  const { data: requestedProjectData, loading: requestedProjectLoading } =
-    useQuery<GetProjectNameQuery>(GET_PROJECT_NAME, {
-      variables: { id: params.projectId ?? '' },
-      skip: !params.projectId || requestedInList,
-    });
-  const requestedExtraProject =
-    !requestedInList && requestedProjectData?.project?.id === params.projectId
-      ? requestedProjectData.project
-      : null;
-  const exportProjects = useMemo(
-    () =>
-      requestedExtraProject
-        ? [...projects, { id: requestedExtraProject.id, name: requestedExtraProject.name }]
-        : projects,
-    [projects, requestedExtraProject],
-  );
-
   // Only honour ?project= when it refers to a project the user can see.
-  const requestedProjectId = requestedInList || requestedExtraProject ? params.projectId : null;
+  const requestedProjectId =
+    params.projectId && allProjects.some((p) => p.id === params.projectId)
+      ? params.projectId
+      : null;
   const defaultExportProjectId = requestedProjectId ?? currentProject?.id ?? null;
 
-  // While a deep-linked project is being looked up the export panels are
-  // disabled (a native disabled fieldset), so a quick export cannot download
-  // the current project instead. They are keyed by the default project, so
-  // they start over with the right project and linked scope once resolved.
+  // Key the export panels by the default project so they start over with the
+  // right project and linked table / scope when it changes (e.g. once the
+  // project list loads), instead of validating a deep-linked scope against
+  // whichever project was selected first.
   const exportPanelKey = defaultExportProjectId ?? 'none';
-  const holdWhileResolving = (panel: ReactNode) => (
-    <fieldset
-      disabled={requestedProjectLoading}
-      aria-busy={requestedProjectLoading || undefined}
-      className="min-w-0 border-0 p-0 m-0"
-    >
-      {panel}
-    </fieldset>
-  );
 
   const sections: SectionDefinition[] = [
     {
@@ -141,12 +112,12 @@ export default function ImportExportPage() {
       id: 'export',
       title: 'Export project',
       description: 'Download a whole project to back it up or move it to another console.',
-      content: holdWhileResolving(
+      content: (
         <ProjectExportPanel
           key={exportPanelKey}
-          projects={exportProjects}
+          projects={allProjects}
           defaultProjectId={defaultExportProjectId}
-        />,
+        />
       ),
     },
     {
@@ -154,14 +125,14 @@ export default function ImportExportPage() {
       title: 'Export data (CSV / Excel)',
       description:
         'Download a list (fixtures, looks, cue lists, …) as a spreadsheet, or every list in one Excel workbook.',
-      content: holdWhileResolving(
+      content: (
         <DataExportPanel
           key={exportPanelKey}
-          projects={exportProjects}
+          projects={allProjects}
           defaultProjectId={defaultExportProjectId}
           defaultTable={params.table}
           defaultScopeId={params.scopeId}
-        />,
+        />
       ),
     },
   ];

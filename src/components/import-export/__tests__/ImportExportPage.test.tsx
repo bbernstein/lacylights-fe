@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import ImportExportPage, { parseImportExportParams, sectionDomId } from '../ImportExportPage';
-import { GET_PROJECT_NAME, IMPORT_PROJECT_FROM_EOS } from '@/graphql/projects';
+import { IMPORT_PROJECT_FROM_EOS } from '@/graphql/projects';
 import { GET_DATA_EXPORT_TABLES } from '@/graphql/dataExport';
 import { GET_PROJECT_LOOKS } from '@/graphql/looks';
 
@@ -17,12 +17,16 @@ const projects = [
   { id: 'p1', name: 'Show One' },
   { id: 'p2', name: 'Show Two' },
 ];
+/** A project in another group: visible in Manage Projects, not in the active group. */
+const otherGroupProject = { id: 'p3', name: 'Other Group Show' };
+const allProjects = [...projects, otherGroupProject];
 let mockCurrentProject: { id: string; name: string } | null = projects[0];
 
 jest.mock('@/contexts/ProjectContext', () => ({
   useProject: () => ({
     currentProject: mockCurrentProject,
     projects,
+    allProjects,
     refetchAndGet: mockRefetchAndGet,
     refetchAndSelectById: mockRefetchAndSelectById,
   }),
@@ -113,49 +117,14 @@ describe('ImportExportPage', () => {
     expect(screen.getByLabelText('Project')).toHaveValue('p1');
   });
 
-  it('offers a deep-linked accessible project from another group', async () => {
-    mockSearchParams = new URLSearchParams('section=export&project=p9');
-    renderPage([
-      {
-        request: { query: GET_PROJECT_NAME, variables: { id: 'p9' } },
-        result: { data: { project: { id: 'p9', name: 'Other Group Show' } } },
-      },
-    ]);
-    // The panel remounts once the project resolves, so query it again.
-    await waitFor(() => expect(screen.getByLabelText('Project')).toHaveValue('p9'));
-    expect(
-      within(screen.getByLabelText('Project')).getByRole('option', { name: 'Other Group Show' }),
-    ).toBeInTheDocument();
+  it('honours ?project= for a project outside the active group', () => {
+    mockSearchParams = new URLSearchParams('section=export&project=p3');
+    renderPage();
+    expect(screen.getByLabelText('Project')).toHaveValue('p3');
+    expect(screen.getByRole('option', { name: 'Other Group Show' })).toBeInTheDocument();
   });
 
-  it('disables the export panels while a deep-linked project is looked up', async () => {
-    mockSearchParams = new URLSearchParams('section=data&table=LOOKS&project=p9');
-    renderPage([
-      {
-        request: { query: GET_PROJECT_NAME, variables: { id: 'p9' } },
-        result: { data: { project: { id: 'p9', name: 'Other Group Show' } } },
-        delay: 20,
-      },
-    ]);
-    const exportRegion = screen.getByRole('region', { name: 'Export project' });
-    expect(within(exportRegion).getByLabelText('Project')).toBeDisabled();
-    await waitFor(() => expect(within(exportRegion).getByLabelText('Project')).toBeEnabled());
-    expect(within(exportRegion).getByLabelText('Project')).toHaveValue('p9');
-  });
-
-  it('ignores a deep-linked project the server does not return', async () => {
-    mockSearchParams = new URLSearchParams('section=export&project=p9');
-    renderPage([
-      {
-        request: { query: GET_PROJECT_NAME, variables: { id: 'p9' } },
-        result: { data: { project: null } },
-      },
-    ]);
-    await waitFor(() => expect(screen.getByLabelText('Project')).toHaveValue('p1'));
-    expect(screen.queryByRole('option', { name: /Other/ })).not.toBeInTheDocument();
-  });
-
-  it('keeps the requested section when table and scopeId are also given', () => {
+  it('tolerates table and scopeId params', () => {
     mockSearchParams = new URLSearchParams('section=import&table=LOOKS&scopeId=x');
     renderPage();
     expect(scrollIntoView.mock.instances[0]).toBe(document.getElementById(sectionDomId('import')));
@@ -207,6 +176,26 @@ describe('ImportExportPage', () => {
       const region = screen.getByRole('region', { name: 'Export data (CSV / Excel)' });
       expect(await within(region).findByLabelText('Data')).toHaveValue('FIXTURES');
       expect(within(region).getByLabelText('Project')).toHaveValue('p1');
+    });
+
+    it('keeps a deep-linked scope in a project outside the active group', async () => {
+      mockSearchParams = new URLSearchParams('section=data&table=LOOK_DETAILS&scopeId=l7&project=p3');
+      const otherGroupLooks: MockedResponse = {
+        ...looksMock,
+        request: { query: GET_PROJECT_LOOKS, variables: { projectId: 'p3' } },
+        result: {
+          data: {
+            project: {
+              ...(looksMock.result as { data: { project: object } }).data.project,
+              id: 'p3',
+            },
+          },
+        },
+      };
+      renderPage([tablesMock, otherGroupLooks]);
+      const region = screen.getByRole('region', { name: 'Export data (CSV / Excel)' });
+      expect(await within(region).findByLabelText('Look')).toHaveValue('l7');
+      expect(within(region).getByLabelText('Project')).toHaveValue('p3');
     });
 
     it('opens the data section with table, scope and project from the query string', async () => {

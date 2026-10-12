@@ -494,6 +494,55 @@ describe('ProjectManagementModal', () => {
       expect(screen.queryByText(/QLC\+/)).not.toBeInTheDocument();
     });
 
+    it('tracks concurrent row saves independently', async () => {
+      const nativeDownload = jest.fn();
+      window.lacylights = {
+        download: nativeDownload,
+        send: jest.fn(),
+        log: jest.fn(),
+        error: jest.fn(),
+        getAppVersion: jest.fn(),
+      };
+      const exportMock1 = {
+        request: {
+          query: PROJECT_EXPORT,
+          variables: { ...exportMock.request.variables, projectId: 'project-1' },
+        },
+        delay: 20,
+        result: {
+          data: {
+            projectExport: {
+              ...exportMock.result.data.projectExport,
+              projectId: 'project-1',
+              projectName: 'Test Project 1',
+              jsonContent: '{"project":1}',
+            },
+          },
+        },
+      };
+      renderWithProvider([...createMocks(), exportMock1, { ...exportMock, delay: 300 }]);
+
+      const saveButtons = await screen.findAllByRole('button', {
+        name: 'Save project as LacyLights file (.json)',
+      });
+      fireEvent.click(saveButtons[0]);
+      fireEvent.click(saveButtons[1]);
+      expect(saveButtons[0]).toBeDisabled();
+      expect(saveButtons[1]).toBeDisabled();
+
+      // The first save finishing must not re-enable the second, still-running one.
+      await waitFor(() =>
+        expect(nativeDownload).toHaveBeenCalledWith('{"project":1}', 'Test Project 1.json'),
+      );
+      await waitFor(() => expect(saveButtons[0]).toBeEnabled());
+      expect(saveButtons[1]).toBeDisabled();
+
+      await waitFor(() =>
+        expect(nativeDownload).toHaveBeenCalledWith('{"project":2}', 'Test Project 2.json'),
+      );
+      await waitFor(() => expect(saveButtons[1]).toBeEnabled());
+    });
+
     it('shows an error when saving fails', async () => {
       renderWithProvider([
         ...createMocks(),

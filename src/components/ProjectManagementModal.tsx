@@ -41,7 +41,8 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   const [newProjectGroupId, setNewProjectGroupId] = useState('');
   const [editingProject, setEditingProject] = useState<{id: string, name: string, description: string, groupId: string} | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [savingProjectId, setSavingProjectId] = useState<string | null>(null);
+  // Row saves can run concurrently (one per project), so track each one.
+  const [savingProjectIds, setSavingProjectIds] = useState<ReadonlySet<string>>(new Set());
   const [rowMenu, setRowMenu] = useState<{ projectId: string; x: number; y: number } | null>(null);
 
   const { data, loading, refetch } = useQuery(GET_PROJECTS);
@@ -219,14 +220,19 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   };
 
   const handleSaveProject = async (projectId: string) => {
+    if (savingProjectIds.has(projectId)) return;
     setError(null);
-    setSavingProjectId(projectId);
+    setSavingProjectIds((prev) => new Set(prev).add(projectId));
     try {
       await exportAndDownloadProject(apolloClient, projectId, 'lacylights');
     } catch (err) {
       setError(formatErrorMessage(err, 'Failed to export project.'));
     } finally {
-      setSavingProjectId(null);
+      setSavingProjectIds((prev) => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
     }
   };
 
@@ -431,12 +437,12 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
               <div className="flex gap-2 items-center shrink-0">
                 <button
                   onClick={() => handleSaveProject(project.id)}
-                  disabled={savingProjectId === project.id}
+                  disabled={savingProjectIds.has(project.id)}
                   className="text-gray-400 hover:text-green-500 transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation disabled:opacity-50 disabled:cursor-wait"
                   title="Save project as LacyLights file (.json)"
                   aria-label="Save project as LacyLights file (.json)"
                 >
-                  <ArrowDownTrayIcon className={`h-5 w-5 ${savingProjectId === project.id ? 'animate-pulse' : ''}`} />
+                  <ArrowDownTrayIcon className={`h-5 w-5 ${savingProjectIds.has(project.id) ? 'animate-pulse' : ''}`} />
                 </button>
                 <button
                   onClick={() => handleStartEdit(project)}

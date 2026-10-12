@@ -20,17 +20,6 @@ export const GET_PROJECTS = gql`
   }
 `;
 
-// Light lookup of one accessible project (e.g. a deep-linked project that is
-// outside the active group, so it is not in ProjectContext.projects).
-export const GET_PROJECT_NAME = gql`
-  query GetProjectName($id: ID!) {
-    project(id: $id) {
-      id
-      name
-    }
-  }
-`;
-
 export const GET_PROJECT = gql`
   query GetProject($id: ID!) {
     project(id: $id) {
