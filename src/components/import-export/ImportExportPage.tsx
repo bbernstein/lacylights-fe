@@ -61,7 +61,9 @@ interface SectionDefinition {
 export default function ImportExportPage() {
   const searchParams = useSearchParams();
   const params = parseImportExportParams(searchParams);
-  const { currentProject, projects, refetchAndGet, refetchAndSelectById } = useProject();
+  // Use every project the user can access (not just the active group):
+  // Manage Projects lists all of them and deep-links here with ?project=.
+  const { currentProject, allProjects, refetchAndGet, refetchAndSelectById } = useProject();
   const sectionRefs = useRef<Partial<Record<ImportExportSectionId, HTMLElement | null>>>({});
 
   // Scroll to and focus the requested section.
@@ -75,7 +77,9 @@ export default function ImportExportPage() {
 
   // Only honour ?project= when it refers to a project the user can see.
   const requestedProjectId =
-    params.projectId && projects.some((p) => p.id === params.projectId) ? params.projectId : null;
+    params.projectId && allProjects.some((p) => p.id === params.projectId)
+      ? params.projectId
+      : null;
   const defaultExportProjectId = requestedProjectId ?? currentProject?.id ?? null;
 
   const sections: SectionDefinition[] = [
@@ -98,7 +102,7 @@ export default function ImportExportPage() {
       title: 'Export project',
       description: 'Download a whole project to back it up or move it to another console.',
       content: (
-        <ProjectExportPanel projects={projects} defaultProjectId={defaultExportProjectId} />
+        <ProjectExportPanel projects={allProjects} defaultProjectId={defaultExportProjectId} />
       ),
     },
   ];

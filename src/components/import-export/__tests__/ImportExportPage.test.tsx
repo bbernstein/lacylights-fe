@@ -15,12 +15,16 @@ const projects = [
   { id: 'p1', name: 'Show One' },
   { id: 'p2', name: 'Show Two' },
 ];
+/** A project in another group: visible in Manage Projects, not in the active group. */
+const otherGroupProject = { id: 'p3', name: 'Other Group Show' };
+const allProjects = [...projects, otherGroupProject];
 let mockCurrentProject: { id: string; name: string } | null = projects[0];
 
 jest.mock('@/contexts/ProjectContext', () => ({
   useProject: () => ({
     currentProject: mockCurrentProject,
     projects,
+    allProjects,
     refetchAndGet: mockRefetchAndGet,
     refetchAndSelectById: mockRefetchAndSelectById,
   }),
@@ -109,6 +113,13 @@ describe('ImportExportPage', () => {
     mockSearchParams = new URLSearchParams('section=export&project=nope');
     renderPage();
     expect(screen.getByLabelText('Project')).toHaveValue('p1');
+  });
+
+  it('honours ?project= for a project outside the active group', () => {
+    mockSearchParams = new URLSearchParams('section=export&project=p3');
+    renderPage();
+    expect(screen.getByLabelText('Project')).toHaveValue('p3');
+    expect(screen.getByRole('option', { name: 'Other Group Show' })).toBeInTheDocument();
   });
 
   it('tolerates table and scopeId params', () => {

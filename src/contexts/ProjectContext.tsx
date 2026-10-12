@@ -9,7 +9,13 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface ProjectContextType {
   currentProject: Project | null;
+  /** Projects in the active group. */
   projects: Project[];
+  /**
+   * Every project the user can access (all groups), as listed by Manage
+   * Projects. Use when a project may come from outside the active group.
+   */
+  allProjects: Project[];
   loading: boolean;
   error: Error | null;
   selectProject: (project: Project) => void;
@@ -34,16 +40,17 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const { data, loading, error, refetch: refetchQuery } = useQuery(GET_PROJECTS);
   const [createProject] = useMutation(CREATE_PROJECT);
 
+  const allProjects = useMemo<Project[]>(() => data?.projects || [], [data?.projects]);
+
   // Client-side filter: show only projects matching the active group
   const projects = useMemo(() => {
-    const allProjects: Project[] = data?.projects || [];
     if (!activeGroup) return allProjects;
     // "Unassigned" sentinel: show projects with no group
     if (activeGroup.id === UNASSIGNED_GROUP_ID) {
       return allProjects.filter((p) => !p.groupId);
     }
     return allProjects.filter((p) => p.groupId === activeGroup.id);
-  }, [data?.projects, activeGroup]);
+  }, [allProjects, activeGroup]);
 
   const refetchAndGet = useCallback(async () => {
     const result = await refetchQuery();
@@ -143,6 +150,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       value={{
         currentProject,
         projects,
+        allProjects,
         loading,
         error: error || null,
         selectProject,
