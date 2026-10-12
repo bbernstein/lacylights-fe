@@ -3,9 +3,9 @@ import {
   IMPORT_PROJECT,
   IMPORT_PROJECT_FROM_QLC,
   IMPORT_PROJECT_FROM_EOS,
-  EXPORT_PROJECT,
-  EXPORT_PROJECT_TO_QLC,
-  EXPORT_PROJECT_TO_EOS,
+  PROJECT_EXPORT,
+  PROJECT_EXPORT_QLC,
+  PROJECT_EXPORT_EOS,
   GET_QLC_FIXTURE_MAPPING_SUGGESTIONS,
 } from '@/graphql/projects';
 import {
@@ -183,11 +183,11 @@ describe('importExport/projectOperations', () => {
   });
 
   describe('exportProjectAs', () => {
-    it('exports Eos ASCII as .asc with warnings', async () => {
-      const { client, mutate } = makeClient();
-      mutate.mockResolvedValue({
+    it('exports Eos ASCII as .asc with warnings via the no-cache query', async () => {
+      const { client, mutate, query } = makeClient();
+      query.mockResolvedValue({
         data: {
-          exportProjectToEos: {
+          projectExportEos: {
             projectId: 'p1',
             projectName: 'Show One',
             asciiContent: 'Ident 3:0\n',
@@ -196,10 +196,12 @@ describe('importExport/projectOperations', () => {
         },
       });
       const result = await exportProjectAs(client, 'p1', 'eos');
-      expect(mutate).toHaveBeenCalledWith({
-        mutation: EXPORT_PROJECT_TO_EOS,
+      expect(query).toHaveBeenCalledWith({
+        query: PROJECT_EXPORT_EOS,
         variables: { projectId: 'p1' },
+        fetchPolicy: 'no-cache',
       });
+      expect(mutate).not.toHaveBeenCalled();
       expect(result).toMatchObject({
         filename: 'Show One.asc',
         mimeType: 'text/plain',
@@ -210,26 +212,30 @@ describe('importExport/projectOperations', () => {
 
     it('exports QLC+ using fixture mapping suggestions', async () => {
       const { client, mutate, query } = makeClient();
-      query.mockResolvedValue({
-        data: {
-          getQLCFixtureMappingSuggestions: {
-            projectId: 'p1',
-            lacyLightsFixtures: [{ manufacturer: 'A', model: 'B' }],
-            suggestions: [],
-            defaultMappings: [],
+      query.mockImplementation(({ query: doc }) => {
+        if (doc === GET_QLC_FIXTURE_MAPPING_SUGGESTIONS) {
+          return Promise.resolve({
+            data: {
+              getQLCFixtureMappingSuggestions: {
+                projectId: 'p1',
+                lacyLightsFixtures: [{ manufacturer: 'A', model: 'B' }],
+                suggestions: [],
+                defaultMappings: [],
+              },
+            },
+          });
+        }
+        return Promise.resolve({
+          data: {
+            projectExportQLC: {
+              projectName: 'Show',
+              xmlContent: '<Workspace/>',
+              fixtureCount: 1,
+              lookCount: 0,
+              cueListCount: 0,
+            },
           },
-        },
-      });
-      mutate.mockResolvedValue({
-        data: {
-          exportProjectToQLC: {
-            projectName: 'Show',
-            xmlContent: '<Workspace/>',
-            fixtureCount: 1,
-            lookCount: 0,
-            cueListCount: 0,
-          },
-        },
+        });
       });
       const result = await exportProjectAs(client, 'p1', 'qlcplus');
       expect(query).toHaveBeenCalledWith(
@@ -238,15 +244,17 @@ describe('importExport/projectOperations', () => {
           variables: { projectId: 'p1' },
         }),
       );
-      expect(mutate).toHaveBeenCalledWith({
-        mutation: EXPORT_PROJECT_TO_QLC,
+      expect(query).toHaveBeenCalledWith({
+        query: PROJECT_EXPORT_QLC,
         variables: {
           projectId: 'p1',
           fixtureMappings: [
             expect.objectContaining({ qlcManufacturer: 'A', qlcModel: 'B', qlcMode: 'Default' }),
           ],
         },
+        fetchPolicy: 'no-cache',
       });
+      expect(mutate).not.toHaveBeenCalled();
       expect(result).toMatchObject({
         filename: 'Show.qxw',
         mimeType: 'application/xml',
@@ -255,19 +263,20 @@ describe('importExport/projectOperations', () => {
     });
 
     it('fails the QLC+ export when mapping suggestions are missing', async () => {
-      const { client, mutate, query } = makeClient();
+      const { client, query } = makeClient();
       query.mockResolvedValue({ data: null });
       await expect(exportProjectAs(client, 'p1', 'qlcplus')).rejects.toThrow(
         /fixture mappings/,
       );
-      expect(mutate).not.toHaveBeenCalled();
+      // Only the mapping suggestions query ran; no export query.
+      expect(query).toHaveBeenCalledTimes(1);
     });
 
     it('exports LacyLights JSON with everything included', async () => {
-      const { client, mutate } = makeClient();
-      mutate.mockResolvedValue({
+      const { client, mutate, query } = makeClient();
+      query.mockResolvedValue({
         data: {
-          exportProject: {
+          projectExport: {
             projectId: 'p1',
             projectName: 'Show/Two',
             jsonContent: '{"v":1}',
@@ -276,13 +285,15 @@ describe('importExport/projectOperations', () => {
         },
       });
       const result = await exportProjectAs(client, 'p1', 'lacylights');
-      expect(mutate).toHaveBeenCalledWith({
-        mutation: EXPORT_PROJECT,
+      expect(query).toHaveBeenCalledWith({
+        query: PROJECT_EXPORT,
         variables: {
           projectId: 'p1',
           options: { includeFixtures: true, includeLooks: true, includeCueLists: true },
         },
+        fetchPolicy: 'no-cache',
       });
+      expect(mutate).not.toHaveBeenCalled();
       expect(result).toMatchObject({
         filename: 'Show-Two.json',
         mimeType: 'application/json',
@@ -293,33 +304,47 @@ describe('importExport/projectOperations', () => {
     it.each(['eos', 'lacylights'] as const)(
       'throws when the %s export returns no data',
       async (format) => {
-        const { client, mutate } = makeClient();
-        mutate.mockResolvedValue({ data: null });
+        const { client, query } = makeClient();
+        query.mockResolvedValue({ data: null });
+        await expect(exportProjectAs(client, 'p1', format)).rejects.toThrow(/No export data/);
+      },
+    );
+
+    it.each(['eos', 'lacylights'] as const)(
+      'throws when the %s export field is missing',
+      async (format) => {
+        const { client, query } = makeClient();
+        query.mockResolvedValue({ data: {} });
         await expect(exportProjectAs(client, 'p1', format)).rejects.toThrow(/No export data/);
       },
     );
 
     it('throws when the QLC+ export returns no data', async () => {
-      const { client, mutate, query } = makeClient();
-      query.mockResolvedValue({
-        data: {
-          getQLCFixtureMappingSuggestions: {
-            lacyLightsFixtures: [],
-            defaultMappings: [],
-          },
-        },
-      });
-      mutate.mockResolvedValue({ data: null });
+      const { client, query } = makeClient();
+      query.mockImplementation(({ query: doc }) =>
+        Promise.resolve(
+          doc === GET_QLC_FIXTURE_MAPPING_SUGGESTIONS
+            ? {
+                data: {
+                  getQLCFixtureMappingSuggestions: {
+                    lacyLightsFixtures: [],
+                    defaultMappings: [],
+                  },
+                },
+              }
+            : { data: {} },
+        ),
+      );
       await expect(exportProjectAs(client, 'p1', 'qlcplus')).rejects.toThrow(/No export data/);
     });
   });
 
   describe('exportAndDownloadProject', () => {
     it('exports and downloads in one step', async () => {
-      const { client, mutate } = makeClient();
-      mutate.mockResolvedValue({
+      const { client, query } = makeClient();
+      query.mockResolvedValue({
         data: {
-          exportProject: {
+          projectExport: {
             projectId: 'p1',
             projectName: 'Show',
             jsonContent: '{}',

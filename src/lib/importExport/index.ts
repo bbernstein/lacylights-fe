@@ -4,3 +4,4 @@ export * from './bridge';
 export * from './download';
 export * from './files';
 export * from './projectOperations';
+export * from './dataExport';

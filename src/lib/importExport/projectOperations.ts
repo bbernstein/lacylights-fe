@@ -3,26 +3,27 @@ import {
   IMPORT_PROJECT,
   IMPORT_PROJECT_FROM_QLC,
   IMPORT_PROJECT_FROM_EOS,
-  EXPORT_PROJECT,
-  EXPORT_PROJECT_TO_QLC,
-  EXPORT_PROJECT_TO_EOS,
+  PROJECT_EXPORT,
+  PROJECT_EXPORT_QLC,
+  PROJECT_EXPORT_EOS,
   GET_QLC_FIXTURE_MAPPING_SUGGESTIONS,
 } from '@/graphql/projects';
 import { getFixtureKey, getManufacturer, getModel } from '@/constants/fixtures';
 import { ImportMode, FixtureConflictStrategy } from '@/constants/import';
 import type {
   EosWarning,
-  ExportProjectMutation,
-  ExportProjectToEosMutation,
-  ExportProjectToQlcMutation,
   GetQlcFixtureMappingSuggestionsQuery,
   ImportProjectFromEosMutation,
   ImportProjectFromQlcMutation,
   ImportProjectMutation,
+  ProjectExportEosQuery,
+  ProjectExportQlcQuery,
+  ProjectExportQuery,
 } from '@/generated/graphql';
 import { PROJECT_FORMATS, type ProjectExportFormat, type ProjectFileFormat } from './formats';
 import { buildProjectExportFilename, projectNameFromFilename } from './filenames';
 import { downloadFile } from './download';
+import { runExportQuery } from './dataExport';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyApolloClient = ApolloClient<any>;
@@ -197,6 +198,10 @@ export async function importProjectContent(
 /**
  * Export a project in the given format. Does not download; see
  * downloadProjectExport / exportAndDownloadProject. Throws on failure.
+ *
+ * Uses the read-only `Query.projectExport*` fields (the old export
+ * Mutations are deprecated) with `fetchPolicy: 'no-cache'` via
+ * runExportQuery so file contents are not cached.
  */
 export async function exportProjectAs(
   client: AnyApolloClient,
@@ -206,11 +211,10 @@ export async function exportProjectAs(
   const { mimeType } = PROJECT_FORMATS[format];
 
   if (format === 'eos') {
-    const { data } = await client.mutate<ExportProjectToEosMutation>({
-      mutation: EXPORT_PROJECT_TO_EOS,
-      variables: { projectId },
+    const data = await runExportQuery<ProjectExportEosQuery>(client, PROJECT_EXPORT_EOS, {
+      projectId,
     });
-    const r = data?.exportProjectToEos;
+    const r = data.projectExportEos;
     if (!r) {
       throw new Error('No export data was returned by the server.');
     }
@@ -241,11 +245,11 @@ export async function exportProjectAs(
       mappingData.defaultMappings,
       mappingData.lacyLightsFixtures,
     );
-    const { data } = await client.mutate<ExportProjectToQlcMutation>({
-      mutation: EXPORT_PROJECT_TO_QLC,
-      variables: { projectId, fixtureMappings },
+    const data = await runExportQuery<ProjectExportQlcQuery>(client, PROJECT_EXPORT_QLC, {
+      projectId,
+      fixtureMappings,
     });
-    const r = data?.exportProjectToQLC;
+    const r = data.projectExportQLC;
     if (!r) {
       throw new Error('No export data was returned by the server.');
     }
@@ -261,18 +265,15 @@ export async function exportProjectAs(
   }
 
   // LacyLights native export
-  const { data } = await client.mutate<ExportProjectMutation>({
-    mutation: EXPORT_PROJECT,
-    variables: {
-      projectId,
-      options: {
-        includeFixtures: true,
-        includeLooks: true,
-        includeCueLists: true,
-      },
+  const data = await runExportQuery<ProjectExportQuery>(client, PROJECT_EXPORT, {
+    projectId,
+    options: {
+      includeFixtures: true,
+      includeLooks: true,
+      includeCueLists: true,
     },
   });
-  const r = data?.exportProject;
+  const r = data.projectExport;
   if (!r) {
     throw new Error('No export data was returned by the server.');
   }

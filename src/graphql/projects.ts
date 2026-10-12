@@ -146,9 +146,12 @@ export const GET_QLC_FIXTURE_MAPPING_SUGGESTIONS = gql`
   }
 `;
 
-export const EXPORT_PROJECT_TO_QLC = gql`
-  mutation ExportProjectToQLC($projectId: ID!, $fixtureMappings: [FixtureMappingInput!]!) {
-    exportProjectToQLC(projectId: $projectId, fixtureMappings: $fixtureMappings) {
+// Project exports are read-only Queries (the old export Mutations are
+// deprecated). Run them with fetchPolicy 'no-cache' so large file contents
+// are not stored in the Apollo cache (see src/lib/importExport).
+export const PROJECT_EXPORT_QLC = gql`
+  query ProjectExportQLC($projectId: ID!, $fixtureMappings: [FixtureMappingInput!]) {
+    projectExportQLC(projectId: $projectId, fixtureMappings: $fixtureMappings) {
       projectName
       xmlContent
       fixtureCount
@@ -158,9 +161,9 @@ export const EXPORT_PROJECT_TO_QLC = gql`
   }
 `;
 
-export const EXPORT_PROJECT = gql`
-  mutation ExportProject($projectId: ID!, $options: ExportOptionsInput) {
-    exportProject(projectId: $projectId, options: $options) {
+export const PROJECT_EXPORT = gql`
+  query ProjectExport($projectId: ID!, $options: ExportOptionsInput) {
+    projectExport(projectId: $projectId, options: $options) {
       projectId
       projectName
       jsonContent
@@ -218,9 +221,9 @@ export const IMPORT_PROJECT_FROM_EOS = gql`
   }
 `;
 
-export const EXPORT_PROJECT_TO_EOS = gql`
-  mutation ExportProjectToEos($projectId: ID!) {
-    exportProjectToEos(projectId: $projectId) {
+export const PROJECT_EXPORT_EOS = gql`
+  query ProjectExportEos($projectId: ID!) {
+    projectExportEos(projectId: $projectId) {
       projectId
       projectName
       asciiContent
