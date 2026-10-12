@@ -9,6 +9,8 @@ import { useStreamDock, BrowseHandlers } from '@/contexts/StreamDockContext';
 import { useRecentItems } from '@/hooks/useRecentItems';
 import CreateCueListModal from '@/components/CreateCueListModal';
 import CueListPlaybackStatus from '@/components/CueListPlaybackStatus';
+import ExportMenuButton from '@/components/ExportMenuButton';
+import { DataExportTable } from '@/generated/graphql';
 import { CueList } from '@/types';
 
 export default function CueListsPage() {
@@ -149,7 +151,8 @@ export default function CueListsPage() {
             Sequence your scenes into cue lists for playback
           </p>
         </div>
-        <div className="mt-4 sm:mt-0">
+        <div className="mt-4 sm:mt-0 flex items-center gap-3">
+          <ExportMenuButton table={DataExportTable.CueLists} projectId={currentProject?.id} />
           <button
             type="button"
             onClick={() => setIsCreateModalOpen(true)}

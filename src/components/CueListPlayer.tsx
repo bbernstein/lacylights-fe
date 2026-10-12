@@ -54,7 +54,8 @@ import { useStreamDock } from "@/contexts/StreamDockContext";
 interface CueListPlayerProps {
   cueListId: string;
   /** Callback invoked when the cue list data is loaded, providing the cue list name for parent components */
-  onCueListLoaded?: (cueListName: string) => void;
+  /** Called with the cue list's name and owning project id once loaded. */
+  onCueListLoaded?: (cueListName: string, projectId?: string | null) => void;
 }
 
 /**
@@ -343,9 +344,9 @@ export default function CueListPlayer({
   // Notify parent component when cue list data is loaded
   useEffect(() => {
     if (cueList?.name && onCueListLoaded) {
-      onCueListLoaded(cueList.name);
+      onCueListLoaded(cueList.name, cueList.project?.id ?? null);
     }
-  }, [cueList?.name, onCueListLoaded]);
+  }, [cueList?.name, cueList?.project?.id, onCueListLoaded]);
   const looks = looksData?.project?.looks || [];
 
   // Get current state from subscription data only

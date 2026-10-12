@@ -2,7 +2,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import ProjectManagementModal from '../ProjectManagementModal';
-import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT, EXPORT_PROJECT } from '../../graphql/projects';
+import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT, PROJECT_EXPORT } from '../../graphql/projects';
 
 // Mock the router so navigation can be asserted
 const mockPush = jest.fn();
@@ -430,7 +430,7 @@ describe('ProjectManagementModal', () => {
   describe('import / export', () => {
     const exportMock = {
       request: {
-        query: EXPORT_PROJECT,
+        query: PROJECT_EXPORT,
         variables: {
           projectId: 'project-2',
           options: { includeFixtures: true, includeLooks: true, includeCueLists: true },
@@ -438,7 +438,7 @@ describe('ProjectManagementModal', () => {
       },
       result: {
         data: {
-          exportProject: {
+          projectExport: {
             projectId: 'project-2',
             projectName: 'Test Project 2',
             jsonContent: '{"project":2}',
@@ -505,14 +505,14 @@ describe('ProjectManagementModal', () => {
       };
       const exportMock1 = {
         request: {
-          query: EXPORT_PROJECT,
+          query: PROJECT_EXPORT,
           variables: { ...exportMock.request.variables, projectId: 'project-1' },
         },
         delay: 20,
         result: {
           data: {
-            exportProject: {
-              ...exportMock.result.data.exportProject,
+            projectExport: {
+              ...exportMock.result.data.projectExport,
               projectId: 'project-1',
               projectName: 'Test Project 1',
               jsonContent: '{"project":1}',

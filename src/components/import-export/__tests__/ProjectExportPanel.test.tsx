@@ -2,9 +2,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import ProjectExportPanel from '../ProjectExportPanel';
 import {
-  EXPORT_PROJECT,
-  EXPORT_PROJECT_TO_EOS,
-  EXPORT_PROJECT_TO_QLC,
+  PROJECT_EXPORT,
+  PROJECT_EXPORT_EOS,
+  PROJECT_EXPORT_QLC,
   GET_QLC_FIXTURE_MAPPING_SUGGESTIONS,
 } from '@/graphql/projects';
 
@@ -42,10 +42,10 @@ function renderPanel(
 }
 
 const eosExportMock = (projectId: string, projectName: string, warnings: unknown[] = []): MockedResponse => ({
-  request: { query: EXPORT_PROJECT_TO_EOS, variables: { projectId } },
+  request: { query: PROJECT_EXPORT_EOS, variables: { projectId } },
   result: {
     data: {
-      exportProjectToEos: { projectId, projectName, asciiContent: 'Ident 3:0\n', warnings },
+      projectExportEos: { projectId, projectName, asciiContent: 'Ident 3:0\n', warnings },
     },
   },
 });
@@ -155,7 +155,7 @@ describe('ProjectExportPanel', () => {
     renderPanel([
       {
         request: {
-          query: EXPORT_PROJECT,
+          query: PROJECT_EXPORT,
           variables: {
             projectId: 'p2',
             options: { includeFixtures: true, includeLooks: true, includeCueLists: true },
@@ -163,7 +163,7 @@ describe('ProjectExportPanel', () => {
         },
         result: {
           data: {
-            exportProject: {
+            projectExport: {
               projectId: 'p2',
               projectName: 'Show Two',
               jsonContent: '{"v":1}',
@@ -204,7 +204,7 @@ describe('ProjectExportPanel', () => {
       },
       {
         request: {
-          query: EXPORT_PROJECT_TO_QLC,
+          query: PROJECT_EXPORT_QLC,
           variables: {
             projectId: 'p1',
             fixtureMappings: [
@@ -214,7 +214,7 @@ describe('ProjectExportPanel', () => {
         },
         result: {
           data: {
-            exportProjectToQLC: {
+            projectExportQLC: {
               projectName: 'Show One',
               xmlContent: '<Workspace/>',
               fixtureCount: 1,
@@ -232,7 +232,7 @@ describe('ProjectExportPanel', () => {
   it('shows an error when the export fails', async () => {
     renderPanel([
       {
-        request: { query: EXPORT_PROJECT_TO_EOS, variables: { projectId: 'p1' } },
+        request: { query: PROJECT_EXPORT_EOS, variables: { projectId: 'p1' } },
         error: new Error('server down'),
       },
     ]);

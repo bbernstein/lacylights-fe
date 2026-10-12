@@ -5,23 +5,28 @@ import { useSearchParams } from 'next/navigation';
 import { useProject } from '@/contexts/ProjectContext';
 import ProjectImportPanel from './ProjectImportPanel';
 import ProjectExportPanel from './ProjectExportPanel';
+import DataExportPanel from './DataExportPanel';
 
 /**
  * Section ids on the Import / Export page. Used as DOM ids and as values of
- * the `?section=` query parameter. Add new sections (e.g. 'data' for
- * CSV / Excel export) here and in the `sections` list below.
+ * the `?section=` query parameter. Add new sections here and in the
+ * `sections` list below.
  */
-export type ImportExportSectionId = 'import' | 'export';
+export type ImportExportSectionId = 'import' | 'export' | 'data';
 
-export const IMPORT_EXPORT_SECTION_IDS: ReadonlyArray<ImportExportSectionId> = ['import', 'export'];
+export const IMPORT_EXPORT_SECTION_IDS: ReadonlyArray<ImportExportSectionId> = [
+  'import',
+  'export',
+  'data',
+];
 
 /** Parsed query parameters for the Import / Export page. */
 export interface ImportExportPageParams {
   section: ImportExportSectionId | null;
   projectId: string | null;
-  /** Reserved for data (CSV / Excel) export: table to preselect. */
+  /** Data (CSV / Excel) export: table to preselect, e.g. `LOOKS`. */
   table: string | null;
-  /** Reserved for data (CSV / Excel) export: look / cue list / board id. */
+  /** Data (CSV / Excel) export: look / cue list / board id to preselect. */
   scopeId: string | null;
 }
 
@@ -55,8 +60,8 @@ interface SectionDefinition {
 }
 
 /**
- * The Import / Export page: project import, project export and (later)
- * CSV / Excel data export, each in its own card.
+ * The Import / Export page: project import, project export and CSV / Excel
+ * data export, each in its own card.
  */
 export default function ImportExportPage() {
   const searchParams = useSearchParams();
@@ -82,6 +87,12 @@ export default function ImportExportPage() {
       : null;
   const defaultExportProjectId = requestedProjectId ?? currentProject?.id ?? null;
 
+  // Key the export panels by the default project so they start over with the
+  // right project and linked table / scope when it changes (e.g. once the
+  // project list loads), instead of validating a deep-linked scope against
+  // whichever project was selected first.
+  const exportPanelKey = defaultExportProjectId ?? 'none';
+
   const sections: SectionDefinition[] = [
     {
       id: 'import',
@@ -102,7 +113,26 @@ export default function ImportExportPage() {
       title: 'Export project',
       description: 'Download a whole project to back it up or move it to another console.',
       content: (
-        <ProjectExportPanel projects={allProjects} defaultProjectId={defaultExportProjectId} />
+        <ProjectExportPanel
+          key={exportPanelKey}
+          projects={allProjects}
+          defaultProjectId={defaultExportProjectId}
+        />
+      ),
+    },
+    {
+      id: 'data',
+      title: 'Export data (CSV / Excel)',
+      description:
+        'Download a list (fixtures, looks, cue lists, …) as a spreadsheet, or every list in one Excel workbook.',
+      content: (
+        <DataExportPanel
+          key={exportPanelKey}
+          projects={allProjects}
+          defaultProjectId={defaultExportProjectId}
+          defaultTable={params.table}
+          defaultScopeId={params.scopeId}
+        />
       ),
     },
   ];
@@ -112,7 +142,7 @@ export default function ImportExportPage() {
       <header>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Import / Export</h1>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Move projects in and out of LacyLights.
+          Move projects in and out of LacyLights, or export lists as spreadsheets.
         </p>
       </header>
 

@@ -17,6 +17,8 @@ import {
   OFLImportPhase,
   OFLFixtureChangeType,
 } from '@/types';
+import ExportMenuButton from '@/components/ExportMenuButton';
+import { DataExportTable } from '@/generated/graphql';
 
 // Progress bar component
 function OFLProgressBar({
@@ -327,7 +329,8 @@ export default function OFLManagement() {
             More import/export options…
           </Link>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap justify-end gap-2">
+          <ExportMenuButton table={DataExportTable.FixtureLibrary} compact />
           <button
             onClick={handleCheckUpdates}
             disabled={isImporting || updatesLoading}

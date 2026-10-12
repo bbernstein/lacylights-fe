@@ -3,26 +3,30 @@ import {
   IMPORT_PROJECT,
   IMPORT_PROJECT_FROM_QLC,
   IMPORT_PROJECT_FROM_EOS,
-  EXPORT_PROJECT,
-  EXPORT_PROJECT_TO_QLC,
-  EXPORT_PROJECT_TO_EOS,
+  PROJECT_EXPORT,
+  PROJECT_EXPORT_QLC,
+  PROJECT_EXPORT_EOS,
   GET_QLC_FIXTURE_MAPPING_SUGGESTIONS,
+  LEGACY_EXPORT_PROJECT,
+  LEGACY_EXPORT_PROJECT_TO_QLC,
+  LEGACY_EXPORT_PROJECT_TO_EOS,
 } from '@/graphql/projects';
 import { getFixtureKey, getManufacturer, getModel } from '@/constants/fixtures';
 import { ImportMode, FixtureConflictStrategy } from '@/constants/import';
 import type {
   EosWarning,
-  ExportProjectMutation,
-  ExportProjectToEosMutation,
-  ExportProjectToQlcMutation,
   GetQlcFixtureMappingSuggestionsQuery,
   ImportProjectFromEosMutation,
   ImportProjectFromQlcMutation,
   ImportProjectMutation,
+  ProjectExportEosQuery,
+  ProjectExportQlcQuery,
+  ProjectExportQuery,
 } from '@/generated/graphql';
 import { PROJECT_FORMATS, type ProjectExportFormat, type ProjectFileFormat } from './formats';
 import { buildProjectExportFilename, projectNameFromFilename } from './filenames';
 import { downloadFile } from './download';
+import { queryWithLegacyMutationFallback } from './backendCompat';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyApolloClient = ApolloClient<any>;
@@ -197,6 +201,12 @@ export async function importProjectContent(
 /**
  * Export a project in the given format. Does not download; see
  * downloadProjectExport / exportAndDownloadProject. Throws on failure.
+ *
+ * Uses the read-only `Query.projectExport*` fields (the old export
+ * Mutations are deprecated) with `fetchPolicy: 'no-cache'` so file contents
+ * are not cached. Older backends without those Queries reject them with
+ * `Cannot query field ...`; the export then retries with the legacy export
+ * Mutation (see queryWithLegacyMutationFallback).
  */
 export async function exportProjectAs(
   client: AnyApolloClient,
@@ -206,14 +216,12 @@ export async function exportProjectAs(
   const { mimeType } = PROJECT_FORMATS[format];
 
   if (format === 'eos') {
-    const { data } = await client.mutate<ExportProjectToEosMutation>({
-      mutation: EXPORT_PROJECT_TO_EOS,
-      variables: { projectId },
-    });
-    const r = data?.exportProjectToEos;
-    if (!r) {
-      throw new Error('No export data was returned by the server.');
-    }
+    const r = await queryWithLegacyMutationFallback<ProjectExportEosQuery['projectExportEos']>(
+      client,
+      { query: PROJECT_EXPORT_EOS, field: 'projectExportEos' },
+      { mutation: LEGACY_EXPORT_PROJECT_TO_EOS, field: 'exportProjectToEos' },
+      { projectId },
+    );
     return {
       format,
       projectId,
@@ -241,14 +249,12 @@ export async function exportProjectAs(
       mappingData.defaultMappings,
       mappingData.lacyLightsFixtures,
     );
-    const { data } = await client.mutate<ExportProjectToQlcMutation>({
-      mutation: EXPORT_PROJECT_TO_QLC,
-      variables: { projectId, fixtureMappings },
-    });
-    const r = data?.exportProjectToQLC;
-    if (!r) {
-      throw new Error('No export data was returned by the server.');
-    }
+    const r = await queryWithLegacyMutationFallback<ProjectExportQlcQuery['projectExportQLC']>(
+      client,
+      { query: PROJECT_EXPORT_QLC, field: 'projectExportQLC' },
+      { mutation: LEGACY_EXPORT_PROJECT_TO_QLC, field: 'exportProjectToQLC' },
+      { projectId, fixtureMappings },
+    );
     return {
       format,
       projectId,
@@ -261,9 +267,11 @@ export async function exportProjectAs(
   }
 
   // LacyLights native export
-  const { data } = await client.mutate<ExportProjectMutation>({
-    mutation: EXPORT_PROJECT,
-    variables: {
+  const r = await queryWithLegacyMutationFallback<ProjectExportQuery['projectExport']>(
+    client,
+    { query: PROJECT_EXPORT, field: 'projectExport' },
+    { mutation: LEGACY_EXPORT_PROJECT, field: 'exportProject' },
+    {
       projectId,
       options: {
         includeFixtures: true,
@@ -271,11 +279,7 @@ export async function exportProjectAs(
         includeCueLists: true,
       },
     },
-  });
-  const r = data?.exportProject;
-  if (!r) {
-    throw new Error('No export data was returned by the server.');
-  }
+  );
   return {
     format,
     projectId,

@@ -404,6 +404,14 @@ export type CreateFixtureDefinitionInput = {
   readonly type: FixtureType;
 };
 
+export type CreateFixtureGroupInput = {
+  readonly description?: InputMaybe<Scalars['String']['input']>;
+  readonly eosNumber?: InputMaybe<Scalars['Int']['input']>;
+  readonly fixtureIds: ReadonlyArray<Scalars['ID']['input']>;
+  readonly name: Scalars['String']['input'];
+  readonly projectId: Scalars['ID']['input'];
+};
+
 export type CreateFixtureInstanceInput = {
   readonly definitionId: Scalars['ID']['input'];
   readonly description?: InputMaybe<Scalars['String']['input']>;
@@ -616,6 +624,53 @@ export type CuesWithLookInfoResponse = {
   readonly cues: ReadonlyArray<CueWithLookInfo>;
   /** Looks in the project that are not used by any cue in this cue list */
   readonly orphanLooks: ReadonlyArray<LookSummary>;
+};
+
+/** File format for data-list exports. */
+export enum DataExportFormat {
+  Csv = 'CSV',
+  Xlsx = 'XLSX'
+}
+
+export type DataExportResult = {
+  readonly __typename?: 'DataExportResult';
+  /** File content, base64-encoded */
+  readonly contentBase64: Scalars['String']['output'];
+  /** Server-generated, sanitized filename: <project>-<table>[-<item>]-YYYY-MM-DD.(csv|xlsx) */
+  readonly filename: Scalars['String']['output'];
+  readonly mimeType: Scalars['String']['output'];
+  /** Number of data rows (excluding headers). For workbooks, the total across all tables. */
+  readonly rowCount: Scalars['Int']['output'];
+};
+
+/**
+ * Exportable data lists. Scope (see DataExportTableInfo.scope):
+ * - FIXTURE_LIBRARY: none (global; projectId optional)
+ * - FIXTURE_TYPES, FIXTURES, LOOKS, EFFECTS, CUE_LISTS: project
+ * - LOOK_DETAILS: look (scopeId = look ID, required)
+ * - CUE_LIST_DETAILS: cueList (scopeId = cue list ID, required)
+ * - LOOK_BOARD_ENTRIES: lookBoard (scopeId = look board ID, optional; omit for all boards)
+ */
+export enum DataExportTable {
+  CueLists = 'CUE_LISTS',
+  CueListDetails = 'CUE_LIST_DETAILS',
+  Effects = 'EFFECTS',
+  Fixtures = 'FIXTURES',
+  FixtureLibrary = 'FIXTURE_LIBRARY',
+  FixtureTypes = 'FIXTURE_TYPES',
+  Looks = 'LOOKS',
+  LookBoardEntries = 'LOOK_BOARD_ENTRIES',
+  LookDetails = 'LOOK_DETAILS'
+}
+
+export type DataExportTableInfo = {
+  readonly __typename?: 'DataExportTableInfo';
+  /** Column headers. LOOK_DETAILS ends with a variable run of channel columns, shown as 'Ch 1 … Ch N'. */
+  readonly columns: ReadonlyArray<Scalars['String']['output']>;
+  readonly label: Scalars['String']['output'];
+  /** One of: none, project, look, cueList, lookBoard */
+  readonly scope: Scalars['String']['output'];
+  readonly table: DataExportTable;
 };
 
 /** Pre-authorized device for device-based authentication. */
@@ -985,6 +1040,7 @@ export type FixtureDefinition = {
   readonly manufacturer: Scalars['String']['output'];
   readonly model: Scalars['String']['output'];
   readonly modes: ReadonlyArray<FixtureMode>;
+  readonly refId: Scalars['String']['output'];
   readonly type: FixtureType;
 };
 
@@ -1011,6 +1067,20 @@ export type FixtureFilterInput = {
   readonly universe?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export type FixtureGroup = {
+  readonly __typename?: 'FixtureGroup';
+  readonly createdAt: Scalars['String']['output'];
+  readonly description?: Maybe<Scalars['String']['output']>;
+  readonly eosNumber?: Maybe<Scalars['Int']['output']>;
+  readonly fixtures: ReadonlyArray<FixtureInstance>;
+  readonly id: Scalars['ID']['output'];
+  readonly name: Scalars['String']['output'];
+  readonly project: Project;
+  readonly projectOrder?: Maybe<Scalars['Int']['output']>;
+  readonly refId: Scalars['String']['output'];
+  readonly updatedAt: Scalars['String']['output'];
+};
+
 export type FixtureInstance = {
   readonly __typename?: 'FixtureInstance';
   readonly channelCount: Scalars['Int']['output'];
@@ -1028,6 +1098,7 @@ export type FixtureInstance = {
   readonly name: Scalars['String']['output'];
   readonly project: Project;
   readonly projectOrder?: Maybe<Scalars['Int']['output']>;
+  readonly refId: Scalars['String']['output'];
   readonly startChannel: Scalars['Int']['output'];
   readonly tags: ReadonlyArray<Scalars['String']['output']>;
   readonly type: FixtureType;
@@ -1253,6 +1324,7 @@ export type Look = {
   readonly id: Scalars['ID']['output'];
   readonly name: Scalars['String']['output'];
   readonly project: Project;
+  readonly refId: Scalars['String']['output'];
   readonly updatedAt: Scalars['String']['output'];
 };
 
@@ -1268,6 +1340,7 @@ export type LookBoard = {
   readonly id: Scalars['ID']['output'];
   readonly name: Scalars['String']['output'];
   readonly project: Project;
+  readonly refId: Scalars['String']['output'];
   readonly updatedAt: Scalars['String']['output'];
 };
 
@@ -1453,6 +1526,7 @@ export type Mutation = {
   readonly addEffectToCue: CueEffect;
   /** Add a fixture to an effect with optional per-fixture settings */
   readonly addFixtureToEffect: EffectFixture;
+  readonly addFixturesToGroup: FixtureGroup;
   readonly addFixturesToLook: Look;
   readonly addLookToBoard: LookBoardButton;
   /** Add a user to a group (group admin or system admin) */
@@ -1466,6 +1540,7 @@ export type Mutation = {
   readonly bulkCreateCueLists: ReadonlyArray<CueList>;
   readonly bulkCreateCues: ReadonlyArray<Cue>;
   readonly bulkCreateFixtureDefinitions: ReadonlyArray<FixtureDefinition>;
+  readonly bulkCreateFixtureGroups: ReadonlyArray<FixtureGroup>;
   readonly bulkCreateFixtures: ReadonlyArray<FixtureInstance>;
   readonly bulkCreateLookBoardButtons: ReadonlyArray<LookBoardButton>;
   readonly bulkCreateLookBoards: ReadonlyArray<LookBoard>;
@@ -1474,6 +1549,7 @@ export type Mutation = {
   readonly bulkDeleteCueLists: BulkDeleteResult;
   readonly bulkDeleteCues: BulkDeleteResult;
   readonly bulkDeleteFixtureDefinitions: BulkDeleteResult;
+  readonly bulkDeleteFixtureGroups: Scalars['Int']['output'];
   readonly bulkDeleteFixtures: BulkDeleteResult;
   readonly bulkDeleteLookBoardButtons: BulkDeleteResult;
   readonly bulkDeleteLookBoards: BulkDeleteResult;
@@ -1482,6 +1558,7 @@ export type Mutation = {
   readonly bulkUpdateCueLists: ReadonlyArray<CueList>;
   readonly bulkUpdateCues: ReadonlyArray<Cue>;
   readonly bulkUpdateFixtureDefinitions: ReadonlyArray<FixtureDefinition>;
+  readonly bulkUpdateFixtureGroups: ReadonlyArray<FixtureGroup>;
   readonly bulkUpdateFixtures: ReadonlyArray<FixtureInstance>;
   readonly bulkUpdateInstanceChannelsFadeBehavior: ReadonlyArray<InstanceChannel>;
   readonly bulkUpdateLookBoardButtons: ReadonlyArray<LookBoardButton>;
@@ -1513,6 +1590,7 @@ export type Mutation = {
   /** Create a new effect */
   readonly createEffect: Effect;
   readonly createFixtureDefinition: FixtureDefinition;
+  readonly createFixtureGroup: FixtureGroup;
   readonly createFixtureInstance: FixtureInstance;
   readonly createLook: Look;
   readonly createLookBoard: LookBoard;
@@ -1528,6 +1606,7 @@ export type Mutation = {
   /** Delete an effect */
   readonly deleteEffect: Scalars['Boolean']['output'];
   readonly deleteFixtureDefinition: Scalars['Boolean']['output'];
+  readonly deleteFixtureGroup: Scalars['Boolean']['output'];
   readonly deleteFixtureInstance: Scalars['Boolean']['output'];
   readonly deleteLook: Scalars['Boolean']['output'];
   readonly deleteLookBoard: Scalars['Boolean']['output'];
@@ -1538,8 +1617,11 @@ export type Mutation = {
   readonly deleteUserGroup: Scalars['Boolean']['output'];
   readonly disconnectWiFi: WiFiConnectionResult;
   readonly duplicateLook: Look;
+  /** @deprecated Use Query.projectExport */
   readonly exportProject: ExportResult;
+  /** @deprecated Use Query.projectExportEos */
   readonly exportProjectToEos: EosExportResult;
+  /** @deprecated Use Query.projectExportQLC */
   readonly exportProjectToQLC: QlcExportResult;
   readonly fadeToBlack: Scalars['Boolean']['output'];
   readonly forgetWiFiNetwork: Scalars['Boolean']['output'];
@@ -1581,11 +1663,13 @@ export type Mutation = {
   readonly removeEffectFromCue: Scalars['Boolean']['output'];
   /** Remove a fixture from an effect */
   readonly removeFixtureFromEffect: Scalars['Boolean']['output'];
+  readonly removeFixturesFromGroup: FixtureGroup;
   readonly removeFixturesFromLook: Look;
   readonly removeLookFromBoard: Scalars['Boolean']['output'];
   /** Remove a user from a group (group admin or system admin) */
   readonly removeUserFromGroup: Scalars['Boolean']['output'];
   readonly reorderCues: Scalars['Boolean']['output'];
+  readonly reorderFixturesInGroup: FixtureGroup;
   readonly reorderLookFixtures: Scalars['Boolean']['output'];
   readonly reorderProjectFixtures: Scalars['Boolean']['output'];
   /** Request email verification */
@@ -1640,6 +1724,7 @@ export type Mutation = {
   readonly updateEffectFixture: EffectFixture;
   readonly updateFadeUpdateRate: Scalars['Boolean']['output'];
   readonly updateFixtureDefinition: FixtureDefinition;
+  readonly updateFixtureGroup: FixtureGroup;
   readonly updateFixtureInstance: FixtureInstance;
   readonly updateFixturePositions: Scalars['Boolean']['output'];
   /** Update a group member's role (group admin or system admin) */
@@ -1709,6 +1794,12 @@ export type MutationAddFixtureToEffectArgs = {
 };
 
 
+export type MutationAddFixturesToGroupArgs = {
+  fixtureIds: ReadonlyArray<Scalars['ID']['input']>;
+  groupId: Scalars['ID']['input'];
+};
+
+
 export type MutationAddFixturesToLookArgs = {
   fixtureValues: ReadonlyArray<FixtureValueInput>;
   lookId: Scalars['ID']['input'];
@@ -1763,6 +1854,11 @@ export type MutationBulkCreateFixtureDefinitionsArgs = {
 };
 
 
+export type MutationBulkCreateFixtureGroupsArgs = {
+  inputs: ReadonlyArray<CreateFixtureGroupInput>;
+};
+
+
 export type MutationBulkCreateFixturesArgs = {
   input: BulkFixtureCreateInput;
 };
@@ -1803,6 +1899,11 @@ export type MutationBulkDeleteFixtureDefinitionsArgs = {
 };
 
 
+export type MutationBulkDeleteFixtureGroupsArgs = {
+  ids: ReadonlyArray<Scalars['ID']['input']>;
+};
+
+
 export type MutationBulkDeleteFixturesArgs = {
   fixtureIds: ReadonlyArray<Scalars['ID']['input']>;
 };
@@ -1840,6 +1941,11 @@ export type MutationBulkUpdateCuesArgs = {
 
 export type MutationBulkUpdateFixtureDefinitionsArgs = {
   input: BulkFixtureDefinitionUpdateInput;
+};
+
+
+export type MutationBulkUpdateFixtureGroupsArgs = {
+  inputs: ReadonlyArray<UpdateFixtureGroupInput>;
 };
 
 
@@ -1947,6 +2053,11 @@ export type MutationCreateFixtureDefinitionArgs = {
 };
 
 
+export type MutationCreateFixtureGroupArgs = {
+  input: CreateFixtureGroupInput;
+};
+
+
 export type MutationCreateFixtureInstanceArgs = {
   input: CreateFixtureInstanceInput;
 };
@@ -1998,6 +2109,11 @@ export type MutationDeleteEffectArgs = {
 
 
 export type MutationDeleteFixtureDefinitionArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteFixtureGroupArgs = {
   id: Scalars['ID']['input'];
 };
 
@@ -2191,6 +2307,12 @@ export type MutationRemoveFixtureFromEffectArgs = {
 };
 
 
+export type MutationRemoveFixturesFromGroupArgs = {
+  fixtureIds: ReadonlyArray<Scalars['ID']['input']>;
+  groupId: Scalars['ID']['input'];
+};
+
+
 export type MutationRemoveFixturesFromLookArgs = {
   fixtureIds: ReadonlyArray<Scalars['ID']['input']>;
   lookId: Scalars['ID']['input'];
@@ -2211,6 +2333,11 @@ export type MutationRemoveUserFromGroupArgs = {
 export type MutationReorderCuesArgs = {
   cueListId: Scalars['ID']['input'];
   cueOrders: ReadonlyArray<CueOrderInput>;
+};
+
+
+export type MutationReorderFixturesInGroupArgs = {
+  input: ReorderFixturesInGroupInput;
 };
 
 
@@ -2388,6 +2515,11 @@ export type MutationUpdateFadeUpdateRateArgs = {
 export type MutationUpdateFixtureDefinitionArgs = {
   id: Scalars['ID']['input'];
   input: CreateFixtureDefinitionInput;
+};
+
+
+export type MutationUpdateFixtureGroupArgs = {
+  input: UpdateFixtureGroupInput;
 };
 
 
@@ -2837,6 +2969,8 @@ export type Query = {
    */
   readonly cuesWithLookInfo: CuesWithLookInfoResponse;
   readonly currentActiveLook?: Maybe<Look>;
+  /** Lists the tables that can be exported as CSV/XLSX */
+  readonly dataExportTables: ReadonlyArray<DataExportTableInfo>;
   readonly deletedProjects: ReadonlyArray<Project>;
   /** Get a device by ID (admin only) */
   readonly device?: Maybe<Device>;
@@ -2847,9 +2981,30 @@ export type Query = {
   readonly effect?: Maybe<Effect>;
   /** List all effects in a project */
   readonly effects: ReadonlyArray<Effect>;
+  /**
+   * Export one data list as CSV or XLSX. projectId may be null only for
+   * FIXTURE_LIBRARY. scopeId selects the look / cue list / look board for
+   * scoped tables and must belong to projectId. For FIXTURE_LIBRARY a
+   * projectId, if given, is only access-checked; the library is global.
+   * CSV is not a lossless round-trip format: text cells starting with
+   * = + - @ tab, CR or LF get a leading ' to prevent formula injection.
+   * XLSX stores text unchanged. Exports have no size limit by default; a
+   * server configured with limits, or an XLSX sheet wider than Excel's
+   * 16,384 columns, fails with a "too large" error.
+   */
+  readonly exportDataTable: DataExportResult;
+  /**
+   * Export several project-level tables as one XLSX workbook, one sheet per
+   * table. Defaults to every project-level table when tables is omitted; an
+   * explicit empty list is an error. Repeated tables are included once.
+   * FIXTURE_LIBRARY and scoped tables cannot be included.
+   */
+  readonly exportDataWorkbook: DataExportResult;
   readonly fixtureDefinition?: Maybe<FixtureDefinition>;
   readonly fixtureDefinitions: ReadonlyArray<FixtureDefinition>;
   readonly fixtureDefinitionsByIds: ReadonlyArray<FixtureDefinition>;
+  readonly fixtureGroup?: Maybe<FixtureGroup>;
+  readonly fixtureGroups: ReadonlyArray<FixtureGroup>;
   readonly fixtureInstance?: Maybe<FixtureInstance>;
   readonly fixtureInstances: FixtureInstancePage;
   readonly fixtureUsage: FixtureUsage;
@@ -2889,6 +3044,16 @@ export type Query = {
   readonly pendingDevices: ReadonlyArray<Device>;
   readonly previewSession?: Maybe<PreviewSession>;
   readonly project?: Maybe<Project>;
+  /** Export a project as LacyLights JSON */
+  readonly projectExport: ExportResult;
+  /**
+   * Export a project as ETC Eos ASCII. On first export, fixture groups without
+   * an Eos group number are assigned one and it is saved, so later exports stay
+   * stable. This is idempotent: once every group has a number, nothing is written.
+   */
+  readonly projectExportEos: EosExportResult;
+  /** Export a project as a QLC+ workspace (not available on all platforms; currently always returns an error) */
+  readonly projectExportQLC: QlcExportResult;
   readonly projects: ReadonlyArray<Project>;
   readonly projectsByIds: ReadonlyArray<Project>;
   readonly savedWifiNetworks: ReadonlyArray<WiFiNetwork>;
@@ -3006,6 +3171,20 @@ export type QueryEffectsArgs = {
 };
 
 
+export type QueryExportDataTableArgs = {
+  format: DataExportFormat;
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  scopeId?: InputMaybe<Scalars['ID']['input']>;
+  table: DataExportTable;
+};
+
+
+export type QueryExportDataWorkbookArgs = {
+  projectId: Scalars['ID']['input'];
+  tables?: InputMaybe<ReadonlyArray<DataExportTable>>;
+};
+
+
 export type QueryFixtureDefinitionArgs = {
   id: Scalars['ID']['input'];
 };
@@ -3018,6 +3197,16 @@ export type QueryFixtureDefinitionsArgs = {
 
 export type QueryFixtureDefinitionsByIdsArgs = {
   ids: ReadonlyArray<Scalars['ID']['input']>;
+};
+
+
+export type QueryFixtureGroupArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryFixtureGroupsArgs = {
+  projectId: Scalars['ID']['input'];
 };
 
 
@@ -3126,6 +3315,23 @@ export type QueryProjectArgs = {
 };
 
 
+export type QueryProjectExportArgs = {
+  options?: InputMaybe<ExportOptionsInput>;
+  projectId: Scalars['ID']['input'];
+};
+
+
+export type QueryProjectExportEosArgs = {
+  projectId: Scalars['ID']['input'];
+};
+
+
+export type QueryProjectExportQlcArgs = {
+  fixtureMappings?: InputMaybe<ReadonlyArray<FixtureMappingInput>>;
+  projectId: Scalars['ID']['input'];
+};
+
+
 export type QueryProjectsByIdsArgs = {
   ids: ReadonlyArray<Scalars['ID']['input']>;
 };
@@ -3197,6 +3403,11 @@ export type RegisterInput = {
   readonly email: Scalars['String']['input'];
   readonly name?: InputMaybe<Scalars['String']['input']>;
   readonly password: Scalars['String']['input'];
+};
+
+export type ReorderFixturesInGroupInput = {
+  readonly fixtureIds: ReadonlyArray<Scalars['ID']['input']>;
+  readonly groupId: Scalars['ID']['input'];
 };
 
 export type RepositoryVersion = {
@@ -3423,6 +3634,14 @@ export type UpdateEffectInput = {
   readonly priorityBand?: InputMaybe<PriorityBand>;
   readonly prioritySub?: InputMaybe<Scalars['Int']['input']>;
   readonly waveform?: InputMaybe<WaveformType>;
+};
+
+export type UpdateFixtureGroupInput = {
+  readonly description?: InputMaybe<Scalars['String']['input']>;
+  readonly eosNumber?: InputMaybe<Scalars['Int']['input']>;
+  readonly id: Scalars['ID']['input'];
+  readonly name?: InputMaybe<Scalars['String']['input']>;
+  readonly projectOrder?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type UpdateFixtureInstanceInput = {
@@ -4146,6 +4365,29 @@ export type GetCuesWithLookInfoQueryVariables = Exact<{
 
 export type GetCuesWithLookInfoQuery = { readonly __typename?: 'Query', readonly cuesWithLookInfo: { readonly __typename?: 'CuesWithLookInfoResponse', readonly cues: ReadonlyArray<{ readonly __typename?: 'CueWithLookInfo', readonly cueId: string, readonly cueNumber: number, readonly cueName: string, readonly lookId: string, readonly lookName: string, readonly otherCueNumbers: ReadonlyArray<number> }>, readonly orphanLooks: ReadonlyArray<{ readonly __typename?: 'LookSummary', readonly id: string, readonly name: string, readonly description?: string | null }> } };
 
+export type GetDataExportTablesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetDataExportTablesQuery = { readonly __typename?: 'Query', readonly dataExportTables: ReadonlyArray<{ readonly __typename?: 'DataExportTableInfo', readonly table: DataExportTable, readonly label: string, readonly scope: string, readonly columns: ReadonlyArray<string> }> };
+
+export type ExportDataTableQueryVariables = Exact<{
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  table: DataExportTable;
+  format: DataExportFormat;
+  scopeId?: InputMaybe<Scalars['ID']['input']>;
+}>;
+
+
+export type ExportDataTableQuery = { readonly __typename?: 'Query', readonly exportDataTable: { readonly __typename?: 'DataExportResult', readonly filename: string, readonly mimeType: string, readonly contentBase64: string, readonly rowCount: number } };
+
+export type ExportDataWorkbookQueryVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+  tables?: InputMaybe<ReadonlyArray<DataExportTable> | DataExportTable>;
+}>;
+
+
+export type ExportDataWorkbookQuery = { readonly __typename?: 'Query', readonly exportDataWorkbook: { readonly __typename?: 'DataExportResult', readonly filename: string, readonly mimeType: string, readonly contentBase64: string, readonly rowCount: number } };
+
 export type EffectFixtureFieldsFragment = { readonly __typename?: 'EffectFixture', readonly id: string, readonly effectId: string, readonly fixtureId: string, readonly phaseOffset?: number | null, readonly amplitudeScale?: number | null, readonly effectOrder?: number | null, readonly fixture?: { readonly __typename?: 'FixtureInstance', readonly id: string, readonly name: string, readonly universe: number, readonly startChannel: number, readonly manufacturer: string, readonly model: string, readonly type: FixtureType, readonly channels: ReadonlyArray<{ readonly __typename?: 'InstanceChannel', readonly id: string, readonly offset: number, readonly name: string, readonly type: ChannelType, readonly minValue: number, readonly maxValue: number, readonly defaultValue: number }> } | null, readonly channels: ReadonlyArray<{ readonly __typename?: 'EffectChannel', readonly id: string, readonly effectFixtureId: string, readonly channelOffset?: number | null, readonly channelType?: string | null, readonly amplitudeScale?: number | null, readonly frequencyScale?: number | null, readonly minValue?: number | null, readonly maxValue?: number | null }> };
 
 export type EffectFieldsFragment = { readonly __typename?: 'Effect', readonly id: string, readonly name: string, readonly description?: string | null, readonly projectId: string, readonly effectType: EffectType, readonly priorityBand: PriorityBand, readonly prioritySub: number, readonly compositionMode: CompositionMode, readonly onCueChange: TransitionBehavior, readonly fadeDuration?: number | null, readonly waveform?: WaveformType | null, readonly frequency: number, readonly amplitude: number, readonly offset: number, readonly phaseOffset: number, readonly masterValue?: number | null, readonly createdAt: string, readonly updatedAt: string };
@@ -4725,21 +4967,21 @@ export type GetQlcFixtureMappingSuggestionsQueryVariables = Exact<{
 
 export type GetQlcFixtureMappingSuggestionsQuery = { readonly __typename?: 'Query', readonly getQLCFixtureMappingSuggestions: { readonly __typename?: 'QLCFixtureMappingResult', readonly projectId: string, readonly lacyLightsFixtures: ReadonlyArray<{ readonly __typename?: 'LacyLightsFixture', readonly manufacturer: string, readonly model: string }>, readonly suggestions: ReadonlyArray<{ readonly __typename?: 'FixtureMappingSuggestion', readonly fixture: { readonly __typename?: 'LacyLightsFixture', readonly manufacturer: string, readonly model: string }, readonly suggestions: ReadonlyArray<{ readonly __typename?: 'QLCFixtureDefinition', readonly manufacturer: string, readonly model: string, readonly type: string, readonly modes: ReadonlyArray<{ readonly __typename?: 'QLCFixtureMode', readonly name: string, readonly channelCount: number }> }> }>, readonly defaultMappings: ReadonlyArray<{ readonly __typename?: 'FixtureMapping', readonly lacyLightsKey: string, readonly qlcManufacturer: string, readonly qlcModel: string, readonly qlcMode: string }> } };
 
-export type ExportProjectToQlcMutationVariables = Exact<{
+export type ProjectExportQlcQueryVariables = Exact<{
   projectId: Scalars['ID']['input'];
-  fixtureMappings: ReadonlyArray<FixtureMappingInput> | FixtureMappingInput;
+  fixtureMappings?: InputMaybe<ReadonlyArray<FixtureMappingInput> | FixtureMappingInput>;
 }>;
 
 
-export type ExportProjectToQlcMutation = { readonly __typename?: 'Mutation', readonly exportProjectToQLC: { readonly __typename?: 'QLCExportResult', readonly projectName: string, readonly xmlContent: string, readonly fixtureCount: number, readonly lookCount: number, readonly cueListCount: number } };
+export type ProjectExportQlcQuery = { readonly __typename?: 'Query', readonly projectExportQLC: { readonly __typename?: 'QLCExportResult', readonly projectName: string, readonly xmlContent: string, readonly fixtureCount: number, readonly lookCount: number, readonly cueListCount: number } };
 
-export type ExportProjectMutationVariables = Exact<{
+export type ProjectExportQueryVariables = Exact<{
   projectId: Scalars['ID']['input'];
   options?: InputMaybe<ExportOptionsInput>;
 }>;
 
 
-export type ExportProjectMutation = { readonly __typename?: 'Mutation', readonly exportProject: { readonly __typename?: 'ExportResult', readonly projectId: string, readonly projectName: string, readonly jsonContent: string, readonly stats: { readonly __typename?: 'ExportStats', readonly fixtureDefinitionsCount: number, readonly fixtureInstancesCount: number, readonly looksCount: number, readonly cueListsCount: number, readonly cuesCount: number } } };
+export type ProjectExportQuery = { readonly __typename?: 'Query', readonly projectExport: { readonly __typename?: 'ExportResult', readonly projectId: string, readonly projectName: string, readonly jsonContent: string, readonly stats: { readonly __typename?: 'ExportStats', readonly fixtureDefinitionsCount: number, readonly fixtureInstancesCount: number, readonly looksCount: number, readonly cueListsCount: number, readonly cuesCount: number } } };
 
 export type ImportProjectMutationVariables = Exact<{
   jsonContent: Scalars['String']['input'];
@@ -4756,6 +4998,29 @@ export type ImportProjectFromEosMutationVariables = Exact<{
 
 
 export type ImportProjectFromEosMutation = { readonly __typename?: 'Mutation', readonly importProjectFromEos: { readonly __typename?: 'EosImportResult', readonly projectId: string, readonly fixtureDefinitionsCount: number, readonly fixtureInstancesCount: number, readonly looksCount: number, readonly cueListsCount: number, readonly cuesCount: number, readonly groupsCount: number, readonly synthesizedDefinitionIds: ReadonlyArray<string>, readonly warnings: ReadonlyArray<{ readonly __typename?: 'EosWarning', readonly code: string, readonly severity: EosWarningSeverity, readonly message: string, readonly context: ReadonlyArray<{ readonly __typename?: 'EosWarningContextEntry', readonly key: string, readonly value: string }> }> } };
+
+export type ProjectExportEosQueryVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+}>;
+
+
+export type ProjectExportEosQuery = { readonly __typename?: 'Query', readonly projectExportEos: { readonly __typename?: 'EosExportResult', readonly projectId: string, readonly projectName: string, readonly asciiContent: string, readonly warnings: ReadonlyArray<{ readonly __typename?: 'EosWarning', readonly code: string, readonly severity: EosWarningSeverity, readonly message: string, readonly context: ReadonlyArray<{ readonly __typename?: 'EosWarningContextEntry', readonly key: string, readonly value: string }> }> } };
+
+export type ExportProjectToQlcMutationVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+  fixtureMappings: ReadonlyArray<FixtureMappingInput> | FixtureMappingInput;
+}>;
+
+
+export type ExportProjectToQlcMutation = { readonly __typename?: 'Mutation', readonly exportProjectToQLC: { readonly __typename?: 'QLCExportResult', readonly projectName: string, readonly xmlContent: string, readonly fixtureCount: number, readonly lookCount: number, readonly cueListCount: number } };
+
+export type ExportProjectMutationVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+  options?: InputMaybe<ExportOptionsInput>;
+}>;
+
+
+export type ExportProjectMutation = { readonly __typename?: 'Mutation', readonly exportProject: { readonly __typename?: 'ExportResult', readonly projectId: string, readonly projectName: string, readonly jsonContent: string, readonly stats: { readonly __typename?: 'ExportStats', readonly fixtureDefinitionsCount: number, readonly fixtureInstancesCount: number, readonly looksCount: number, readonly cueListsCount: number, readonly cuesCount: number } } };
 
 export type ExportProjectToEosMutationVariables = Exact<{
   projectId: Scalars['ID']['input'];
@@ -5072,6 +5337,9 @@ export const GlobalPlaybackStatusUpdatedDocument = {"kind":"Document","definitio
 export const ResumeCueListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResumeCueList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"cueListId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resumeCueList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"cueListId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"cueListId"}}}]}]}}]} as unknown as DocumentNode<ResumeCueListMutation, ResumeCueListMutationVariables>;
 export const CueListDataChangedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"CueListDataChanged"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"cueListId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cueListDataChanged"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"cueListId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"cueListId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cueListId"}},{"kind":"Field","name":{"kind":"Name","value":"changeType"}},{"kind":"Field","name":{"kind":"Name","value":"affectedCueIds"}},{"kind":"Field","name":{"kind":"Name","value":"affectedLookId"}},{"kind":"Field","name":{"kind":"Name","value":"newLookName"}},{"kind":"Field","name":{"kind":"Name","value":"timestamp"}}]}}]}}]} as unknown as DocumentNode<CueListDataChangedSubscription, CueListDataChangedSubscriptionVariables>;
 export const GetCuesWithLookInfoDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetCuesWithLookInfo"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"cueListId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cuesWithLookInfo"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"cueListId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"cueListId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cueId"}},{"kind":"Field","name":{"kind":"Name","value":"cueNumber"}},{"kind":"Field","name":{"kind":"Name","value":"cueName"}},{"kind":"Field","name":{"kind":"Name","value":"lookId"}},{"kind":"Field","name":{"kind":"Name","value":"lookName"}},{"kind":"Field","name":{"kind":"Name","value":"otherCueNumbers"}}]}},{"kind":"Field","name":{"kind":"Name","value":"orphanLooks"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}}]}}]}}]}}]} as unknown as DocumentNode<GetCuesWithLookInfoQuery, GetCuesWithLookInfoQueryVariables>;
+export const GetDataExportTablesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetDataExportTables"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"dataExportTables"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"table"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"scope"}},{"kind":"Field","name":{"kind":"Name","value":"columns"}}]}}]}}]} as unknown as DocumentNode<GetDataExportTablesQuery, GetDataExportTablesQueryVariables>;
+export const ExportDataTableDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ExportDataTable"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"table"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DataExportTable"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"format"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DataExportFormat"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"scopeId"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exportDataTable"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"table"},"value":{"kind":"Variable","name":{"kind":"Name","value":"table"}}},{"kind":"Argument","name":{"kind":"Name","value":"format"},"value":{"kind":"Variable","name":{"kind":"Name","value":"format"}}},{"kind":"Argument","name":{"kind":"Name","value":"scopeId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"scopeId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"filename"}},{"kind":"Field","name":{"kind":"Name","value":"mimeType"}},{"kind":"Field","name":{"kind":"Name","value":"contentBase64"}},{"kind":"Field","name":{"kind":"Name","value":"rowCount"}}]}}]}}]} as unknown as DocumentNode<ExportDataTableQuery, ExportDataTableQueryVariables>;
+export const ExportDataWorkbookDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ExportDataWorkbook"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"tables"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DataExportTable"}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exportDataWorkbook"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"tables"},"value":{"kind":"Variable","name":{"kind":"Name","value":"tables"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"filename"}},{"kind":"Field","name":{"kind":"Name","value":"mimeType"}},{"kind":"Field","name":{"kind":"Name","value":"contentBase64"}},{"kind":"Field","name":{"kind":"Name","value":"rowCount"}}]}}]}}]} as unknown as DocumentNode<ExportDataWorkbookQuery, ExportDataWorkbookQueryVariables>;
 export const GetEffectsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetEffects"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"effects"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EffectFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Effect"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"effectType"}},{"kind":"Field","name":{"kind":"Name","value":"priorityBand"}},{"kind":"Field","name":{"kind":"Name","value":"prioritySub"}},{"kind":"Field","name":{"kind":"Name","value":"compositionMode"}},{"kind":"Field","name":{"kind":"Name","value":"onCueChange"}},{"kind":"Field","name":{"kind":"Name","value":"fadeDuration"}},{"kind":"Field","name":{"kind":"Name","value":"waveform"}},{"kind":"Field","name":{"kind":"Name","value":"frequency"}},{"kind":"Field","name":{"kind":"Name","value":"amplitude"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"phaseOffset"}},{"kind":"Field","name":{"kind":"Name","value":"masterValue"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode<GetEffectsQuery, GetEffectsQueryVariables>;
 export const GetEffectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetEffect"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"effect"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EffectWithFixturesFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectFixtureFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EffectFixture"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectId"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureId"}},{"kind":"Field","name":{"kind":"Name","value":"fixture"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"universe"}},{"kind":"Field","name":{"kind":"Name","value":"startChannel"}},{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}},{"kind":"Field","name":{"kind":"Name","value":"defaultValue"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"phaseOffset"}},{"kind":"Field","name":{"kind":"Name","value":"amplitudeScale"}},{"kind":"Field","name":{"kind":"Name","value":"effectOrder"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"effectFixtureId"}},{"kind":"Field","name":{"kind":"Name","value":"channelOffset"}},{"kind":"Field","name":{"kind":"Name","value":"channelType"}},{"kind":"Field","name":{"kind":"Name","value":"amplitudeScale"}},{"kind":"Field","name":{"kind":"Name","value":"frequencyScale"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EffectWithFixturesFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Effect"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"effectType"}},{"kind":"Field","name":{"kind":"Name","value":"priorityBand"}},{"kind":"Field","name":{"kind":"Name","value":"prioritySub"}},{"kind":"Field","name":{"kind":"Name","value":"compositionMode"}},{"kind":"Field","name":{"kind":"Name","value":"onCueChange"}},{"kind":"Field","name":{"kind":"Name","value":"fadeDuration"}},{"kind":"Field","name":{"kind":"Name","value":"waveform"}},{"kind":"Field","name":{"kind":"Name","value":"frequency"}},{"kind":"Field","name":{"kind":"Name","value":"amplitude"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"phaseOffset"}},{"kind":"Field","name":{"kind":"Name","value":"masterValue"}},{"kind":"Field","name":{"kind":"Name","value":"fixtures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EffectFixtureFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode<GetEffectQuery, GetEffectQueryVariables>;
 export const GetModulatorStatusDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetModulatorStatus"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"modulatorStatus"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"isRunning"}},{"kind":"Field","name":{"kind":"Name","value":"updateRateHz"}},{"kind":"Field","name":{"kind":"Name","value":"activeEffectCount"}},{"kind":"Field","name":{"kind":"Name","value":"activeEffects"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"effectId"}},{"kind":"Field","name":{"kind":"Name","value":"effectName"}},{"kind":"Field","name":{"kind":"Name","value":"effectType"}},{"kind":"Field","name":{"kind":"Name","value":"intensity"}},{"kind":"Field","name":{"kind":"Name","value":"phase"}},{"kind":"Field","name":{"kind":"Name","value":"isComplete"}},{"kind":"Field","name":{"kind":"Name","value":"startTime"}}]}},{"kind":"Field","name":{"kind":"Name","value":"isBlackoutActive"}},{"kind":"Field","name":{"kind":"Name","value":"blackoutIntensity"}},{"kind":"Field","name":{"kind":"Name","value":"grandMasterValue"}},{"kind":"Field","name":{"kind":"Name","value":"hasActiveTransition"}},{"kind":"Field","name":{"kind":"Name","value":"transitionProgress"}}]}}]}}]} as unknown as DocumentNode<GetModulatorStatusQuery, GetModulatorStatusQueryVariables>;
@@ -5151,10 +5419,13 @@ export const UpdateProjectDocument = {"kind":"Document","definitions":[{"kind":"
 export const DeleteProjectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteProject"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteProject"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode<DeleteProjectMutation, DeleteProjectMutationVariables>;
 export const ImportProjectFromQlcDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ImportProjectFromQLC"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"xmlContent"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"originalFileName"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"importProjectFromQLC"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"xmlContent"},"value":{"kind":"Variable","name":{"kind":"Name","value":"xmlContent"}}},{"kind":"Argument","name":{"kind":"Name","value":"originalFileName"},"value":{"kind":"Variable","name":{"kind":"Name","value":"originalFileName"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"project"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"originalFileName"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureCount"}},{"kind":"Field","name":{"kind":"Name","value":"lookCount"}},{"kind":"Field","name":{"kind":"Name","value":"cueListCount"}},{"kind":"Field","name":{"kind":"Name","value":"warnings"}}]}}]}}]} as unknown as DocumentNode<ImportProjectFromQlcMutation, ImportProjectFromQlcMutationVariables>;
 export const GetQlcFixtureMappingSuggestionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetQLCFixtureMappingSuggestions"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getQLCFixtureMappingSuggestions"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"lacyLightsFixtures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}}]}},{"kind":"Field","name":{"kind":"Name","value":"suggestions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fixture"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}}]}},{"kind":"Field","name":{"kind":"Name","value":"suggestions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"modes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"channelCount"}}]}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"defaultMappings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lacyLightsKey"}},{"kind":"Field","name":{"kind":"Name","value":"qlcManufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"qlcModel"}},{"kind":"Field","name":{"kind":"Name","value":"qlcMode"}}]}}]}}]}}]} as unknown as DocumentNode<GetQlcFixtureMappingSuggestionsQuery, GetQlcFixtureMappingSuggestionsQueryVariables>;
-export const ExportProjectToQlcDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ExportProjectToQLC"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"fixtureMappings"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"FixtureMappingInput"}}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exportProjectToQLC"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"fixtureMappings"},"value":{"kind":"Variable","name":{"kind":"Name","value":"fixtureMappings"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectName"}},{"kind":"Field","name":{"kind":"Name","value":"xmlContent"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureCount"}},{"kind":"Field","name":{"kind":"Name","value":"lookCount"}},{"kind":"Field","name":{"kind":"Name","value":"cueListCount"}}]}}]}}]} as unknown as DocumentNode<ExportProjectToQlcMutation, ExportProjectToQlcMutationVariables>;
-export const ExportProjectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ExportProject"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"options"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"ExportOptionsInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exportProject"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"options"},"value":{"kind":"Variable","name":{"kind":"Name","value":"options"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"projectName"}},{"kind":"Field","name":{"kind":"Name","value":"jsonContent"}},{"kind":"Field","name":{"kind":"Name","value":"stats"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fixtureDefinitionsCount"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureInstancesCount"}},{"kind":"Field","name":{"kind":"Name","value":"looksCount"}},{"kind":"Field","name":{"kind":"Name","value":"cueListsCount"}},{"kind":"Field","name":{"kind":"Name","value":"cuesCount"}}]}}]}}]}}]} as unknown as DocumentNode<ExportProjectMutation, ExportProjectMutationVariables>;
+export const ProjectExportQlcDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ProjectExportQLC"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"fixtureMappings"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"FixtureMappingInput"}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectExportQLC"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"fixtureMappings"},"value":{"kind":"Variable","name":{"kind":"Name","value":"fixtureMappings"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectName"}},{"kind":"Field","name":{"kind":"Name","value":"xmlContent"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureCount"}},{"kind":"Field","name":{"kind":"Name","value":"lookCount"}},{"kind":"Field","name":{"kind":"Name","value":"cueListCount"}}]}}]}}]} as unknown as DocumentNode<ProjectExportQlcQuery, ProjectExportQlcQueryVariables>;
+export const ProjectExportDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ProjectExport"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"options"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"ExportOptionsInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectExport"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"options"},"value":{"kind":"Variable","name":{"kind":"Name","value":"options"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"projectName"}},{"kind":"Field","name":{"kind":"Name","value":"jsonContent"}},{"kind":"Field","name":{"kind":"Name","value":"stats"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fixtureDefinitionsCount"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureInstancesCount"}},{"kind":"Field","name":{"kind":"Name","value":"looksCount"}},{"kind":"Field","name":{"kind":"Name","value":"cueListsCount"}},{"kind":"Field","name":{"kind":"Name","value":"cuesCount"}}]}}]}}]}}]} as unknown as DocumentNode<ProjectExportQuery, ProjectExportQueryVariables>;
 export const ImportProjectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ImportProject"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"jsonContent"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"options"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ImportOptionsInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"importProject"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"jsonContent"},"value":{"kind":"Variable","name":{"kind":"Name","value":"jsonContent"}}},{"kind":"Argument","name":{"kind":"Name","value":"options"},"value":{"kind":"Variable","name":{"kind":"Name","value":"options"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"stats"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fixtureDefinitionsCreated"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureInstancesCreated"}},{"kind":"Field","name":{"kind":"Name","value":"looksCreated"}},{"kind":"Field","name":{"kind":"Name","value":"cueListsCreated"}},{"kind":"Field","name":{"kind":"Name","value":"cuesCreated"}}]}},{"kind":"Field","name":{"kind":"Name","value":"warnings"}}]}}]}}]} as unknown as DocumentNode<ImportProjectMutation, ImportProjectMutationVariables>;
 export const ImportProjectFromEosDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ImportProjectFromEos"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"asciiContent"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"options"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"EosImportOptionsInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"importProjectFromEos"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"asciiContent"},"value":{"kind":"Variable","name":{"kind":"Name","value":"asciiContent"}}},{"kind":"Argument","name":{"kind":"Name","value":"options"},"value":{"kind":"Variable","name":{"kind":"Name","value":"options"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureDefinitionsCount"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureInstancesCount"}},{"kind":"Field","name":{"kind":"Name","value":"looksCount"}},{"kind":"Field","name":{"kind":"Name","value":"cueListsCount"}},{"kind":"Field","name":{"kind":"Name","value":"cuesCount"}},{"kind":"Field","name":{"kind":"Name","value":"groupsCount"}},{"kind":"Field","name":{"kind":"Name","value":"warnings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"severity"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"context"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"value"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"synthesizedDefinitionIds"}}]}}]}}]} as unknown as DocumentNode<ImportProjectFromEosMutation, ImportProjectFromEosMutationVariables>;
+export const ProjectExportEosDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ProjectExportEos"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectExportEos"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"projectName"}},{"kind":"Field","name":{"kind":"Name","value":"asciiContent"}},{"kind":"Field","name":{"kind":"Name","value":"warnings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"severity"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"context"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"value"}}]}}]}}]}}]}}]} as unknown as DocumentNode<ProjectExportEosQuery, ProjectExportEosQueryVariables>;
+export const ExportProjectToQlcDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ExportProjectToQLC"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"fixtureMappings"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"FixtureMappingInput"}}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exportProjectToQLC"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"fixtureMappings"},"value":{"kind":"Variable","name":{"kind":"Name","value":"fixtureMappings"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectName"}},{"kind":"Field","name":{"kind":"Name","value":"xmlContent"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureCount"}},{"kind":"Field","name":{"kind":"Name","value":"lookCount"}},{"kind":"Field","name":{"kind":"Name","value":"cueListCount"}}]}}]}}]} as unknown as DocumentNode<ExportProjectToQlcMutation, ExportProjectToQlcMutationVariables>;
+export const ExportProjectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ExportProject"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"options"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"ExportOptionsInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exportProject"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"options"},"value":{"kind":"Variable","name":{"kind":"Name","value":"options"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"projectName"}},{"kind":"Field","name":{"kind":"Name","value":"jsonContent"}},{"kind":"Field","name":{"kind":"Name","value":"stats"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fixtureDefinitionsCount"}},{"kind":"Field","name":{"kind":"Name","value":"fixtureInstancesCount"}},{"kind":"Field","name":{"kind":"Name","value":"looksCount"}},{"kind":"Field","name":{"kind":"Name","value":"cueListsCount"}},{"kind":"Field","name":{"kind":"Name","value":"cuesCount"}}]}}]}}]}}]} as unknown as DocumentNode<ExportProjectMutation, ExportProjectMutationVariables>;
 export const ExportProjectToEosDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ExportProjectToEos"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exportProjectToEos"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"projectName"}},{"kind":"Field","name":{"kind":"Name","value":"asciiContent"}},{"kind":"Field","name":{"kind":"Name","value":"warnings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"severity"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"context"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"value"}}]}}]}}]}}]}}]} as unknown as DocumentNode<ExportProjectToEosMutation, ExportProjectToEosMutationVariables>;
 export const GetSettingsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSettings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"settings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<GetSettingsQuery, GetSettingsQueryVariables>;
 export const GetSettingDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSetting"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"key"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setting"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"key"},"value":{"kind":"Variable","name":{"kind":"Name","value":"key"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<GetSettingQuery, GetSettingQueryVariables>;

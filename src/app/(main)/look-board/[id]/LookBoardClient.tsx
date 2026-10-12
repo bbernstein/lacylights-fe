@@ -13,6 +13,8 @@ import {
 } from "@/graphql/lookBoards";
 import { GET_PROJECT_LOOKS } from "@/graphql/looks";
 import { useProject } from "@/contexts/ProjectContext";
+import ExportMenuButton from "@/components/ExportMenuButton";
+import { DataExportTable } from "@/generated/graphql";
 import { useFocusMode } from "@/contexts/FocusModeContext";
 import { useUserMode } from "@/contexts/UserModeContext";
 import { useStreamDock, STREAM_DECK_LOOK_BUTTON_COUNT } from "@/contexts/StreamDockContext";
@@ -2323,6 +2325,20 @@ export default function LookBoardClient({ id }: LookBoardClientProps) {
                 </p>
               </div>
             </div>
+
+            {/* Export menu (all sizes; icon-only on phones) */}
+            {/* Use the board's own project: the route loads the board by id,
+                so the selected project may differ and the backend requires
+                the scope to belong to projectId. */}
+            {(board.project?.id ?? currentProject?.id) && (
+              <ExportMenuButton
+                table={DataExportTable.LookBoardEntries}
+                scopeId={board.id}
+                projectId={board.project?.id ?? currentProject?.id}
+                compact
+                className="mr-2 md:mr-3 shrink-0"
+              />
+            )}
 
             {/* Right side - Mode toggle (desktop) */}
             <div className="hidden md:flex items-center">

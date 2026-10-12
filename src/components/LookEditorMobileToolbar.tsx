@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, type ReactNode } from 'react';
 import { ChevronLeftIcon, ChevronDownIcon, PlayIcon } from '@heroicons/react/24/outline';
 
 /**
@@ -17,6 +17,8 @@ interface LookEditorMobileToolbarProps {
   onClose: () => void;
   /** Called when mode is switched */
   onToggleMode: () => void;
+  /** Extra actions rendered before the mode switcher (e.g. an Export menu) */
+  actions?: ReactNode;
   /** Test ID for the component */
   testId?: string;
 }
@@ -49,6 +51,7 @@ export default function LookEditorMobileToolbar({
   fromPlayer = false,
   onClose,
   onToggleMode,
+  actions,
   testId = 'look-editor-mobile-toolbar',
 }: LookEditorMobileToolbarProps) {
   const [showModeDropdown, setShowModeDropdown] = useState(false);
@@ -98,6 +101,8 @@ export default function LookEditorMobileToolbar({
           {lookName}
         </h1>
       </div>
+
+      {actions && <div className="flex items-center mr-2">{actions}</div>}
 
       {/* Mode switcher dropdown */}
       <div className="relative">
