@@ -95,6 +95,19 @@ describe('ExportMenuButton', () => {
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
   });
 
+  it('returns focus to the Export button after a successful export', async () => {
+    installBridge();
+    renderButton({ table: DataExportTable.Looks, projectId: 'p1' }, [
+      exportMock({ projectId: 'p1', table: 'LOOKS', format: 'CSV', scopeId: null }, 'looks.csv'),
+    ]);
+    openMenu();
+    const csv = screen.getByRole('menuitem', { name: 'CSV' });
+    expect(csv).toHaveFocus();
+    fireEvent.click(csv);
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Export' })).toHaveFocus();
+  });
+
   it('downloads Excel with the scope id', async () => {
     const downloadBinary = installBridge();
     renderButton({ table: DataExportTable.LookDetails, scopeId: 'l1', projectId: 'p1' }, [

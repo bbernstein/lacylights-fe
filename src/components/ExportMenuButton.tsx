@@ -196,6 +196,8 @@ export default function ExportMenuButton({
         scopeId: item.scopeId ?? null,
       });
       setOpen(false);
+      // The focused item unmounts with the menu; keep keyboard focus on the button.
+      triggerRef.current?.focus();
     } catch (err) {
       // An older backend: the menu switches to the "update LacyLights" note.
       if (!noteDataExportError(client, err)) {
