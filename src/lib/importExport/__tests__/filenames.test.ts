@@ -4,6 +4,7 @@ import {
   projectNameFromFilename,
   sanitizeFilename,
 } from '../filenames';
+import { PROJECT_FORMATS } from '../formats';
 
 describe('importExport/filenames', () => {
   describe('sanitizeFilename', () => {
@@ -33,6 +34,14 @@ describe('importExport/filenames', () => {
       const long = 'x'.repeat(400);
       expect(sanitizeFilename(long)).toHaveLength(MAX_FILENAME_LENGTH);
     });
+
+    it('truncates to a caller-supplied maximum length', () => {
+      expect(sanitizeFilename('x'.repeat(400), 10)).toBe('x'.repeat(10));
+    });
+
+    it('trims whitespace exposed by truncation', () => {
+      expect(sanitizeFilename('abc   def', 5)).toBe('abc');
+    });
   });
 
   describe('buildProjectExportFilename', () => {
@@ -45,6 +54,15 @@ describe('importExport/filenames', () => {
     it('sanitizes the project name', () => {
       expect(buildProjectExportFilename('Act 1/2', 'eos')).toBe('Act 1-2.asc');
     });
+
+    it.each(['lacylights', 'qlcplus', 'eos'] as const)(
+      'keeps the full filename (with %s extension) within the filesystem limit',
+      (format) => {
+        const filename = buildProjectExportFilename('x'.repeat(400), format);
+        expect(filename).toHaveLength(MAX_FILENAME_LENGTH);
+        expect(filename.endsWith(PROJECT_FORMATS[format].extension)).toBe(true);
+      },
+    );
   });
 
   describe('projectNameFromFilename', () => {

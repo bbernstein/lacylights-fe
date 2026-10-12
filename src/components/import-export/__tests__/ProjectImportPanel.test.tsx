@@ -238,4 +238,56 @@ describe('ProjectImportPanel', () => {
     );
     expect(screen.queryByTestId('import-result')).not.toBeInTheDocument();
   });
+  it('reports a refresh failure separately from a successful import', async () => {
+    const onImported = jest.fn().mockRejectedValue(new Error('network down'));
+    renderPanel([eosImportMock()], { onImported });
+    selectFile(makeFile('Ident 3:0\n', 'show.asc'));
+    fireEvent.click(screen.getByRole('button', { name: /^import$/i }));
+
+    const warning = await screen.findByTestId('import-refresh-warning');
+    expect(warning).toHaveTextContent(
+      'The project was imported, but the project list could not be refreshed. Error: network down',
+    );
+    expect(warning).toHaveAttribute('role', 'status');
+    // Shown as a warning on the success result, not as an import error.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    // The successful import result stays visible so the user doesn't retry
+    // (which would create a duplicate project).
+    expect(screen.getByTestId('import-result')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^import$/i })).toHaveTextContent('Import');
+  });
+
+  it('surfaces a failed switch to the imported project and re-enables the button', async () => {
+    const onSwitchToProject = jest.fn().mockRejectedValue(new Error('refetch failed'));
+    renderPanel([eosImportMock()], { onSwitchToProject, currentProjectId: 'other' });
+    selectFile(makeFile('Ident 3:0\n', 'show.asc'));
+    fireEvent.click(screen.getByRole('button', { name: /^import$/i }));
+
+    const switchButton = await screen.findByRole('button', { name: 'Switch to imported project' });
+    fireEvent.click(switchButton);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Failed to switch to the imported project. Error: refetch failed',
+    );
+    expect(onSwitchToProject).toHaveBeenCalledWith('p42');
+    expect(screen.getByRole('button', { name: 'Switch to imported project' })).toBeEnabled();
+    expect(screen.getByTestId('import-result')).toBeInTheDocument();
+  });
+
+  it('clears a previous switch error when switching again succeeds', async () => {
+    const onSwitchToProject = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('refetch failed'))
+      .mockResolvedValueOnce(undefined);
+    renderPanel([eosImportMock()], { onSwitchToProject, currentProjectId: 'other' });
+    selectFile(makeFile('Ident 3:0\n', 'show.asc'));
+    fireEvent.click(screen.getByRole('button', { name: /^import$/i }));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Switch to imported project' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to imported project' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    expect(onSwitchToProject).toHaveBeenCalledTimes(2);
+  });
 });

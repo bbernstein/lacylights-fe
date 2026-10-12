@@ -6,8 +6,12 @@ export const MAX_FILENAME_LENGTH = 255;
 /**
  * Sanitize a filename to prevent directory traversal and remove characters
  * that are invalid on common filesystems.
+ *
+ * @param maxLength Maximum length of the result. Callers that append an
+ *   extension afterwards should pass `MAX_FILENAME_LENGTH - extension.length`
+ *   so the final filename stays within the filesystem limit.
  */
-export function sanitizeFilename(filename: string): string {
+export function sanitizeFilename(filename: string, maxLength = MAX_FILENAME_LENGTH): string {
   let sanitized = filename
     .replace(/[/\\?%*:|"<>]/g, '-') // Replace invalid characters with dash
     .replace(/\.+/g, '.') // Replace multiple dots with single dot
@@ -18,8 +22,8 @@ export function sanitizeFilename(filename: string): string {
     sanitized = 'untitled';
   }
   // Truncate to maximum allowed length
-  if (sanitized.length > MAX_FILENAME_LENGTH) {
-    sanitized = sanitized.substring(0, MAX_FILENAME_LENGTH);
+  if (sanitized.length > maxLength) {
+    sanitized = sanitized.substring(0, maxLength).trimEnd();
   }
   return sanitized;
 }
@@ -35,7 +39,8 @@ export function buildProjectExportFilename(
   projectName: string,
   format: ProjectFileFormat,
 ): string {
-  return `${sanitizeFilename(projectName)}${PROJECT_FORMATS[format].extension}`;
+  const { extension } = PROJECT_FORMATS[format];
+  return `${sanitizeFilename(projectName, MAX_FILENAME_LENGTH - extension.length)}${extension}`;
 }
 
 /**

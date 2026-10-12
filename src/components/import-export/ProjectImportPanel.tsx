@@ -47,6 +47,7 @@ export default function ProjectImportPanel({
   const [isImporting, setIsImporting] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshWarning, setRefreshWarning] = useState<string | null>(null);
   const [result, setResult] = useState<ProjectImportResult | null>(null);
 
   const resolvedFormat = file ? resolveImportFormat(file.name, format) : null;
@@ -56,6 +57,7 @@ export default function ProjectImportPanel({
     const selected = e.target.files?.[0] ?? null;
     setFile(selected);
     setError(null);
+    setRefreshWarning(null);
     setResult(null);
   };
 
@@ -69,21 +71,38 @@ export default function ProjectImportPanel({
 
     setIsImporting(true);
     setError(null);
+    setRefreshWarning(null);
     setResult(null);
+    let importResult: ProjectImportResult;
     try {
       const content = await readFileAsText(file);
-      const importResult = await importProjectContent(client, content, file.name, target);
-      setResult(importResult);
-      setFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      await onImported?.(importResult);
+      importResult = await importProjectContent(client, content, file.name, target);
     } catch (err) {
       setError(
         formatErrorMessage(
           err,
           'Failed to import project. Please check the file and try again. Error:',
+        ),
+      );
+      setIsImporting(false);
+      return;
+    }
+
+    setResult(importResult);
+    setFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    // The import itself succeeded; a failure here (e.g. refreshing the
+    // project list) must not be reported as a failed import, or the user
+    // may retry and create a duplicate project.
+    try {
+      await onImported?.(importResult);
+    } catch (err) {
+      setRefreshWarning(
+        formatErrorMessage(
+          err,
+          'The project was imported, but the project list could not be refreshed. Error:',
         ),
       );
     } finally {
@@ -94,8 +113,11 @@ export default function ProjectImportPanel({
   const handleSwitch = async () => {
     if (!result || !onSwitchToProject) return;
     setIsSwitching(true);
+    setError(null);
     try {
       await onSwitchToProject(result.projectId);
+    } catch (err) {
+      setError(formatErrorMessage(err, 'Failed to switch to the imported project. Error:'));
     } finally {
       setIsSwitching(false);
     }
@@ -215,6 +237,16 @@ export default function ProjectImportPanel({
             </div>
           </div>
 
+          {refreshWarning && (
+            <p
+              role="status"
+              data-testid="import-refresh-warning"
+              className="text-sm text-amber-700 dark:text-amber-400"
+            >
+              {refreshWarning}
+            </p>
+          )}
+
           {result.warnings.length > 0 && (
             <div className="text-sm">
               <div className="font-medium text-amber-700 dark:text-amber-400">
@@ -252,7 +284,10 @@ export default function ProjectImportPanel({
             )}
             <button
               type="button"
-              onClick={() => setResult(null)}
+              onClick={() => {
+                setResult(null);
+                setRefreshWarning(null);
+              }}
               className="px-4 py-2 min-h-[44px] text-sm text-gray-600 dark:text-gray-400 underline touch-manipulation"
             >
               Dismiss

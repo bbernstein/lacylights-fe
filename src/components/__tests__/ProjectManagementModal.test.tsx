@@ -520,5 +520,53 @@ describe('ProjectManagementModal', () => {
       expect(mockPush).toHaveBeenCalledWith('/import-export?section=export&project=project-2');
       expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
-  });
+      it('clears the row menu when the modal is closed and reopened', async () => {
+      const { rerender } = renderWithProvider(createMocks());
+      fireEvent.click(await screen.findByRole('button', { name: 'More actions for Test Project 2' }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+
+      const renderModal = (isOpen: boolean) => (
+        <MockedProvider mocks={createMocks()} addTypename={false}>
+          <ProjectManagementModal {...defaultProps} isOpen={isOpen} />
+        </MockedProvider>
+      );
+      rerender(renderModal(false));
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+      rerender(renderModal(true));
+      await screen.findByRole('button', { name: 'More actions for Test Project 2' });
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ['footer Close button', () => screen.getByText('Close', { selector: 'button' })],
+      ['header X button', () => screen.getByTestId('project-management-modal-close-button')],
+    ])('clears the row menu when the modal is closed via the %s', async (_label, getButton) => {
+      const onClose = jest.fn();
+      renderWithProvider(createMocks(), { onClose });
+      fireEvent.click(await screen.findByRole('button', { name: 'More actions for Test Project 2' }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+
+      fireEvent.click(getButton());
+
+      expect(onClose).toHaveBeenCalled();
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('row menu is keyboard accessible: focus moves in, Escape closes only the menu', async () => {
+      const onClose = jest.fn();
+      renderWithProvider(createMocks(), { onClose });
+      const trigger = await screen.findByRole('button', { name: 'More actions for Test Project 2' });
+      trigger.focus();
+      fireEvent.click(trigger);
+
+      const item = screen.getByRole('menuitem', { name: /More export options…/ });
+      expect(item).toHaveFocus();
+
+      fireEvent.keyDown(item, { key: 'Escape' });
+
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+      expect(trigger).toHaveFocus();
+    });
+});
 });

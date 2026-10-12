@@ -76,6 +76,19 @@ describe('ProjectExportPanel', () => {
     expect(screen.getByLabelText('Project')).toHaveValue('p2');
   });
 
+  it("keeps the user's choice when the default project changes later", () => {
+    const { rerender } = renderPanel([], { defaultProjectId: undefined });
+    expect(screen.getByLabelText('Project')).toHaveValue('p1');
+    fireEvent.change(screen.getByLabelText('Project'), { target: { value: 'p2' } });
+    // e.g. the current project loads, or the user switches to an imported project
+    rerender(
+      <MockedProvider mocks={[]} addTypename={false}>
+        <ProjectExportPanel projects={projects} defaultProjectId="p1" />
+      </MockedProvider>,
+    );
+    expect(screen.getByLabelText('Project')).toHaveValue('p2');
+  });
+
   it('offers the three formats with descriptions and Export buttons', () => {
     renderPanel([]);
     expect(screen.getByRole('button', { name: 'Export as LacyLights (.json)' })).toBeInTheDocument();
