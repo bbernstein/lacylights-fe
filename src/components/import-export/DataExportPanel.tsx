@@ -358,7 +358,7 @@ export default function DataExportPanel({
               return (
                 <label
                   key={f.id}
-                  className={`px-4 py-2 min-h-[44px] inline-flex items-center text-sm font-medium cursor-pointer border touch-manipulation ${
+                  className={`px-4 py-2 min-h-[44px] inline-flex items-center text-sm font-medium cursor-pointer border touch-manipulation focus-within:relative focus-within:z-10 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-1 ${
                     idx === 0 ? 'rounded-l-md' : '-ml-px rounded-r-md'
                   } ${
                     checked

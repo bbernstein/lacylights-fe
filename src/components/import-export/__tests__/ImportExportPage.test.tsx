@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import ImportExportPage, { parseImportExportParams, sectionDomId } from '../ImportExportPage';
-import { IMPORT_PROJECT_FROM_EOS } from '@/graphql/projects';
+import { GET_PROJECT_NAME, IMPORT_PROJECT_FROM_EOS } from '@/graphql/projects';
 import { GET_DATA_EXPORT_TABLES } from '@/graphql/dataExport';
 import { GET_PROJECT_LOOKS } from '@/graphql/looks';
 
@@ -111,6 +111,31 @@ describe('ImportExportPage', () => {
     mockSearchParams = new URLSearchParams('section=export&project=nope');
     renderPage();
     expect(screen.getByLabelText('Project')).toHaveValue('p1');
+  });
+
+  it('offers a deep-linked accessible project from another group', async () => {
+    mockSearchParams = new URLSearchParams('section=export&project=p9');
+    renderPage([
+      {
+        request: { query: GET_PROJECT_NAME, variables: { id: 'p9' } },
+        result: { data: { project: { id: 'p9', name: 'Other Group Show' } } },
+      },
+    ]);
+    const select = screen.getByLabelText('Project');
+    await waitFor(() => expect(select).toHaveValue('p9'));
+    expect(within(select).getByRole('option', { name: 'Other Group Show' })).toBeInTheDocument();
+  });
+
+  it('ignores a deep-linked project the server does not return', async () => {
+    mockSearchParams = new URLSearchParams('section=export&project=p9');
+    renderPage([
+      {
+        request: { query: GET_PROJECT_NAME, variables: { id: 'p9' } },
+        result: { data: { project: null } },
+      },
+    ]);
+    await waitFor(() => expect(screen.getByLabelText('Project')).toHaveValue('p1'));
+    expect(screen.queryByRole('option', { name: /Other/ })).not.toBeInTheDocument();
   });
 
   it('keeps the requested section when table and scopeId are also given', () => {

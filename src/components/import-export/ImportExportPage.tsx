@@ -1,7 +1,10 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useQuery } from '@apollo/client';
+import { GET_PROJECT_NAME } from '@/graphql/projects';
+import type { GetProjectNameQuery } from '@/generated/graphql';
 import { useProject } from '@/contexts/ProjectContext';
 import ProjectImportPanel from './ProjectImportPanel';
 import ProjectExportPanel from './ProjectExportPanel';
@@ -78,9 +81,29 @@ export default function ImportExportPage() {
     el.focus?.({ preventScroll: true });
   }, [params.section]);
 
+  // ProjectContext.projects only holds the active group's projects. A deep
+  // link (e.g. "More import/export options…" on a look board) can point at
+  // an accessible project in another group, so look that one up and offer
+  // it too. Projects the user cannot access fail the lookup and are ignored.
+  const requestedInList = !!params.projectId && projects.some((p) => p.id === params.projectId);
+  const { data: requestedProjectData } = useQuery<GetProjectNameQuery>(GET_PROJECT_NAME, {
+    variables: { id: params.projectId ?? '' },
+    skip: !params.projectId || requestedInList,
+  });
+  const requestedExtraProject =
+    !requestedInList && requestedProjectData?.project?.id === params.projectId
+      ? requestedProjectData.project
+      : null;
+  const exportProjects = useMemo(
+    () =>
+      requestedExtraProject
+        ? [...projects, { id: requestedExtraProject.id, name: requestedExtraProject.name }]
+        : projects,
+    [projects, requestedExtraProject],
+  );
+
   // Only honour ?project= when it refers to a project the user can see.
-  const requestedProjectId =
-    params.projectId && projects.some((p) => p.id === params.projectId) ? params.projectId : null;
+  const requestedProjectId = requestedInList || requestedExtraProject ? params.projectId : null;
   const defaultExportProjectId = requestedProjectId ?? currentProject?.id ?? null;
 
   const sections: SectionDefinition[] = [
@@ -103,7 +126,7 @@ export default function ImportExportPage() {
       title: 'Export project',
       description: 'Download a whole project to back it up or move it to another console.',
       content: (
-        <ProjectExportPanel projects={projects} defaultProjectId={defaultExportProjectId} />
+        <ProjectExportPanel projects={exportProjects} defaultProjectId={defaultExportProjectId} />
       ),
     },
     {
@@ -113,7 +136,7 @@ export default function ImportExportPage() {
         'Download a list (fixtures, looks, cue lists, …) as a spreadsheet, or every list in one Excel workbook.',
       content: (
         <DataExportPanel
-          projects={projects}
+          projects={exportProjects}
           defaultProjectId={defaultExportProjectId}
           defaultTable={params.table}
           defaultScopeId={params.scopeId}
