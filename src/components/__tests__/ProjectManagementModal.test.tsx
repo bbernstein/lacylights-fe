@@ -1,6 +1,6 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MockedProvider } from '@apollo/client/testing';
+import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import ProjectManagementModal from '../ProjectManagementModal';
 import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT, EXPORT_PROJECT } from '../../graphql/projects';
 
@@ -168,7 +168,7 @@ const createMocks = () => [
   },
 ];
 
-const renderWithProvider = (mocks = createMocks(), props = {}) => {
+const renderWithProvider = (mocks: ReadonlyArray<MockedResponse> = createMocks(), props = {}) => {
   const { useProject } = require('../../contexts/ProjectContext');
   useProject.mockReturnValue(mockUseProject);
 
