@@ -399,4 +399,88 @@ describe('ContextMenu', () => {
       expect(newTop).toBeGreaterThanOrEqual(10);
     });
   });
+  describe('keyboard accessibility', () => {
+    const options: ContextMenuOption[] = [
+      { label: 'Disabled first', onClick: jest.fn(), disabled: true },
+      { label: 'Alpha', onClick: jest.fn() },
+      { label: 'Beta', onClick: jest.fn() },
+      { label: 'Gamma', onClick: jest.fn() },
+    ];
+
+    it('does not move focus by default', () => {
+      render(<ContextMenu x={0} y={0} options={options} onDismiss={mockOnDismiss} />);
+      expect(document.body).toHaveFocus();
+    });
+
+    it('focuses the first enabled item when autoFocus is set', () => {
+      render(<ContextMenu x={0} y={0} options={options} onDismiss={mockOnDismiss} autoFocus />);
+      expect(screen.getByRole('menuitem', { name: 'Alpha' })).toHaveFocus();
+    });
+
+    it('moves focus between enabled items with arrow, Home and End keys', () => {
+      render(<ContextMenu x={0} y={0} options={options} onDismiss={mockOnDismiss} autoFocus />);
+      const alpha = screen.getByRole('menuitem', { name: 'Alpha' });
+      const beta = screen.getByRole('menuitem', { name: 'Beta' });
+      const gamma = screen.getByRole('menuitem', { name: 'Gamma' });
+
+      fireEvent.keyDown(alpha, { key: 'ArrowDown' });
+      expect(beta).toHaveFocus();
+      fireEvent.keyDown(beta, { key: 'End' });
+      expect(gamma).toHaveFocus();
+      fireEvent.keyDown(gamma, { key: 'ArrowDown' });
+      expect(alpha).toHaveFocus(); // wraps, skipping the disabled item
+      fireEvent.keyDown(alpha, { key: 'ArrowUp' });
+      expect(gamma).toHaveFocus(); // wraps backwards
+      fireEvent.keyDown(gamma, { key: 'Home' });
+      expect(alpha).toHaveFocus();
+    });
+
+    it('handles Escape inside the menu without letting it reach document listeners', async () => {
+      const documentListener = jest.fn();
+      document.addEventListener('keydown', documentListener);
+      try {
+        render(<ContextMenu x={0} y={0} options={options} onDismiss={mockOnDismiss} autoFocus />);
+        await new Promise(resolve => requestAnimationFrame(() => resolve(undefined)));
+
+        fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Alpha' }), { key: 'Escape' });
+
+        expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+        expect(documentListener).not.toHaveBeenCalled();
+      } finally {
+        document.removeEventListener('keydown', documentListener);
+      }
+    });
+
+    it('dismisses on Tab instead of letting focus leave the menu', () => {
+      render(<ContextMenu x={0} y={0} options={options} onDismiss={mockOnDismiss} autoFocus />);
+      const notPrevented = fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Alpha' }), { key: 'Tab' });
+      expect(notPrevented).toBe(false);
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('restores focus to the previously focused element on close when autoFocus is set', () => {
+      const { rerender } = render(
+        <>
+          <button>Trigger</button>
+        </>,
+      );
+      const trigger = screen.getByRole('button', { name: 'Trigger' });
+      trigger.focus();
+
+      rerender(
+        <>
+          <button>Trigger</button>
+          <ContextMenu x={0} y={0} options={options} onDismiss={mockOnDismiss} autoFocus />
+        </>,
+      );
+      expect(screen.getByRole('menuitem', { name: 'Alpha' })).toHaveFocus();
+
+      rerender(
+        <>
+          <button>Trigger</button>
+        </>,
+      );
+      expect(trigger).toHaveFocus();
+    });
+  });
 });

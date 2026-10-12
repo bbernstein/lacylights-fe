@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useApolloClient, useMutation, useQuery } from '@apollo/client';
 import { useRouter } from 'next/navigation';
@@ -64,7 +64,19 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     },
   });
 
+  // The modal stays mounted while closed, so drop any open row menu when it
+  // closes (from any path, including a parent toggling isOpen) so it can't
+  // reappear at stale coordinates on the next open.
+  useEffect(() => {
+    if (!isOpen) setRowMenu(null);
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const handleClose = () => {
+    setRowMenu(null);
+    onClose();
+  };
 
   const handleSelectAll = () => {
     if (selectedProjects.size === data?.projects.length) {
@@ -202,8 +214,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   };
 
   const navigateTo = (href: string) => {
-    setRowMenu(null);
-    onClose();
+    handleClose();
     router.push(href);
   };
 
@@ -462,7 +473,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   const footerContent = (
     <div className={`flex ${isMobile ? 'flex-col' : 'justify-end'}`}>
       <button
-        onClick={onClose}
+        onClick={handleClose}
         className={`${isMobile ? 'w-full' : ''} px-4 py-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 min-h-[44px] touch-manipulation`}
       >
         Close
@@ -473,7 +484,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   return (
     <BottomSheet
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title="Manage Projects"
       footer={footerContent}
       maxWidth="max-w-2xl"
@@ -486,6 +497,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
         <ContextMenu
           x={rowMenu.x}
           y={rowMenu.y}
+          autoFocus
           onDismiss={() => setRowMenu(null)}
           options={[
             {

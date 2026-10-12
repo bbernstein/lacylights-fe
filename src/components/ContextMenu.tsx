@@ -15,17 +15,31 @@ interface ContextMenuProps {
   y: number;
   options: ContextMenuOption[];
   onDismiss: () => void;
+  /**
+   * Move keyboard focus into the menu (first enabled item) when it opens and
+   * restore it to the previously focused element when it closes. Use for
+   * menus opened from a button so keyboard users can reach the items.
+   */
+  autoFocus?: boolean;
 }
+
+const ITEM_SELECTOR = '[role="menuitem"]:not([disabled])';
 
 /**
  * A context menu component that appears at a specific position.
  * Dismisses when clicking outside or pressing Escape.
+ *
+ * Keyboard: Arrow Up/Down, Home and End move between enabled items; Escape
+ * and Tab dismiss the menu. Key presses handled inside the menu don't
+ * propagate, so an enclosing dialog's Escape/focus-trap handlers don't also
+ * react to them.
  */
 export default function ContextMenu({
   x,
   y,
   options,
   onDismiss,
+  autoFocus = false,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const justOpenedRef = useRef(true); // Track if menu was just opened
@@ -38,6 +52,57 @@ export default function ContextMenu({
     justOpenedRef.current = true;
     setPosition({ x, y });
   }, [x, y]);
+
+  // Move focus into the menu on open and restore it on close (opt-in).
+  useEffect(() => {
+    if (!autoFocus) return;
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    menuRef.current?.querySelector<HTMLElement>(ITEM_SELECTOR)?.focus();
+    const menu = menuRef.current;
+    return () => {
+      // Only restore when focus would otherwise be lost (inside the menu or
+      // on <body>), never stealing it from somewhere the user moved to.
+      const active = document.activeElement;
+      const focusLost = !active || active === document.body || (menu?.contains(active) ?? false);
+      if (focusLost && previouslyFocused?.isConnected) {
+        previouslyFocused.focus();
+      }
+    };
+  }, [autoFocus]);
+
+  const handleMenuKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(
+      menuRef.current?.querySelectorAll<HTMLElement>(ITEM_SELECTOR) ?? [],
+    );
+    const current = items.indexOf(document.activeElement as HTMLElement);
+    let next: number | null = null;
+    switch (e.key) {
+      case 'ArrowDown':
+        next = current < 0 ? 0 : (current + 1) % items.length;
+        break;
+      case 'ArrowUp':
+        next = current < 0 ? items.length - 1 : (current - 1 + items.length) % items.length;
+        break;
+      case 'Home':
+        next = 0;
+        break;
+      case 'End':
+        next = items.length - 1;
+        break;
+      case 'Escape':
+      case 'Tab':
+        e.preventDefault();
+        e.stopPropagation();
+        onDismiss();
+        return;
+      default:
+        return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    items[next]?.focus();
+  };
 
   // Handle click outside to close menu
   useEffect(() => {
@@ -117,6 +182,7 @@ export default function ContextMenu({
       className="fixed z-[9999] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[160px]"
       style={{ left: position.x, top: position.y }}
       role="menu"
+      onKeyDown={handleMenuKeyDown}
     >
       {options.map((option) => (
         <button
