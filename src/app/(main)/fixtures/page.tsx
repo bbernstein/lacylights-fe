@@ -8,6 +8,8 @@ import { useRouter } from 'next/navigation';
 import AddFixtureModal from '@/components/AddFixtureModal';
 import EditFixtureModal from '@/components/EditFixtureModal';
 import ImportOFLFixtureModal from '@/components/ImportOFLFixtureModal';
+import ExportMenuButton from '@/components/ExportMenuButton';
+import { DataExportTable } from '@/generated/graphql';
 import { useProject } from '@/contexts/ProjectContext';
 import { useStreamDock, BrowseHandlers } from '@/contexts/StreamDockContext';
 import { useRecentItems } from '@/hooks/useRecentItems';
@@ -434,7 +436,14 @@ export default function FixturesPage() {
             Manage your lighting fixtures and DMX patching
           </p>
         </div>
-        <div className="mt-4 sm:mt-0 flex gap-3">
+        <div className="mt-4 sm:mt-0 flex flex-wrap gap-3">
+          <ExportMenuButton
+            projectId={currentProject?.id}
+            tables={[
+              { table: DataExportTable.Fixtures, label: 'Fixtures' },
+              { table: DataExportTable.FixtureTypes, label: 'Fixture types' },
+            ]}
+          />
           <button
             type="button"
             onClick={() => setIsImportModalOpen(true)}

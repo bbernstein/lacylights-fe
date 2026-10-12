@@ -21,6 +21,16 @@ describe('LookEditorMobileToolbar', () => {
     );
   });
 
+  it('renders extra actions before the mode switcher', () => {
+    render(
+      <LookEditorMobileToolbar
+        {...defaultProps}
+        actions={<button type="button">Export</button>}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Export' })).toBeInTheDocument();
+  });
+
   it('renders with custom testId', () => {
     render(<LookEditorMobileToolbar {...defaultProps} testId="custom-toolbar" />);
 

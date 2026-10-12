@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import CueListPlayer from "@/components/CueListPlayer";
 import CueListUnifiedView from "@/components/CueListUnifiedView";
 import { extractCueListId } from "@/utils/routeUtils";
+import ExportMenuButton from "@/components/ExportMenuButton";
+import { useProject } from "@/contexts/ProjectContext";
+import { DataExportTable } from "@/generated/graphql";
 
 interface CueListPageClientProps {
   cueListId: string;
@@ -16,6 +19,7 @@ export default function CueListPageClient({
   const cueListId = extractCueListId(cueListIdProp);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { currentProject } = useProject();
 
   // Cue list name is provided by child components via callback to avoid duplicate queries
   const [cueListName, setCueListName] = useState("");
@@ -69,16 +73,27 @@ export default function CueListPageClient({
           {cueListName}
         </h1>
 
-        <button
-          onClick={handleToggleMode}
-          className={`px-3 py-2 rounded text-xs sm:text-sm font-medium transition-colors flex-shrink-0 touch-manipulation ${
-            isEditMode
-              ? "bg-blue-600 hover:bg-blue-700 text-white"
-              : "bg-gray-700 hover:bg-gray-600 text-gray-300"
-          }`}
-        >
-          {isEditMode ? "Player" : "Edit"}
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {currentProject?.id && (
+            <ExportMenuButton
+              table={DataExportTable.CueListDetails}
+              scopeId={cueListId}
+              projectId={currentProject.id}
+              appearance="toolbar"
+              compact
+            />
+          )}
+          <button
+            onClick={handleToggleMode}
+            className={`px-3 py-2 rounded text-xs sm:text-sm font-medium transition-colors flex-shrink-0 touch-manipulation ${
+              isEditMode
+                ? "bg-blue-600 hover:bg-blue-700 text-white"
+                : "bg-gray-700 hover:bg-gray-600 text-gray-300"
+            }`}
+          >
+            {isEditMode ? "Player" : "Edit"}
+          </button>
+        </div>
       </div>
 
       {/* Content - z-10 ensures content is below header (z-50), overflow-hidden clips content for iOS touch events */}

@@ -1,7 +1,9 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import ImportExportPage, { parseImportExportParams, sectionDomId } from '../ImportExportPage';
 import { IMPORT_PROJECT_FROM_EOS } from '@/graphql/projects';
+import { GET_DATA_EXPORT_TABLES } from '@/graphql/dataExport';
+import { GET_PROJECT_LOOKS } from '@/graphql/looks';
 
 let mockSearchParams = new URLSearchParams();
 jest.mock('next/navigation', () => ({
@@ -111,10 +113,72 @@ describe('ImportExportPage', () => {
     expect(screen.getByLabelText('Project')).toHaveValue('p1');
   });
 
-  it('tolerates table and scopeId params', () => {
+  it('keeps the requested section when table and scopeId are also given', () => {
     mockSearchParams = new URLSearchParams('section=import&table=LOOKS&scopeId=x');
     renderPage();
     expect(scrollIntoView.mock.instances[0]).toBe(document.getElementById(sectionDomId('import')));
+  });
+
+  describe('data section', () => {
+    const tablesMock: MockedResponse = {
+      request: { query: GET_DATA_EXPORT_TABLES },
+      result: {
+        data: {
+          dataExportTables: [
+            { table: 'FIXTURES', label: 'Fixtures', scope: 'project', columns: ['Name'] },
+            { table: 'LOOK_DETAILS', label: 'Look details', scope: 'look', columns: ['Fixture'] },
+          ],
+        },
+      },
+    };
+    const looksMock: MockedResponse = {
+      request: { query: GET_PROJECT_LOOKS, variables: { projectId: 'p2' } },
+      result: {
+        data: {
+          project: {
+            id: 'p2',
+            looks: [
+              {
+                id: 'l1',
+                name: 'Warm',
+                description: null,
+                createdAt: '2026-01-01T00:00:00Z',
+                updatedAt: '2026-01-01T00:00:00Z',
+                fixtureValues: [],
+              },
+              {
+                id: 'l7',
+                name: 'Cool',
+                description: null,
+                createdAt: '2026-01-01T00:00:00Z',
+                updatedAt: '2026-01-01T00:00:00Z',
+                fixtureValues: [],
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    it('renders the Export data (CSV / Excel) section', async () => {
+      renderPage([tablesMock]);
+      const region = screen.getByRole('region', { name: 'Export data (CSV / Excel)' });
+      expect(await within(region).findByLabelText('Data')).toHaveValue('FIXTURES');
+      expect(within(region).getByLabelText('Project')).toHaveValue('p1');
+    });
+
+    it('opens the data section with table, scope and project from the query string', async () => {
+      mockSearchParams = new URLSearchParams('section=data&table=LOOK_DETAILS&scopeId=l7&project=p2');
+      renderPage([tablesMock, looksMock]);
+      const section = document.getElementById(sectionDomId('data'))!;
+      expect(scrollIntoView.mock.instances[0]).toBe(section);
+      expect(section.className).toContain('ring-2');
+
+      const region = screen.getByRole('region', { name: 'Export data (CSV / Excel)' });
+      expect(await within(region).findByLabelText('Look')).toHaveValue('l7');
+      expect(within(region).getByLabelText('Data')).toHaveValue('LOOK_DETAILS');
+      expect(within(region).getByLabelText('Project')).toHaveValue('p2');
+    });
   });
 
   it('refreshes projects after import and switches only when asked', async () => {
