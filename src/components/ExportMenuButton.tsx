@@ -191,8 +191,8 @@ export default function ExportMenuButton({
     if (needsProject(item.table) && !projectId) return 'Open a project to export this list';
     const info = infoFor(item.table);
     if (info?.scopeRequired && !item.scopeId) {
-      const what = isItemScope(info.scope) ? DATA_EXPORT_SCOPE_LABELS[info.scope].toLowerCase() : 'item';
-      return `Open a ${what} to export this list`;
+      const what = isItemScope(info.scope) ? `a ${DATA_EXPORT_SCOPE_LABELS[info.scope].toLowerCase()}` : 'an item';
+      return `Open ${what} to export this list`;
     }
     return null;
   };

@@ -341,6 +341,15 @@ describe('ExportMenuButton', () => {
       await waitFor(() => expect(downloadBinary).toHaveBeenCalledWith('YQo=', 'types.csv', 'text/csv'));
     });
 
+    it('explains a required scope that is not a look, cue list or look board', async () => {
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' }, [
+        tablesMock([{ table: 'LOOKS', scope: 'project', scopeRequired: true }]),
+      ]);
+      openMenu();
+      await waitFor(() => expect(screen.getByRole('menuitem', { name: 'CSV' })).toBeDisabled());
+      expect(screen.getByRole('menuitem', { name: 'CSV' })).toHaveAttribute('title', 'Open an item to export this list');
+    });
+
     it('applies the legacy scope rules on a backend without scopeRequired', async () => {
       renderButton(
         {

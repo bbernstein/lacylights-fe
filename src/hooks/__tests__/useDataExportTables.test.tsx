@@ -107,4 +107,15 @@ describe('useDataExportTables', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(result.current.state.tables).toBeNull();
   });
+
+  it('loads when called without options', async () => {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <MockedProvider mocks={[newTables]} addTypename={false}>
+        {children}
+      </MockedProvider>
+    );
+    const { result } = renderHook(() => useDataExportTables(), { wrapper });
+    expect(result.current.loading).toBe(true);
+    await waitFor(() => expect(result.current.tables).toHaveLength(2));
+  });
 });
