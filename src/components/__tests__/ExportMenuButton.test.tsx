@@ -426,6 +426,20 @@ describe('ExportMenuButton', () => {
       expect(menu.style.maxHeight).toBe('204px');
     });
 
+    it('never sizes the menu past the viewport when there is very little room either way', () => {
+      // Short viewport (split screen / on-screen keyboard): under 120px both ways.
+      setViewport(659, 220);
+      mockLayout({ left: 281, top: 90, width: 113, height: 38 }, { width: 220, height: 280 });
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
+      openMenu();
+
+      const menu = screen.getByRole('menu');
+      // Below: 220 - 128 - 4 - 8 = 80; above: 90 - 4 - 8 = 78. The menu is
+      // capped to the 80px that exist (it scrolls), not to a larger minimum.
+      expect(menu).toHaveClass('top-full', 'overflow-y-auto');
+      expect(menu.style.maxHeight).toBe('80px');
+    });
+
     it('repositions when the screen is resized or rotated while open', () => {
       setViewport(393, 659);
       mockLayout({ left: 16, top: 219, width: 113, height: 44 }, { width: 220, height: 280 });
@@ -466,16 +480,16 @@ describe('ExportMenuButton', () => {
       renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
       const trigger = screen.getByRole('button', { name: 'Export' });
       expect(trigger.className).toContain('min-h-[44px]');
-      expect(trigger.className).toContain('[@media(pointer:coarse)]:min-h-[44px]');
+      expect(trigger.className).toContain('[@media(any-pointer:coarse)]:min-h-[44px]');
       openMenu();
       for (const item of screen.getAllByRole('menuitem')) {
-        expect(item.className).toContain('[@media(pointer:coarse)]:py-3');
+        expect(item.className).toContain('[@media(any-pointer:coarse)]:py-3');
       }
     });
 
     it('keeps the toolbar button a 44px touch target on touch screens', () => {
       renderButton({ table: DataExportTable.Looks, projectId: 'p1', appearance: 'toolbar' });
-      expect(screen.getByRole('button', { name: 'Export' }).className).toContain('[@media(pointer:coarse)]:min-h-[44px]');
+      expect(screen.getByRole('button', { name: 'Export' }).className).toContain('[@media(any-pointer:coarse)]:min-h-[44px]');
     });
 
     it('stacks the backdrop and menu above the fixed mobile navigation (z-50)', () => {
