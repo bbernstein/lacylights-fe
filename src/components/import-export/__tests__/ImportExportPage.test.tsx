@@ -2,8 +2,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import ImportExportPage, { parseImportExportParams, sectionDomId } from '../ImportExportPage';
 import { IMPORT_PROJECT_FROM_EOS } from '@/graphql/projects';
-import { GET_DATA_EXPORT_TABLES } from '@/graphql/dataExport';
-import { GET_PROJECT_LOOKS } from '@/graphql/looks';
+import { GET_DATA_EXPORT_LOOK_NAMES, GET_DATA_EXPORT_TABLES } from '@/graphql/dataExport';
 
 let mockSearchParams = new URLSearchParams();
 jest.mock('next/navigation', () => ({
@@ -136,35 +135,21 @@ describe('ImportExportPage', () => {
       result: {
         data: {
           dataExportTables: [
-            { table: 'FIXTURES', label: 'Fixtures', scope: 'project', columns: ['Name'] },
-            { table: 'LOOK_DETAILS', label: 'Look details', scope: 'look', columns: ['Fixture'] },
+            { table: 'FIXTURES', label: 'Fixtures', scope: 'project', scopeRequired: false, columns: ['Name'] },
+            { table: 'LOOK_DETAILS', label: 'Look details', scope: 'look', scopeRequired: true, columns: ['Fixture'] },
           ],
         },
       },
     };
     const looksMock: MockedResponse = {
-      request: { query: GET_PROJECT_LOOKS, variables: { projectId: 'p2' } },
+      request: { query: GET_DATA_EXPORT_LOOK_NAMES, variables: { projectId: 'p2' } },
       result: {
         data: {
           project: {
             id: 'p2',
             looks: [
-              {
-                id: 'l1',
-                name: 'Warm',
-                description: null,
-                createdAt: '2026-01-01T00:00:00Z',
-                updatedAt: '2026-01-01T00:00:00Z',
-                fixtureValues: [],
-              },
-              {
-                id: 'l7',
-                name: 'Cool',
-                description: null,
-                createdAt: '2026-01-01T00:00:00Z',
-                updatedAt: '2026-01-01T00:00:00Z',
-                fixtureValues: [],
-              },
+              { id: 'l1', name: 'Warm' },
+              { id: 'l7', name: 'Cool' },
             ],
           },
         },
@@ -182,7 +167,7 @@ describe('ImportExportPage', () => {
       mockSearchParams = new URLSearchParams('section=data&table=LOOK_DETAILS&scopeId=l7&project=p3');
       const otherGroupLooks: MockedResponse = {
         ...looksMock,
-        request: { query: GET_PROJECT_LOOKS, variables: { projectId: 'p3' } },
+        request: { query: GET_DATA_EXPORT_LOOK_NAMES, variables: { projectId: 'p3' } },
         result: {
           data: {
             project: {

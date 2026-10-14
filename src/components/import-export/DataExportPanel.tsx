@@ -3,11 +3,17 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { useApolloClient, useQuery } from '@apollo/client';
 import { ArrowDownTrayIcon, TableCellsIcon } from '@heroicons/react/24/outline';
-import { GET_DATA_EXPORT_TABLES } from '@/graphql/dataExport';
-import { GET_PROJECT_LOOKS } from '@/graphql/looks';
-import { GET_PROJECT_CUE_LISTS } from '@/graphql/cueLists';
-import { GET_PROJECT_LOOK_BOARDS } from '@/graphql/lookBoards';
-import type { GetDataExportTablesQuery } from '@/generated/graphql';
+import {
+  GET_DATA_EXPORT_CUE_LIST_NAMES,
+  GET_DATA_EXPORT_LOOK_BOARD_NAMES,
+  GET_DATA_EXPORT_LOOK_NAMES,
+} from '@/graphql/dataExport';
+import type {
+  GetDataExportCueListNamesQuery,
+  GetDataExportLookBoardNamesQuery,
+  GetDataExportLookNamesQuery,
+} from '@/generated/graphql';
+import { useDataExportTables } from '@/hooks/useDataExportTables';
 import { useDataExportUnsupported } from '@/hooks/useDataExportUnsupported';
 import {
   DATA_EXPORT_UNSUPPORTED_MESSAGE,
@@ -20,10 +26,9 @@ import {
   formatErrorMessage,
   isDataExportUnsupportedError,
   isItemScope,
-  isProjectOptional,
-  isScopeRequired,
   noteDataExportError,
   parseDataExportTable,
+  tableNeedsProject,
   type DataExportFile,
   type DataExportItemScope,
 } from '@/lib/importExport';
@@ -64,9 +69,14 @@ function pluralRows(n: number): string {
  * a whole project as a multi-sheet Excel workbook. The table list comes
  * from the server (`dataExportTables`); the files are generated there too.
  *
+ * Whether a table needs a project and whether its look / cue list / look
+ * board must be chosen come from the server (`scope`, `scopeRequired`).
+ * The pickers load names only.
+ *
  * Older backends have no data export; when they reject `dataExportTables`
  * (or an export) with "Cannot query field", the panel explains that the
- * server needs an update instead of showing an error.
+ * server needs an update instead of showing an error. Backends without
+ * `scopeRequired` (lacylights-go v0.4.1) get the legacy frontend rules.
  */
 export default function DataExportPanel({
   projects,
@@ -81,18 +91,17 @@ export default function DataExportPanel({
   const formatGroupName = useId();
 
   const knownUnsupported = useDataExportUnsupported();
-  const { data: tablesData, loading: tablesLoading, error: tablesError } =
-    useQuery<GetDataExportTablesQuery>(GET_DATA_EXPORT_TABLES, { skip: knownUnsupported });
+  // Also remembers an old backend for the session so Export ▾ menus adapt too.
+  const {
+    tables: loadedTables,
+    loading: tablesLoading,
+    error: tablesError,
+  } = useDataExportTables({ skip: knownUnsupported });
   const unsupported = knownUnsupported || isDataExportUnsupportedError(tablesError);
-
-  // Remember an old backend for the session so Export ▾ menus adapt too.
-  useEffect(() => {
-    if (tablesError) noteDataExportError(client, tablesError);
-  }, [tablesError, client]);
-  const tables = useMemo(() => tablesData?.dataExportTables ?? [], [tablesData]);
+  const tables = useMemo(() => loadedTables ?? [], [loadedTables]);
 
   const [projectId, setProjectId] = useState<string>(defaultProjectId ?? projects[0]?.id ?? '');
-  const [table, setTable] = useState<DataExportTable | null>(parseDataExportTable(defaultTable));
+  const [tableChoice, setTable] = useState<DataExportTable | null>(parseDataExportTable(defaultTable));
   const [scopeId, setScopeId] = useState<string>(defaultScopeId ?? '');
   const [format, setFormat] = useState<DataExportFormat>(DataExportFormat.Csv);
   const [running, setRunning] = useState<ExportAction | null>(null);
@@ -125,29 +134,31 @@ export default function DataExportPanel({
     }
   }, [projects, projectId]);
 
-  // Once the table list loads, make sure the selection is one of them.
-  useEffect(() => {
-    if (tables.length === 0) return;
-    if (!table || !tables.some((t) => t.table === table)) {
-      setTable(tables[0].table);
-    }
-  }, [tables, table]);
+  // Once the table list loads, the selection is one of them (the first when
+  // the choice is unset or unknown). Derived during render rather than
+  // synced by an effect, so the panel never renders the list with no table
+  // selected (no columns hint, Export doing nothing).
+  const table: DataExportTable | null =
+    tables.length > 0 && !(tableChoice && tables.some((t) => t.table === tableChoice))
+      ? tables[0].table
+      : tableChoice;
 
   const tableInfo = tables.find((t) => t.table === table) ?? null;
   const scope = tableInfo?.scope ?? null;
   const itemScope: DataExportItemScope | null = isItemScope(scope) ? scope : null;
-  const needsProject = table ? !isProjectOptional(table) : true;
-  const scopeRequired = table ? isScopeRequired(table, scope) : false;
+  const needsProject = table ? tableNeedsProject(table, tableInfo) : true;
+  const scopeRequired = tableInfo?.scopeRequired ?? false;
 
-  const looksQuery = useQuery(GET_PROJECT_LOOKS, {
+  // Names-only lists for the pickers (cheap on large projects).
+  const looksQuery = useQuery<GetDataExportLookNamesQuery>(GET_DATA_EXPORT_LOOK_NAMES, {
     variables: { projectId },
     skip: itemScope !== 'look' || !projectId,
   });
-  const cueListsQuery = useQuery(GET_PROJECT_CUE_LISTS, {
+  const cueListsQuery = useQuery<GetDataExportCueListNamesQuery>(GET_DATA_EXPORT_CUE_LIST_NAMES, {
     variables: { projectId },
     skip: itemScope !== 'cueList' || !projectId,
   });
-  const lookBoardsQuery = useQuery(GET_PROJECT_LOOK_BOARDS, {
+  const lookBoardsQuery = useQuery<GetDataExportLookBoardNamesQuery>(GET_DATA_EXPORT_LOOK_BOARD_NAMES, {
     variables: { projectId },
     skip: itemScope !== 'lookBoard' || !projectId,
   });

@@ -1,8 +1,13 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
+import { InMemoryCache } from '@apollo/client';
 import { GraphQLError } from 'graphql';
 import ExportMenuButton, { type ExportMenuButtonProps } from '../ExportMenuButton';
-import { EXPORT_DATA_TABLE, GET_DATA_EXPORT_TABLES } from '@/graphql/dataExport';
+import {
+  EXPORT_DATA_TABLE,
+  GET_DATA_EXPORT_TABLES,
+  GET_DATA_EXPORT_TABLES_LEGACY,
+} from '@/graphql/dataExport';
 import { DataExportTable } from '@/generated/graphql';
 
 function installBridge() {
@@ -34,9 +39,9 @@ const exportMock = (
   },
 });
 
-function renderButton(props: ExportMenuButtonProps, mocks: MockedResponse[] = []) {
+function renderButton(props: ExportMenuButtonProps, mocks: MockedResponse[] = [], cache?: InMemoryCache) {
   return render(
-    <MockedProvider mocks={mocks} addTypename={false}>
+    <MockedProvider mocks={mocks} addTypename={false} cache={cache}>
       <ExportMenuButton {...props} />
     </MockedProvider>,
   );
@@ -258,6 +263,28 @@ describe('ExportMenuButton', () => {
     expect(screen.getByRole('menuitem', { name: 'More import/export options…' })).toHaveFocus();
   });
 
+  it('shows why items are disabled as visible text linked to them', () => {
+    renderButton({
+      projectId: null,
+      tables: [
+        { table: DataExportTable.Looks, label: 'Looks' },
+        { table: DataExportTable.FixtureLibrary, label: 'Library' },
+      ],
+    });
+    openMenu();
+    // Disabled items cannot be focused and a title is not shown on touch, so
+    // the reason is in the menu as text, described-by from both items.
+    const reason = screen.getByText('Open a project to export this list');
+    expect(reason.id).toBeTruthy();
+    for (const name of ['Looks as CSV', 'Looks as Excel']) {
+      expect(screen.getByRole('menuitem', { name })).toHaveAttribute('aria-describedby', reason.id);
+      expect(screen.getByRole('menuitem', { name })).toHaveAccessibleDescription('Open a project to export this list');
+    }
+    // Items that can be exported get no reason.
+    expect(screen.getByRole('menuitem', { name: 'Library as CSV' })).not.toHaveAttribute('aria-describedby');
+    expect(screen.getAllByText('Open a project to export this list')).toHaveLength(1);
+  });
+
   it('keeps entries for the same table with different scopes apart', async () => {
     installBridge();
     renderButton(
@@ -283,6 +310,143 @@ describe('ExportMenuButton', () => {
     expect(button.className).toContain('bg-gray-700');
     expect(screen.getByText('Export')).toHaveClass('hidden', 'sm:inline');
     expect(button.parentElement).toHaveClass('extra');
+  });
+
+  describe('table rules from the server', () => {
+    const tablesMock = (
+      tables: Array<{ table: string; scope: string; scopeRequired: boolean }>,
+    ): MockedResponse => ({
+      request: { query: GET_DATA_EXPORT_TABLES },
+      result: {
+        data: { dataExportTables: tables.map((t) => ({ label: t.table, columns: [], ...t })) },
+      },
+    });
+
+    it('disables a table whose scope is required when no scope id is given', async () => {
+      renderButton({ table: DataExportTable.LookDetails, projectId: 'p1' }, [
+        tablesMock([{ table: 'LOOK_DETAILS', scope: 'look', scopeRequired: true }]),
+      ]);
+      openMenu();
+      await waitFor(() => expect(screen.getByRole('menuitem', { name: 'CSV' })).toBeDisabled());
+      expect(screen.getByRole('menuitem', { name: 'CSV' })).toHaveAttribute('title', 'Open a look to export this list');
+      expect(screen.getByRole('menuitem', { name: 'Excel' })).toBeDisabled();
+      // Focus moves off the item that just became disabled.
+      expect(screen.getByRole('menuitem', { name: 'More import/export options…' })).toHaveFocus();
+    });
+
+    it('allows a table whose scope the server marks optional without a scope id', async () => {
+      installBridge();
+      renderButton({ table: DataExportTable.LookDetails, projectId: 'p1' }, [
+        tablesMock([{ table: 'LOOK_DETAILS', scope: 'look', scopeRequired: false }]),
+        exportMock({ projectId: 'p1', table: 'LOOK_DETAILS', format: 'CSV', scopeId: null }, 'all.csv'),
+      ]);
+      openMenu();
+      // Give the table list time to arrive; CSV must stay enabled.
+      await waitFor(() => expect(screen.getByRole('menuitem', { name: 'CSV' })).toBeEnabled());
+      fireEvent.click(screen.getByRole('menuitem', { name: 'CSV' }));
+      await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    });
+
+    it('needs no project for a table whose scope is none', async () => {
+      const downloadBinary = installBridge();
+      renderButton({ table: DataExportTable.FixtureTypes }, [
+        tablesMock([{ table: 'FIXTURE_TYPES', scope: 'none', scopeRequired: false }]),
+        exportMock({ projectId: null, table: 'FIXTURE_TYPES', format: 'CSV', scopeId: null }, 'types.csv'),
+      ]);
+      openMenu();
+      // Without the list the legacy rule would disable it (no project).
+      await waitFor(() => expect(screen.getByRole('menuitem', { name: 'CSV' })).toBeEnabled());
+      expect(screen.getByRole('menuitem', { name: 'More import/export options…' })).toHaveAttribute(
+        'href',
+        '/import-export?section=data&table=FIXTURE_TYPES',
+      );
+      fireEvent.click(screen.getByRole('menuitem', { name: 'CSV' }));
+      await waitFor(() => expect(downloadBinary).toHaveBeenCalledWith('YQo=', 'types.csv', 'text/csv'));
+    });
+
+    it('explains a required scope that is not a look, cue list or look board', async () => {
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' }, [
+        tablesMock([{ table: 'LOOKS', scope: 'project', scopeRequired: true }]),
+      ]);
+      openMenu();
+      await waitFor(() => expect(screen.getByRole('menuitem', { name: 'CSV' })).toBeDisabled());
+      expect(screen.getByRole('menuitem', { name: 'CSV' })).toHaveAttribute('title', 'Open an item to export this list');
+    });
+
+    it('applies the legacy scope rules on a backend without scopeRequired', async () => {
+      renderButton(
+        {
+          projectId: 'p1',
+          tables: [
+            { table: DataExportTable.LookDetails, label: 'Look' },
+            { table: DataExportTable.LookBoardEntries, label: 'Boards' },
+          ],
+        },
+        [
+          {
+            request: { query: GET_DATA_EXPORT_TABLES },
+            result: {
+              errors: [new GraphQLError('Cannot query field "scopeRequired" on type "DataExportTableInfo".')],
+            },
+          },
+          {
+            request: { query: GET_DATA_EXPORT_TABLES_LEGACY },
+            result: {
+              data: {
+                dataExportTables: [
+                  { table: 'LOOK_DETAILS', label: 'Look details', scope: 'look', columns: [] },
+                  { table: 'LOOK_BOARD_ENTRIES', label: 'Look board entries', scope: 'lookBoard', columns: [] },
+                ],
+              },
+            },
+          },
+        ],
+      );
+      openMenu();
+      await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Look as CSV' })).toBeDisabled());
+      expect(screen.getByRole('menuitem', { name: 'Look as CSV' })).toHaveAttribute(
+        'title',
+        'Open a look to export this list',
+      );
+      expect(screen.getByRole('menuitem', { name: 'Boards as CSV' })).toBeEnabled();
+      expect(screen.queryByText("This server version doesn't support CSV/Excel export; update LacyLights.")).not.toBeInTheDocument();
+    });
+
+    it('applies cached rules as soon as the menu opens', () => {
+      const cache = new InMemoryCache({ addTypename: false });
+      cache.writeQuery({
+        query: GET_DATA_EXPORT_TABLES,
+        data: {
+          dataExportTables: [{ table: 'FIXTURE_TYPES', label: 'Fixture types', scope: 'none', scopeRequired: false, columns: [] }],
+        },
+      });
+      renderButton({ table: DataExportTable.FixtureTypes }, [], cache);
+      openMenu();
+      // No flash of the legacy rule (which needs a project for this table).
+      expect(screen.getByRole('menuitem', { name: 'CSV' })).toBeEnabled();
+    });
+
+    it('stays usable with the legacy rules when the server returns no table list', async () => {
+      renderButton(
+        {
+          projectId: 'p1',
+          tables: [
+            { table: DataExportTable.Looks, label: 'Looks' },
+            { table: DataExportTable.LookDetails, label: 'Look' },
+          ],
+        },
+        [{ request: { query: GET_DATA_EXPORT_TABLES }, result: { data: { dataExportTables: null } } }],
+      );
+      openMenu();
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(screen.getByRole('menuitem', { name: 'Looks as CSV' })).toBeEnabled();
+      // Without the list, the server enforces the scope (legacy rules only gate the project).
+      expect(screen.getByRole('menuitem', { name: 'Look as CSV' })).toBeEnabled();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.queryByText("This server version doesn't support CSV/Excel export; update LacyLights.")).not.toBeInTheDocument();
+    });
   });
 
   describe('with an older backend that has no data export', () => {

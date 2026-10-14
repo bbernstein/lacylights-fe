@@ -228,8 +228,15 @@ render(
   base64 (`src/graphql/dataExport.ts`). Run every export Query through
   `src/lib/importExport/dataExport.ts` (`runExportQuery` forces
   `fetchPolicy: 'no-cache'` so payloads stay out of the Apollo cache).
-  `SCOPE_OPTIONAL_TABLES` lists tables whose scopeId is optional
-  (LOOK_BOARD_ENTRIES: omit for all boards).
+  Table rules come from the server: load the table list with
+  `useDataExportTables` (`fetchDataExportTables`), whose entries carry
+  `scope` (`none` means no project needed; see `tableNeedsProject`) and
+  `scopeRequired` (whether a look / cue list / look board must be chosen).
+  Backends without `DataExportTableInfo.scopeRequired` (lacylights-go
+  v0.4.1) are retried with `GET_DATA_EXPORT_TABLES_LEGACY` and get the
+  legacy frontend rules (`isScopeRequired`, `SCOPE_OPTIONAL_TABLES`,
+  `isProjectOptional`), which are fallbacks only. The panel's pickers use
+  the names-only `GET_DATA_EXPORT_*_NAMES` queries.
 - `src/components/ExportMenuButton.tsx`: "Export ▾" (CSV / Excel / "More
   import/export options…") on /fixtures, /looks, look editor, /effects,
   look board, /cue-lists, cue list page and Settings → OFL. Add it to any
