@@ -1,5 +1,6 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
+import { InMemoryCache } from '@apollo/client';
 import { GraphQLError } from 'graphql';
 import ExportMenuButton, { type ExportMenuButtonProps } from '../ExportMenuButton';
 import {
@@ -38,9 +39,9 @@ const exportMock = (
   },
 });
 
-function renderButton(props: ExportMenuButtonProps, mocks: MockedResponse[] = []) {
+function renderButton(props: ExportMenuButtonProps, mocks: MockedResponse[] = [], cache?: InMemoryCache) {
   return render(
-    <MockedProvider mocks={mocks} addTypename={false}>
+    <MockedProvider mocks={mocks} addTypename={false} cache={cache}>
       <ExportMenuButton {...props} />
     </MockedProvider>,
   );
@@ -386,6 +387,42 @@ describe('ExportMenuButton', () => {
         'Open a look to export this list',
       );
       expect(screen.getByRole('menuitem', { name: 'Boards as CSV' })).toBeEnabled();
+      expect(screen.queryByText("This server version doesn't support CSV/Excel export; update LacyLights.")).not.toBeInTheDocument();
+    });
+
+    it('applies cached rules as soon as the menu opens', () => {
+      const cache = new InMemoryCache({ addTypename: false });
+      cache.writeQuery({
+        query: GET_DATA_EXPORT_TABLES,
+        data: {
+          dataExportTables: [{ table: 'FIXTURE_TYPES', label: 'Fixture types', scope: 'none', scopeRequired: false, columns: [] }],
+        },
+      });
+      renderButton({ table: DataExportTable.FixtureTypes }, [], cache);
+      openMenu();
+      // No flash of the legacy rule (which needs a project for this table).
+      expect(screen.getByRole('menuitem', { name: 'CSV' })).toBeEnabled();
+    });
+
+    it('stays usable with the legacy rules when the server returns no table list', async () => {
+      renderButton(
+        {
+          projectId: 'p1',
+          tables: [
+            { table: DataExportTable.Looks, label: 'Looks' },
+            { table: DataExportTable.LookDetails, label: 'Look' },
+          ],
+        },
+        [{ request: { query: GET_DATA_EXPORT_TABLES }, result: { data: { dataExportTables: null } } }],
+      );
+      openMenu();
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(screen.getByRole('menuitem', { name: 'Looks as CSV' })).toBeEnabled();
+      // Without the list, the server enforces the scope (legacy rules only gate the project).
+      expect(screen.getByRole('menuitem', { name: 'Look as CSV' })).toBeEnabled();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
       expect(screen.queryByText("This server version doesn't support CSV/Excel export; update LacyLights.")).not.toBeInTheDocument();
     });
   });

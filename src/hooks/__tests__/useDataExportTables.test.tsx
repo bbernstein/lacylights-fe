@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
-import { useApolloClient } from '@apollo/client';
+import { ApolloProvider, InMemoryCache, useApolloClient } from '@apollo/client';
 import { GraphQLError } from 'graphql';
 import type { ReactNode } from 'react';
 import { useDataExportTables, type UseDataExportTablesOptions } from '../useDataExportTables';
@@ -23,9 +23,9 @@ const newTables: MockedResponse = {
   },
 };
 
-function setup(mocks: MockedResponse[], initial: UseDataExportTablesOptions = {}) {
+function setup(mocks: MockedResponse[], initial: UseDataExportTablesOptions = {}, cache?: InMemoryCache) {
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <MockedProvider mocks={mocks} addTypename={false}>
+    <MockedProvider mocks={mocks} addTypename={false} cache={cache}>
       {children}
     </MockedProvider>
   );
@@ -117,5 +117,53 @@ describe('useDataExportTables', () => {
     const { result } = renderHook(() => useDataExportTables(), { wrapper });
     expect(result.current.loading).toBe(true);
     await waitFor(() => expect(result.current.tables).toHaveLength(2));
+  });
+
+  it('starts with the cached tables when the list is already in the Apollo cache', () => {
+    const cache = new InMemoryCache({ addTypename: false });
+    cache.writeQuery({ query: GET_DATA_EXPORT_TABLES, data: (newTables.result as { data: unknown }).data });
+    const { result } = setup([newTables], { skip: true }, cache);
+    expect(result.current.state.loading).toBe(false);
+    expect(result.current.state.tables?.map((t) => [t.table, t.scopeRequired])).toEqual([
+      ['LOOK_DETAILS', true],
+      ['LOOK_BOARD_ENTRIES', false],
+    ]);
+  });
+
+  it('starts with the cached legacy list on a backend without scopeRequired', async () => {
+    const { result } = setup([
+      {
+        request: { query: GET_DATA_EXPORT_TABLES },
+        result: { errors: [new GraphQLError('Cannot query field "scopeRequired" on type "DataExportTableInfo".')] },
+      },
+      {
+        request: { query: GET_DATA_EXPORT_TABLES_LEGACY },
+        result: {
+          data: { dataExportTables: [{ table: 'LOOK_DETAILS', label: 'Look details', scope: 'look', columns: [] }] },
+        },
+      },
+    ]);
+    await waitFor(() => expect(result.current.state.tables).toHaveLength(1));
+    // Another component on the same client (e.g. a second Export menu)
+    // reads the legacy list from the cache without waiting.
+    const client = result.current.client;
+    const second = renderHook(() => useDataExportTables({ skip: true }), {
+      wrapper: ({ children }: { children: ReactNode }) => <ApolloProvider client={client}>{children}</ApolloProvider>,
+    });
+    expect(second.result.current.tables?.map((t) => [t.table, t.scopeRequired])).toEqual([['LOOK_DETAILS', true]]);
+  });
+
+  it('keeps the last loaded tables when a later load fails', async () => {
+    const { result, rerender } = setup([
+      newTables,
+      { request: { query: GET_DATA_EXPORT_TABLES }, error: new Error('Network down') },
+    ]);
+    await waitFor(() => expect(result.current.state.tables).toHaveLength(2));
+    rerender({ skip: true });
+    await result.current.client.clearStore();
+    rerender({ skip: false });
+    await waitFor(() => expect(result.current.state.error).toBeTruthy());
+    expect(result.current.state.loading).toBe(false);
+    expect(result.current.state.tables).toHaveLength(2);
   });
 });

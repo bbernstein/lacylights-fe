@@ -194,6 +194,24 @@ export async function fetchDataExportTables(client: AnyApolloClient): Promise<Da
   return toEntries(data?.dataExportTables);
 }
 
+/**
+ * The exportable tables already in the Apollo cache (from an earlier
+ * {@link fetchDataExportTables} on this client), or null when they have not
+ * been loaded. Lets a component start from the known rules instead of the
+ * legacy fallback while its own load is in flight.
+ */
+export function readCachedDataExportTables(client: AnyApolloClient): DataExportTableEntry[] | null {
+  try {
+    const list = isFeatureUnsupported(client, DATA_EXPORT_SCOPE_REQUIRED_FEATURE)
+      ? client.readQuery<GetDataExportTablesLegacyQuery>({ query: GET_DATA_EXPORT_TABLES_LEGACY })?.dataExportTables
+      : client.readQuery<GetDataExportTablesQuery>({ query: GET_DATA_EXPORT_TABLES })?.dataExportTables;
+    return list ? list.map(toDataExportTableEntry) : null;
+  } catch {
+    // Incomplete cache data: treat as not loaded.
+    return null;
+  }
+}
+
 /** Parse a string (e.g. a query parameter) into a DataExportTable. */
 export function parseDataExportTable(value: string | null | undefined): DataExportTable | null {
   if (!value) return null;

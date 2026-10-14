@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useApolloClient } from '@apollo/client';
-import { fetchDataExportTables, type DataExportTableEntry } from '@/lib/importExport/dataExport';
+import {
+  fetchDataExportTables,
+  readCachedDataExportTables,
+  type DataExportTableEntry,
+} from '@/lib/importExport/dataExport';
 import { noteDataExportError } from '@/lib/importExport/backendCompat';
 
 export interface DataExportTablesState {
@@ -21,14 +25,21 @@ export interface UseDataExportTablesOptions {
  * `scopeRequired` from the server or, on backends that predate that field,
  * from the legacy frontend rules ({@link fetchDataExportTables}).
  *
- * Loads whenever `skip` turns false (Apollo's cache answers repeat loads).
+ * Starts from the list already in the Apollo cache, if any, so a menu opened
+ * after an earlier load never shows the legacy rules first. Loads whenever
+ * `skip` turns false (Apollo's cache answers repeat loads). A failed load
+ * keeps the last loaded tables.
  * An error showing that the backend has no data export at all is
  * remembered for the client via `noteDataExportError`, so every Export
  * button and panel can switch to the "update LacyLights" note.
  */
 export function useDataExportTables({ skip = false }: UseDataExportTablesOptions = {}): DataExportTablesState {
   const client = useApolloClient();
-  const [state, setState] = useState<DataExportTablesState>({ tables: null, loading: !skip, error: null });
+  const [state, setState] = useState<DataExportTablesState>(() => ({
+    tables: readCachedDataExportTables(client),
+    loading: !skip,
+    error: null,
+  }));
 
   useEffect(() => {
     if (skip) {
@@ -42,7 +53,10 @@ export function useDataExportTables({ skip = false }: UseDataExportTablesOptions
         if (active) setState({ tables, loading: false, error: null });
       },
       (error: unknown) => {
-        if (active) setState({ tables: null, loading: false, error });
+        if (active) setState((prev) => ({ tables: prev.tables, loading: false, error }));
+        // Not gated on `active`: what the backend lacks is a fact about the
+        // client, worth remembering even if this component no longer cares
+        // (noteDataExportError is idempotent).
         noteDataExportError(client, error);
       },
     );
