@@ -53,6 +53,30 @@ const eventClockNow = () =>
   typeof Event === "function" ? new Event("contextmenu-opened").timeStamp : 0;
 
 /**
+ * Browsers without pointer events (older iOS Safari) emulate a mousedown /
+ * mouseup / click after a touch ends. When a menu opened during that touch
+ * (long-press timer) or on its touchend, the emulated mousedown would look
+ * like a new press outside and close it at once. Record when touches end,
+ * from module load so the touch that opens the first menu is seen too, and
+ * treat a mousedown shortly after one as emulated. Browsers with pointer
+ * events never get here: they only listen for pointerdown.
+ */
+const EMULATED_MOUSE_WINDOW_MS = 1000;
+let lastTouchEndAt = Number.NEGATIVE_INFINITY;
+if (typeof document !== "undefined" && typeof window.PointerEvent !== "function") {
+  const recordTouchEnd = (e: Event) => {
+    lastTouchEndAt = e.timeStamp;
+  };
+  const options = { capture: true, passive: true } as const;
+  document.addEventListener("touchend", recordTouchEnd, options);
+  document.addEventListener("touchcancel", recordTouchEnd, options);
+}
+const isEmulatedMouseDown = (e: Event) =>
+  e.type === "mousedown" &&
+  e.timeStamp >= lastTouchEndAt &&
+  e.timeStamp - lastTouchEndAt < EMULATED_MOUSE_WINDOW_MS;
+
+/**
  * A context menu component that appears at a specific position.
  * Dismisses when clicking or tapping outside, pressing Escape, or resizing /
  * rotating the viewport (it is fixed at the coordinates it opened at, so it
@@ -162,7 +186,8 @@ export default function ContextMenu({
   //   mousedown / touchstart are only listened for as fallbacks in browsers
   //   without them. This also keeps the mousedown a browser may emulate after
   //   a touch (stamped after the touchend that opened a long-press menu) from
-  //   closing the menu: it has no pointerdown of its own.
+  //   closing the menu: it has no pointerdown of its own. Without pointer
+  //   events, such a mousedown is recognized by timing (isEmulatedMouseDown).
   // - They listen in the capture phase on document, which runs before React's
   //   handlers on the root, so a pressed element that stops propagation of
   //   mousedown / touchstart (look board buttons, cue rows) still closes it.
@@ -176,6 +201,7 @@ export default function ContextMenu({
     const handlePressOutside = (e: MouseEvent | TouchEvent | PointerEvent) => {
       if (dismissedByPressRef.current) return;
       if (e.timeStamp < openedAtRef.current) return;
+      if (isEmulatedMouseDown(e)) return;
       const target = e.target as Node;
       // Presses on the backdrop are not "outside": its click handler dismisses
       // the menu once the press ends, so nothing underneath receives the tap.

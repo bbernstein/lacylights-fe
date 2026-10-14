@@ -621,6 +621,53 @@ describe('ContextMenu', () => {
       expect(first).not.toHaveBeenCalled();
     });
 
+    describe('without pointer events (older touch browsers)', () => {
+      const stampedAt = (create: (el: Element) => Event, el: Element, timeStamp: number) => {
+        const event = create(el);
+        Object.defineProperty(event, 'timeStamp', { value: timeStamp });
+        fireEvent(el, event);
+      };
+
+      it('is not closed by the emulated mousedown after the touch that opened it from a long-press timer', () => {
+        // The menu opened while the finger was still down (long-press timer);
+        // lifting it ends the touch, and the browser then emulates a mouse press.
+        renderWithOutside();
+        const outside = screen.getByTestId('outside');
+        const now = new Event('now').timeStamp;
+
+        stampedAt(createEvent.touchEnd, outside, now);
+        stampedAt(createEvent.mouseDown, outside, now + 5);
+        stampedAt(createEvent.mouseUp, outside, now + 6);
+
+        expect(mockOnDismiss).not.toHaveBeenCalled();
+
+        // A real mouse press well after the touch still closes it.
+        stampedAt(createEvent.mouseDown, outside, now + 5000);
+        expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+      });
+
+      it('is not closed by the emulated mousedown after the touchend that opened it', () => {
+        function TouchEndOpener() {
+          const [open, setOpen] = React.useState(false);
+          return (
+            <div>
+              <div data-testid="canvas" onTouchEnd={() => setOpen(true)}>Canvas</div>
+              {open && <ContextMenu x={10} y={10} options={defaultOptions} onDismiss={mockOnDismiss} />}
+            </div>
+          );
+        }
+        render(<TouchEndOpener />);
+        const canvas = screen.getByTestId('canvas');
+        const now = new Event('now').timeStamp;
+
+        stampedAt(createEvent.touchEnd, canvas, now);
+        expect(screen.getByRole('menu')).toBeInTheDocument();
+        stampedAt(createEvent.mouseDown, canvas, now + 5);
+
+        expect(mockOnDismiss).not.toHaveBeenCalled();
+      });
+    });
+
     describe('when the browser supports pointer events', () => {
       const hadPointerEvent = 'PointerEvent' in window;
       const originalPointerEvent = (window as { PointerEvent?: unknown }).PointerEvent;
