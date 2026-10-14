@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import ProjectManagementModal from '../ProjectManagementModal';
@@ -614,6 +614,20 @@ describe('ProjectManagementModal', () => {
       expect(screen.queryByRole('menu')).not.toBeInTheDocument();
       expect(onClose).not.toHaveBeenCalled();
       expect(screen.getByTestId('project-management-modal')).toBeInTheDocument();
+    });
+
+    it('closes the row menu when the project list scrolls, so it never drifts away from its row', async () => {
+      renderWithProvider(createMocks());
+      fireEvent.click(await screen.findByRole('button', { name: 'More actions for Test Project 2' }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+      // ContextMenu attaches its document listeners on the next frame.
+      await act(async () => {
+        await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+      });
+
+      fireEvent.scroll(screen.getByTestId('project-management-modal'));
+
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
 
     it('activating the same row ⋯ button again closes its menu', async () => {

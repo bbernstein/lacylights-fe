@@ -507,13 +507,15 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
       {/* Portal the row menu to <body>: the mobile sheet uses CSS transforms,
           which would otherwise offset the menu's fixed positioning. The
           backdrop makes an outside tap close only the menu, not the sheet
-          (or start a rename on another row). */}
+          (or start a rename on another row); scrolling the list closes it
+          rather than leaving it next to the wrong row. */}
       {rowMenu && createPortal(
         <ContextMenu
           x={rowMenu.x}
           y={rowMenu.y}
           autoFocus
           backdrop
+          dismissOnScroll
           onDismiss={() => setRowMenu(null)}
           options={[
             {

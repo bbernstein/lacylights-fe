@@ -546,8 +546,19 @@ describe('ContextMenu', () => {
       expect(mockOnDismiss).not.toHaveBeenCalled();
     });
 
-    it('dismisses when a scroll container behind the menu scrolls', async () => {
+    it('stays open by default when something behind it scrolls (e.g. a cue list auto-scrolling to the live cue)', async () => {
       renderWithOutside();
+      await nextFrame();
+
+      fireEvent.scroll(screen.getByTestId('outside'));
+      fireEvent.scroll(document);
+
+      expect(mockOnDismiss).not.toHaveBeenCalled();
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+    });
+
+    it('dismisses when a scroll container behind the menu scrolls', async () => {
+      renderWithOutside({ dismissOnScroll: true });
       await nextFrame();
 
       fireEvent.scroll(screen.getByTestId('outside'));
@@ -556,7 +567,7 @@ describe('ContextMenu', () => {
     });
 
     it('dismisses when the page scrolls', async () => {
-      renderWithOutside();
+      renderWithOutside({ dismissOnScroll: true });
       await nextFrame();
 
       fireEvent.scroll(document);
@@ -565,7 +576,7 @@ describe('ContextMenu', () => {
     });
 
     it('ignores scrolling inside the menu itself', async () => {
-      renderWithOutside();
+      renderWithOutside({ dismissOnScroll: true });
       await nextFrame();
 
       fireEvent.scroll(screen.getByRole('menu'));
@@ -585,7 +596,7 @@ describe('ContextMenu', () => {
     });
 
     it('stops listening for scroll and resize after unmounting', async () => {
-      const { unmount } = renderWithOutside();
+      const { unmount } = renderWithOutside({ dismissOnScroll: true });
       await nextFrame();
       unmount();
 

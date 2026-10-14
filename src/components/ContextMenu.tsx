@@ -30,16 +30,24 @@ interface ContextMenuProps {
    * sheets, where an outside tap should not also close the dialog.
    */
   backdrop?: boolean;
+  /**
+   * Close the menu when anything behind it scrolls. The menu is fixed at the
+   * coordinates it opened at, so it would otherwise drift away from its row.
+   * Opt-in: lists that scroll themselves (a cue list following the live cue)
+   * would otherwise close the menu under the user's finger, and the tap meant
+   * for a menu item would land on the row underneath instead.
+   */
+  dismissOnScroll?: boolean;
 }
 
 const ITEM_SELECTOR = '[role="menuitem"]:not([disabled])';
 
 /**
  * A context menu component that appears at a specific position.
- * Dismisses when clicking or tapping outside, pressing Escape, scrolling
- * anything behind it, or resizing / rotating the viewport (it is fixed at
- * the coordinates it opened at, so it would otherwise drift away from the
- * element it belongs to).
+ * Dismisses when clicking or tapping outside, pressing Escape, or resizing /
+ * rotating the viewport (it is fixed at the coordinates it opened at, so it
+ * would otherwise drift away from the element it belongs to), and, with
+ * `dismissOnScroll`, when anything behind it scrolls.
  *
  * Keyboard: Arrow Up/Down, Home and End move between enabled items; Escape
  * and Tab dismiss the menu. Key presses handled inside the menu don't
@@ -53,6 +61,7 @@ export default function ContextMenu({
   onDismiss,
   autoFocus = false,
   backdrop = false,
+  dismissOnScroll = false,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -73,7 +82,7 @@ export default function ContextMenu({
     const previouslyFocused =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     // preventScroll: the menu is fixed-positioned, and a focus-induced scroll
-    // would dismiss it straight away (see the scroll listener below).
+    // would move the page under it (or, with dismissOnScroll, close it).
     menuRef.current?.querySelector<HTMLElement>(ITEM_SELECTOR)?.focus({ preventScroll: true });
     const menu = menuRef.current;
     return () => {
@@ -143,8 +152,8 @@ export default function ContextMenu({
     };
 
     // Scrolling anything behind the menu (the page or a list it was opened
-    // from) or resizing / rotating the viewport would leave the fixed menu
-    // floating away from its row, so close it instead.
+    // from; opt-in, see dismissOnScroll) or resizing / rotating the viewport
+    // would leave the fixed menu floating away from its row, so close it.
     const handleScroll = (e: Event) => {
       const target = e.target;
       if (target instanceof Node && menuRef.current?.contains(target)) return;
@@ -167,7 +176,9 @@ export default function ContextMenu({
       document.addEventListener("touchstart", handleClickOutside, { passive: true });
       document.addEventListener("keydown", handleEscape);
       // Capture: scroll events don't bubble, so listen on the way down.
-      document.addEventListener("scroll", handleScroll, { capture: true, passive: true });
+      if (dismissOnScroll) {
+        document.addEventListener("scroll", handleScroll, { capture: true, passive: true });
+      }
       window.addEventListener("resize", handleResize);
       window.addEventListener("orientationchange", handleResize);
     });
@@ -183,7 +194,7 @@ export default function ContextMenu({
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("orientationchange", handleResize);
     };
-  }, [onDismiss]);
+  }, [onDismiss, dismissOnScroll]);
 
   // Adjust position after render based on actual menu size to prevent off-screen display
   useEffect(() => {
