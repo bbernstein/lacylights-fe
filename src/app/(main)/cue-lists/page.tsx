@@ -148,7 +148,7 @@ export default function CueListsPage() {
         <div>
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Cue Lists</h2>
           <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
-            Sequence your scenes into cue lists for playback
+            Sequence your looks into cue lists for playback
           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex items-center gap-3">
