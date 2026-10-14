@@ -101,7 +101,7 @@ export default function DataExportPanel({
   const tables = useMemo(() => loadedTables ?? [], [loadedTables]);
 
   const [projectId, setProjectId] = useState<string>(defaultProjectId ?? projects[0]?.id ?? '');
-  const [table, setTable] = useState<DataExportTable | null>(parseDataExportTable(defaultTable));
+  const [tableChoice, setTable] = useState<DataExportTable | null>(parseDataExportTable(defaultTable));
   const [scopeId, setScopeId] = useState<string>(defaultScopeId ?? '');
   const [format, setFormat] = useState<DataExportFormat>(DataExportFormat.Csv);
   const [running, setRunning] = useState<ExportAction | null>(null);
@@ -134,13 +134,14 @@ export default function DataExportPanel({
     }
   }, [projects, projectId]);
 
-  // Once the table list loads, make sure the selection is one of them.
-  useEffect(() => {
-    if (tables.length === 0) return;
-    if (!table || !tables.some((t) => t.table === table)) {
-      setTable(tables[0].table);
-    }
-  }, [tables, table]);
+  // Once the table list loads, the selection is one of them (the first when
+  // the choice is unset or unknown). Derived during render rather than
+  // synced by an effect, so the panel never renders the list with no table
+  // selected (no columns hint, Export doing nothing).
+  const table: DataExportTable | null =
+    tables.length > 0 && !(tableChoice && tables.some((t) => t.table === tableChoice))
+      ? tables[0].table
+      : tableChoice;
 
   const tableInfo = tables.find((t) => t.table === table) ?? null;
   const scope = tableInfo?.scope ?? null;

@@ -1,5 +1,7 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
+import { InMemoryCache } from '@apollo/client';
+import { TextDecoder, TextEncoder } from 'util';
 import { GraphQLError } from 'graphql';
 import DataExportPanel, { type DataExportPanelProps } from '../DataExportPanel';
 import {
@@ -104,6 +106,27 @@ describe('DataExportPanel', () => {
     expect(select).toHaveValue('FIXTURES');
     expect(screen.getByTestId('data-export-columns')).toHaveTextContent('Columns: Name, Universe');
     expect(screen.getByLabelText('Project')).toHaveValue('p1');
+  });
+
+  it('selects a table in the same render that first shows the table list', async () => {
+    // Server rendering runs no effects, so this sees exactly the first render
+    // with the (cached) list: a table must already be selected then, or the
+    // columns hint is missing and Export does nothing until an effect runs.
+    // jsdom lacks the encoders react-dom/server needs.
+    Object.assign(globalThis, { TextEncoder, TextDecoder });
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const cache = new InMemoryCache({ addTypename: false });
+    cache.writeQuery({ query: GET_DATA_EXPORT_TABLES, data: (tablesMock.result as { data: unknown }).data });
+    const render = (defaultTable?: string) =>
+      renderToStaticMarkup(
+        <MockedProvider mocks={[]} addTypename={false} cache={cache}>
+          <DataExportPanel projects={projects} defaultProjectId="p1" defaultTable={defaultTable} />
+        </MockedProvider>,
+      );
+    expect(render()).toContain('Columns: Name, Universe');
+    expect(render('LOOK_BOARD_ENTRIES')).toContain('Columns: Board');
+    // A table the server does not list falls back to the first one.
+    expect(render('NOT_A_TABLE')).toContain('Columns: Name, Universe');
   });
 
   it('shows an error when the table list cannot be loaded', async () => {
