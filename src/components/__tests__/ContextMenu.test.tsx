@@ -499,4 +499,164 @@ describe('ContextMenu', () => {
       expect(trigger).toHaveFocus();
     });
   });
+
+  describe('touch and pointer input', () => {
+    const nextFrame = () => new Promise(resolve => requestAnimationFrame(() => resolve(undefined)));
+
+    const renderWithOutside = (props: Partial<React.ComponentProps<typeof ContextMenu>> = {}) =>
+      render(
+        <div>
+          <div data-testid="outside">Outside</div>
+          <ContextMenu x={100} y={100} options={defaultOptions} onDismiss={mockOnDismiss} {...props} />
+        </div>,
+      );
+
+    it('dismisses on the first touch outside the menu (pointerdown then touchstart)', async () => {
+      renderWithOutside();
+      await nextFrame();
+
+      const outside = screen.getByTestId('outside');
+      fireEvent.pointerDown(outside, { pointerType: 'touch' });
+      fireEvent.touchStart(outside);
+
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('dismisses on the first mouse press outside the menu (pointerdown then mousedown)', async () => {
+      renderWithOutside();
+      await nextFrame();
+
+      const outside = screen.getByTestId('outside');
+      fireEvent.pointerDown(outside, { pointerType: 'mouse' });
+      fireEvent.mouseDown(outside);
+
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not dismiss on pointer or touch presses inside the menu', async () => {
+      renderWithOutside();
+      await nextFrame();
+
+      const item = screen.getByRole('menuitem', { name: 'Option 1' });
+      fireEvent.pointerDown(item, { pointerType: 'touch' });
+      fireEvent.touchStart(item);
+      fireEvent.pointerDown(item, { pointerType: 'touch' });
+      fireEvent.touchStart(item);
+
+      expect(mockOnDismiss).not.toHaveBeenCalled();
+    });
+
+    it('dismisses when a scroll container behind the menu scrolls', async () => {
+      renderWithOutside();
+      await nextFrame();
+
+      fireEvent.scroll(screen.getByTestId('outside'));
+
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('dismisses when the page scrolls', async () => {
+      renderWithOutside();
+      await nextFrame();
+
+      fireEvent.scroll(document);
+
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores scrolling inside the menu itself', async () => {
+      renderWithOutside();
+      await nextFrame();
+
+      fireEvent.scroll(screen.getByRole('menu'));
+
+      expect(mockOnDismiss).not.toHaveBeenCalled();
+    });
+
+    it('dismisses when the viewport is resized or rotated', async () => {
+      renderWithOutside();
+      await nextFrame();
+
+      fireEvent(window, new Event('resize'));
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+
+      fireEvent(window, new Event('orientationchange'));
+      expect(mockOnDismiss).toHaveBeenCalledTimes(2);
+    });
+
+    it('stops listening for scroll and resize after unmounting', async () => {
+      const { unmount } = renderWithOutside();
+      await nextFrame();
+      unmount();
+
+      fireEvent.scroll(document);
+      fireEvent(window, new Event('resize'));
+
+      expect(mockOnDismiss).not.toHaveBeenCalled();
+    });
+
+    it('does not scroll the page when moving focus into the menu', () => {
+      const focusSpy = jest.spyOn(HTMLElement.prototype, 'focus');
+      render(<ContextMenu x={0} y={0} options={defaultOptions} onDismiss={mockOnDismiss} autoFocus />);
+
+      expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+    });
+
+    it('renders no backdrop by default', () => {
+      renderWithOutside();
+      expect(screen.queryByTestId('context-menu-backdrop')).not.toBeInTheDocument();
+    });
+
+    describe('with backdrop', () => {
+      it('dismisses on the first tap on the backdrop', async () => {
+        renderWithOutside({ backdrop: true });
+        await nextFrame();
+
+        fireEvent.click(screen.getByTestId('context-menu-backdrop'));
+
+        expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+      });
+
+      it('does not dismiss on presses on the backdrop, so the tap cannot fall through to what is underneath', async () => {
+        renderWithOutside({ backdrop: true });
+        await nextFrame();
+
+        const backdrop = screen.getByTestId('context-menu-backdrop');
+        for (let i = 0; i < 2; i++) {
+          fireEvent.pointerDown(backdrop, { pointerType: 'touch' });
+          fireEvent.touchStart(backdrop);
+          fireEvent.mouseDown(backdrop);
+        }
+
+        expect(mockOnDismiss).not.toHaveBeenCalled();
+        expect(screen.getByRole('menu')).toBeInTheDocument();
+      });
+
+      it('keeps clicks on the backdrop from reaching ancestors', async () => {
+        const ancestorClick = jest.fn();
+        render(
+          <div onClick={ancestorClick}>
+            <ContextMenu x={100} y={100} options={defaultOptions} onDismiss={mockOnDismiss} backdrop />
+          </div>,
+        );
+        await nextFrame();
+
+        fireEvent.click(screen.getByTestId('context-menu-backdrop'));
+
+        expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+        expect(ancestorClick).not.toHaveBeenCalled();
+      });
+
+      it('still runs and dismisses on menu item taps', async () => {
+        const onClick = jest.fn();
+        renderWithOutside({ backdrop: true, options: [{ label: 'Go', onClick }] });
+        await nextFrame();
+
+        fireEvent.click(screen.getByRole('menuitem', { name: 'Go' }));
+
+        expect(onClick).toHaveBeenCalledTimes(1);
+        expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
 });
