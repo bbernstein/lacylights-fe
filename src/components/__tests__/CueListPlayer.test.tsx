@@ -383,9 +383,9 @@ describe("CueListPlayer", () => {
 
       await waitFor(() => {
         // Get from cue list display, not Now Playing section
-        const openingSceneElements = screen.getAllByText("Opening Look");
-        const currentCue = openingSceneElements[
-          openingSceneElements.length - 1
+        const openingLookElements = screen.getAllByText("Opening Look");
+        const currentCue = openingLookElements[
+          openingLookElements.length - 1
         ].closest('div[class*="bg-gray-700"]');
         expect(currentCue).toHaveClass("border-green-500");
         // Current cue has green border and scale effect - no text label needed
@@ -412,8 +412,8 @@ describe("CueListPlayer", () => {
 
       await waitFor(() => {
         // Next cue (Mid Look) should have opacity-80 styling
-        const midSceneElements = screen.getAllByText("Mid Look");
-        const nextCue = midSceneElements[0].closest('div[class*="opacity-80"]');
+        const midLookElements = screen.getAllByText("Mid Look");
+        const nextCue = midLookElements[0].closest('div[class*="opacity-80"]');
         expect(nextCue).toBeInTheDocument();
       });
     });
@@ -650,12 +650,12 @@ describe("CueListPlayer", () => {
       });
 
       // Click on a non-current cue to jump to it
-      const midSceneElements = screen.getAllByText("Mid Look");
-      const midSceneCue = midSceneElements[0].closest(
+      const midLookElements = screen.getAllByText("Mid Look");
+      const midLookCue = midLookElements[0].closest(
         'div[class*="cursor-pointer"]',
       );
-      if (midSceneCue) {
-        await userEvent.click(midSceneCue);
+      if (midLookCue) {
+        await userEvent.click(midLookCue);
       }
     });
 
@@ -669,9 +669,9 @@ describe("CueListPlayer", () => {
 
       // All cues including current have cursor-pointer class (current scrolls, others jump)
       // Find the outer cue card div that has cursor-pointer
-      const openingSceneElements = screen.getAllByText("Opening Look");
-      const currentCue = openingSceneElements[
-        openingSceneElements.length - 1
+      const openingLookElements = screen.getAllByText("Opening Look");
+      const currentCue = openingLookElements[
+        openingLookElements.length - 1
       ].closest('div[class*="cursor-pointer"]');
       expect(currentCue).toBeInTheDocument();
     });
@@ -706,13 +706,13 @@ describe("CueListPlayer", () => {
       });
 
       // Find a non-current cue and single-click it
-      const midSceneElements = screen.getAllByText("Mid Look");
-      const midSceneCue = midSceneElements[0].closest(
+      const midLookElements = screen.getAllByText("Mid Look");
+      const midLookCue = midLookElements[0].closest(
         'div[class*="cursor-pointer"]',
       );
-      expect(midSceneCue).toBeInTheDocument();
-      if (midSceneCue) {
-        fireEvent.click(midSceneCue);
+      expect(midLookCue).toBeInTheDocument();
+      if (midLookCue) {
+        fireEvent.click(midLookCue);
       }
 
       // Mutation should be called immediately (no delay)
@@ -919,9 +919,9 @@ describe("CueListPlayer", () => {
       });
 
       // Find and click the current cue card
-      const openingSceneElements = screen.getAllByText("Opening Look");
-      const currentCueCard = openingSceneElements[
-        openingSceneElements.length - 1
+      const openingLookElements = screen.getAllByText("Opening Look");
+      const currentCueCard = openingLookElements[
+        openingLookElements.length - 1
       ].closest('div[class*="cursor-pointer"]');
 
       if (currentCueCard) {
@@ -1352,9 +1352,9 @@ describe("CueListPlayer", () => {
 
       await waitFor(() => {
         // Get from cue list display, not Now Playing section
-        const openingSceneElements = screen.getAllByText("Opening Look");
-        const currentCue = openingSceneElements[
-          openingSceneElements.length - 1
+        const openingLookElements = screen.getAllByText("Opening Look");
+        const currentCue = openingLookElements[
+          openingLookElements.length - 1
         ].closest('div[class*="bg-gray-700"]');
         expect(currentCue).toHaveClass("border-green-500");
         expect(currentCue).toHaveClass("scale-[1.02]");
@@ -1366,8 +1366,8 @@ describe("CueListPlayer", () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        const midSceneElements = screen.getAllByText("Mid Look");
-        const nextCue = midSceneElements[0].closest('div[class*="opacity-80"]');
+        const midLookElements = screen.getAllByText("Mid Look");
+        const nextCue = midLookElements[0].closest('div[class*="opacity-80"]');
         expect(nextCue).toBeInTheDocument();
       });
     });
@@ -1480,9 +1480,9 @@ describe("CueListPlayer", () => {
       renderWithProvider(mocks);
 
       await waitFor(() => {
-        const openingSceneElements = screen.getAllByText("Opening Look");
-        const currentCue = openingSceneElements[
-          openingSceneElements.length - 1
+        const openingLookElements = screen.getAllByText("Opening Look");
+        const currentCue = openingLookElements[
+          openingLookElements.length - 1
         ].closest('div[class*="bg-gray-700"]');
         expect(currentCue).toHaveClass("border-amber-500");
       });
