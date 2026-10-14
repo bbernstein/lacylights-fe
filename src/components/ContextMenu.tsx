@@ -43,6 +43,13 @@ interface ContextMenuProps {
 const ITEM_SELECTOR = '[role="menuitem"]:not([disabled])';
 
 /**
+ * The current time on the clock the environment stamps events with
+ * (`Event.timeStamp`), so it can be compared with the stamps of input events.
+ */
+const eventClockNow = () =>
+  typeof Event === "function" ? new Event("contextmenu-opened").timeStamp : 0;
+
+/**
  * A context menu component that appears at a specific position.
  * Dismisses when clicking or tapping outside, pressing Escape, or resizing /
  * rotating the viewport (it is fixed at the coordinates it opened at, so it
@@ -65,14 +72,22 @@ export default function ContextMenu({
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
-  const justOpenedRef = useRef(true); // Track if menu was just opened
+  // When this menu instance opened, on the clock events are stamped with
+  // (see eventClockNow), set on mount. Presses stamped earlier began before
+  // the menu existed.
+  const openedAtRef = useRef(0);
+  // An outside press dismisses once: the pointerdown, mousedown and
+  // touchstart of one press must not call onDismiss three times.
+  const dismissedByPressRef = useRef(false);
 
   // Calculate position to avoid menu going off-screen
   const [position, setPosition] = useState({ x, y });
 
-  // Reset justOpenedRef and position when menu coordinates change (new menu instance)
+  // New coordinates mean a new menu instance: reset its opening time and
+  // position.
   useEffect(() => {
-    justOpenedRef.current = true;
+    openedAtRef.current = eventClockNow();
+    dismissedByPressRef.current = false;
     setPosition({ x, y });
   }, [x, y]);
 
@@ -129,24 +144,30 @@ export default function ContextMenu({
     if (items.length > 0) items[next].focus();
   };
 
-  // Handle click outside to close menu
+  // Close the menu on the first press outside it.
+  //
+  // - Listeners are attached as soon as the menu mounts, so the very first
+  //   outside pointerdown dismisses (mousedown / touchstart are fallbacks for
+  //   browsers without pointer events; one press dismisses only once).
+  // - They listen in the capture phase on document, which runs before React's
+  //   handlers on the root, so a pressed element that stops propagation of
+  //   mousedown / touchstart (look board buttons, cue rows) still closes it.
+  // - The press that opened the menu cannot close it: callers open on click,
+  //   contextmenu, a long-press timer or touchend, all after that press's
+  //   down events, and any down event stamped before the menu opened (one
+  //   still being dispatched, or the mousedown / touchstart following an
+  //   opening pointerdown) is ignored.
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent | TouchEvent | PointerEvent) => {
+    const handlePressOutside = (e: MouseEvent | TouchEvent | PointerEvent) => {
+      if (dismissedByPressRef.current) return;
+      if (e.timeStamp < openedAtRef.current) return;
       const target = e.target as Node;
       // Presses on the backdrop are not "outside": its click handler dismisses
       // the menu once the press ends, so nothing underneath receives the tap.
       if (backdropRef.current?.contains(target)) return;
 
-      // Ignore the first event after opening (prevents immediate dismissal).
-      // Every real press starts with pointerdown, so this consumes the
-      // pointerdown and the same press's touchstart / mousedown dismisses:
-      // the first tap or click outside closes the menu.
-      if (justOpenedRef.current) {
-        justOpenedRef.current = false;
-        return;
-      }
-
       if (menuRef.current && !menuRef.current.contains(target)) {
+        dismissedByPressRef.current = true;
         onDismiss();
       }
     };
@@ -167,14 +188,17 @@ export default function ContextMenu({
       }
     };
 
-    // Use requestAnimationFrame to add listeners on next frame
-    // This ensures the opening event has finished processing
-    // cancelAnimationFrame in cleanup prevents callback execution if unmounted
+    const pressCapture = { capture: true, passive: true } as const;
+    document.addEventListener("pointerdown", handlePressOutside, pressCapture);
+    document.addEventListener("mousedown", handlePressOutside, pressCapture);
+    document.addEventListener("touchstart", handlePressOutside, pressCapture);
+    document.addEventListener("keydown", handleEscape);
+
+    // Scroll and resize listeners wait a frame: scroll events are dispatched
+    // once per frame, so one already queued when the menu opened (the end of
+    // a momentum scroll) would otherwise close it at once.
+    // cancelAnimationFrame in cleanup prevents callback execution if unmounted.
     const rafId = requestAnimationFrame(() => {
-      document.addEventListener("pointerdown", handleClickOutside);
-      document.addEventListener("mousedown", handleClickOutside);
-      document.addEventListener("touchstart", handleClickOutside, { passive: true });
-      document.addEventListener("keydown", handleEscape);
       // Capture: scroll events don't bubble, so listen on the way down.
       if (dismissOnScroll) {
         document.addEventListener("scroll", handleScroll, { capture: true, passive: true });
@@ -186,9 +210,9 @@ export default function ContextMenu({
     return () => {
       cancelAnimationFrame(rafId);
       // Always remove event listeners
-      document.removeEventListener("pointerdown", handleClickOutside);
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("touchstart", handleClickOutside);
+      document.removeEventListener("pointerdown", handlePressOutside, { capture: true });
+      document.removeEventListener("mousedown", handlePressOutside, { capture: true });
+      document.removeEventListener("touchstart", handlePressOutside, { capture: true });
       document.removeEventListener("keydown", handleEscape);
       document.removeEventListener("scroll", handleScroll, { capture: true });
       window.removeEventListener("resize", handleResize);
