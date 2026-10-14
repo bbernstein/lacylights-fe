@@ -315,8 +315,11 @@ export default function ExportMenuButton({
 
       {open && (
         <>
-          {/* Backdrop: closes the menu on outside click / tap. */}
-          <div className="fixed inset-0 z-40" onClick={close} aria-hidden="true" data-testid="export-menu-backdrop" />
+          {/* Backdrop: closes the menu on outside click / tap. It and the menu
+              sit above the fixed mobile bottom navigation (z-50), so a tap on
+              the navigation only closes the menu and the menu is never drawn
+              underneath it (e.g. a phone in landscape). */}
+          <div className="fixed inset-0 z-[55]" onClick={close} aria-hidden="true" data-testid="export-menu-backdrop" />
           <div
             id={menuId}
             ref={menuRef}
@@ -330,7 +333,7 @@ export default function ExportMenuButton({
             }
             className={`absolute right-0 ${
               placement?.up ? 'bottom-full mb-1' : 'top-full mt-1'
-            } z-50 min-w-[220px] max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1`}
+            } z-[60] min-w-[220px] max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1`}
           >
             {dataExportUnsupported ? (
               <p className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300" role="note">

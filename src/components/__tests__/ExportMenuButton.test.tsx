@@ -478,6 +478,13 @@ describe('ExportMenuButton', () => {
       expect(screen.getByRole('button', { name: 'Export' }).className).toContain('[@media(pointer:coarse)]:min-h-[44px]');
     });
 
+    it('stacks the backdrop and menu above the fixed mobile navigation (z-50)', () => {
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
+      openMenu();
+      expect(screen.getByTestId('export-menu-backdrop')).toHaveClass('z-[55]');
+      expect(screen.getByRole('menu')).toHaveClass('z-[60]');
+    });
+
     it('shows the focus ring only for keyboard focus, not after a tap', () => {
       renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
       const cls = screen.getByRole('button', { name: 'Export' }).className.split(/\s+/);
