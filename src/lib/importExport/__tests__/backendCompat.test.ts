@@ -7,7 +7,6 @@ import {
   isUnknownQueryFieldError,
   markFeatureUnsupported,
   noteDataExportError,
-  queryWithLegacyMutationFallback,
   subscribeToBackendCapabilities,
 } from '../backendCompat';
 
@@ -121,84 +120,6 @@ describe('importExport/backendCompat', () => {
     it('has a user-facing message', () => {
       expect(DATA_EXPORT_UNSUPPORTED_MESSAGE).toMatch(/doesn.t support CSV\/Excel export/);
       expect(DATA_EXPORT_UNSUPPORTED_MESSAGE).toMatch(/update LacyLights/);
-    });
-  });
-
-  describe('queryWithLegacyMutationFallback', () => {
-    const QUERY = { kind: 'Document', definitions: [] } as never;
-    const MUTATION = { kind: 'Document', definitions: [{}] } as never;
-    const primary = { query: QUERY, field: 'projectExport' };
-    const legacy = { mutation: MUTATION, field: 'exportProject' };
-    const variables = { projectId: 'p1' };
-
-    it('returns the Query result when the backend supports it', async () => {
-      const { client, query, mutate } = makeClient();
-      query.mockResolvedValue({ data: { projectExport: { jsonContent: '{}' } } });
-      const result = await queryWithLegacyMutationFallback(client, primary, legacy, variables);
-      expect(result).toEqual({ jsonContent: '{}' });
-      expect(query).toHaveBeenCalledWith({ query: QUERY, variables, fetchPolicy: 'no-cache' });
-      expect(mutate).not.toHaveBeenCalled();
-    });
-
-    it('falls back to the legacy Mutation on "Cannot query field" and remembers it', async () => {
-      const { client, query, mutate } = makeClient();
-      query.mockRejectedValue(validationNetworkError('projectExport'));
-      mutate.mockResolvedValue({ data: { exportProject: { jsonContent: 'old' } } });
-
-      const result = await queryWithLegacyMutationFallback(client, primary, legacy, variables);
-      expect(result).toEqual({ jsonContent: 'old' });
-      expect(mutate).toHaveBeenCalledWith({ mutation: MUTATION, variables, fetchPolicy: 'no-cache' });
-
-      // Later exports on the same client go straight to the Mutation.
-      query.mockClear();
-      mutate.mockClear();
-      mutate.mockResolvedValue({ data: { exportProject: { jsonContent: 'again' } } });
-      await expect(queryWithLegacyMutationFallback(client, primary, legacy, variables)).resolves.toEqual({
-        jsonContent: 'again',
-      });
-      expect(query).not.toHaveBeenCalled();
-    });
-
-    it('does not fall back on other errors', async () => {
-      const { client, query, mutate } = makeClient();
-      const error = new ApolloError({ graphQLErrors: [new GraphQLError('project not found')] });
-      query.mockRejectedValue(error);
-      await expect(queryWithLegacyMutationFallback(client, primary, legacy, variables)).rejects.toBe(error);
-      expect(mutate).not.toHaveBeenCalled();
-      expect(isFeatureUnsupported(client, 'query:projectExport')).toBe(false);
-    });
-
-    it('does not fall back when a different field is unknown', async () => {
-      const { client, query, mutate } = makeClient();
-      query.mockRejectedValue(validationGraphQLError('somethingElse'));
-      await expect(queryWithLegacyMutationFallback(client, primary, legacy, variables)).rejects.toBeInstanceOf(
-        ApolloError,
-      );
-      expect(mutate).not.toHaveBeenCalled();
-    });
-
-    it('propagates errors from the legacy Mutation', async () => {
-      const { client, query, mutate } = makeClient();
-      query.mockRejectedValue(validationGraphQLError('projectExport'));
-      mutate.mockRejectedValue(new Error('mutation failed'));
-      await expect(queryWithLegacyMutationFallback(client, primary, legacy, variables)).rejects.toThrow(
-        'mutation failed',
-      );
-    });
-
-    it('throws when the response lacks the field', async () => {
-      const { client, query, mutate } = makeClient();
-      query.mockResolvedValue({ data: null });
-      await expect(queryWithLegacyMutationFallback(client, primary, legacy, variables)).rejects.toThrow(
-        'No export data was returned by the server.',
-      );
-
-      query.mockRejectedValue(validationGraphQLError('projectExport'));
-      mutate.mockResolvedValue({ data: { exportProject: null } });
-      await expect(queryWithLegacyMutationFallback(client, primary, legacy, variables)).rejects.toThrow(
-        'No export data was returned by the server.',
-      );
-      expect(mutate).toHaveBeenCalledTimes(1);
     });
   });
 });
