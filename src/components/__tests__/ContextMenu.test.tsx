@@ -593,6 +593,101 @@ describe('ContextMenu', () => {
       expect(mockOnDismiss).toHaveBeenCalledTimes(1);
     });
 
+    it('dismisses again on a later press if the menu stays mounted', () => {
+      renderWithOutside();
+      const outside = screen.getByTestId('outside');
+
+      fireEvent.pointerDown(outside);
+      fireEvent.pointerUp(outside);
+      fireEvent.pointerDown(outside);
+
+      expect(mockOnDismiss).toHaveBeenCalledTimes(2);
+    });
+
+    it('calls the latest onDismiss and keeps scroll dismissal armed across parent re-renders', async () => {
+      const first = jest.fn();
+      const latest = jest.fn();
+      const { rerender } = render(
+        <ContextMenu x={100} y={100} options={defaultOptions} onDismiss={first} dismissOnScroll />,
+      );
+      await nextFrame();
+
+      // A parent re-render with a new inline onDismiss must not re-arm the
+      // listeners (which would skip scroll events for a frame).
+      rerender(<ContextMenu x={100} y={100} options={defaultOptions} onDismiss={latest} dismissOnScroll />);
+      fireEvent.scroll(document);
+
+      expect(latest).toHaveBeenCalledTimes(1);
+      expect(first).not.toHaveBeenCalled();
+    });
+
+    describe('when the browser supports pointer events', () => {
+      const hadPointerEvent = 'PointerEvent' in window;
+      const originalPointerEvent = (window as { PointerEvent?: unknown }).PointerEvent;
+
+      beforeEach(() => {
+        (window as { PointerEvent?: unknown }).PointerEvent = class extends MouseEvent {};
+      });
+
+      afterEach(() => {
+        if (hadPointerEvent) {
+          (window as { PointerEvent?: unknown }).PointerEvent = originalPointerEvent;
+        } else {
+          delete (window as { PointerEvent?: unknown }).PointerEvent;
+        }
+      });
+
+      it('dismisses on pointerdown and ignores mousedown / touchstart, which always follow one', () => {
+        renderWithOutside();
+        const outside = screen.getByTestId('outside');
+
+        fireEvent.mouseDown(outside);
+        fireEvent.touchStart(outside);
+        expect(mockOnDismiss).not.toHaveBeenCalled();
+
+        fireEvent.pointerDown(outside, { pointerType: 'touch' });
+        expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+      });
+
+      it('is not closed by the compatibility mousedown a browser sends after the touchend that opened it', () => {
+        function TouchEndOpener() {
+          const [open, setOpen] = React.useState(false);
+          return (
+            <div>
+              <div data-testid="canvas" onTouchEnd={() => setOpen(true)}>Canvas</div>
+              {open && (
+                <ContextMenu
+                  x={10}
+                  y={10}
+                  options={defaultOptions}
+                  onDismiss={() => {
+                    mockOnDismiss();
+                    setOpen(false);
+                  }}
+                />
+              )}
+            </div>
+          );
+        }
+        render(<TouchEndOpener />);
+        const canvas = screen.getByTestId('canvas');
+
+        // Long-press on the canvas: the menu opens on touchend, then the
+        // browser may emulate mouse events for the touch, stamped later.
+        fireEvent.pointerDown(canvas, { pointerType: 'touch' });
+        fireEvent.touchStart(canvas);
+        fireEvent.touchEnd(canvas);
+        expect(screen.getByRole('menu')).toBeInTheDocument();
+
+        fireEvent.mouseDown(canvas);
+        fireEvent.mouseUp(canvas);
+        fireEvent.click(canvas);
+
+        expect(mockOnDismiss).not.toHaveBeenCalled();
+        expect(screen.getByRole('menu')).toBeInTheDocument();
+      });
+    });
+
     describe('the event that opened the menu', () => {
       // A trigger that opens the menu from a press or click, like the callers do
       // (right-click, long-press timer, row ⋯ button, look board canvas).
