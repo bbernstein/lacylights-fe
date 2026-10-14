@@ -206,8 +206,9 @@ async function queryProjectExport<TResult, TVariables extends OperationVariables
   field: string,
   variables: TVariables,
 ): Promise<TResult> {
-  const data = await runExportQuery<unknown, TVariables>(client, query, variables);
-  const value = data && typeof data === 'object' ? (data as Record<string, unknown>)[field] : undefined;
+  // runExportQuery already throws when the response has no data at all.
+  const data = await runExportQuery<Record<string, unknown>, TVariables>(client, query, variables);
+  const value = data[field];
   if (value === undefined || value === null) {
     throw new Error('No export data was returned by the server.');
   }
