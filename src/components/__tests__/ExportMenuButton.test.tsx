@@ -497,4 +497,177 @@ describe('ExportMenuButton', () => {
       expect(downloadBinary).not.toHaveBeenCalled();
     });
   });
+
+  describe('touch screens and small viewports', () => {
+    type Box = { left: number; top: number; width: number; height: number };
+    const originalWidth = window.innerWidth;
+    const originalHeight = window.innerHeight;
+
+    function setViewport(width: number, height: number) {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: width });
+      Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: height });
+    }
+
+    /** Fake layout: the Export button sits at `trigger`; the menu is `menu` px big. */
+    function mockLayout(trigger: Box, menu: { width: number; height: number }) {
+      jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+        const b = this.getAttribute('aria-label') === 'Export' ? trigger : { left: 0, top: 0, width: 0, height: 0 };
+        return {
+          x: b.left, y: b.top, left: b.left, top: b.top, width: b.width, height: b.height,
+          right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}),
+        } as DOMRect;
+      });
+      jest.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
+        return this.getAttribute('role') === 'menu' ? menu.width : 0;
+      });
+      jest.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+        return this.getAttribute('role') === 'menu' ? menu.height : 0;
+      });
+    }
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+      setViewport(originalWidth, originalHeight);
+    });
+
+    it('keeps the menu inside the viewport when the button is near the left edge', () => {
+      // Phone list page: the Export button is the first button under the heading.
+      setViewport(393, 659);
+      mockLayout({ left: 16, top: 219, width: 113, height: 44 }, { width: 220, height: 171 });
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
+      openMenu();
+
+      const menu = screen.getByRole('menu');
+      // Right-aligned it would start at 129 - 220 = -91; instead it starts 8px
+      // from the viewport edge, i.e. 8px left of the button (at x = 16).
+      expect(menu.style.left).toBe('-8px');
+      expect(menu.style.right).toBe('auto');
+      expect(menu).toHaveClass('top-full');
+    });
+
+    it('stays right-aligned with the button when there is room', () => {
+      setViewport(393, 659);
+      mockLayout({ left: 300, top: 8, width: 77, height: 44 }, { width: 220, height: 171 });
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
+      openMenu();
+
+      // Right edges line up: 300 + 77 - 220 = 157, which is 143px left of the button.
+      expect(screen.getByRole('menu').style.left).toBe('-143px');
+    });
+
+    it('keeps the menu inside the right edge as well', () => {
+      setViewport(320, 659);
+      mockLayout({ left: 40, top: 8, width: 30, height: 44 }, { width: 300, height: 171 });
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
+      openMenu();
+
+      // Too wide to fit either way: pinned 8px from the left viewport edge.
+      expect(screen.getByRole('menu').style.left).toBe('-32px');
+    });
+
+    it('opens upward when the button is near the bottom of the screen', () => {
+      setViewport(393, 659);
+      mockLayout({ left: 200, top: 600, width: 113, height: 44 }, { width: 220, height: 320 });
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
+      openMenu();
+
+      const menu = screen.getByRole('menu');
+      expect(menu).toHaveClass('bottom-full');
+      expect(menu).not.toHaveClass('top-full');
+      expect(menu.style.maxHeight).toBe('');
+    });
+
+    it('caps the height and scrolls when the menu fits neither above nor below', () => {
+      // Phone in landscape.
+      setViewport(659, 393);
+      mockLayout({ left: 281, top: 139, width: 113, height: 38 }, { width: 220, height: 280 });
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
+      openMenu();
+
+      const menu = screen.getByRole('menu');
+      // More room below (393 - 177 - 4 - 8 = 204) than above (139 - 4 - 8 = 127).
+      expect(menu).toHaveClass('top-full', 'overflow-y-auto');
+      expect(menu.style.maxHeight).toBe('204px');
+    });
+
+    it('never sizes the menu past the viewport when there is very little room either way', () => {
+      // Short viewport (split screen / on-screen keyboard): under 120px both ways.
+      setViewport(659, 220);
+      mockLayout({ left: 281, top: 90, width: 113, height: 38 }, { width: 220, height: 280 });
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
+      openMenu();
+
+      const menu = screen.getByRole('menu');
+      // Below: 220 - 128 - 4 - 8 = 80; above: 90 - 4 - 8 = 78. The menu is
+      // capped to the 80px that exist (it scrolls), not to a larger minimum.
+      expect(menu).toHaveClass('top-full', 'overflow-y-auto');
+      expect(menu.style.maxHeight).toBe('80px');
+    });
+
+    it('repositions when the screen is resized or rotated while open', () => {
+      setViewport(393, 659);
+      mockLayout({ left: 16, top: 219, width: 113, height: 44 }, { width: 220, height: 280 });
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
+      openMenu();
+      const menu = screen.getByRole('menu');
+      expect(menu.style.left).toBe('-8px');
+      expect(menu.style.maxHeight).toBe('');
+
+      setViewport(659, 393);
+      mockLayout({ left: 281, top: 139, width: 113, height: 38 }, { width: 220, height: 280 });
+      fireEvent(window, new Event('resize'));
+      expect(menu.style.left).toBe('-107px');
+      expect(menu.style.maxHeight).toBe('204px');
+
+      setViewport(393, 659);
+      mockLayout({ left: 16, top: 219, width: 113, height: 44 }, { width: 220, height: 280 });
+      fireEvent(window, new Event('orientationchange'));
+      expect(menu.style.left).toBe('-8px');
+      expect(menu.style.maxHeight).toBe('');
+    });
+
+    it('stops repositioning once closed', () => {
+      setViewport(393, 659);
+      mockLayout({ left: 16, top: 219, width: 113, height: 44 }, { width: 220, height: 171 });
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
+      openMenu();
+      fireEvent.click(screen.getByTestId('export-menu-backdrop'));
+      const rectSpy = HTMLElement.prototype.getBoundingClientRect as jest.Mock;
+      rectSpy.mockClear();
+
+      fireEvent(window, new Event('resize'));
+
+      expect(rectSpy).not.toHaveBeenCalled();
+    });
+
+    it('keeps 44px touch targets on touch screens at every width', () => {
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
+      const trigger = screen.getByRole('button', { name: 'Export' });
+      expect(trigger.className).toContain('min-h-[44px]');
+      expect(trigger.className).toContain('[@media(any-pointer:coarse)]:min-h-[44px]');
+      openMenu();
+      for (const item of screen.getAllByRole('menuitem')) {
+        expect(item.className).toContain('[@media(any-pointer:coarse)]:py-3');
+      }
+    });
+
+    it('keeps the toolbar button a 44px touch target on touch screens', () => {
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1', appearance: 'toolbar' });
+      expect(screen.getByRole('button', { name: 'Export' }).className).toContain('[@media(any-pointer:coarse)]:min-h-[44px]');
+    });
+
+    it('stacks the backdrop and menu above the fixed mobile navigation (z-50)', () => {
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
+      openMenu();
+      expect(screen.getByTestId('export-menu-backdrop')).toHaveClass('z-[55]');
+      expect(screen.getByRole('menu')).toHaveClass('z-[60]');
+    });
+
+    it('shows the focus ring only for keyboard focus, not after a tap', () => {
+      renderButton({ table: DataExportTable.Looks, projectId: 'p1' });
+      const cls = screen.getByRole('button', { name: 'Export' }).className.split(/\s+/);
+      expect(cls).toEqual(expect.arrayContaining(['focus-visible:ring-2', 'focus-visible:ring-blue-500']));
+      expect(cls).not.toContain('focus:ring-2');
+    });
+  });
 });

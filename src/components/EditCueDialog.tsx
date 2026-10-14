@@ -89,7 +89,7 @@ interface EditCueDialogProps {
  *   isOpen={showDialog}
  *   onClose={() => setShowDialog(false)}
  *   cue={currentCue}
- *   scenes={availableScenes}
+ *   looks={availableLooks}
  *   externalError={error}
  *   onUpdate={handleUpdateCue}
  * />

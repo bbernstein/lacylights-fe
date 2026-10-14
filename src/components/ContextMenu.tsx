@@ -21,13 +21,67 @@ interface ContextMenuProps {
    * menus opened from a button so keyboard users can reach the items.
    */
   autoFocus?: boolean;
+  /**
+   * Cover the page with a transparent layer while the menu is open. A tap or
+   * click on it only dismisses the menu: it never reaches the control
+   * underneath (no click-through or ghost click on touch screens), and a
+   * second tap on the button that opened the menu closes it instead of
+   * reopening it. Use for menus opened from a button inside dialogs and
+   * sheets, where an outside tap should not also close the dialog.
+   */
+  backdrop?: boolean;
+  /**
+   * Close the menu when anything behind it scrolls. The menu is fixed at the
+   * coordinates it opened at, so it would otherwise drift away from its row.
+   * Opt-in: lists that scroll themselves (a cue list following the live cue)
+   * would otherwise close the menu under the user's finger, and the tap meant
+   * for a menu item would land on the row underneath instead.
+   */
+  dismissOnScroll?: boolean;
 }
 
 const ITEM_SELECTOR = '[role="menuitem"]:not([disabled])';
 
 /**
+ * The current time on the clock the environment stamps events with
+ * (`Event.timeStamp`), so it can be compared with the stamps of input events.
+ * Read from a fresh event rather than `performance.now()` because the clocks
+ * are not the same everywhere: jsdom (and older browsers) stamp events with
+ * epoch milliseconds.
+ */
+const eventClockNow = () =>
+  typeof Event === "function" ? new Event("contextmenu-opened").timeStamp : 0;
+
+/**
+ * Browsers without pointer events (older iOS Safari) emulate a mousedown /
+ * mouseup / click after a touch ends. When a menu opened during that touch
+ * (long-press timer) or on its touchend, the emulated mousedown would look
+ * like a new press outside and close it at once. Record when touches end,
+ * from module load so the touch that opens the first menu is seen too, and
+ * treat a mousedown shortly after one as emulated. Browsers with pointer
+ * events never get here: they only listen for pointerdown.
+ */
+const EMULATED_MOUSE_WINDOW_MS = 1000;
+let lastTouchEndAt = Number.NEGATIVE_INFINITY;
+if (typeof document !== "undefined" && typeof window.PointerEvent !== "function") {
+  const recordTouchEnd = (e: Event) => {
+    lastTouchEndAt = e.timeStamp;
+  };
+  const options = { capture: true, passive: true } as const;
+  document.addEventListener("touchend", recordTouchEnd, options);
+  document.addEventListener("touchcancel", recordTouchEnd, options);
+}
+const isEmulatedMouseDown = (e: Event) =>
+  e.type === "mousedown" &&
+  e.timeStamp >= lastTouchEndAt &&
+  e.timeStamp - lastTouchEndAt < EMULATED_MOUSE_WINDOW_MS;
+
+/**
  * A context menu component that appears at a specific position.
- * Dismisses when clicking outside or pressing Escape.
+ * Dismisses when clicking or tapping outside, pressing Escape, or resizing /
+ * rotating the viewport (it is fixed at the coordinates it opened at, so it
+ * would otherwise drift away from the element it belongs to), and, with
+ * `dismissOnScroll`, when anything behind it scrolls.
  *
  * Keyboard: Arrow Up/Down, Home and End move between enabled items; Escape
  * and Tab dismiss the menu. Key presses handled inside the menu don't
@@ -40,16 +94,34 @@ export default function ContextMenu({
   options,
   onDismiss,
   autoFocus = false,
+  backdrop = false,
+  dismissOnScroll = false,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const justOpenedRef = useRef(true); // Track if menu was just opened
+  const backdropRef = useRef<HTMLDivElement>(null);
+  // When this menu instance opened, on the clock events are stamped with
+  // (see eventClockNow), set on mount. Presses stamped earlier began before
+  // the menu existed.
+  const openedAtRef = useRef(0);
+  // An outside press dismisses once: the pointerdown, mousedown and
+  // touchstart of one press must not call onDismiss more than once. Cleared
+  // when the press ends.
+  const dismissedByPressRef = useRef(false);
+  // The latest onDismiss, so a parent re-render with a new inline callback
+  // doesn't tear down and re-add the document listeners.
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  });
 
   // Calculate position to avoid menu going off-screen
   const [position, setPosition] = useState({ x, y });
 
-  // Reset justOpenedRef and position when menu coordinates change (new menu instance)
+  // New coordinates mean a new menu instance: reset its opening time and
+  // position.
   useEffect(() => {
-    justOpenedRef.current = true;
+    openedAtRef.current = eventClockNow();
+    dismissedByPressRef.current = false;
     setPosition({ x, y });
   }, [x, y]);
 
@@ -58,7 +130,9 @@ export default function ContextMenu({
     if (!autoFocus) return;
     const previouslyFocused =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    menuRef.current?.querySelector<HTMLElement>(ITEM_SELECTOR)?.focus();
+    // preventScroll: the menu is fixed-positioned, and a focus-induced scroll
+    // would move the page under it (or, with dismissOnScroll, close it).
+    menuRef.current?.querySelector<HTMLElement>(ITEM_SELECTOR)?.focus({ preventScroll: true });
     const menu = menuRef.current;
     return () => {
       // Only restore when focus would otherwise be lost (inside the menu or
@@ -104,19 +178,53 @@ export default function ContextMenu({
     if (items.length > 0) items[next].focus();
   };
 
-  // Handle click outside to close menu
+  // Close the menu on the first press outside it.
+  //
+  // - Listeners are attached as soon as the menu mounts, so the very first
+  //   outside pointerdown dismisses. One press dismisses only once.
+  // - Where pointer events exist, every press starts with a pointerdown, so
+  //   mousedown / touchstart are only listened for as fallbacks in browsers
+  //   without them. This also keeps the mousedown a browser may emulate after
+  //   a touch (stamped after the touchend that opened a long-press menu) from
+  //   closing the menu: it has no pointerdown of its own. Without pointer
+  //   events, such a mousedown is recognized by timing (isEmulatedMouseDown).
+  // - They listen in the capture phase on document, which runs before React's
+  //   handlers on the root, so a pressed element that stops propagation of
+  //   mousedown / touchstart (look board buttons, cue rows) still closes it.
+  // - The press that opened the menu cannot close it: callers open on click,
+  //   contextmenu, a long-press timer or touchend, all after that press's
+  //   down events, and any down event stamped before the menu opened (for
+  //   example, the rest of a press a future caller opens the menu from) is
+  //   ignored.
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
-      // Ignore clicks if menu was just opened (prevents immediate dismissal)
-      if (justOpenedRef.current) {
-        justOpenedRef.current = false;
-        return;
-      }
+    const onDismiss = () => onDismissRef.current();
+    const handlePressOutside = (e: MouseEvent | TouchEvent | PointerEvent) => {
+      if (dismissedByPressRef.current) return;
+      if (e.timeStamp < openedAtRef.current) return;
+      if (isEmulatedMouseDown(e)) return;
+      const target = e.target as Node;
+      // Presses on the backdrop are not "outside": its click handler dismisses
+      // the menu once the press ends, so nothing underneath receives the tap.
+      if (backdropRef.current?.contains(target)) return;
 
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        dismissedByPressRef.current = true;
         onDismiss();
       }
     };
+    const handlePressEnd = () => {
+      dismissedByPressRef.current = false;
+    };
+
+    // Scrolling anything behind the menu (the page or a list it was opened
+    // from; opt-in, see dismissOnScroll) or resizing / rotating the viewport
+    // would leave the fixed menu floating away from its row, so close it.
+    const handleScroll = (e: Event) => {
+      const target = e.target;
+      if (target instanceof Node && menuRef.current?.contains(target)) return;
+      onDismiss();
+    };
+    const handleResize = () => onDismiss();
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -124,23 +232,46 @@ export default function ContextMenu({
       }
     };
 
-    // Use requestAnimationFrame to add listeners on next frame
-    // This ensures the opening event has finished processing
-    // cancelAnimationFrame in cleanup prevents callback execution if unmounted
+    const pressStarts =
+      typeof window.PointerEvent === "function"
+        ? ["pointerdown"]
+        : ["pointerdown", "mousedown", "touchstart"];
+    const pressEnds = ["pointerup", "pointercancel", "mouseup", "touchend", "touchcancel"];
+    const pressCapture = { capture: true, passive: true } as const;
+    pressStarts.forEach((type) =>
+      document.addEventListener(type, handlePressOutside as EventListener, pressCapture),
+    );
+    pressEnds.forEach((type) => document.addEventListener(type, handlePressEnd, pressCapture));
+    document.addEventListener("keydown", handleEscape);
+
+    // Scroll and resize listeners wait a frame: scroll events are dispatched
+    // once per frame, so one already queued when the menu opened (the end of
+    // a momentum scroll) would otherwise close it at once.
+    // cancelAnimationFrame in cleanup prevents callback execution if unmounted.
     const rafId = requestAnimationFrame(() => {
-      document.addEventListener("mousedown", handleClickOutside);
-      document.addEventListener("touchstart", handleClickOutside);
-      document.addEventListener("keydown", handleEscape);
+      // Capture: scroll events don't bubble, so listen on the way down.
+      if (dismissOnScroll) {
+        document.addEventListener("scroll", handleScroll, { capture: true, passive: true });
+      }
+      window.addEventListener("resize", handleResize);
+      window.addEventListener("orientationchange", handleResize);
     });
 
     return () => {
       cancelAnimationFrame(rafId);
       // Always remove event listeners
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("touchstart", handleClickOutside);
+      pressStarts.forEach((type) =>
+        document.removeEventListener(type, handlePressOutside as EventListener, { capture: true }),
+      );
+      pressEnds.forEach((type) =>
+        document.removeEventListener(type, handlePressEnd, { capture: true }),
+      );
       document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("scroll", handleScroll, { capture: true });
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
     };
-  }, [onDismiss]);
+  }, [dismissOnScroll]);
 
   // Adjust position after render based on actual menu size to prevent off-screen display
   useEffect(() => {
@@ -176,7 +307,7 @@ export default function ContextMenu({
     }
   }, [x, y]);
 
-  return (
+  const menu = (
     <div
       ref={menuRef}
       className="fixed z-[9999] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[160px]"
@@ -205,5 +336,26 @@ export default function ContextMenu({
         </button>
       ))}
     </div>
+  );
+
+  if (!backdrop) return menu;
+
+  return (
+    <>
+      {/* Transparent layer under the menu: a tap on it only closes the menu.
+          stopPropagation keeps the click from reaching React ancestors (e.g. a
+          dialog's own backdrop handler when the menu is portaled from it). */}
+      <div
+        ref={backdropRef}
+        className="fixed inset-0 z-[9998]"
+        aria-hidden="true"
+        data-testid="context-menu-backdrop"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDismiss();
+        }}
+      />
+      {menu}
+    </>
   );
 }

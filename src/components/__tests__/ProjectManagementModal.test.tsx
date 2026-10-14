@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import ProjectManagementModal from '../ProjectManagementModal';
@@ -599,6 +599,60 @@ describe('ProjectManagementModal', () => {
 
       expect(onClose).toHaveBeenCalled();
       expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('a tap outside the row menu closes only the menu, never the sheet or the control underneath', async () => {
+      const onClose = jest.fn();
+      renderWithProvider(createMocks(), { onClose });
+      fireEvent.click(await screen.findByRole('button', { name: 'More actions for Test Project 2' }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+
+      // On a touch screen the tap lands on the menu's backdrop, which covers
+      // the sheet, its own backdrop and the other rows' buttons.
+      fireEvent.click(screen.getByTestId('context-menu-backdrop'));
+
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByTestId('project-management-modal')).toBeInTheDocument();
+    });
+
+    it('closes the row menu when the project list scrolls, so it never drifts away from its row', async () => {
+      renderWithProvider(createMocks());
+      fireEvent.click(await screen.findByRole('button', { name: 'More actions for Test Project 2' }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+      // ContextMenu attaches its document listeners on the next frame.
+      await act(async () => {
+        await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+      });
+
+      fireEvent.scroll(screen.getByTestId('project-management-modal'));
+
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('activating the same row ⋯ button again closes its menu', async () => {
+      renderWithProvider(createMocks());
+      const trigger = await screen.findByRole('button', { name: 'More actions for Test Project 2' });
+
+      fireEvent.click(trigger);
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+
+      fireEvent.click(trigger);
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('another row\'s ⋯ button moves the menu to that row', async () => {
+      renderWithProvider(createMocks());
+      const first = await screen.findByRole('button', { name: 'More actions for Test Project 2' });
+      fireEvent.click(first);
+      const others = screen.getAllByRole('button', { name: /^More actions for / }).filter((b) => b !== first);
+      fireEvent.click(others[0]);
+
+      expect(screen.getAllByRole('menu')).toHaveLength(1);
+      expect(others[0]).toHaveAttribute('aria-expanded', 'true');
+      expect(first).toHaveAttribute('aria-expanded', 'false');
     });
 
     it('row menu is keyboard accessible: focus moves in, Escape closes only the menu', async () => {

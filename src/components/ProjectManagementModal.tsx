@@ -236,7 +236,14 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     }
   };
 
-  const openRowMenu = (projectId: string, e: React.MouseEvent<HTMLButtonElement>) => {
+  // Toggles: activating the same row's ⋯ button again closes its menu. (On
+  // touch screens the second tap actually lands on the menu's backdrop, which
+  // closes it the same way.)
+  const toggleRowMenu = (projectId: string, e: React.MouseEvent<HTMLButtonElement>) => {
+    if (rowMenu?.projectId === projectId) {
+      setRowMenu(null);
+      return;
+    }
     const rect = e.currentTarget.getBoundingClientRect();
     setRowMenu({ projectId, x: rect.left, y: rect.bottom + 4 });
   };
@@ -459,7 +466,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
                   <TrashIcon className="h-5 w-5" />
                 </button>
                 <button
-                  onClick={(e) => openRowMenu(project.id, e)}
+                  onClick={(e) => toggleRowMenu(project.id, e)}
                   className="text-gray-400 hover:text-white transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
                   title="More actions"
                   aria-label={`More actions for ${project.name}`}
@@ -498,12 +505,17 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     >
       {formContent}
       {/* Portal the row menu to <body>: the mobile sheet uses CSS transforms,
-          which would otherwise offset the menu's fixed positioning. */}
+          which would otherwise offset the menu's fixed positioning. The
+          backdrop makes an outside tap close only the menu, not the sheet
+          (or start a rename on another row); scrolling the list closes it
+          rather than leaving it next to the wrong row. */}
       {rowMenu && createPortal(
         <ContextMenu
           x={rowMenu.x}
           y={rowMenu.y}
           autoFocus
+          backdrop
+          dismissOnScroll
           onDismiss={() => setRowMenu(null)}
           options={[
             {

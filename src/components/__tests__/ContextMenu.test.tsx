@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import React from 'react';
+import { render, screen, fireEvent, createEvent, waitFor } from '@testing-library/react';
 import ContextMenu, { ContextMenuOption } from '../ContextMenu';
 
 describe('ContextMenu', () => {
@@ -219,14 +220,8 @@ describe('ContextMenu', () => {
         </div>
       );
 
-      // Wait for RAF to attach listeners
-      await new Promise(resolve => requestAnimationFrame(() => resolve(undefined)));
-
-      // First click will be ignored due to justOpenedRef
-      fireEvent.mouseDown(screen.getByTestId('outside'));
-      expect(mockOnDismiss).not.toHaveBeenCalled();
-
-      // Second click should dismiss
+      // The first press outside dismisses: listeners are attached as soon as
+      // the menu mounts and no event is swallowed.
       fireEvent.mouseDown(screen.getByTestId('outside'));
       expect(mockOnDismiss).toHaveBeenCalledTimes(1);
     });
@@ -497,6 +492,473 @@ describe('ContextMenu', () => {
         </>,
       );
       expect(trigger).toHaveFocus();
+    });
+  });
+
+  describe('touch and pointer input', () => {
+    const nextFrame = () => new Promise(resolve => requestAnimationFrame(() => resolve(undefined)));
+
+    const renderWithOutside = (props: Partial<React.ComponentProps<typeof ContextMenu>> = {}) =>
+      render(
+        <div>
+          <div data-testid="outside">Outside</div>
+          <ContextMenu x={100} y={100} options={defaultOptions} onDismiss={mockOnDismiss} {...props} />
+        </div>,
+      );
+
+    it('dismisses on the first touch outside the menu (pointerdown then touchstart)', async () => {
+      renderWithOutside();
+      await nextFrame();
+
+      const outside = screen.getByTestId('outside');
+      fireEvent.pointerDown(outside, { pointerType: 'touch' });
+      fireEvent.touchStart(outside);
+
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('dismisses on the first mouse press outside the menu (pointerdown then mousedown)', async () => {
+      renderWithOutside();
+      await nextFrame();
+
+      const outside = screen.getByTestId('outside');
+      fireEvent.pointerDown(outside, { pointerType: 'mouse' });
+      fireEvent.mouseDown(outside);
+
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('dismisses on a lone outside pointerdown, without waiting for a frame', () => {
+      renderWithOutside();
+
+      fireEvent.pointerDown(screen.getByTestId('outside'), { pointerType: 'touch' });
+
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('dismisses on a lone outside mousedown or touchstart (fallbacks without pointer events)', () => {
+      const { unmount } = renderWithOutside();
+      fireEvent.mouseDown(screen.getByTestId('outside'));
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+      unmount();
+
+      mockOnDismiss.mockClear();
+      renderWithOutside();
+      fireEvent.touchStart(screen.getByTestId('outside'));
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('dismisses only once for one press (pointerdown, then its mousedown / touchstart)', () => {
+      renderWithOutside();
+
+      const outside = screen.getByTestId('outside');
+      fireEvent.pointerDown(outside, { pointerType: 'mouse' });
+      fireEvent.mouseDown(outside);
+      fireEvent.touchStart(outside);
+
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('dismisses on a mousedown that the pressed element stops (e.g. a look board button drag)', () => {
+      const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+      render(
+        <div>
+          <div
+            data-testid="stopper"
+            onPointerDown={stop}
+            onMouseDown={stop}
+            onTouchStart={stop}
+          >
+            Look board button
+          </div>
+          <ContextMenu x={100} y={100} options={defaultOptions} onDismiss={mockOnDismiss} />
+        </div>,
+      );
+      const stopper = screen.getByTestId('stopper');
+
+      fireEvent.mouseDown(stopper);
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('dismisses on a touchstart that the pressed element stops (e.g. a look board button)', () => {
+      const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+      render(
+        <div>
+          <div data-testid="stopper" onTouchStart={stop}>Look board button</div>
+          <ContextMenu x={100} y={100} options={defaultOptions} onDismiss={mockOnDismiss} />
+        </div>,
+      );
+
+      fireEvent.touchStart(screen.getByTestId('stopper'));
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('dismisses again on a later press if the menu stays mounted', () => {
+      renderWithOutside();
+      const outside = screen.getByTestId('outside');
+
+      fireEvent.pointerDown(outside);
+      fireEvent.pointerUp(outside);
+      fireEvent.pointerDown(outside);
+
+      expect(mockOnDismiss).toHaveBeenCalledTimes(2);
+    });
+
+    it('calls the latest onDismiss and keeps scroll dismissal armed across parent re-renders', async () => {
+      const first = jest.fn();
+      const latest = jest.fn();
+      const { rerender } = render(
+        <ContextMenu x={100} y={100} options={defaultOptions} onDismiss={first} dismissOnScroll />,
+      );
+      await nextFrame();
+
+      // A parent re-render with a new inline onDismiss must not re-arm the
+      // listeners (which would skip scroll events for a frame).
+      rerender(<ContextMenu x={100} y={100} options={defaultOptions} onDismiss={latest} dismissOnScroll />);
+      fireEvent.scroll(document);
+
+      expect(latest).toHaveBeenCalledTimes(1);
+      expect(first).not.toHaveBeenCalled();
+    });
+
+    describe('without pointer events (older touch browsers)', () => {
+      const stampedAt = (create: (el: Element) => Event, el: Element, timeStamp: number) => {
+        const event = create(el);
+        Object.defineProperty(event, 'timeStamp', { value: timeStamp });
+        fireEvent(el, event);
+      };
+
+      it('is not closed by the emulated mousedown after the touch that opened it from a long-press timer', () => {
+        // The menu opened while the finger was still down (long-press timer);
+        // lifting it ends the touch, and the browser then emulates a mouse press.
+        renderWithOutside();
+        const outside = screen.getByTestId('outside');
+        const now = new Event('now').timeStamp;
+
+        stampedAt(createEvent.touchEnd, outside, now);
+        stampedAt(createEvent.mouseDown, outside, now + 5);
+        stampedAt(createEvent.mouseUp, outside, now + 6);
+
+        expect(mockOnDismiss).not.toHaveBeenCalled();
+
+        // A real mouse press well after the touch still closes it.
+        stampedAt(createEvent.mouseDown, outside, now + 5000);
+        expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+      });
+
+      it('is not closed by the emulated mousedown after the touchend that opened it', () => {
+        function TouchEndOpener() {
+          const [open, setOpen] = React.useState(false);
+          return (
+            <div>
+              <div data-testid="canvas" onTouchEnd={() => setOpen(true)}>Canvas</div>
+              {open && <ContextMenu x={10} y={10} options={defaultOptions} onDismiss={mockOnDismiss} />}
+            </div>
+          );
+        }
+        render(<TouchEndOpener />);
+        const canvas = screen.getByTestId('canvas');
+        const now = new Event('now').timeStamp;
+
+        stampedAt(createEvent.touchEnd, canvas, now);
+        expect(screen.getByRole('menu')).toBeInTheDocument();
+        stampedAt(createEvent.mouseDown, canvas, now + 5);
+
+        expect(mockOnDismiss).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('when the browser supports pointer events', () => {
+      const hadPointerEvent = 'PointerEvent' in window;
+      const originalPointerEvent = (window as { PointerEvent?: unknown }).PointerEvent;
+
+      beforeEach(() => {
+        (window as { PointerEvent?: unknown }).PointerEvent = class extends MouseEvent {};
+      });
+
+      afterEach(() => {
+        if (hadPointerEvent) {
+          (window as { PointerEvent?: unknown }).PointerEvent = originalPointerEvent;
+        } else {
+          delete (window as { PointerEvent?: unknown }).PointerEvent;
+        }
+      });
+
+      it('dismisses on pointerdown and ignores mousedown / touchstart, which always follow one', () => {
+        renderWithOutside();
+        const outside = screen.getByTestId('outside');
+
+        fireEvent.mouseDown(outside);
+        fireEvent.touchStart(outside);
+        expect(mockOnDismiss).not.toHaveBeenCalled();
+
+        fireEvent.pointerDown(outside, { pointerType: 'touch' });
+        expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+      });
+
+      it('is not closed by the compatibility mousedown a browser sends after the touchend that opened it', () => {
+        function TouchEndOpener() {
+          const [open, setOpen] = React.useState(false);
+          return (
+            <div>
+              <div data-testid="canvas" onTouchEnd={() => setOpen(true)}>Canvas</div>
+              {open && (
+                <ContextMenu
+                  x={10}
+                  y={10}
+                  options={defaultOptions}
+                  onDismiss={() => {
+                    mockOnDismiss();
+                    setOpen(false);
+                  }}
+                />
+              )}
+            </div>
+          );
+        }
+        render(<TouchEndOpener />);
+        const canvas = screen.getByTestId('canvas');
+
+        // Long-press on the canvas: the menu opens on touchend, then the
+        // browser may emulate mouse events for the touch, stamped later.
+        fireEvent.pointerDown(canvas, { pointerType: 'touch' });
+        fireEvent.touchStart(canvas);
+        fireEvent.touchEnd(canvas);
+        expect(screen.getByRole('menu')).toBeInTheDocument();
+
+        fireEvent.mouseDown(canvas);
+        fireEvent.mouseUp(canvas);
+        fireEvent.click(canvas);
+
+        expect(mockOnDismiss).not.toHaveBeenCalled();
+        expect(screen.getByRole('menu')).toBeInTheDocument();
+      });
+    });
+
+    describe('the event that opened the menu', () => {
+      // A trigger that opens the menu from a press or click, like the callers do
+      // (right-click, long-press timer, row ⋯ button, look board canvas).
+      function Harness({ openOn }: { openOn: 'pointerdown' | 'click' | 'contextmenu' }) {
+        const [open, setOpen] = React.useState(false);
+        const openMenu = () => setOpen(true);
+        return (
+          <div>
+            <button
+              type="button"
+              onPointerDown={openOn === 'pointerdown' ? openMenu : undefined}
+              onClick={openOn === 'click' ? openMenu : undefined}
+              onContextMenu={openOn === 'contextmenu' ? (e) => { e.preventDefault(); openMenu(); } : undefined}
+            >
+              Trigger
+            </button>
+            {open && (
+              <ContextMenu
+                x={10}
+                y={10}
+                options={defaultOptions}
+                onDismiss={() => {
+                  mockOnDismiss();
+                  setOpen(false);
+                }}
+              />
+            )}
+          </div>
+        );
+      }
+
+      // Browsers stamp the events of one press (pointerdown and its mousedown /
+      // touchstart) with the time of the press, which is before the menu opened.
+      const pressStampedAt = (
+        create: (el: Element) => Event,
+        el: Element,
+        timeStamp: number,
+      ) => {
+        const event = create(el);
+        Object.defineProperty(event, 'timeStamp', { value: timeStamp });
+        fireEvent(el, event);
+      };
+
+      it('does not close a menu opened by pointerdown when the same press continues', () => {
+        render(<Harness openOn="pointerdown" />);
+        const trigger = screen.getByRole('button', { name: 'Trigger' });
+        const pressedAt = new Event('press').timeStamp - 1;
+
+        pressStampedAt(createEvent.pointerDown, trigger, pressedAt);
+        expect(screen.getByRole('menu')).toBeInTheDocument();
+
+        pressStampedAt(createEvent.mouseDown, trigger, pressedAt);
+        pressStampedAt(createEvent.touchStart, trigger, pressedAt);
+
+        expect(mockOnDismiss).not.toHaveBeenCalled();
+        expect(screen.getByRole('menu')).toBeInTheDocument();
+      });
+
+      it('does not close a menu opened by a click', () => {
+        render(<Harness openOn="click" />);
+        const trigger = screen.getByRole('button', { name: 'Trigger' });
+
+        fireEvent.pointerDown(trigger);
+        fireEvent.mouseDown(trigger);
+        fireEvent.click(trigger);
+
+        expect(screen.getByRole('menu')).toBeInTheDocument();
+        expect(mockOnDismiss).not.toHaveBeenCalled();
+      });
+
+      it('does not close a menu opened by right-click, and the next press outside closes it', () => {
+        render(<Harness openOn="contextmenu" />);
+        const trigger = screen.getByRole('button', { name: 'Trigger' });
+
+        fireEvent.pointerDown(trigger, { button: 2 });
+        fireEvent.mouseDown(trigger, { button: 2 });
+        fireEvent.contextMenu(trigger);
+        fireEvent.mouseUp(trigger, { button: 2 });
+
+        expect(screen.getByRole('menu')).toBeInTheDocument();
+        expect(mockOnDismiss).not.toHaveBeenCalled();
+
+        fireEvent.pointerDown(document.body);
+
+        expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+      });
+    });
+
+    it('does not dismiss on pointer or touch presses inside the menu', async () => {
+      renderWithOutside();
+      await nextFrame();
+
+      const item = screen.getByRole('menuitem', { name: 'Option 1' });
+      fireEvent.pointerDown(item, { pointerType: 'touch' });
+      fireEvent.touchStart(item);
+      fireEvent.pointerDown(item, { pointerType: 'touch' });
+      fireEvent.touchStart(item);
+
+      expect(mockOnDismiss).not.toHaveBeenCalled();
+    });
+
+    it('stays open by default when something behind it scrolls (e.g. a cue list auto-scrolling to the live cue)', async () => {
+      renderWithOutside();
+      await nextFrame();
+
+      fireEvent.scroll(screen.getByTestId('outside'));
+      fireEvent.scroll(document);
+
+      expect(mockOnDismiss).not.toHaveBeenCalled();
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+    });
+
+    it('dismisses when a scroll container behind the menu scrolls', async () => {
+      renderWithOutside({ dismissOnScroll: true });
+      await nextFrame();
+
+      fireEvent.scroll(screen.getByTestId('outside'));
+
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('dismisses when the page scrolls', async () => {
+      renderWithOutside({ dismissOnScroll: true });
+      await nextFrame();
+
+      fireEvent.scroll(document);
+
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores scrolling inside the menu itself', async () => {
+      renderWithOutside({ dismissOnScroll: true });
+      await nextFrame();
+
+      fireEvent.scroll(screen.getByRole('menu'));
+
+      expect(mockOnDismiss).not.toHaveBeenCalled();
+    });
+
+    it('dismisses when the viewport is resized or rotated', async () => {
+      renderWithOutside();
+      await nextFrame();
+
+      fireEvent(window, new Event('resize'));
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+
+      fireEvent(window, new Event('orientationchange'));
+      expect(mockOnDismiss).toHaveBeenCalledTimes(2);
+    });
+
+    it('stops listening for scroll and resize after unmounting', async () => {
+      const { unmount } = renderWithOutside({ dismissOnScroll: true });
+      await nextFrame();
+      unmount();
+
+      fireEvent.scroll(document);
+      fireEvent(window, new Event('resize'));
+
+      expect(mockOnDismiss).not.toHaveBeenCalled();
+    });
+
+    it('does not scroll the page when moving focus into the menu', () => {
+      const focusSpy = jest.spyOn(HTMLElement.prototype, 'focus');
+      render(<ContextMenu x={0} y={0} options={defaultOptions} onDismiss={mockOnDismiss} autoFocus />);
+
+      expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+    });
+
+    it('renders no backdrop by default', () => {
+      renderWithOutside();
+      expect(screen.queryByTestId('context-menu-backdrop')).not.toBeInTheDocument();
+    });
+
+    describe('with backdrop', () => {
+      it('dismisses on the first tap on the backdrop', async () => {
+        renderWithOutside({ backdrop: true });
+        await nextFrame();
+
+        fireEvent.click(screen.getByTestId('context-menu-backdrop'));
+
+        expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+      });
+
+      it('does not dismiss on presses on the backdrop, so the tap cannot fall through to what is underneath', async () => {
+        renderWithOutside({ backdrop: true });
+        await nextFrame();
+
+        const backdrop = screen.getByTestId('context-menu-backdrop');
+        for (let i = 0; i < 2; i++) {
+          fireEvent.pointerDown(backdrop, { pointerType: 'touch' });
+          fireEvent.touchStart(backdrop);
+          fireEvent.mouseDown(backdrop);
+        }
+
+        expect(mockOnDismiss).not.toHaveBeenCalled();
+        expect(screen.getByRole('menu')).toBeInTheDocument();
+      });
+
+      it('keeps clicks on the backdrop from reaching ancestors', async () => {
+        const ancestorClick = jest.fn();
+        render(
+          <div onClick={ancestorClick}>
+            <ContextMenu x={100} y={100} options={defaultOptions} onDismiss={mockOnDismiss} backdrop />
+          </div>,
+        );
+        await nextFrame();
+
+        fireEvent.click(screen.getByTestId('context-menu-backdrop'));
+
+        expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+        expect(ancestorClick).not.toHaveBeenCalled();
+      });
+
+      it('still runs and dismisses on menu item taps', async () => {
+        const onClick = jest.fn();
+        renderWithOutside({ backdrop: true, options: [{ label: 'Go', onClick }] });
+        await nextFrame();
+
+        fireEvent.click(screen.getByRole('menuitem', { name: 'Go' }));
+
+        expect(onClick).toHaveBeenCalledTimes(1);
+        expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+      });
     });
   });
 });

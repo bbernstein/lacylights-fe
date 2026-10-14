@@ -54,7 +54,7 @@ export default function CreateCueListModal({ isOpen, onClose, projectId, onCueLi
   const formContent = (
     <form id="create-cue-list-form" onSubmit={handleSubmit} className="space-y-4">
       <p className="text-sm text-gray-600 dark:text-gray-400">
-        Create a new cue list to sequence your scenes for playback.
+        Create a new cue list to sequence your looks for playback.
       </p>
 
       {error && (

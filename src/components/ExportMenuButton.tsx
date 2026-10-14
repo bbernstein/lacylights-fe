@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useApolloClient } from '@apollo/client';
 import {
@@ -61,6 +61,49 @@ const FORMAT_ITEMS: ReadonlyArray<{ format: DataExportFormat; label: string; ico
 
 const ITEM_SELECTOR = '[role="menuitem"]:not([disabled])';
 
+/** Space kept between the menu and the viewport edges, in px. */
+const VIEWPORT_MARGIN = 8;
+/** Gap between the button and the menu (Tailwind mt-1 / mb-1), in px. */
+const MENU_GAP = 4;
+
+/**
+ * Where the open menu goes, relative to the button. `left` is the offset of
+ * the menu's left edge from the button's left edge.
+ */
+interface MenuPlacement {
+  left: number;
+  up: boolean;
+  maxHeight?: number;
+}
+
+/**
+ * Right-align the menu with the button where it fits, but keep it inside the
+ * viewport: shift it sideways near the screen edges (e.g. a button on the
+ * left of a phone screen), open it upward when there is more room above, and
+ * cap its height (it scrolls) when it fits neither way, e.g. a phone in
+ * landscape. The cap is the space that actually exists on the roomier side,
+ * however little that is (a short split-screen window or an open on-screen
+ * keyboard), so no item ends up off-screen where it cannot be reached.
+ * Returns null when the menu has not been laid out (no width).
+ */
+function computeMenuPlacement(trigger: DOMRect, menuWidth: number, menuHeight: number): MenuPlacement | null {
+  if (menuWidth <= 0) return null;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  let left = trigger.right - menuWidth;
+  left = Math.min(left, vw - VIEWPORT_MARGIN - menuWidth);
+  left = Math.max(left, VIEWPORT_MARGIN);
+  const below = vh - trigger.bottom - MENU_GAP - VIEWPORT_MARGIN;
+  const above = trigger.top - MENU_GAP - VIEWPORT_MARGIN;
+  const up = menuHeight > below && above > below;
+  const room = Math.max(up ? above : below, 0);
+  return {
+    left: left - trigger.left,
+    up,
+    maxHeight: menuHeight > room ? room : undefined,
+  };
+}
+
 /** Stable key for a menu entry; the same table may appear with different scopes. */
 function itemKey(item: ExportMenuTable): string {
   return `${item.table}:${item.scopeId ?? ''}`;
@@ -68,10 +111,21 @@ function itemKey(item: ExportMenuTable): string {
 
 const BUTTON_CLASSES: Record<NonNullable<ExportMenuButtonProps['appearance']>, string> = {
   default:
-    'inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] sm:min-h-0 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation',
+    'inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] sm:min-h-0 [@media(any-pointer:coarse)]:min-h-[44px] border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation',
   toolbar:
-    'inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] sm:min-h-0 text-sm font-medium text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation',
+    'inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] sm:min-h-0 [@media(any-pointer:coarse)]:min-h-[44px] text-sm font-medium text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation',
 };
+
+/**
+ * Menu item padding: roomy (44px rows) on phones and whenever a touch screen
+ * is present, compact with a mouse on wider screens. `any-pointer` rather
+ * than `pointer`: on a touchscreen laptop the primary pointer is the
+ * trackpad, but the user may still tap. Like the buttons' arbitrary
+ * `[@media(any-pointer:coarse)]` variant, it is emitted after the `sm:`
+ * rules, so it wins over `sm:min-h-0` / `sm:py-2`.
+ */
+const ITEM_CLASSES =
+  'w-full text-left px-4 py-3 sm:py-2 [@media(any-pointer:coarse)]:py-3 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 transition-colors touch-manipulation';
 
 /**
  * "Export ▾" button for list and detail pages. The menu offers CSV and
@@ -109,6 +163,7 @@ export default function ExportMenuButton({
   const [open, setOpen] = useState(false);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [placement, setPlacement] = useState<MenuPlacement | null>(null);
   const dataExportUnsupported = useDataExportUnsupported();
 
   const items: ReadonlyArray<ExportMenuTable> =
@@ -186,6 +241,30 @@ export default function ExportMenuButton({
     }
   }, [open, dataExportUnsupported, tableInfos]);
 
+  // Keep the open menu inside the viewport (see computeMenuPlacement). Runs
+  // before paint, again when its content changes size, and on resize /
+  // rotation. The menu is absolutely positioned under the button, so it
+  // follows the button when the page scrolls.
+  useLayoutEffect(() => {
+    if (!open) {
+      setPlacement(null);
+      return;
+    }
+    const update = () => {
+      const trigger = triggerRef.current;
+      const menu = menuRef.current;
+      if (!trigger || !menu) return;
+      setPlacement(computeMenuPlacement(trigger.getBoundingClientRect(), menu.offsetWidth, menu.scrollHeight));
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, [open, dataExportUnsupported, error, tableInfos]);
+
   /** Why the item cannot be exported here, or null when it can. */
   const blockedReason = (item: ExportMenuTable): string | null => {
     if (needsProject(item.table) && !projectId) return 'Open a project to export this list';
@@ -254,15 +333,25 @@ export default function ExportMenuButton({
 
       {open && (
         <>
-          {/* Backdrop: closes the menu on outside click / tap. */}
-          <div className="fixed inset-0 z-40" onClick={close} aria-hidden="true" data-testid="export-menu-backdrop" />
+          {/* Backdrop: closes the menu on outside click / tap. It and the menu
+              sit above the fixed mobile bottom navigation (z-50), so a tap on
+              the navigation only closes the menu and the menu is never drawn
+              underneath it (e.g. a phone in landscape). */}
+          <div className="fixed inset-0 z-[55]" onClick={close} aria-hidden="true" data-testid="export-menu-backdrop" />
           <div
             id={menuId}
             ref={menuRef}
             role="menu"
             aria-label="Export options"
             onKeyDown={handleMenuKeyDown}
-            className="absolute right-0 top-full mt-1 z-50 min-w-[220px] max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1"
+            style={
+              placement
+                ? { left: placement.left, right: 'auto', maxHeight: placement.maxHeight }
+                : undefined
+            }
+            className={`absolute right-0 ${
+              placement?.up ? 'bottom-full mb-1' : 'top-full mt-1'
+            } z-[60] min-w-[220px] max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1`}
           >
             {dataExportUnsupported ? (
               <p className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300" role="note">
@@ -300,7 +389,7 @@ export default function ExportMenuButton({
                           aria-describedby={reasonId}
                           aria-label={showHeadings ? `${item.label} as ${label}` : label}
                           onClick={() => handleExport(item, format)}
-                          className="w-full text-left px-4 py-3 sm:py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+                          className={`${ITEM_CLASSES} disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
                           <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                           <span>{busyKey === key ? 'Exporting...' : label}</span>
@@ -322,7 +411,7 @@ export default function ExportMenuButton({
               href={moreHref}
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="w-full text-left px-4 py-3 sm:py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 transition-colors touch-manipulation"
+              className={ITEM_CLASSES}
             >
               <ArrowsUpDownIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>More import/export options…</span>

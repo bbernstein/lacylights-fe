@@ -64,7 +64,7 @@ describe('channelConversion', () => {
     it('converts dense array to sparse array including zeros', () => {
       const dense = [255, 0, 128, 0, 64, 0];
       const result = denseToSparse(dense);
-      // Now includes all values including zeros for proper blackout scene support
+      // Now includes all values including zeros for proper blackout look support
       expect(result).toEqual([
         { offset: 0, value: 255 },
         { offset: 1, value: 0 },
@@ -75,10 +75,10 @@ describe('channelConversion', () => {
       ]);
     });
 
-    it('handles all-zero dense array (for blackout scenes)', () => {
+    it('handles all-zero dense array (for blackout looks)', () => {
       const dense = [0, 0, 0, 0];
       const result = denseToSparse(dense);
-      // Now includes zeros so blackout scenes work correctly
+      // Now includes zeros so blackout looks work correctly
       expect(result).toEqual([
         { offset: 0, value: 0 },
         { offset: 1, value: 0 },
@@ -239,7 +239,7 @@ describe('channelConversion', () => {
         { offset: 2, value: 128 },
       ];
       const result = updateChannelValue(sparse, 2, 0);
-      // Zero values are now included to support blackout scenes
+      // Zero values are now included to support blackout looks
       expect(result).toEqual([
         { offset: 0, value: 255 },
         { offset: 2, value: 0 },
@@ -251,7 +251,7 @@ describe('channelConversion', () => {
         { offset: 0, value: 255 },
       ];
       const result = updateChannelValue(sparse, 2, 0);
-      // Zero values are now included to support blackout scenes
+      // Zero values are now included to support blackout looks
       expect(result).toEqual([
         { offset: 0, value: 255 },
         { offset: 2, value: 0 },
@@ -282,7 +282,7 @@ describe('channelConversion', () => {
     it('handles setting to 0 on empty array (includes zero for blackout)', () => {
       const sparse: ChannelValue[] = [];
       const result = updateChannelValue(sparse, 0, 0);
-      // Zero values are now included to support blackout scenes
+      // Zero values are now included to support blackout looks
       expect(result).toEqual([
         { offset: 0, value: 0 },
       ]);

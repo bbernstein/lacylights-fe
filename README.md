@@ -10,7 +10,7 @@ A Next.js-based web frontend for the LacyLights theatre lighting control system.
 
 - Real-time lighting control interface
 - Fixture management and patching
-- Scene creation and editing
+- Look creation and editing
 - Cue list sequencing
 - Live DMX monitoring
 - GraphQL API integration with subscriptions
@@ -84,7 +84,7 @@ src/
 
 - **Project Dashboard**: Overview of all lighting projects
 - **Fixture Manager**: Add, edit, and patch fixtures
-- **Scene Editor**: Visual scene creation with channel controls
+- **Look Editor**: Visual look creation with channel controls
 - **Cue List Editor**: Sequential cue programming
 - **Live View**: Real-time DMX output monitoring
 - **Channel Grid**: Grid-based channel value editing
@@ -94,7 +94,7 @@ src/
 The frontend connects to the LacyLights GraphQL API at `http://localhost:4000/graphql` by default. 
 
 Key GraphQL operations:
-- Query projects, fixtures, scenes, and cue lists
+- Query projects, fixtures, looks, and cue lists
 - Mutate to create/update/delete resources
 - Subscribe to real-time DMX output changes
 
