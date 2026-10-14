@@ -1,5 +1,12 @@
-import type { ApolloClient } from '@apollo/client';
-import { EXPORT_DATA_TABLE, EXPORT_DATA_WORKBOOK } from '@/graphql/dataExport';
+import { ApolloError, type ApolloClient } from '@apollo/client';
+import { GraphQLError } from 'graphql';
+import {
+  EXPORT_DATA_TABLE,
+  EXPORT_DATA_WORKBOOK,
+  GET_DATA_EXPORT_TABLES,
+  GET_DATA_EXPORT_TABLES_LEGACY,
+} from '@/graphql/dataExport';
+import { DATA_EXPORT_SCOPE_REQUIRED_FEATURE, isFeatureUnsupported, markFeatureUnsupported } from '../backendCompat';
 import {
   DATA_EXPORT_FORMATS,
   DataExportFormat,
@@ -10,13 +17,17 @@ import {
   downloadDataExport,
   exportAndDownloadDataTable,
   exportAndDownloadDataWorkbook,
+  fetchDataExportTables,
   fetchDataTableExport,
   fetchDataWorkbookExport,
+  isScopeRequiredUnsupportedError,
   isItemScope,
   isProjectOptional,
   isScopeRequired,
   parseDataExportTable,
   runExportQuery,
+  tableNeedsProject,
+  toDataExportTableEntry,
 } from '../dataExport';
 
 function makeClient() {
@@ -80,6 +91,106 @@ describe('importExport/dataExport', () => {
     });
   });
 
+  describe('data export tables', () => {
+    const scopeRequiredUnknown = () =>
+      new ApolloError({
+        graphQLErrors: [new GraphQLError('Cannot query field "scopeRequired" on type "DataExportTableInfo".')],
+      });
+
+    const legacyTables = [
+      { table: 'LOOKS', label: 'Looks', scope: 'project', columns: ['Name'] },
+      { table: 'FIXTURE_LIBRARY', label: 'Fixture library', scope: 'none', columns: [] },
+      { table: 'LOOK_DETAILS', label: 'Look details', scope: 'look', columns: ['Fixture'] },
+      { table: 'CUE_LIST_DETAILS', label: 'Cue list details', scope: 'cueList', columns: [] },
+      { table: 'LOOK_BOARD_ENTRIES', label: 'Look board entries', scope: 'lookBoard', columns: [] },
+    ];
+
+    it('uses scopeRequired from the server', async () => {
+      const { client, query } = makeClient();
+      // Deliberately different from the legacy rules, to show the server wins.
+      query.mockResolvedValue({
+        data: {
+          dataExportTables: [
+            { table: 'LOOK_DETAILS', label: 'Look details', scope: 'look', scopeRequired: false, columns: ['F'] },
+            { table: 'LOOK_BOARD_ENTRIES', label: 'Boards', scope: 'lookBoard', scopeRequired: true, columns: [] },
+          ],
+        },
+      });
+      await expect(fetchDataExportTables(client)).resolves.toEqual([
+        { table: 'LOOK_DETAILS', label: 'Look details', scope: 'look', scopeRequired: false, columns: ['F'] },
+        { table: 'LOOK_BOARD_ENTRIES', label: 'Boards', scope: 'lookBoard', scopeRequired: true, columns: [] },
+      ]);
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(query).toHaveBeenCalledWith({ query: GET_DATA_EXPORT_TABLES });
+      expect(isFeatureUnsupported(client, DATA_EXPORT_SCOPE_REQUIRED_FEATURE)).toBe(false);
+    });
+
+    it('retries without scopeRequired on an older backend and applies the legacy rules', async () => {
+      const { client, query } = makeClient();
+      query.mockRejectedValueOnce(scopeRequiredUnknown());
+      query.mockResolvedValueOnce({ data: { dataExportTables: legacyTables } });
+      const tables = await fetchDataExportTables(client);
+      expect(query).toHaveBeenNthCalledWith(1, { query: GET_DATA_EXPORT_TABLES });
+      expect(query).toHaveBeenNthCalledWith(2, { query: GET_DATA_EXPORT_TABLES_LEGACY });
+      expect(tables.map((t) => [t.table, t.scopeRequired])).toEqual([
+        ['LOOKS', false],
+        ['FIXTURE_LIBRARY', false],
+        ['LOOK_DETAILS', true],
+        ['CUE_LIST_DETAILS', true],
+        ['LOOK_BOARD_ENTRIES', false],
+      ]);
+      expect(isFeatureUnsupported(client, DATA_EXPORT_SCOPE_REQUIRED_FEATURE)).toBe(true);
+    });
+
+    it('goes straight to the legacy query once the field is known to be missing', async () => {
+      const { client, query } = makeClient();
+      markFeatureUnsupported(client, DATA_EXPORT_SCOPE_REQUIRED_FEATURE);
+      query.mockResolvedValue({ data: { dataExportTables: legacyTables } });
+      await fetchDataExportTables(client);
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(query).toHaveBeenCalledWith({ query: GET_DATA_EXPORT_TABLES_LEGACY });
+    });
+
+    it('rethrows other errors without retrying', async () => {
+      const { client, query } = makeClient();
+      const noDataExport = new ApolloError({
+        graphQLErrors: [new GraphQLError('Cannot query field "dataExportTables" on type "Query".')],
+      });
+      query.mockRejectedValue(noDataExport);
+      await expect(fetchDataExportTables(client)).rejects.toBe(noDataExport);
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(isFeatureUnsupported(client, DATA_EXPORT_SCOPE_REQUIRED_FEATURE)).toBe(false);
+    });
+
+    it('throws when the server returns no table list', async () => {
+      const { client, query } = makeClient();
+      query.mockResolvedValue({ data: undefined });
+      await expect(fetchDataExportTables(client)).rejects.toThrow(/No data export tables/);
+    });
+
+    it('recognizes the missing-field error', () => {
+      expect(isScopeRequiredUnsupportedError(scopeRequiredUnknown())).toBe(true);
+      expect(isScopeRequiredUnsupportedError(new Error('offline'))).toBe(false);
+    });
+
+    it('normalizes entries with and without scopeRequired', () => {
+      expect(
+        toDataExportTableEntry({
+          __typename: 'DataExportTableInfo',
+          table: DataExportTable.CueListDetails,
+          label: 'Cue list details',
+          scope: 'cueList',
+          scopeRequired: false,
+          columns: [],
+        }),
+      ).toEqual({ table: 'CUE_LIST_DETAILS', label: 'Cue list details', scope: 'cueList', scopeRequired: false, columns: [] });
+      expect(
+        toDataExportTableEntry({ table: DataExportTable.CueListDetails, label: 'Cue list details', scope: 'cueList', columns: [] })
+          .scopeRequired,
+      ).toBe(true);
+    });
+  });
+
   describe('scope helpers', () => {
     it('recognizes item scopes', () => {
       expect(isItemScope('look')).toBe(true);
@@ -101,6 +212,20 @@ describe('importExport/dataExport', () => {
     it('only the fixture library is project-optional', () => {
       expect(isProjectOptional(DataExportTable.FixtureLibrary)).toBe(true);
       expect(isProjectOptional(DataExportTable.FixtureTypes)).toBe(false);
+    });
+
+    it('needs a project unless the server scope is none', () => {
+      expect(tableNeedsProject(DataExportTable.Looks, { scope: 'project' })).toBe(true);
+      expect(tableNeedsProject(DataExportTable.LookDetails, { scope: 'look' })).toBe(true);
+      expect(tableNeedsProject(DataExportTable.FixtureLibrary, { scope: 'none' })).toBe(false);
+      // The server's scope wins over the table name.
+      expect(tableNeedsProject(DataExportTable.Looks, { scope: 'none' })).toBe(false);
+    });
+
+    it('falls back to the legacy project rule without table info', () => {
+      expect(tableNeedsProject(DataExportTable.FixtureLibrary)).toBe(false);
+      expect(tableNeedsProject(DataExportTable.FixtureLibrary, null)).toBe(false);
+      expect(tableNeedsProject(DataExportTable.Fixtures)).toBe(true);
     });
 
     it('parses table names', () => {

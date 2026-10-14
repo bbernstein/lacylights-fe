@@ -2,7 +2,11 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import { GraphQLError } from 'graphql';
 import ExportMenuButton, { type ExportMenuButtonProps } from '../ExportMenuButton';
-import { EXPORT_DATA_TABLE, GET_DATA_EXPORT_TABLES } from '@/graphql/dataExport';
+import {
+  EXPORT_DATA_TABLE,
+  GET_DATA_EXPORT_TABLES,
+  GET_DATA_EXPORT_TABLES_LEGACY,
+} from '@/graphql/dataExport';
 import { DataExportTable } from '@/generated/graphql';
 
 function installBridge() {
@@ -283,6 +287,98 @@ describe('ExportMenuButton', () => {
     expect(button.className).toContain('bg-gray-700');
     expect(screen.getByText('Export')).toHaveClass('hidden', 'sm:inline');
     expect(button.parentElement).toHaveClass('extra');
+  });
+
+  describe('table rules from the server', () => {
+    const tablesMock = (
+      tables: Array<{ table: string; scope: string; scopeRequired: boolean }>,
+    ): MockedResponse => ({
+      request: { query: GET_DATA_EXPORT_TABLES },
+      result: {
+        data: { dataExportTables: tables.map((t) => ({ label: t.table, columns: [], ...t })) },
+      },
+    });
+
+    it('disables a table whose scope is required when no scope id is given', async () => {
+      renderButton({ table: DataExportTable.LookDetails, projectId: 'p1' }, [
+        tablesMock([{ table: 'LOOK_DETAILS', scope: 'look', scopeRequired: true }]),
+      ]);
+      openMenu();
+      await waitFor(() => expect(screen.getByRole('menuitem', { name: 'CSV' })).toBeDisabled());
+      expect(screen.getByRole('menuitem', { name: 'CSV' })).toHaveAttribute('title', 'Open a look to export this list');
+      expect(screen.getByRole('menuitem', { name: 'Excel' })).toBeDisabled();
+      // Focus moves off the item that just became disabled.
+      expect(screen.getByRole('menuitem', { name: 'More import/export options…' })).toHaveFocus();
+    });
+
+    it('allows a table whose scope the server marks optional without a scope id', async () => {
+      installBridge();
+      renderButton({ table: DataExportTable.LookDetails, projectId: 'p1' }, [
+        tablesMock([{ table: 'LOOK_DETAILS', scope: 'look', scopeRequired: false }]),
+        exportMock({ projectId: 'p1', table: 'LOOK_DETAILS', format: 'CSV', scopeId: null }, 'all.csv'),
+      ]);
+      openMenu();
+      // Give the table list time to arrive; CSV must stay enabled.
+      await waitFor(() => expect(screen.getByRole('menuitem', { name: 'CSV' })).toBeEnabled());
+      fireEvent.click(screen.getByRole('menuitem', { name: 'CSV' }));
+      await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    });
+
+    it('needs no project for a table whose scope is none', async () => {
+      const downloadBinary = installBridge();
+      renderButton({ table: DataExportTable.FixtureTypes }, [
+        tablesMock([{ table: 'FIXTURE_TYPES', scope: 'none', scopeRequired: false }]),
+        exportMock({ projectId: null, table: 'FIXTURE_TYPES', format: 'CSV', scopeId: null }, 'types.csv'),
+      ]);
+      openMenu();
+      // Without the list the legacy rule would disable it (no project).
+      await waitFor(() => expect(screen.getByRole('menuitem', { name: 'CSV' })).toBeEnabled());
+      expect(screen.getByRole('menuitem', { name: 'More import/export options…' })).toHaveAttribute(
+        'href',
+        '/import-export?section=data&table=FIXTURE_TYPES',
+      );
+      fireEvent.click(screen.getByRole('menuitem', { name: 'CSV' }));
+      await waitFor(() => expect(downloadBinary).toHaveBeenCalledWith('YQo=', 'types.csv', 'text/csv'));
+    });
+
+    it('applies the legacy scope rules on a backend without scopeRequired', async () => {
+      renderButton(
+        {
+          projectId: 'p1',
+          tables: [
+            { table: DataExportTable.LookDetails, label: 'Look' },
+            { table: DataExportTable.LookBoardEntries, label: 'Boards' },
+          ],
+        },
+        [
+          {
+            request: { query: GET_DATA_EXPORT_TABLES },
+            result: {
+              errors: [new GraphQLError('Cannot query field "scopeRequired" on type "DataExportTableInfo".')],
+            },
+          },
+          {
+            request: { query: GET_DATA_EXPORT_TABLES_LEGACY },
+            result: {
+              data: {
+                dataExportTables: [
+                  { table: 'LOOK_DETAILS', label: 'Look details', scope: 'look', columns: [] },
+                  { table: 'LOOK_BOARD_ENTRIES', label: 'Look board entries', scope: 'lookBoard', columns: [] },
+                ],
+              },
+            },
+          },
+        ],
+      );
+      openMenu();
+      await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Look as CSV' })).toBeDisabled());
+      expect(screen.getByRole('menuitem', { name: 'Look as CSV' })).toHaveAttribute(
+        'title',
+        'Open a look to export this list',
+      );
+      expect(screen.getByRole('menuitem', { name: 'Boards as CSV' })).toBeEnabled();
+      expect(screen.queryByText("This server version doesn't support CSV/Excel export; update LacyLights.")).not.toBeInTheDocument();
+    });
   });
 
   describe('with an older backend that has no data export', () => {

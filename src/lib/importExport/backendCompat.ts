@@ -12,6 +12,10 @@
  *   ({@link queryWithLegacyMutationFallback}).
  * - Data export UI hides itself or explains that the server needs an update
  *   ({@link DATA_EXPORT_FEATURE}, {@link noteDataExportError}).
+ * - A backend with data export but without `DataExportTableInfo.scopeRequired`
+ *   gets the table list without that field, and the frontend applies its
+ *   legacy scope rules ({@link DATA_EXPORT_SCOPE_REQUIRED_FEATURE},
+ *   `fetchDataExportTables` in dataExport.ts).
  *
  * What a backend lacks is remembered per Apollo client (one client per
  * session/backend), so later requests skip the doomed attempt.
@@ -29,6 +33,13 @@ type AnyApolloClient = ApolloClient<any>;
 
 /** Feature key for CSV / Excel data export. */
 export const DATA_EXPORT_FEATURE = 'dataExport';
+
+/**
+ * Feature key for `DataExportTableInfo.scopeRequired`. Backends up to
+ * lacylights-go v0.4.1 have data export but not this field; the frontend
+ * then derives it from its own (legacy) rules.
+ */
+export const DATA_EXPORT_SCOPE_REQUIRED_FEATURE = 'dataExport:scopeRequired';
 
 /** Shown where CSV / Excel export would be when the backend is too old. */
 export const DATA_EXPORT_UNSUPPORTED_MESSAGE =
@@ -68,12 +79,21 @@ function errorMessages(error: unknown): string[] {
 }
 
 /**
+ * True when `error` says the server does not know `field` on the GraphQL type
+ * `typeName`, which is how older backends reject newly added fields
+ * (`Cannot query field "<field>" on type "<typeName>"`).
+ */
+export function isUnknownFieldError(error: unknown, field: string, typeName: string): boolean {
+  const needle = `Cannot query field "${field}" on type "${typeName}"`;
+  return errorMessages(error).some((m) => m.includes(needle));
+}
+
+/**
  * True when `error` says the server does not know `field` on the Query type,
  * which is how older backends reject newly added Query fields.
  */
 export function isUnknownQueryFieldError(error: unknown, field: string): boolean {
-  const needle = `Cannot query field "${field}" on type "Query"`;
-  return errorMessages(error).some((m) => m.includes(needle));
+  return isUnknownFieldError(error, field, 'Query');
 }
 
 // ---------------------------------------------------------------------------

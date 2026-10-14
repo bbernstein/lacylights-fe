@@ -9,13 +9,26 @@
  * also no-cache and adds the fallback for older backends.
  */
 import type { ApolloClient, DocumentNode, OperationVariables, TypedDocumentNode } from '@apollo/client';
-import { EXPORT_DATA_TABLE, EXPORT_DATA_WORKBOOK } from '@/graphql/dataExport';
+import {
+  EXPORT_DATA_TABLE,
+  EXPORT_DATA_WORKBOOK,
+  GET_DATA_EXPORT_TABLES,
+  GET_DATA_EXPORT_TABLES_LEGACY,
+} from '@/graphql/dataExport';
 import {
   DataExportFormat,
   DataExportTable,
   type ExportDataTableQuery,
   type ExportDataWorkbookQuery,
+  type GetDataExportTablesLegacyQuery,
+  type GetDataExportTablesQuery,
 } from '@/generated/graphql';
+import {
+  DATA_EXPORT_SCOPE_REQUIRED_FEATURE,
+  isFeatureUnsupported,
+  isUnknownFieldError,
+  markFeatureUnsupported,
+} from './backendCompat';
 import { downloadBase64 } from './download';
 import { sanitizeFilename } from './filenames';
 
@@ -55,11 +68,11 @@ export type DataExportScope = 'none' | 'project' | 'look' | 'cueList' | 'lookBoa
 export type DataExportItemScope = 'look' | 'cueList' | 'lookBoard';
 
 /**
- * Tables whose item scope is optional. The API has no flag for this, so it
- * is kept here: LOOK_BOARD_ENTRIES exports every board when scopeId is
- * omitted.
- * TODO: replace with a `scopeRequired` field on DataExportTableInfo once the
- * backend exposes one (handoff follow-up).
+ * LEGACY FALLBACK ONLY. Tables whose item scope is optional, for backends
+ * that predate `DataExportTableInfo.scopeRequired` (lacylights-go v0.4.1
+ * and older): LOOK_BOARD_ENTRIES exports every board when scopeId is
+ * omitted. Newer backends report this themselves; use
+ * {@link fetchDataExportTables}, whose entries carry `scopeRequired`.
  */
 export const SCOPE_OPTIONAL_TABLES: ReadonlySet<DataExportTable> = new Set([
   DataExportTable.LookBoardEntries,
@@ -77,14 +90,108 @@ export function isItemScope(scope: string | null | undefined): scope is DataExpo
   return scope === 'look' || scope === 'cueList' || scope === 'lookBoard';
 }
 
-/** True when the table cannot be exported without a scopeId. */
+/**
+ * LEGACY FALLBACK ONLY: whether the table cannot be exported without a
+ * scopeId, for backends without `DataExportTableInfo.scopeRequired`. Prefer
+ * the `scopeRequired` of a {@link DataExportTableEntry}.
+ */
 export function isScopeRequired(table: DataExportTable, scope: string | null | undefined): boolean {
   return isItemScope(scope) && !SCOPE_OPTIONAL_TABLES.has(table);
 }
 
-/** True when the table can be exported without a project (fixture library). */
+/**
+ * LEGACY FALLBACK ONLY: whether the table can be exported without a project
+ * (fixture library), for when the table list has not been loaded. Prefer
+ * {@link tableNeedsProject} with the table's {@link DataExportTableEntry}.
+ */
 export function isProjectOptional(table: DataExportTable): boolean {
   return table === DataExportTable.FixtureLibrary;
+}
+
+/**
+ * True when exporting `table` needs a project. With the table's entry from
+ * the server this follows its scope (`none` means no project is needed);
+ * without one it falls back to {@link isProjectOptional}.
+ */
+export function tableNeedsProject(
+  table: DataExportTable,
+  info?: Pick<DataExportTableEntry, 'scope'> | null,
+): boolean {
+  return info ? info.scope !== 'none' : !isProjectOptional(table);
+}
+
+/** One exportable table as reported by the server (`dataExportTables`). */
+export interface DataExportTableEntry {
+  table: DataExportTable;
+  label: string;
+  /** One of {@link DataExportScope}. */
+  scope: string;
+  /**
+   * True when `exportDataTable` rejects the table without a scopeId. Comes
+   * from the server; derived with {@link isScopeRequired} for backends that
+   * predate the field.
+   */
+  scopeRequired: boolean;
+  columns: ReadonlyArray<string>;
+}
+
+type DataExportTableInfoData =
+  | GetDataExportTablesQuery['dataExportTables'][number]
+  | GetDataExportTablesLegacyQuery['dataExportTables'][number];
+
+/** Normalize a server table entry; fills in `scopeRequired` for older backends. */
+export function toDataExportTableEntry(info: DataExportTableInfoData): DataExportTableEntry {
+  const reported = 'scopeRequired' in info ? info.scopeRequired : undefined;
+  return {
+    table: info.table,
+    label: info.label,
+    scope: info.scope,
+    scopeRequired: typeof reported === 'boolean' ? reported : isScopeRequired(info.table, info.scope),
+    columns: info.columns,
+  };
+}
+
+/**
+ * True when `error` shows the backend has data export but no
+ * `DataExportTableInfo.scopeRequired` (lacylights-go v0.4.1 and older).
+ */
+export function isScopeRequiredUnsupportedError(error: unknown): boolean {
+  return isUnknownFieldError(error, 'scopeRequired', 'DataExportTableInfo');
+}
+
+function toEntries(
+  list: ReadonlyArray<DataExportTableInfoData> | null | undefined,
+): DataExportTableEntry[] {
+  if (!list) {
+    throw new Error('No data export tables were returned by the server.');
+  }
+  return list.map(toDataExportTableEntry);
+}
+
+/**
+ * Load the exportable tables, each with `scopeRequired`. Asks for
+ * `scopeRequired` first; when the backend does not know that field it
+ * remembers so for the client and retries without it, deriving the value
+ * from the legacy rules ({@link isScopeRequired}). Any other error (for
+ * example a backend with no data export at all) is rethrown; callers pass
+ * it to `noteDataExportError`.
+ */
+export async function fetchDataExportTables(client: AnyApolloClient): Promise<DataExportTableEntry[]> {
+  if (!isFeatureUnsupported(client, DATA_EXPORT_SCOPE_REQUIRED_FEATURE)) {
+    try {
+      const { data } = await client.query<GetDataExportTablesQuery>({ query: GET_DATA_EXPORT_TABLES });
+      return toEntries(data?.dataExportTables);
+    } catch (error) {
+      if (!isScopeRequiredUnsupportedError(error)) {
+        throw error;
+      }
+      markFeatureUnsupported(client, DATA_EXPORT_SCOPE_REQUIRED_FEATURE);
+    }
+  }
+  const { data } = await client.query<GetDataExportTablesLegacyQuery>({
+    query: GET_DATA_EXPORT_TABLES_LEGACY,
+  });
+  return toEntries(data?.dataExportTables);
 }
 
 /** Parse a string (e.g. a query parameter) into a DataExportTable. */

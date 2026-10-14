@@ -5,11 +5,12 @@ import DataExportPanel, { type DataExportPanelProps } from '../DataExportPanel';
 import {
   EXPORT_DATA_TABLE,
   EXPORT_DATA_WORKBOOK,
+  GET_DATA_EXPORT_CUE_LIST_NAMES,
+  GET_DATA_EXPORT_LOOK_BOARD_NAMES,
+  GET_DATA_EXPORT_LOOK_NAMES,
   GET_DATA_EXPORT_TABLES,
+  GET_DATA_EXPORT_TABLES_LEGACY,
 } from '@/graphql/dataExport';
-import { GET_PROJECT_LOOKS } from '@/graphql/looks';
-import { GET_PROJECT_CUE_LISTS } from '@/graphql/cueLists';
-import { GET_PROJECT_LOOK_BOARDS } from '@/graphql/lookBoards';
 
 const projects = [
   { id: 'p1', name: 'Show One' },
@@ -21,70 +22,30 @@ const tablesMock: MockedResponse = {
   result: {
     data: {
       dataExportTables: [
-        { table: 'FIXTURES', label: 'Fixtures', scope: 'project', columns: ['Name', 'Universe'] },
-        { table: 'FIXTURE_LIBRARY', label: 'Fixture library', scope: 'none', columns: ['Manufacturer'] },
-        { table: 'LOOK_DETAILS', label: 'Look details', scope: 'look', columns: ['Fixture'] },
-        { table: 'CUE_LIST_DETAILS', label: 'Cue list details', scope: 'cueList', columns: [] },
-        { table: 'LOOK_BOARD_ENTRIES', label: 'Look board entries', scope: 'lookBoard', columns: ['Board'] },
+        { table: 'FIXTURES', label: 'Fixtures', scope: 'project', scopeRequired: false, columns: ['Name', 'Universe'] },
+        { table: 'FIXTURE_LIBRARY', label: 'Fixture library', scope: 'none', scopeRequired: false, columns: ['Manufacturer'] },
+        { table: 'LOOK_DETAILS', label: 'Look details', scope: 'look', scopeRequired: true, columns: ['Fixture'] },
+        { table: 'CUE_LIST_DETAILS', label: 'Cue list details', scope: 'cueList', scopeRequired: true, columns: [] },
+        { table: 'LOOK_BOARD_ENTRIES', label: 'Look board entries', scope: 'lookBoard', scopeRequired: false, columns: ['Board'] },
       ],
     },
   },
 };
 
+// The scope pickers load names only (id + name).
 const looksMock = (projectId: string, looks: Array<{ id: string; name: string }>): MockedResponse => ({
-  request: { query: GET_PROJECT_LOOKS, variables: { projectId } },
-  result: {
-    data: {
-      project: {
-        id: projectId,
-        looks: looks.map((l) => ({
-          ...l,
-          description: null,
-          createdAt: '2026-01-01T00:00:00Z',
-          updatedAt: '2026-01-01T00:00:00Z',
-          fixtureValues: [],
-        })),
-      },
-    },
-  },
+  request: { query: GET_DATA_EXPORT_LOOK_NAMES, variables: { projectId } },
+  result: { data: { project: { id: projectId, looks } } },
 });
 
 const cueListsMock = (projectId: string, cueLists: Array<{ id: string; name: string }>): MockedResponse => ({
-  request: { query: GET_PROJECT_CUE_LISTS, variables: { projectId } },
-  result: {
-    data: {
-      project: {
-        id: projectId,
-        cueLists: cueLists.map((c) => ({
-          ...c,
-          description: null,
-          loop: false,
-          createdAt: '2026-01-01T00:00:00Z',
-          updatedAt: '2026-01-01T00:00:00Z',
-          cues: [],
-        })),
-      },
-    },
-  },
+  request: { query: GET_DATA_EXPORT_CUE_LIST_NAMES, variables: { projectId } },
+  result: { data: { project: { id: projectId, cueLists } } },
 });
 
 const boardsMock = (projectId: string, boards: Array<{ id: string; name: string }>): MockedResponse => ({
-  request: { query: GET_PROJECT_LOOK_BOARDS, variables: { projectId } },
-  result: {
-    data: {
-      lookBoards: boards.map((b) => ({
-        ...b,
-        description: null,
-        defaultFadeTime: 3,
-        gridSize: 50,
-        canvasWidth: 2000,
-        canvasHeight: 2000,
-        createdAt: '2026-01-01T00:00:00Z',
-        updatedAt: '2026-01-01T00:00:00Z',
-        buttons: [],
-      })),
-    },
-  },
+  request: { query: GET_DATA_EXPORT_LOOK_BOARD_NAMES, variables: { projectId } },
+  result: { data: { lookBoards: boards } },
 });
 
 const exportResult = (filename: string, rowCount = 3) => ({
@@ -221,7 +182,7 @@ describe('DataExportPanel', () => {
     renderPanel(
       [
         tablesMock,
-        { request: { query: GET_PROJECT_LOOKS, variables: { projectId: 'p1' } }, error: new Error('offline') },
+        { request: { query: GET_DATA_EXPORT_LOOK_NAMES, variables: { projectId: 'p1' } }, error: new Error('offline') },
         tableExportMock({ projectId: 'p1', table: 'LOOK_DETAILS', format: 'CSV', scopeId: 'l2' }, 'l2.csv'),
       ],
       { defaultTable: 'LOOK_DETAILS', defaultScopeId: 'l2' },
@@ -356,6 +317,121 @@ describe('DataExportPanel', () => {
       </MockedProvider>,
     );
     expect(screen.getByLabelText('Project')).toHaveValue('p2');
+  });
+
+  describe('scope rules from the server (scopeRequired)', () => {
+    // Deliberately the opposite of the legacy frontend rules, to show the
+    // panel follows the server rather than a hard-coded table list.
+    const invertedTablesMock: MockedResponse = {
+      request: { query: GET_DATA_EXPORT_TABLES },
+      result: {
+        data: {
+          dataExportTables: [
+            { table: 'LOOK_DETAILS', label: 'Look details', scope: 'look', scopeRequired: false, columns: [] },
+            { table: 'LOOK_BOARD_ENTRIES', label: 'Look board entries', scope: 'lookBoard', scopeRequired: true, columns: [] },
+            { table: 'FIXTURE_TYPES', label: 'Fixture types', scope: 'none', scopeRequired: false, columns: [] },
+          ],
+        },
+      },
+    };
+
+    it('offers "All looks" when the server says the look is optional', async () => {
+      installBridge();
+      renderPanel(
+        [
+          invertedTablesMock,
+          looksMock('p1', [{ id: 'l1', name: 'Warm' }]),
+          tableExportMock({ projectId: 'p1', table: 'LOOK_DETAILS', format: 'CSV', scopeId: null }, 'all-looks.csv'),
+        ],
+        { defaultTable: 'LOOK_DETAILS' },
+      );
+      const select = await screen.findByLabelText('Look');
+      expect(within(select).getByText('All looks')).toBeInTheDocument();
+      expect(select).toHaveValue('');
+      fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+      expect(await screen.findByTestId('data-export-result')).toHaveTextContent('Saved all-looks.csv');
+    });
+
+    it('requires a look board when the server says so', async () => {
+      renderPanel([invertedTablesMock, boardsMock('p1', [{ id: 'b1', name: 'Main' }])], {
+        defaultTable: 'LOOK_BOARD_ENTRIES',
+      });
+      const select = await screen.findByLabelText('Look board');
+      expect(within(select).queryByText('All look boards')).not.toBeInTheDocument();
+      await waitFor(() => expect(select).toHaveValue('b1'));
+    });
+
+    it('disables export when a required look board list is empty', async () => {
+      renderPanel([invertedTablesMock, boardsMock('p1', [])], { defaultTable: 'LOOK_BOARD_ENTRIES' });
+      expect(await screen.findByText('This project has no look boards.')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Export' })).toBeDisabled();
+    });
+
+    it('hides the project picker for any table whose scope is none', async () => {
+      renderPanel([invertedTablesMock], { defaultTable: 'FIXTURE_TYPES' });
+      expect(await screen.findByLabelText('Data')).toHaveValue('FIXTURE_TYPES');
+      expect(screen.queryByLabelText('Project')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('with a backend that has data export but no scopeRequired (v0.4.1)', () => {
+    const scopeRequiredUnknown: MockedResponse = {
+      request: { query: GET_DATA_EXPORT_TABLES },
+      result: {
+        errors: [new GraphQLError('Cannot query field "scopeRequired" on type "DataExportTableInfo".')],
+      },
+    };
+    const legacyTablesMock: MockedResponse = {
+      request: { query: GET_DATA_EXPORT_TABLES_LEGACY },
+      result: {
+        data: {
+          dataExportTables: [
+            { table: 'FIXTURES', label: 'Fixtures', scope: 'project', columns: ['Name'] },
+            { table: 'FIXTURE_LIBRARY', label: 'Fixture library', scope: 'none', columns: [] },
+            { table: 'LOOK_DETAILS', label: 'Look details', scope: 'look', columns: ['Fixture'] },
+            { table: 'LOOK_BOARD_ENTRIES', label: 'Look board entries', scope: 'lookBoard', columns: [] },
+          ],
+        },
+      },
+    };
+
+    it('retries without the field and requires a look (legacy rule)', async () => {
+      installBridge();
+      renderPanel(
+        [
+          scopeRequiredUnknown,
+          legacyTablesMock,
+          looksMock('p1', [
+            { id: 'l1', name: 'Warm' },
+            { id: 'l2', name: 'Cool' },
+          ]),
+          tableExportMock({ projectId: 'p1', table: 'LOOK_DETAILS', format: 'CSV', scopeId: 'l1' }, 'warm.csv'),
+        ],
+        { defaultTable: 'LOOK_DETAILS' },
+      );
+      const select = await screen.findByLabelText('Look');
+      expect(within(select).queryByText('All looks')).not.toBeInTheDocument();
+      await waitFor(() => expect(select).toHaveValue('l1'));
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+      expect(await screen.findByTestId('data-export-result')).toHaveTextContent('Saved warm.csv');
+    });
+
+    it('keeps look boards optional (legacy rule)', async () => {
+      renderPanel([scopeRequiredUnknown, legacyTablesMock, boardsMock('p1', [{ id: 'b1', name: 'Main' }])], {
+        defaultTable: 'LOOK_BOARD_ENTRIES',
+      });
+      const select = await screen.findByLabelText('Look board');
+      expect(within(select).getByText('All look boards')).toBeInTheDocument();
+      expect(select).toHaveValue('');
+      expect(screen.getByRole('button', { name: 'Export' })).toBeEnabled();
+    });
+
+    it('still hides the project picker for the fixture library', async () => {
+      renderPanel([scopeRequiredUnknown, legacyTablesMock], { defaultTable: 'FIXTURE_LIBRARY' });
+      expect(await screen.findByLabelText('Data')).toHaveValue('FIXTURE_LIBRARY');
+      expect(screen.queryByLabelText('Project')).not.toBeInTheDocument();
+    });
   });
 
   describe('with an older backend that has no data export', () => {

@@ -2,8 +2,10 @@ import { ApolloError, type ApolloClient } from '@apollo/client';
 import { GraphQLError } from 'graphql';
 import {
   DATA_EXPORT_FEATURE,
+  DATA_EXPORT_SCOPE_REQUIRED_FEATURE,
   DATA_EXPORT_UNSUPPORTED_MESSAGE,
   isFeatureUnsupported,
+  isUnknownFieldError,
   isUnknownQueryFieldError,
   markFeatureUnsupported,
   noteDataExportError,
@@ -71,6 +73,41 @@ describe('importExport/backendCompat', () => {
         result: '<html>Cannot query field "projectExport" on type "Query"</html>',
       });
       expect(isUnknownQueryFieldError(new ApolloError({ networkError }), 'projectExport')).toBe(false);
+    });
+  });
+
+  describe('isUnknownFieldError', () => {
+    const unknownTypeField = (field: string, typeName: string) =>
+      new ApolloError({
+        graphQLErrors: [new GraphQLError(`Cannot query field "${field}" on type "${typeName}".`)],
+      });
+
+    it('detects an unknown field on a non-Query type', () => {
+      expect(
+        isUnknownFieldError(unknownTypeField('scopeRequired', 'DataExportTableInfo'), 'scopeRequired', 'DataExportTableInfo'),
+      ).toBe(true);
+    });
+
+    it('detects the error in a 422 network error body', () => {
+      const networkError = Object.assign(new Error('Response not successful: Received status code 422'), {
+        name: 'ServerError',
+        statusCode: 422,
+        result: { errors: [{ message: 'Cannot query field "scopeRequired" on type "DataExportTableInfo".' }] },
+      });
+      expect(
+        isUnknownFieldError(new ApolloError({ networkError }), 'scopeRequired', 'DataExportTableInfo'),
+      ).toBe(true);
+    });
+
+    it('requires both the field and the type to match', () => {
+      const error = unknownTypeField('scopeRequired', 'DataExportTableInfo');
+      expect(isUnknownFieldError(error, 'scope', 'DataExportTableInfo')).toBe(false);
+      expect(isUnknownFieldError(error, 'scopeRequired', 'Query')).toBe(false);
+      expect(isUnknownQueryFieldError(error, 'scopeRequired')).toBe(false);
+    });
+
+    it('has a distinct feature key for the scopeRequired field', () => {
+      expect(DATA_EXPORT_SCOPE_REQUIRED_FEATURE).not.toBe(DATA_EXPORT_FEATURE);
     });
   });
 
