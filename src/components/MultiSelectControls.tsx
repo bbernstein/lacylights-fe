@@ -25,7 +25,7 @@ interface MultiSelectControlsProps {
     changes: Array<{ fixtureId: string; channelIndex: number; value: number }>,
   ) => void;
   onDeselectAll: () => void;
-  /** Optional: Track which channels are active per fixture (for scene editing). Key: fixtureId, Value: Set of active channel indices */
+  /** Optional: Track which channels are active per fixture (for look editing). Key: fixtureId, Value: Set of active channel indices */
   activeChannels?: Map<string, Set<number>>;
   /** Optional: Callback when channel active state changes */
   onToggleChannelActive?: (fixtureId: string, channelIndex: number, isActive: boolean) => void;

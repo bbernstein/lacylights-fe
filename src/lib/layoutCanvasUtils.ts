@@ -9,7 +9,7 @@
  * - Screen Space: The actual visible area in the browser window
  * - Viewport: Transforms virtual canvas coordinates to screen coordinates (pan + zoom)
  *
- * Fixtures scale with zoom level (80px at 1x zoom), matching Scene Board behavior.
+ * Fixtures scale with zoom level (80px at 1x zoom), matching Look Board behavior.
  * Both fixture positions AND sizes scale together, keeping proportions consistent.
  */
 
@@ -21,7 +21,7 @@ import type { FixtureInstance } from "@/types";
 export const FIXTURE_SIZE = 80;
 
 /**
- * Default virtual canvas dimensions (matches Scene Board)
+ * Default virtual canvas dimensions (matches Look Board)
  */
 export const DEFAULT_CANVAS_WIDTH = 2000;
 export const DEFAULT_CANVAS_HEIGHT = 2000;

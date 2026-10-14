@@ -1,5 +1,5 @@
 /**
- * Canvas coordinate and collision utilities for Scene Board
+ * Canvas coordinate and collision utilities for Look Board
  */
 
 export interface Point {
