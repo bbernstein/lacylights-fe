@@ -175,6 +175,10 @@ function toEntries(
  * from the legacy rules ({@link isScopeRequired}). Any other error (for
  * example a backend with no data export at all) is rethrown; callers pass
  * it to `noteDataExportError`.
+ *
+ * The list is cached (`cache-first`) and the fallback remembered for the
+ * Apollo client, so a backend upgraded while the page stays open is only
+ * picked up once the page is reloaded (which creates a new client).
  */
 export async function fetchDataExportTables(client: AnyApolloClient): Promise<DataExportTableEntry[]> {
   if (!isFeatureUnsupported(client, DATA_EXPORT_SCOPE_REQUIRED_FEATURE)) {
