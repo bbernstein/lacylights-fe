@@ -32,7 +32,7 @@ interface ChannelSliderProps {
   tooltip?: string;
   showFadeBehavior?: boolean;
   onFadeBehaviorClick?: () => void;
-  /** Whether this channel is active (will be saved to the scene). If undefined, no toggle is shown. */
+  /** Whether this channel is active (will be saved to the look). If undefined, no toggle is shown. */
   isActive?: boolean;
   /** Callback when user toggles the active state. If provided, shows a checkbox. */
   onToggleActive?: (isActive: boolean) => void;

@@ -39,7 +39,7 @@ describe('CreateCueListModal', () => {
       );
 
       expect(screen.getByRole('heading', { name: 'Create Cue List' })).toBeInTheDocument();
-      expect(screen.getByText('Create a new cue list to sequence your scenes for playback.')).toBeInTheDocument();
+      expect(screen.getByText('Create a new cue list to sequence your looks for playback.')).toBeInTheDocument();
     });
 
     it('returns null when isOpen is false', () => {
