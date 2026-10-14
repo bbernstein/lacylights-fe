@@ -269,40 +269,52 @@ export default function ExportMenuButton({
                 {DATA_EXPORT_UNSUPPORTED_MESSAGE}
               </p>
             ) : (
-              items.map((item, idx) => (
-                <Fragment key={itemKey(item)}>
-                  {showHeadings && (
-                    <div
-                      className={`px-4 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 ${
-                        idx > 0 ? 'border-t border-gray-200 dark:border-gray-700 mt-1' : ''
-                      }`}
-                      role="presentation"
-                    >
-                      {item.label}
-                    </div>
-                  )}
-                  {FORMAT_ITEMS.map(({ format, label, icon: Icon }) => {
-                    const key = `${itemKey(item)}:${format}`;
-                    const blocked = blockedReason(item);
-                    const disabled = busyKey !== null || blocked !== null;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        role="menuitem"
-                        disabled={disabled}
-                        title={blocked ?? undefined}
-                        aria-label={showHeadings ? `${item.label} as ${label}` : label}
-                        onClick={() => handleExport(item, format)}
-                        className="w-full text-left px-4 py-3 sm:py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+              items.map((item, idx) => {
+                const blocked = blockedReason(item);
+                // Disabled items cannot take focus and a title is not shown on
+                // touch or read reliably, so the reason is visible text that
+                // the items reference with aria-describedby.
+                const reasonId = blocked ? `${menuId}-reason-${idx}` : undefined;
+                return (
+                  <Fragment key={itemKey(item)}>
+                    {showHeadings && (
+                      <div
+                        className={`px-4 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 ${
+                          idx > 0 ? 'border-t border-gray-200 dark:border-gray-700 mt-1' : ''
+                        }`}
+                        role="presentation"
                       >
-                        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                        <span>{busyKey === key ? 'Exporting...' : label}</span>
-                      </button>
-                    );
-                  })}
-                </Fragment>
-              ))
+                        {item.label}
+                      </div>
+                    )}
+                    {FORMAT_ITEMS.map(({ format, label, icon: Icon }) => {
+                      const key = `${itemKey(item)}:${format}`;
+                      const disabled = busyKey !== null || blocked !== null;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          role="menuitem"
+                          disabled={disabled}
+                          title={blocked ?? undefined}
+                          aria-describedby={reasonId}
+                          aria-label={showHeadings ? `${item.label} as ${label}` : label}
+                          onClick={() => handleExport(item, format)}
+                          className="w-full text-left px-4 py-3 sm:py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+                        >
+                          <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          <span>{busyKey === key ? 'Exporting...' : label}</span>
+                        </button>
+                      );
+                    })}
+                    {blocked && (
+                      <p id={reasonId} className="px-4 pb-2 text-xs text-gray-500 dark:text-gray-400">
+                        {blocked}
+                      </p>
+                    )}
+                  </Fragment>
+                );
+              })
             )}
 
             <div className="border-t border-gray-200 dark:border-gray-700 my-1" role="separator" />

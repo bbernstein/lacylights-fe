@@ -263,6 +263,28 @@ describe('ExportMenuButton', () => {
     expect(screen.getByRole('menuitem', { name: 'More import/export options…' })).toHaveFocus();
   });
 
+  it('shows why items are disabled as visible text linked to them', () => {
+    renderButton({
+      projectId: null,
+      tables: [
+        { table: DataExportTable.Looks, label: 'Looks' },
+        { table: DataExportTable.FixtureLibrary, label: 'Library' },
+      ],
+    });
+    openMenu();
+    // Disabled items cannot be focused and a title is not shown on touch, so
+    // the reason is in the menu as text, described-by from both items.
+    const reason = screen.getByText('Open a project to export this list');
+    expect(reason.id).toBeTruthy();
+    for (const name of ['Looks as CSV', 'Looks as Excel']) {
+      expect(screen.getByRole('menuitem', { name })).toHaveAttribute('aria-describedby', reason.id);
+      expect(screen.getByRole('menuitem', { name })).toHaveAccessibleDescription('Open a project to export this list');
+    }
+    // Items that can be exported get no reason.
+    expect(screen.getByRole('menuitem', { name: 'Library as CSV' })).not.toHaveAttribute('aria-describedby');
+    expect(screen.getAllByText('Open a project to export this list')).toHaveLength(1);
+  });
+
   it('keeps entries for the same table with different scopes apart', async () => {
     installBridge();
     renderButton(
