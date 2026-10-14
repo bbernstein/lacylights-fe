@@ -3,26 +3,20 @@
  *
  * The Mac and Raspberry Pi platforms update the frontend and backend
  * separately, so a newer frontend can talk to a backend that predates the
- * read-only `Query.projectExport*` fields and the CSV / Excel data export
- * (`dataExportTables`, `exportDataTable`, `exportDataWorkbook`). Such a
- * backend rejects the request with the GraphQL validation error
- * `Cannot query field "<field>" on type "Query"`.
+ * CSV / Excel data export (`dataExportTables`, `exportDataTable`,
+ * `exportDataWorkbook`). Such a backend rejects the request with the
+ * GraphQL validation error `Cannot query field "<field>" on type "Query"`,
+ * and the data export UI hides itself or explains that the server needs an
+ * update ({@link DATA_EXPORT_FEATURE}, {@link noteDataExportError}).
  *
- * - Project exports retry with the legacy export Mutation
- *   ({@link queryWithLegacyMutationFallback}).
- * - Data export UI hides itself or explains that the server needs an update
- *   ({@link DATA_EXPORT_FEATURE}, {@link noteDataExportError}).
+ * Project exports use the `Query.projectExport*` fields only; the legacy
+ * export Mutation fallback was removed (lacylights-go#87), so this frontend
+ * needs lacylights-go v0.4.0 or later to export projects.
  *
  * What a backend lacks is remembered per Apollo client (one client per
  * session/backend), so later requests skip the doomed attempt.
  */
-import {
-  ApolloError,
-  type ApolloClient,
-  type DocumentNode,
-  type OperationVariables,
-  type TypedDocumentNode,
-} from '@apollo/client';
+import { ApolloError, type ApolloClient } from '@apollo/client';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyApolloClient = ApolloClient<any>;
@@ -48,7 +42,7 @@ function graphQLMessages(list: unknown): string[] {
  * Messages of the GraphQL errors carried by `error`. For an ApolloError only
  * the parsed GraphQL errors count (in `graphQLErrors`, or in the network
  * error's JSON body: gqlgen answers validation failures with HTTP 422), so a
- * non-GraphQL body such as an HTML error page can never trigger a fallback.
+ * non-GraphQL body such as an HTML error page is never mistaken for one.
  */
 function errorMessages(error: unknown): string[] {
   if (!(error instanceof Error)) return [];
@@ -125,63 +119,4 @@ export function noteDataExportError(client: AnyApolloClient | null | undefined, 
   }
   markFeatureUnsupported(client, DATA_EXPORT_FEATURE);
   return true;
-}
-
-// ---------------------------------------------------------------------------
-// Query with legacy Mutation fallback
-// ---------------------------------------------------------------------------
-
-type AnyDocument<TData, TVariables> = DocumentNode | TypedDocumentNode<TData, TVariables>;
-
-function pickField<T>(data: unknown, field: string): T {
-  const value = data && typeof data === 'object' ? (data as Record<string, unknown>)[field] : undefined;
-  if (value === undefined || value === null) {
-    throw new Error('No export data was returned by the server.');
-  }
-  return value as T;
-}
-
-/**
- * Run a read-only export Query, falling back to the legacy export Mutation
- * when the backend does not know the Query field yet. Only for legacy
- * Mutations that are side-effect free apart from what the Query does too
- * (the deprecated project export Mutations). Any other error is
- * rethrown. Both requests use `fetchPolicy: 'no-cache'` so large file
- * contents never land in the Apollo cache.
- *
- * Returns the value of the requested field (e.g. `data.projectExport`).
- */
-export async function queryWithLegacyMutationFallback<
-  TResult,
-  TVariables extends OperationVariables = OperationVariables,
->(
-  client: AnyApolloClient,
-  primary: { query: AnyDocument<unknown, TVariables>; field: string },
-  legacy: { mutation: AnyDocument<unknown, TVariables>; field: string },
-  variables: TVariables,
-): Promise<TResult> {
-  const feature = `query:${primary.field}`;
-
-  if (!isFeatureUnsupported(client, feature)) {
-    try {
-      const { data } = await client.query({
-        query: primary.query,
-        variables,
-        fetchPolicy: 'no-cache',
-      });
-      return pickField<TResult>(data, primary.field);
-    } catch (error) {
-      if (!isUnknownQueryFieldError(error, primary.field)) {
-        throw error;
-      }
-      markFeatureUnsupported(client, feature);
-    }
-  }
-
-  const { data } = await client.mutate({
-    mutation: legacy.mutation,
-    variables,
-    fetchPolicy: 'no-cache',
-  });
-  return pickField<TResult>(data, legacy.field);
 }

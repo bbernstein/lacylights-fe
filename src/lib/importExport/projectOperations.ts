@@ -1,4 +1,4 @@
-import type { ApolloClient } from '@apollo/client';
+import type { ApolloClient, DocumentNode, OperationVariables, TypedDocumentNode } from '@apollo/client';
 import {
   IMPORT_PROJECT,
   IMPORT_PROJECT_FROM_QLC,
@@ -7,9 +7,6 @@ import {
   PROJECT_EXPORT_QLC,
   PROJECT_EXPORT_EOS,
   GET_QLC_FIXTURE_MAPPING_SUGGESTIONS,
-  LEGACY_EXPORT_PROJECT,
-  LEGACY_EXPORT_PROJECT_TO_QLC,
-  LEGACY_EXPORT_PROJECT_TO_EOS,
 } from '@/graphql/projects';
 import { getFixtureKey, getManufacturer, getModel } from '@/constants/fixtures';
 import { ImportMode, FixtureConflictStrategy } from '@/constants/import';
@@ -26,7 +23,7 @@ import type {
 import { PROJECT_FORMATS, type ProjectExportFormat, type ProjectFileFormat } from './formats';
 import { buildProjectExportFilename, projectNameFromFilename } from './filenames';
 import { downloadFile } from './download';
-import { queryWithLegacyMutationFallback } from './backendCompat';
+import { runExportQuery } from './dataExport';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyApolloClient = ApolloClient<any>;
@@ -199,14 +196,34 @@ export async function importProjectContent(
 }
 
 /**
+ * Run a read-only project export Query (no-cache, via runExportQuery) and
+ * return the value of its `field`, e.g. `data.projectExport`. Throws when
+ * the server returns no data for the field.
+ */
+async function queryProjectExport<TResult, TVariables extends OperationVariables = OperationVariables>(
+  client: AnyApolloClient,
+  query: DocumentNode | TypedDocumentNode<unknown, TVariables>,
+  field: string,
+  variables: TVariables,
+): Promise<TResult> {
+  // runExportQuery already throws when the response has no data at all.
+  const data = await runExportQuery<Record<string, unknown>, TVariables>(client, query, variables);
+  const value = data[field];
+  if (value === undefined || value === null) {
+    throw new Error('No export data was returned by the server.');
+  }
+  return value as TResult;
+}
+
+/**
  * Export a project in the given format. Does not download; see
  * downloadProjectExport / exportAndDownloadProject. Throws on failure.
  *
- * Uses the read-only `Query.projectExport*` fields (the old export
- * Mutations are deprecated) with `fetchPolicy: 'no-cache'` so file contents
- * are not cached. Older backends without those Queries reject them with
- * `Cannot query field ...`; the export then retries with the legacy export
- * Mutation (see queryWithLegacyMutationFallback).
+ * Uses the read-only `Query.projectExport*` fields with
+ * `fetchPolicy: 'no-cache'` so file contents are not cached (see
+ * {@link queryProjectExport}). Requires lacylights-go v0.4.0 or later; the
+ * legacy export Mutation fallback for older backends was removed
+ * (lacylights-go#87), so their `Cannot query field ...` error is rethrown.
  */
 export async function exportProjectAs(
   client: AnyApolloClient,
@@ -216,10 +233,10 @@ export async function exportProjectAs(
   const { mimeType } = PROJECT_FORMATS[format];
 
   if (format === 'eos') {
-    const r = await queryWithLegacyMutationFallback<ProjectExportEosQuery['projectExportEos']>(
+    const r = await queryProjectExport<ProjectExportEosQuery['projectExportEos']>(
       client,
-      { query: PROJECT_EXPORT_EOS, field: 'projectExportEos' },
-      { mutation: LEGACY_EXPORT_PROJECT_TO_EOS, field: 'exportProjectToEos' },
+      PROJECT_EXPORT_EOS,
+      'projectExportEos',
       { projectId },
     );
     return {
@@ -249,10 +266,10 @@ export async function exportProjectAs(
       mappingData.defaultMappings,
       mappingData.lacyLightsFixtures,
     );
-    const r = await queryWithLegacyMutationFallback<ProjectExportQlcQuery['projectExportQLC']>(
+    const r = await queryProjectExport<ProjectExportQlcQuery['projectExportQLC']>(
       client,
-      { query: PROJECT_EXPORT_QLC, field: 'projectExportQLC' },
-      { mutation: LEGACY_EXPORT_PROJECT_TO_QLC, field: 'exportProjectToQLC' },
+      PROJECT_EXPORT_QLC,
+      'projectExportQLC',
       { projectId, fixtureMappings },
     );
     return {
@@ -267,10 +284,10 @@ export async function exportProjectAs(
   }
 
   // LacyLights native export
-  const r = await queryWithLegacyMutationFallback<ProjectExportQuery['projectExport']>(
+  const r = await queryProjectExport<ProjectExportQuery['projectExport']>(
     client,
-    { query: PROJECT_EXPORT, field: 'projectExport' },
-    { mutation: LEGACY_EXPORT_PROJECT, field: 'exportProject' },
+    PROJECT_EXPORT,
+    'projectExport',
     {
       projectId,
       options: {

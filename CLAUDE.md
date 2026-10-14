@@ -243,15 +243,13 @@ render(
 - Eos warnings rendered via `EosWarningsList` (`src/components/EosWarningsList.tsx`),
   grouped by warning code. Imports are Mutations (`IMPORT_PROJECT_FROM_EOS`,
   …); project exports are Queries (`PROJECT_EXPORT`, `PROJECT_EXPORT_QLC`,
-  `PROJECT_EXPORT_EOS` in `src/graphql/projects.ts`; the old export
-  Mutations are deprecated in the backend).
+  `PROJECT_EXPORT_EOS` in `src/graphql/projects.ts`). Project export needs
+  lacylights-go v0.4.0+; the legacy export Mutation fallback was removed
+  (lacylights-go#87), so an older backend's error simply propagates.
 - Older backends (Mac / Pi update frontend and backend separately):
-  `src/lib/importExport/backendCompat.ts`. Project exports call the
-  Query first and, on `Cannot query field "projectExport…" on type "Query"`,
-  retry with the legacy Mutation (`LEGACY_EXPORT_PROJECT*`); other errors
-  propagate. When `dataExportTables` / `exportDataTable` /
-  `exportDataWorkbook` is unknown, `DataExportPanel` and `ExportMenuButton`
-  show "update LacyLights" instead of CSV / Excel. Both outcomes are
-  remembered per Apollo client (`useDataExportUnsupported`).
+  `src/lib/importExport/backendCompat.ts`. When `dataExportTables` /
+  `exportDataTable` / `exportDataWorkbook` is unknown, `DataExportPanel`
+  and `ExportMenuButton` show "update LacyLights" instead of CSV / Excel.
+  This is remembered per Apollo client (`useDataExportUnsupported`).
 - Downloaded export filenames use the frontend format table's extension
   (e.g. `.asc`) rather than the backend's `filenameSuffix` field

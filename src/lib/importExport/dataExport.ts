@@ -4,9 +4,8 @@
  * The backend generates the file and returns it inline as base64. Data
  * table and workbook exports MUST run through {@link runExportQuery}, which
  * forces `fetchPolicy: 'no-cache'` so large payloads never land in the
- * Apollo cache (plan: "Caching caveat"). Project exports use
- * `queryWithLegacyMutationFallback` (backendCompat.ts) instead, which is
- * also no-cache and adds the fallback for older backends.
+ * Apollo cache (plan: "Caching caveat"). Project exports go through it
+ * too (`queryProjectExport` in projectOperations.ts).
  */
 import type { ApolloClient, DocumentNode, OperationVariables, TypedDocumentNode } from '@apollo/client';
 import { EXPORT_DATA_TABLE, EXPORT_DATA_WORKBOOK } from '@/graphql/dataExport';
