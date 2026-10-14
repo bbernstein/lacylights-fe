@@ -73,7 +73,8 @@ interface CueListUnifiedViewProps {
   cueListId: string;
   onClose: () => void;
   /** Callback invoked when the cue list data is loaded, providing the cue list name for parent components */
-  onCueListLoaded?: (cueListName: string) => void;
+  /** Called with the cue list's name and owning project id once loaded. */
+  onCueListLoaded?: (cueListName: string, projectId?: string | null) => void;
 }
 
 interface EditableCellProps {
@@ -1357,7 +1358,7 @@ export default function CueListUnifiedView({
         setCueListDescription(data.cueList.description || "");
         setCueListLoop(data.cueList.loop || false);
         // Notify parent component of the cue list name
-        onCueListLoaded?.(data.cueList.name);
+        onCueListLoaded?.(data.cueList.name, data.cueList.project?.id ?? null);
       }
     },
   });

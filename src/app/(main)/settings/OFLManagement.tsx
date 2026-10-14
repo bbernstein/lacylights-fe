@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useSubscription } from '@apollo/client';
+import Link from 'next/link';
 import {
   GET_OFL_IMPORT_STATUS,
   CHECK_OFL_UPDATES,
@@ -16,6 +17,8 @@ import {
   OFLImportPhase,
   OFLFixtureChangeType,
 } from '@/types';
+import ExportMenuButton from '@/components/ExportMenuButton';
+import { DataExportTable } from '@/generated/graphql';
 
 // Progress bar component
 function OFLProgressBar({
@@ -319,8 +322,15 @@ export default function OFLManagement() {
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Import and update fixture definitions from OFL
           </p>
+          <Link
+            href="/import-export"
+            className="inline-block mt-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            More import/export options…
+          </Link>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap justify-end gap-2">
+          <ExportMenuButton table={DataExportTable.FixtureLibrary} compact />
           <button
             onClick={handleCheckUpdates}
             disabled={isImporting || updatesLoading}

@@ -21,6 +21,8 @@ import UnsavedChangesModal from "./UnsavedChangesModal";
 import CopyFixturesToLooksModal from "./CopyFixturesToLooksModal";
 import LookEditorMobileToolbar from "./LookEditorMobileToolbar";
 import LookEditorBottomActions from "./LookEditorBottomActions";
+import ExportMenuButton from "./ExportMenuButton";
+import { DataExportTable } from "@/generated/graphql";
 import { sparseToDense, denseToSparse } from "@/utils/channelConversion";
 import { useUndoStack, UndoDelta, UndoAction } from "@/hooks/useUndoStack";
 import { useStreamDock } from "@/contexts/StreamDockContext";
@@ -1578,6 +1580,17 @@ export default function LookEditorLayout({
         fromPlayer={fromPlayer}
         onClose={handleClose}
         onToggleMode={handleModeSwitch}
+        actions={
+          look?.project?.id ? (
+            <ExportMenuButton
+              table={DataExportTable.LookDetails}
+              scopeId={lookId}
+              projectId={look.project.id}
+              appearance="toolbar"
+              compact
+            />
+          ) : undefined
+        }
       />
 
       {/* Desktop top bar with mode switcher and controls */}
@@ -1893,8 +1906,17 @@ export default function LookEditorLayout({
             )}
           </div>
 
-          {/* Spacer for layout balance */}
-          <div className="w-32" />
+          {/* Right section: export (also balances the layout) */}
+          <div className="w-32 flex justify-end">
+            {look?.project?.id && (
+              <ExportMenuButton
+                table={DataExportTable.LookDetails}
+                scopeId={lookId}
+                projectId={look.project.id}
+                appearance="toolbar"
+              />
+            )}
+          </div>
         </div>
       </div>
 

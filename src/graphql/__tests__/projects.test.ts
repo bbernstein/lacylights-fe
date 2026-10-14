@@ -6,7 +6,7 @@ import {
   DELETE_PROJECT,
   IMPORT_PROJECT_FROM_QLC,
   GET_QLC_FIXTURE_MAPPING_SUGGESTIONS,
-  EXPORT_PROJECT_TO_QLC,
+  PROJECT_EXPORT_QLC,
 } from '../projects';
 
 describe('GraphQL Projects', () => {
@@ -48,9 +48,9 @@ describe('GraphQL Projects', () => {
       expect(IMPORT_PROJECT_FROM_QLC.kind).toBe('Document');
     });
 
-    it('exports EXPORT_PROJECT_TO_QLC mutation', () => {
-      expect(EXPORT_PROJECT_TO_QLC).toBeDefined();
-      expect(EXPORT_PROJECT_TO_QLC.kind).toBe('Document');
+    it('exports PROJECT_EXPORT_QLC query', () => {
+      expect(PROJECT_EXPORT_QLC).toBeDefined();
+      expect(PROJECT_EXPORT_QLC.kind).toBe('Document');
     });
   });
 
@@ -64,7 +64,7 @@ describe('GraphQL Projects', () => {
         DELETE_PROJECT,
         IMPORT_PROJECT_FROM_QLC,
         GET_QLC_FIXTURE_MAPPING_SUGGESTIONS,
-        EXPORT_PROJECT_TO_QLC,
+        PROJECT_EXPORT_QLC,
       ];
 
       allOperations.forEach(operation => {

@@ -8,6 +8,8 @@ import { useProject } from '@/contexts/ProjectContext';
 import { useStreamDock, BrowseHandlers } from '@/contexts/StreamDockContext';
 import { useRecentItems } from '@/hooks/useRecentItems';
 import CreateLookModal from '@/components/CreateLookModal';
+import ExportMenuButton from '@/components/ExportMenuButton';
+import { DataExportTable } from '@/generated/graphql';
 import { Look } from '@/types';
 
 export default function LooksPage() {
@@ -173,6 +175,7 @@ export default function LooksPage() {
           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex items-center space-x-3">
+          <ExportMenuButton table={DataExportTable.Looks} projectId={currentProject?.id} compact />
           <button
             type="button"
             onClick={() => setSortAlphabetically(!sortAlphabetically)}

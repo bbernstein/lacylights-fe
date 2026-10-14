@@ -1,15 +1,25 @@
 'use client';
 
-import { useState } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
-import { TrashIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useApolloClient, useMutation, useQuery } from '@apollo/client';
+import { useRouter } from 'next/navigation';
+import {
+  TrashIcon,
+  PlusIcon,
+  PencilIcon,
+  ArrowDownTrayIcon,
+  ArrowsUpDownIcon,
+  EllipsisVerticalIcon,
+} from '@heroicons/react/24/outline';
 import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT, UPDATE_PROJECT } from '@/graphql/projects';
 import { useProject } from '@/contexts/ProjectContext';
 import { useGroup, UNASSIGNED_GROUP_ID } from '@/contexts/GroupContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Project } from '@/types';
-import ImportExportButtons from './ImportExportButtons';
 import BottomSheet from './BottomSheet';
+import ContextMenu from './ContextMenu';
+import { exportAndDownloadProject, formatErrorMessage } from '@/lib/importExport';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 
 interface ProjectManagementModalProps {
@@ -19,7 +29,9 @@ interface ProjectManagementModalProps {
 
 export default function ProjectManagementModal({ isOpen, onClose }: ProjectManagementModalProps) {
   const isMobile = useIsMobile();
-  const { refetchAndSelectById, selectProjectById, selectedProjectId } = useProject();
+  const router = useRouter();
+  const apolloClient = useApolloClient();
+  const { selectProjectById, selectedProjectId } = useProject();
   const { groups, activeGroup } = useGroup();
   const { isAdmin } = useAuth();
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
@@ -29,6 +41,9 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   const [newProjectGroupId, setNewProjectGroupId] = useState('');
   const [editingProject, setEditingProject] = useState<{id: string, name: string, description: string, groupId: string} | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Row saves can run concurrently (one per project), so track each one.
+  const [savingProjectIds, setSavingProjectIds] = useState<ReadonlySet<string>>(new Set());
+  const [rowMenu, setRowMenu] = useState<{ projectId: string; x: number; y: number } | null>(null);
 
   const { data, loading, refetch } = useQuery(GET_PROJECTS);
   const [createProject] = useMutation(CREATE_PROJECT, {
@@ -50,7 +65,19 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     },
   });
 
+  // The modal stays mounted while closed, so drop any open row menu when it
+  // closes (from any path, including a parent toggling isOpen) so it can't
+  // reappear at stale coordinates on the next open.
+  useEffect(() => {
+    if (!isOpen) setRowMenu(null);
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const handleClose = () => {
+    setRowMenu(null);
+    onClose();
+  };
 
   const handleSelectAll = () => {
     if (selectedProjects.size === data?.projects.length) {
@@ -187,13 +214,31 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
     setEditingProject(null);
   };
 
-  const handleImportComplete = async (projectId: string) => {
-    await refetch();
-    await refetchAndSelectById(projectId);
+  const navigateTo = (href: string) => {
+    handleClose();
+    router.push(href);
   };
 
-  const handleExportError = (errorMessage: string) => {
-    setError(errorMessage);
+  const handleSaveProject = async (projectId: string) => {
+    if (savingProjectIds.has(projectId)) return;
+    setError(null);
+    setSavingProjectIds((prev) => new Set(prev).add(projectId));
+    try {
+      await exportAndDownloadProject(apolloClient, projectId, 'lacylights');
+    } catch (err) {
+      setError(formatErrorMessage(err, 'Failed to export project.'));
+    } finally {
+      setSavingProjectIds((prev) => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
+    }
+  };
+
+  const openRowMenu = (projectId: string, e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setRowMenu({ projectId, x: rect.left, y: rect.bottom + 4 });
   };
 
   const formContent = (
@@ -213,10 +258,13 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
           New Project
         </button>
 
-        <ImportExportButtons
-          onImportComplete={handleImportComplete}
-          onError={handleExportError}
-        />
+        <button
+          onClick={() => navigateTo('/import-export')}
+          className={`${isMobile ? 'w-full' : ''} px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center justify-center gap-2 min-h-[44px] touch-manipulation`}
+        >
+          <ArrowsUpDownIcon className="h-4 w-4" />
+          Import / Export…
+        </button>
 
         {selectedProjects.size > 0 && (
           <button
@@ -387,11 +435,15 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
                 <span className="text-green-500 text-sm shrink-0">Current</span>
               )}
               <div className="flex gap-2 items-center shrink-0">
-                <ImportExportButtons
-                  projectId={project.id}
-                  onError={handleExportError}
-                  exportOnly={true}
-                />
+                <button
+                  onClick={() => handleSaveProject(project.id)}
+                  disabled={savingProjectIds.has(project.id)}
+                  className="text-gray-400 hover:text-green-500 transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation disabled:opacity-50 disabled:cursor-wait"
+                  title="Save project as LacyLights file (.json)"
+                  aria-label="Save project as LacyLights file (.json)"
+                >
+                  <ArrowDownTrayIcon className={`h-5 w-5 ${savingProjectIds.has(project.id) ? 'animate-pulse' : ''}`} />
+                </button>
                 <button
                   onClick={() => handleStartEdit(project)}
                   className="text-gray-400 hover:text-blue-500 transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
@@ -406,6 +458,16 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
                 >
                   <TrashIcon className="h-5 w-5" />
                 </button>
+                <button
+                  onClick={(e) => openRowMenu(project.id, e)}
+                  className="text-gray-400 hover:text-white transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                  title="More actions"
+                  aria-label={`More actions for ${project.name}`}
+                  aria-haspopup="menu"
+                  aria-expanded={rowMenu?.projectId === project.id}
+                >
+                  <EllipsisVerticalIcon className="h-5 w-5" />
+                </button>
               </div>
             </div>
           ))
@@ -417,7 +479,7 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   const footerContent = (
     <div className={`flex ${isMobile ? 'flex-col' : 'justify-end'}`}>
       <button
-        onClick={onClose}
+        onClick={handleClose}
         className={`${isMobile ? 'w-full' : ''} px-4 py-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 min-h-[44px] touch-manipulation`}
       >
         Close
@@ -428,13 +490,34 @@ export default function ProjectManagementModal({ isOpen, onClose }: ProjectManag
   return (
     <BottomSheet
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title="Manage Projects"
       footer={footerContent}
       maxWidth="max-w-2xl"
       testId="project-management-modal"
     >
       {formContent}
+      {/* Portal the row menu to <body>: the mobile sheet uses CSS transforms,
+          which would otherwise offset the menu's fixed positioning. */}
+      {rowMenu && createPortal(
+        <ContextMenu
+          x={rowMenu.x}
+          y={rowMenu.y}
+          autoFocus
+          onDismiss={() => setRowMenu(null)}
+          options={[
+            {
+              label: 'More export options…',
+              icon: <ArrowsUpDownIcon className="h-4 w-4" />,
+              onClick: () =>
+                navigateTo(
+                  `/import-export?section=export&project=${encodeURIComponent(rowMenu.projectId)}`,
+                ),
+            },
+          ]}
+        />,
+        document.body,
+      )}
     </BottomSheet>
   );
 }

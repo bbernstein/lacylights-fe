@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import CueListPlayer from "@/components/CueListPlayer";
 import CueListUnifiedView from "@/components/CueListUnifiedView";
 import { extractCueListId } from "@/utils/routeUtils";
+import ExportMenuButton from "@/components/ExportMenuButton";
+import { useProject } from "@/contexts/ProjectContext";
+import { DataExportTable } from "@/generated/graphql";
 
 interface CueListPageClientProps {
   cueListId: string;
@@ -16,13 +19,31 @@ export default function CueListPageClient({
   const cueListId = extractCueListId(cueListIdProp);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { currentProject } = useProject();
 
   // Cue list name is provided by child components via callback to avoid duplicate queries
   const [cueListName, setCueListName] = useState("");
+  // The cue list's own project. The route loads the cue list by id, so the
+  // selected project may be a different one; scoped exports must use the
+  // owning project or the backend rejects them.
+  // Remembered with the cue list it belongs to, so a client-side navigation
+  // to another cue list never reuses the previous list's project.
+  const [cueListOwner, setCueListOwner] = useState<{
+    cueListId: string;
+    projectId: string | null;
+  } | null>(null);
 
-  const handleCueListLoaded = useCallback((name: string) => {
-    setCueListName(name);
-  }, []);
+  const handleCueListLoaded = useCallback(
+    (name: string, projectId?: string | null) => {
+      setCueListName(name);
+      setCueListOwner({ cueListId, projectId: projectId ?? null });
+    },
+    [cueListId],
+  );
+
+  const cueListProjectId =
+    cueListOwner?.cueListId === cueListId ? cueListOwner.projectId : null;
+  const exportProjectId = cueListProjectId ?? currentProject?.id ?? null;
 
   const mode = searchParams.get("mode") || "player";
   const isEditMode = mode === "edit";
@@ -69,16 +90,27 @@ export default function CueListPageClient({
           {cueListName}
         </h1>
 
-        <button
-          onClick={handleToggleMode}
-          className={`px-3 py-2 rounded text-xs sm:text-sm font-medium transition-colors flex-shrink-0 touch-manipulation ${
-            isEditMode
-              ? "bg-blue-600 hover:bg-blue-700 text-white"
-              : "bg-gray-700 hover:bg-gray-600 text-gray-300"
-          }`}
-        >
-          {isEditMode ? "Player" : "Edit"}
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {exportProjectId && (
+            <ExportMenuButton
+              table={DataExportTable.CueListDetails}
+              scopeId={cueListId}
+              projectId={exportProjectId}
+              appearance="toolbar"
+              compact
+            />
+          )}
+          <button
+            onClick={handleToggleMode}
+            className={`px-3 py-2 rounded text-xs sm:text-sm font-medium transition-colors flex-shrink-0 touch-manipulation ${
+              isEditMode
+                ? "bg-blue-600 hover:bg-blue-700 text-white"
+                : "bg-gray-700 hover:bg-gray-600 text-gray-300"
+            }`}
+          >
+            {isEditMode ? "Player" : "Edit"}
+          </button>
+        </div>
       </div>
 
       {/* Content - z-10 ensures content is below header (z-50), overflow-hidden clips content for iOS touch events */}

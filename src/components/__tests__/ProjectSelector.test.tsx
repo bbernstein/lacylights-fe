@@ -9,11 +9,22 @@ jest.mock('@/contexts/ProjectContext', () => ({
   useProject: () => mockUseProject(),
 }));
 
-// Mock the CogIcon from Heroicons
+// Mock the router so navigation can be asserted
+const mockPush = jest.fn();
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
+// Mock the icons from Heroicons
 jest.mock('@heroicons/react/24/outline', () => ({
   CogIcon: ({ className }: { className?: string }) => (
     <svg className={className} data-testid="cog-icon">
       <title>Settings</title>
+    </svg>
+  ),
+  ArrowsUpDownIcon: ({ className }: { className?: string }) => (
+    <svg className={className} data-testid="arrows-up-down-icon">
+      <title>Import / Export</title>
     </svg>
   ),
 }));
@@ -29,12 +40,6 @@ jest.mock('../ProjectManagementModal', () => {
   };
 });
 
-// Mock the ImportExportButtons
-jest.mock('../ImportExportButtons', () => {
-  return function MockImportExportButtons() {
-    return <div data-testid="import-export-buttons">Import/Export</div>;
-  };
-});
 
 const mockProjects = [
   { id: '1', name: 'Project Alpha' },
@@ -209,6 +214,46 @@ describe('ProjectSelector', () => {
     });
   });
 
+  describe('menu contents', () => {
+    it('shows only the projects plus the Import / Export and Manage Projects actions', () => {
+      render(<ProjectSelector />);
+      fireEvent.click(screen.getByRole('button'));
+
+      const menuButtons = screen
+        .getAllByRole('button')
+        .slice(1) // skip the dropdown toggle
+        // Text nodes only, so mocked icon <title>s are not included
+        .map((b) =>
+          Array.from(b.childNodes)
+            .filter((n) => n.nodeType === Node.TEXT_NODE)
+            .map((n) => n.textContent)
+            .join('')
+            .trim(),
+        );
+      expect(menuButtons).toEqual([
+        'Project Alpha',
+        'Project Beta',
+        'Project Gamma',
+        'Import / Export…',
+        'Manage Projects',
+      ]);
+      // No inline import/export format options remain in the menu.
+      expect(screen.queryByText(/Auto-detect format/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/\.qxw/)).not.toBeInTheDocument();
+    });
+
+    it('navigates to the Import / Export page and closes the menu', () => {
+      render(<ProjectSelector />);
+      fireEvent.click(screen.getByRole('button'));
+
+      expect(screen.getByTestId('arrows-up-down-icon')).toBeInTheDocument();
+      fireEvent.click(screen.getByText('Import / Export…'));
+
+      expect(mockPush).toHaveBeenCalledWith('/import-export');
+      expect(screen.queryByText('Project Beta')).not.toBeInTheDocument();
+    });
+  });
+
   describe('manage projects functionality', () => {
     it('renders manage projects button in dropdown', () => {
       render(<ProjectSelector />);
@@ -311,8 +356,8 @@ describe('ProjectSelector', () => {
       fireEvent.click(button);
 
       const projectButtons = screen.getAllByRole('button');
-      // Should have original button + 3 project buttons + 1 manage button
-      expect(projectButtons).toHaveLength(5);
+      // Should have original button + 3 project buttons + Import / Export + Manage Projects
+      expect(projectButtons).toHaveLength(6);
     });
   });
 

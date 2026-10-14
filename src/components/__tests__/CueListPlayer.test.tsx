@@ -298,6 +298,18 @@ describe("CueListPlayer", () => {
   });
 
   describe("rendering with data", () => {
+    it("reports the cue list name and owning project to the parent", async () => {
+      const onCueListLoaded = jest.fn();
+      render(
+        <MockedProvider mocks={createMocks()} addTypename={false}>
+          <CueListPlayer cueListId={mockCueListId} onCueListLoaded={onCueListLoaded} />
+        </MockedProvider>,
+      );
+      await waitFor(() =>
+        expect(onCueListLoaded).toHaveBeenCalledWith("Test Cue List", "project-1"),
+      );
+    });
+
     it("renders cue list with cues", async () => {
       const mocks = createMocks();
       renderWithProvider(mocks);

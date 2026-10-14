@@ -8,7 +8,8 @@ import { useProject } from '@/contexts/ProjectContext';
 import { useStreamDock, BrowseHandlers } from '@/contexts/StreamDockContext';
 import { useRecentItems } from '@/hooks/useRecentItems';
 import CreateEffectModal from '@/components/CreateEffectModal';
-import { Effect, EffectType, WaveformType, PriorityBand } from '@/generated/graphql';
+import ExportMenuButton from '@/components/ExportMenuButton';
+import { DataExportTable, Effect, EffectType, WaveformType, PriorityBand } from '@/generated/graphql';
 
 // Helper function to get waveform icon
 function getWaveformIcon(waveform: WaveformType | null | undefined): string {
@@ -242,6 +243,7 @@ export default function EffectsPage() {
           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex items-center space-x-3">
+          <ExportMenuButton table={DataExportTable.Effects} projectId={currentProject?.id} compact />
           <button
             type="button"
             onClick={() => setSortAlphabetically(!sortAlphabetically)}
