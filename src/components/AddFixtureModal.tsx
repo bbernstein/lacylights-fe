@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLazyQuery, useMutation, useQuery } from "@apollo/client";
 import {
   GET_MANUFACTURERS,
-  GET_MODELS,
   CREATE_FIXTURE_INSTANCE,
   GET_PROJECT_FIXTURES,
   SUGGEST_CHANNEL_ASSIGNMENT,
@@ -13,6 +12,10 @@ import Autocomplete from "./Autocomplete";
 import { FixtureDefinition } from "@/types";
 import BottomSheet from "./BottomSheet";
 import { useIsMobile } from "@/hooks/useMediaQuery";
+import { useFixtureModels, FixtureModelOption } from "@/hooks/useFixtureModels";
+import { useFixtureSourcePrecedence } from "@/hooks/useFixtureSourcePrecedence";
+import { hasDuplicateModels, sortDefinitionsByPrecedence } from "@/lib/fixtureSources";
+import ModelOptionLabel, { SelectedModelSource } from "./ModelOptionLabel";
 
 interface AddFixtureModalProps {
   isOpen: boolean;
@@ -62,18 +65,7 @@ export default function AddFixtureModal({
   const numFixturesInputRef = useRef<HTMLInputElement>(null);
 
   const [manufacturers, setManufacturers] = useState<string[]>([]);
-  const [models, setModels] = useState<
-    Array<{
-      id: string;
-      model: string;
-      modes: Array<{ id: string; name: string; channelCount: number }>;
-    }>
-  >([]);
-  const [selectedModelData, setSelectedModelData] = useState<{
-    id: string;
-    model: string;
-    modes: Array<{ id: string; name: string; channelCount: number }>;
-  } | null>(null);
+  const [selectedModelData, setSelectedModelData] = useState<FixtureModelOption | null>(null);
 
   // Get existing fixtures for overlap validation
   const { data: fixturesData } = useQuery(GET_PROJECT_FIXTURES, {
@@ -95,11 +87,22 @@ export default function AddFixtureModal({
     },
   );
 
-  const [getModels, { loading: loadingModels }] = useLazyQuery(GET_MODELS, {
-    onCompleted: (data) => {
-      setModels(data.fixtureDefinitions);
-    },
-  });
+  const {
+    loadModels: getModels,
+    models: loadedModels,
+    setModels,
+    loading: loadingModels,
+  } = useFixtureModels();
+
+  // Several definitions can share a model name (one per source). List them in
+  // source precedence order so the preferred one comes first and is the one
+  // picked when selecting by model name. Precedence is only fetched when needed.
+  const needsPrecedence = useMemo(() => hasDuplicateModels(loadedModels), [loadedModels]);
+  const { precedence } = useFixtureSourcePrecedence({ skip: !needsPrecedence });
+  const models = useMemo(
+    () => sortDefinitionsByPrecedence(loadedModels, precedence),
+    [loadedModels, precedence],
+  );
 
   const [createFixture, { loading: creating }] = useMutation(
     CREATE_FIXTURE_INSTANCE,
@@ -204,7 +207,7 @@ export default function AddFixtureModal({
       setSelectedModeId("");
       setSelectedModelData(null);
     }
-  }, [manufacturer, getModels]);
+  }, [manufacturer, getModels, setModels]);
 
   const handleManufacturerSearch = (search: string) => {
     if (search) {
@@ -212,9 +215,18 @@ export default function AddFixtureModal({
     }
   };
 
+  // Select a model by name: the first match is the preferred source.
   const handleModelSelect = (modelName: string) => {
+    selectDefinition(modelName, models.find((m) => m.model === modelName));
+  };
+
+  // Select a specific entry (definition) from the model list.
+  const handleModelOptionSelect = (modelName: string, index: number) => {
+    selectDefinition(modelName, models[index]);
+  };
+
+  const selectDefinition = (modelName: string, selectedModel: FixtureModelOption | undefined) => {
     setModel(modelName);
-    const selectedModel = models.find((m) => m.model === modelName);
     if (selectedModel) {
       setSelectedDefinitionId(selectedModel.id);
       setSelectedModelData(selectedModel);
@@ -607,14 +619,19 @@ export default function AddFixtureModal({
         label="Model"
         value={model}
         onChange={handleModelSelect}
+        onOptionSelect={handleModelOptionSelect}
         onInputChange={() => {}}
         options={models.map((m) => m.model)}
+        renderOption={(option, index) => (
+          <ModelOptionLabel models={models} index={index} label={option} />
+        )}
         placeholder={
           manufacturer ? "Select model..." : "Select manufacturer first"
         }
         loading={loadingModels}
         required
       />
+      <SelectedModelSource models={models} selected={selectedModelData} />
 
       {selectedModelData && selectedModelData.modes.length > 0 && (
         <div>

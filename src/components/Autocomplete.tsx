@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 
 interface AutocompleteProps {
   label: string;
@@ -11,6 +11,17 @@ interface AutocompleteProps {
   placeholder?: string;
   loading?: boolean;
   required?: boolean;
+  /**
+   * Custom content for an option row (e.g. the option text plus a badge).
+   * `index` is the option's position in `options`.
+   */
+  renderOption?: (option: string, index: number) => ReactNode;
+  /**
+   * Called instead of `onChange` when an option is picked from the list, with
+   * its position in `options`. Lets callers tell apart options that share the
+   * same text.
+   */
+  onOptionSelect?: (option: string, index: number) => void;
 }
 
 export default function Autocomplete({
@@ -22,6 +33,8 @@ export default function Autocomplete({
   placeholder,
   loading = false,
   required = false,
+  renderOption,
+  onOptionSelect,
 }: AutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value);
@@ -54,16 +67,20 @@ export default function Autocomplete({
     setHighlightedIndex(-1);
   };
 
-  const handleOptionClick = (option: string) => {
+  const handleOptionClick = (option: string, index: number) => {
     setInputValue(option);
-    onChange(option);
+    if (onOptionSelect) {
+      onOptionSelect(option, index);
+    } else {
+      onChange(option);
+    }
     setIsOpen(false);
     setHighlightedIndex(-1);
   };
 
-  const filteredOptions = options.filter(option => 
-    option.toLowerCase().includes(inputValue.toLowerCase())
-  );
+  const filteredOptions = options
+    .map((option, index) => ({ option, index }))
+    .filter(({ option }) => option.toLowerCase().includes(inputValue.toLowerCase()));
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
@@ -84,7 +101,8 @@ export default function Autocomplete({
     } else if (e.key === 'Enter') {
       if (isOpen && highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
         e.preventDefault();
-        handleOptionClick(filteredOptions[highlightedIndex]);
+        const { option, index } = filteredOptions[highlightedIndex];
+        handleOptionClick(option, index);
       }
     } else if (e.key === 'Escape') {
       setIsOpen(false);
@@ -114,11 +132,11 @@ export default function Autocomplete({
           {loading ? (
             <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
           ) : filteredOptions.length > 0 ? (
-            filteredOptions.map((option, index) => (
+            filteredOptions.map(({ option, index: optionIndex }, index) => (
               <button
-                key={index}
+                key={optionIndex}
                 type="button"
-                onClick={() => handleOptionClick(option)}
+                onClick={() => handleOptionClick(option, optionIndex)}
                 onMouseEnter={() => setHighlightedIndex(index)}
                 className={`block w-full text-left px-4 py-2 text-sm ${
                   highlightedIndex === index
@@ -126,7 +144,7 @@ export default function Autocomplete({
                     : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
-                {option}
+                {renderOption ? renderOption(option, optionIndex) : option}
               </button>
             ))
           ) : (
