@@ -269,12 +269,14 @@ export enum ChannelType {
   Amber = 'AMBER',
   Blue = 'BLUE',
   ColdWhite = 'COLD_WHITE',
+  ColorTemperature = 'COLOR_TEMPERATURE',
   ColorWheel = 'COLOR_WHEEL',
   Cyan = 'CYAN',
   Effect = 'EFFECT',
   Focus = 'FOCUS',
   Gobo = 'GOBO',
   Green = 'GREEN',
+  Hue = 'HUE',
   Indigo = 'INDIGO',
   Intensity = 'INTENSITY',
   Iris = 'IRIS',
@@ -284,6 +286,8 @@ export enum ChannelType {
   Other = 'OTHER',
   Pan = 'PAN',
   Red = 'RED',
+  Saturation = 'SATURATION',
+  Speed = 'SPEED',
   Strobe = 'STROBE',
   Tilt = 'TILT',
   Uv = 'UV',
@@ -1237,6 +1241,60 @@ export type FixtureValueInput = {
   readonly lookOrder?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export enum GdtfExistingPolicy {
+  /** Keep the existing definition unchanged */
+  Skip = 'SKIP',
+  /** Rebuild the existing definition in place, keeping its ID */
+  Update = 'UPDATE'
+}
+
+/**
+ * One GDTF fixture type to import: the description.xml of a .gdtf file.
+ * Clients unzip the .gdtf (or a .zip of them) and send only description.xml.
+ */
+export type GdtfFileInput = {
+  /** Contents of the .gdtf's description.xml (at most 32 MB) */
+  readonly descriptionXml: Scalars['String']['input'];
+  /** Original file name, e.g. Foo.gdtf or archive.zip/inner/Foo.gdtf */
+  readonly fileName: Scalars['String']['input'];
+};
+
+export type GdtfImportFileResult = {
+  readonly __typename?: 'GdtfImportFileResult';
+  /** The created, updated or existing definition; null when FAILED */
+  readonly definition?: Maybe<FixtureDefinition>;
+  readonly error?: Maybe<Scalars['String']['output']>;
+  readonly fileName: Scalars['String']['output'];
+  readonly manufacturer?: Maybe<Scalars['String']['output']>;
+  readonly modeCount?: Maybe<Scalars['Int']['output']>;
+  readonly model?: Maybe<Scalars['String']['output']>;
+  readonly status: GdtfImportStatus;
+  readonly warnings: ReadonlyArray<Scalars['String']['output']>;
+};
+
+export type GdtfImportOptions = {
+  /** What to do when the same FixtureTypeID was imported before and changed */
+  readonly onExisting?: InputMaybe<GdtfExistingPolicy>;
+};
+
+export type GdtfImportResult = {
+  readonly __typename?: 'GdtfImportResult';
+  readonly createdCount: Scalars['Int']['output'];
+  readonly failedCount: Scalars['Int']['output'];
+  readonly results: ReadonlyArray<GdtfImportFileResult>;
+  readonly skippedCount: Scalars['Int']['output'];
+  readonly unchangedCount: Scalars['Int']['output'];
+  readonly updatedCount: Scalars['Int']['output'];
+};
+
+export enum GdtfImportStatus {
+  Created = 'CREATED',
+  Failed = 'FAILED',
+  Skipped = 'SKIPPED',
+  Unchanged = 'UNCHANGED',
+  Updated = 'UPDATED'
+}
+
 /** Global playback status - returns which cue list is currently playing or paused (if any) */
 export type GlobalPlaybackStatus = {
   readonly __typename?: 'GlobalPlaybackStatus';
@@ -1660,6 +1718,11 @@ export type Mutation = {
   readonly fadeToBlack: Scalars['Boolean']['output'];
   readonly forgetWiFiNetwork: Scalars['Boolean']['output'];
   readonly goToCue: Scalars['Boolean']['output'];
+  /**
+   * Import GDTF fixture types (description.xml contents). Each file is imported
+   * in its own transaction; a failed file does not fail the others.
+   */
+  readonly importGdtfFixtures: GdtfImportResult;
   readonly importOFLFixture: FixtureDefinition;
   readonly importProject: ImportResult;
   readonly importProjectFromEos: EosImportResult;
@@ -2223,6 +2286,12 @@ export type MutationGoToCueArgs = {
   cueIndex: Scalars['Int']['input'];
   cueListId: Scalars['ID']['input'];
   fadeInTime?: InputMaybe<Scalars['Float']['input']>;
+};
+
+
+export type MutationImportGdtfFixturesArgs = {
+  files: ReadonlyArray<GdtfFileInput>;
+  options?: InputMaybe<GdtfImportOptions>;
 };
 
 
@@ -4699,6 +4768,14 @@ export type ImportOflFixtureMutationVariables = Exact<{
 
 export type ImportOflFixtureMutation = { readonly __typename?: 'Mutation', readonly importOFLFixture: { readonly __typename?: 'FixtureDefinition', readonly id: string, readonly manufacturer: string, readonly model: string, readonly type: FixtureType, readonly channels: ReadonlyArray<{ readonly __typename?: 'ChannelDefinition', readonly id: string, readonly name: string, readonly type: ChannelType, readonly offset: number, readonly fadeBehavior: FadeBehavior, readonly isDiscrete: boolean }>, readonly modes: ReadonlyArray<{ readonly __typename?: 'FixtureMode', readonly id: string, readonly name: string, readonly shortName?: string | null, readonly channelCount: number }> } };
 
+export type ImportGdtfFixturesMutationVariables = Exact<{
+  files: ReadonlyArray<GdtfFileInput> | GdtfFileInput;
+  options?: InputMaybe<GdtfImportOptions>;
+}>;
+
+
+export type ImportGdtfFixturesMutation = { readonly __typename?: 'Mutation', readonly importGdtfFixtures: { readonly __typename?: 'GdtfImportResult', readonly createdCount: number, readonly updatedCount: number, readonly unchangedCount: number, readonly skippedCount: number, readonly failedCount: number, readonly results: ReadonlyArray<{ readonly __typename?: 'GdtfImportFileResult', readonly fileName: string, readonly status: GdtfImportStatus, readonly manufacturer?: string | null, readonly model?: string | null, readonly modeCount?: number | null, readonly warnings: ReadonlyArray<string>, readonly error?: string | null, readonly definition?: { readonly __typename?: 'FixtureDefinition', readonly id: string, readonly manufacturer: string, readonly model: string, readonly source: FixtureSource, readonly sourceVersion?: string | null } | null }> } };
+
 export type GetProjectFixturesQueryVariables = Exact<{
   projectId: Scalars['ID']['input'];
 }>;
@@ -5468,6 +5545,7 @@ export const CreateFixtureInstanceDocument = {"kind":"Document","definitions":[{
 export const UpdateFixtureInstanceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateFixtureInstance"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateFixtureInstanceInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateFixtureInstance"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}},{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"universe"}},{"kind":"Field","name":{"kind":"Name","value":"startChannel"}},{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"modeName"}},{"kind":"Field","name":{"kind":"Name","value":"channelCount"}}]}}]}}]} as unknown as DocumentNode<UpdateFixtureInstanceMutation, UpdateFixtureInstanceMutationVariables>;
 export const DeleteFixtureInstanceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteFixtureInstance"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteFixtureInstance"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode<DeleteFixtureInstanceMutation, DeleteFixtureInstanceMutationVariables>;
 export const ImportOflFixtureDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ImportOFLFixture"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ImportOFLFixtureInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"importOFLFixture"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"fadeBehavior"}},{"kind":"Field","name":{"kind":"Name","value":"isDiscrete"}}]}},{"kind":"Field","name":{"kind":"Name","value":"modes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"shortName"}},{"kind":"Field","name":{"kind":"Name","value":"channelCount"}}]}}]}}]}}]} as unknown as DocumentNode<ImportOflFixtureMutation, ImportOflFixtureMutationVariables>;
+export const ImportGdtfFixturesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ImportGdtfFixtures"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"files"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"GdtfFileInput"}}}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"options"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"GdtfImportOptions"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"importGdtfFixtures"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"files"},"value":{"kind":"Variable","name":{"kind":"Name","value":"files"}}},{"kind":"Argument","name":{"kind":"Name","value":"options"},"value":{"kind":"Variable","name":{"kind":"Name","value":"options"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"results"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fileName"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"definition"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"sourceVersion"}}]}},{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"modeCount"}},{"kind":"Field","name":{"kind":"Name","value":"warnings"}},{"kind":"Field","name":{"kind":"Name","value":"error"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdCount"}},{"kind":"Field","name":{"kind":"Name","value":"updatedCount"}},{"kind":"Field","name":{"kind":"Name","value":"unchangedCount"}},{"kind":"Field","name":{"kind":"Name","value":"skippedCount"}},{"kind":"Field","name":{"kind":"Name","value":"failedCount"}}]}}]}}]} as unknown as DocumentNode<ImportGdtfFixturesMutation, ImportGdtfFixturesMutationVariables>;
 export const GetProjectFixturesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetProjectFixtures"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"project"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"fixtures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"universe"}},{"kind":"Field","name":{"kind":"Name","value":"startChannel"}},{"kind":"Field","name":{"kind":"Name","value":"tags"}},{"kind":"Field","name":{"kind":"Name","value":"projectOrder"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"definitionId"}},{"kind":"Field","name":{"kind":"Name","value":"manufacturer"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"modeName"}},{"kind":"Field","name":{"kind":"Name","value":"channelCount"}},{"kind":"Field","name":{"kind":"Name","value":"channels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"offset"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"minValue"}},{"kind":"Field","name":{"kind":"Name","value":"maxValue"}},{"kind":"Field","name":{"kind":"Name","value":"defaultValue"}},{"kind":"Field","name":{"kind":"Name","value":"fadeBehavior"}},{"kind":"Field","name":{"kind":"Name","value":"isDiscrete"}}]}}]}}]}}]}}]} as unknown as DocumentNode<GetProjectFixturesQuery, GetProjectFixturesQueryVariables>;
 export const ReorderProjectFixturesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ReorderProjectFixtures"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"fixtureOrders"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"FixtureOrderInput"}}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reorderProjectFixtures"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}},{"kind":"Argument","name":{"kind":"Name","value":"fixtureOrders"},"value":{"kind":"Variable","name":{"kind":"Name","value":"fixtureOrders"}}}]}]}}]} as unknown as DocumentNode<ReorderProjectFixturesMutation, ReorderProjectFixturesMutationVariables>;
 export const ReorderLookFixturesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ReorderLookFixtures"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"lookId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"fixtureOrders"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"FixtureOrderInput"}}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reorderLookFixtures"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"lookId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"lookId"}}},{"kind":"Argument","name":{"kind":"Name","value":"fixtureOrders"},"value":{"kind":"Variable","name":{"kind":"Name","value":"fixtureOrders"}}}]}]}}]} as unknown as DocumentNode<ReorderLookFixturesMutation, ReorderLookFixturesMutationVariables>;

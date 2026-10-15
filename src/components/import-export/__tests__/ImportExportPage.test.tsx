@@ -88,6 +88,19 @@ describe('ImportExportPage', () => {
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
+  it('renders the GDTF fixture definition import section', () => {
+    renderPage();
+    const section = screen.getByRole('region', { name: 'Fixture definitions (GDTF)' });
+    expect(within(section).getByRole('button', { name: 'Choose files' })).toBeInTheDocument();
+    expect(within(section).getByRole('button', { name: 'Choose folder' })).toBeInTheDocument();
+  });
+
+  it('scrolls to the GDTF section for ?section=fixtures', () => {
+    mockSearchParams = new URLSearchParams('section=fixtures');
+    renderPage();
+    expect(scrollIntoView.mock.instances[0]).toBe(document.getElementById(sectionDomId('fixtures')));
+  });
+
   it('defaults the export project to the current project', () => {
     renderPage();
     expect(screen.getByLabelText('Project')).toHaveValue('p1');

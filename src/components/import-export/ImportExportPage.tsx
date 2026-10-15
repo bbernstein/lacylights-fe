@@ -6,16 +6,18 @@ import { useProject } from '@/contexts/ProjectContext';
 import ProjectImportPanel from './ProjectImportPanel';
 import ProjectExportPanel from './ProjectExportPanel';
 import DataExportPanel from './DataExportPanel';
+import GdtfImportPanel from './GdtfImportPanel';
 
 /**
  * Section ids on the Import / Export page. Used as DOM ids and as values of
  * the `?section=` query parameter. Add new sections here and in the
  * `sections` list below.
  */
-export type ImportExportSectionId = 'import' | 'export' | 'data';
+export type ImportExportSectionId = 'import' | 'fixtures' | 'export' | 'data';
 
 export const IMPORT_EXPORT_SECTION_IDS: ReadonlyArray<ImportExportSectionId> = [
   'import',
+  'fixtures',
   'export',
   'data',
 ];
@@ -60,8 +62,8 @@ interface SectionDefinition {
 }
 
 /**
- * The Import / Export page: project import, project export and CSV / Excel
- * data export, each in its own card.
+ * The Import / Export page: project import, GDTF fixture definition import,
+ * project export and CSV / Excel data export, each in its own card.
  */
 export default function ImportExportPage() {
   const searchParams = useSearchParams();
@@ -107,6 +109,13 @@ export default function ImportExportPage() {
           onSwitchToProject={refetchAndSelectById}
         />
       ),
+    },
+    {
+      id: 'fixtures',
+      title: 'Fixture definitions (GDTF)',
+      description:
+        'Add fixture types from GDTF files. Imported definitions are available in every project.',
+      content: <GdtfImportPanel />,
     },
     {
       id: 'export',

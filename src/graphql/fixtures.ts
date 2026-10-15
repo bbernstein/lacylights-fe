@@ -151,6 +151,40 @@ export const IMPORT_OFL_FIXTURE = gql`
   }
 `;
 
+/**
+ * Import GDTF fixture types. Each entry is the `description.xml` of one
+ * `.gdtf` file, unzipped in the browser (see `src/lib/importExport/gdtf.ts`).
+ * Every file is imported on its own; a failed file does not fail the others.
+ * The frontend sends batches of `GDTF_BATCH_SIZE` files to show progress.
+ */
+export const IMPORT_GDTF_FIXTURES = gql`
+  mutation ImportGdtfFixtures($files: [GdtfFileInput!]!, $options: GdtfImportOptions) {
+    importGdtfFixtures(files: $files, options: $options) {
+      results {
+        fileName
+        status
+        definition {
+          id
+          manufacturer
+          model
+          source
+          sourceVersion
+        }
+        manufacturer
+        model
+        modeCount
+        warnings
+        error
+      }
+      createdCount
+      updatedCount
+      unchangedCount
+      skippedCount
+      failedCount
+    }
+  }
+`;
+
 export const GET_PROJECT_FIXTURES = gql`
   query GetProjectFixtures($projectId: ID!) {
     project(id: $projectId) {
