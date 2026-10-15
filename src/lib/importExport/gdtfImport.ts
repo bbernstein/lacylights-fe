@@ -14,7 +14,7 @@ import {
 } from '@/generated/graphql';
 import { noteGdtfImportError } from './backendCompat';
 import { toCsv } from './csv';
-import { GDTF_BATCH_SIZE, batches, type GdtfCollectError, type GdtfDescription } from './gdtf';
+import { GDTF_BATCH_SIZE, gdtfBatches, type GdtfCollectError, type GdtfDescription } from './gdtf';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyApolloClient = ApolloClient<any>;
@@ -170,7 +170,7 @@ export async function runGdtfImport(
   descriptions: ReadonlyArray<GdtfDescription>,
   { onExisting, batchSize = GDTF_BATCH_SIZE, onProgress }: RunGdtfImportOptions,
 ): Promise<RunGdtfImportResult> {
-  const groups = batches(descriptions, batchSize);
+  const groups = gdtfBatches(descriptions, batchSize);
   const total = descriptions.length;
   const rows: GdtfImportRow[] = [];
   let processed = 0;

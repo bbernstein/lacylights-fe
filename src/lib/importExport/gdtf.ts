@@ -42,6 +42,12 @@ export const GDTF_MAX_NESTING_DEPTH = 2;
 export const GDTF_MAX_NESTED_ARCHIVE_BYTES = 512 * 1024 * 1024;
 /** Files sent per `importGdtfFixtures` request. */
 export const GDTF_BATCH_SIZE = 25;
+
+/**
+ * Upper bound on the description.xml text sent in one request (64 MB, the
+ * same cap the MCP tool uses). A single larger file is sent on its own.
+ */
+export const GDTF_BATCH_MAX_CHARS = 64 * 1024 * 1024;
 /** `accept` attribute for GDTF file pickers. */
 export const GDTF_ACCEPT = '.gdtf,.zip';
 
@@ -147,6 +153,37 @@ export function batches<T>(list: ReadonlyArray<T>, size: number = GDTF_BATCH_SIZ
   for (let i = 0; i < list.length; i += size) {
     out.push(list.slice(i, i + size));
   }
+  return out;
+}
+
+/**
+ * Group descriptions into import requests of at most `maxFiles` files and
+ * about `maxChars` characters of XML (string length; an approximation of the
+ * request size). A description larger than `maxChars` gets a batch of its
+ * own. Order is preserved.
+ */
+export function gdtfBatches<T extends { descriptionXml: string }>(
+  list: ReadonlyArray<T>,
+  maxFiles: number = GDTF_BATCH_SIZE,
+  maxChars: number = GDTF_BATCH_MAX_CHARS,
+): T[][] {
+  if (!Number.isInteger(maxFiles) || maxFiles < 1) {
+    throw new RangeError(`Batch size must be a positive integer, got ${maxFiles}`);
+  }
+  const out: T[][] = [];
+  let current: T[] = [];
+  let chars = 0;
+  for (const item of list) {
+    const size = item.descriptionXml.length;
+    if (current.length > 0 && (current.length >= maxFiles || chars + size > maxChars)) {
+      out.push(current);
+      current = [];
+      chars = 0;
+    }
+    current.push(item);
+    chars += size;
+  }
+  if (current.length > 0) out.push(current);
   return out;
 }
 

@@ -5,6 +5,7 @@ import {
   GDTF_MAX_ARCHIVE_ENTRIES,
   GDTF_MAX_DESCRIPTION_BYTES,
   batches,
+  gdtfBatches,
   collectGdtfDescriptions,
   filesFromDataTransfer,
   gdtfInputFileName,
@@ -293,5 +294,33 @@ describe('filesFromDataTransfer', () => {
       } as unknown as DataTransfer),
     ).toEqual([f]);
     expect(await filesFromDataTransfer(null)).toEqual([]);
+  });
+});
+
+describe('gdtfBatches', () => {
+  const d = (name: string, size: number) => ({ fileName: name, descriptionXml: 'x'.repeat(size) });
+
+  it('splits by file count', () => {
+    const list = Array.from({ length: 5 }, (_, i) => d(`f${i}`, 1));
+    expect(gdtfBatches(list, 2, 1000).map(b => b.map(x => x.fileName))).toEqual([
+      ['f0', 'f1'], ['f2', 'f3'], ['f4'],
+    ]);
+  });
+
+  it('splits by total XML size', () => {
+    const list = [d('a', 40), d('b', 40), d('c', 40)];
+    expect(gdtfBatches(list, 25, 100).map(b => b.map(x => x.fileName))).toEqual([['a', 'b'], ['c']]);
+  });
+
+  it('sends an oversized description on its own', () => {
+    const list = [d('small', 10), d('huge', 500), d('tail', 10)];
+    expect(gdtfBatches(list, 25, 100).map(b => b.map(x => x.fileName))).toEqual([
+      ['small'], ['huge'], ['tail'],
+    ]);
+  });
+
+  it('handles empty input and rejects bad sizes', () => {
+    expect(gdtfBatches([])).toEqual([]);
+    expect(() => gdtfBatches([d('a', 1)], 0)).toThrow(RangeError);
   });
 });
