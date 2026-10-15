@@ -85,6 +85,22 @@ describe('colorConversion', () => {
       expect(result.intensity).toBe(1.0);
     });
 
+    it('ignores COLOR_TEMPERATURE, HUE, SATURATION and SPEED channels in RGB preview math', () => {
+      const base = { minValue: 0, maxValue: 255, defaultValue: 0, fadeBehavior: FadeBehavior.FADE, isDiscrete: false };
+      const channels = [
+        { ...base, id: '1', type: ChannelType.RED, value: 255, offset: 0, name: 'Red' },
+        { ...base, id: '2', type: ChannelType.GREEN, value: 0, offset: 1, name: 'Green' },
+        { ...base, id: '3', type: ChannelType.BLUE, value: 0, offset: 2, name: 'Blue' },
+        { ...base, id: '4', type: ChannelType.COLOR_TEMPERATURE, value: 255, offset: 3, name: 'CCT' },
+        { ...base, id: '5', type: ChannelType.HUE, value: 255, offset: 4, name: 'Hue' },
+        { ...base, id: '6', type: ChannelType.SATURATION, value: 255, offset: 5, name: 'Saturation' },
+        { ...base, id: '7', type: ChannelType.SPEED, value: 255, offset: 6, name: 'Speed' },
+      ];
+
+      const result = channelValuesToRgb(channels);
+      expect(result).toEqual({ r: 255, g: 0, b: 0, intensity: 1.0 });
+    });
+
     it('returns black for empty channels', () => {
       const result = channelValuesToRgb([]);
       expect(result).toEqual({ r: 0, g: 0, b: 0, intensity: 1.0 });
@@ -304,6 +320,14 @@ describe('colorConversion', () => {
       expect(COLOR_CHANNEL_TYPES).toContain(ChannelType.RED);
       expect(COLOR_CHANNEL_TYPES).toContain(ChannelType.GREEN);
       expect(COLOR_CHANNEL_TYPES).toContain(ChannelType.BLUE);
+    });
+
+    it('does not treat COLOR_TEMPERATURE, HUE, SATURATION or SPEED as RGB mixing channels', () => {
+      const types = COLOR_CHANNEL_TYPES as readonly ChannelType[];
+      expect(types).not.toContain(ChannelType.COLOR_TEMPERATURE);
+      expect(types).not.toContain(ChannelType.HUE);
+      expect(types).not.toContain(ChannelType.SATURATION);
+      expect(types).not.toContain(ChannelType.SPEED);
     });
 
     it('exports white channel intensity factor', () => {

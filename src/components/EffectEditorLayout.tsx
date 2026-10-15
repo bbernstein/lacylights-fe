@@ -47,7 +47,8 @@ import { FixtureInstance } from '@/types';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import WaveformPreview from './WaveformPreview';
 // Helper function to get CSS colors for channel types
-function getChannelTypeColor(type: ChannelType): string {
+// Exported for unit testing.
+export function getChannelTypeColor(type: ChannelType): string {
   switch (type) {
     case ChannelType.Red:
       return '#ef4444';
@@ -69,6 +70,8 @@ function getChannelTypeColor(type: ChannelType): string {
       return '#ec4899';
     case ChannelType.Yellow:
       return '#eab308';
+    case ChannelType.ColorTemperature:
+      return '#fde68a';
     case ChannelType.Intensity:
       return '#9ca3af';
     default:
@@ -77,7 +80,8 @@ function getChannelTypeColor(type: ChannelType): string {
 }
 
 // Helper function to get abbreviation for channel types
-function getChannelTypeAbbreviation(type: ChannelType): string {
+// Exported for unit testing.
+export function getChannelTypeAbbreviation(type: ChannelType): string {
   const map: Record<ChannelType, string> = {
     [ChannelType.Red]: 'R',
     [ChannelType.Green]: 'G',
@@ -92,10 +96,9 @@ function getChannelTypeAbbreviation(type: ChannelType): string {
     [ChannelType.Indigo]: 'In',
     [ChannelType.ColdWhite]: 'CW',
     [ChannelType.WarmWhite]: 'WW',
-    [ChannelType.ColorTemperature]: 'CT',
+    [ChannelType.ColorTemperature]: 'CCT',
     [ChannelType.Hue]: 'Hue',
     [ChannelType.Saturation]: 'Sat',
-    [ChannelType.Speed]: 'Spd',
     [ChannelType.Intensity]: 'Dim',
     [ChannelType.Pan]: 'Pan',
     [ChannelType.Tilt]: 'Tilt',
@@ -105,6 +108,7 @@ function getChannelTypeAbbreviation(type: ChannelType): string {
     [ChannelType.Gobo]: 'Gobo',
     [ChannelType.ColorWheel]: 'Whl',
     [ChannelType.Effect]: 'Fx',
+    [ChannelType.Speed]: 'Spd',
     [ChannelType.Strobe]: 'Str',
     [ChannelType.Macro]: 'Macro',
     [ChannelType.Other]: 'Other',
@@ -342,6 +346,9 @@ export default function EffectEditorLayout({ effectId, onClose }: EffectEditorLa
       ChannelType.Yellow,
       ChannelType.WarmWhite,
       ChannelType.ColdWhite,
+      ChannelType.ColorTemperature,
+      ChannelType.Hue,
+      ChannelType.Saturation,
     ];
 
     const types = Array.from(channelTypeInfo.keys());

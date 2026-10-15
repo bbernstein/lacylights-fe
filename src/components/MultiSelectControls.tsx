@@ -54,6 +54,9 @@ const COLOR_CHANNEL_TYPES = new Set([
   ChannelType.YELLOW,
   ChannelType.COLD_WHITE,
   ChannelType.WARM_WHITE,
+  ChannelType.COLOR_TEMPERATURE,
+  ChannelType.HUE,
+  ChannelType.SATURATION,
   ChannelType.COLOR_WHEEL,
 ]);
 
