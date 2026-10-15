@@ -805,4 +805,58 @@ describe('MultiSelectControls', () => {
       expect(screen.getByTestId('color-picker-modal')).toBeInTheDocument();
     });
   });
+
+  describe('Mobile channel grouping for color-adjacent channel types', () => {
+    beforeEach(() => {
+      mockUseIsMobile.mockReturnValue(true);
+    });
+
+    afterEach(() => {
+      mockUseIsMobile.mockReturnValue(false);
+    });
+
+    const makeChannel = (id: string, offset: number, name: string, type: ChannelType) => ({
+      id,
+      offset,
+      name,
+      type,
+      minValue: 0,
+      maxValue: 255,
+      defaultValue: 0,
+      fadeBehavior: FadeBehavior.FADE,
+      isDiscrete: false,
+    });
+
+    const cctHueSatFixture = {
+      ...mockFixture,
+      id: 'fixture-cct',
+      channelCount: 5,
+      channels: [
+        makeChannel('cct-1', 0, 'Red', ChannelType.RED),
+        makeChannel('cct-2', 1, 'Color Temperature', ChannelType.COLOR_TEMPERATURE),
+        makeChannel('cct-3', 2, 'Hue', ChannelType.HUE),
+        makeChannel('cct-4', 3, 'Saturation', ChannelType.SATURATION),
+        makeChannel('cct-5', 4, 'Speed', ChannelType.SPEED),
+      ],
+    } as FixtureInstance;
+
+    it('groups COLOR_TEMPERATURE, HUE and SATURATION under Color Channels and SPEED under Other Channels', () => {
+      const fixtureValues = new Map([[cctHueSatFixture.id, [255, 128, 64, 32, 16]]]);
+
+      render(
+        <MultiSelectControls
+          selectedFixtures={[cctHueSatFixture]}
+          fixtureValues={fixtureValues}
+          onBatchedChannelChanges={mockOnBatchedChannelChanges}
+          onDebouncedPreviewUpdate={mockOnDebouncedPreviewUpdate}
+          onDeselectAll={mockOnDeselectAll}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('mobile-expand'));
+
+      expect(screen.getByText('Color Channels (4)')).toBeInTheDocument();
+      expect(screen.getByText('Other Channels (1)')).toBeInTheDocument();
+    });
+  });
 });
