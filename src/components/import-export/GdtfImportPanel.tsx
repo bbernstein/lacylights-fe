@@ -234,7 +234,11 @@ export default function GdtfImportPanel() {
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragActive(false);
-    if (!tryLock()) return;
+    // Ignore drops without files (text, links) so earlier results stay.
+    const dt = e.dataTransfer;
+    const hasFiles =
+      (dt?.files?.length ?? 0) > 0 || Array.from(dt?.items ?? []).some((item) => item.kind === 'file');
+    if (!hasFiles || !tryLock()) return;
     // Show the panel as busy while dropped folders are enumerated.
     startReading(0);
     // Entries must be taken during the event; filesFromDataTransfer does.

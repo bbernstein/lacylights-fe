@@ -304,6 +304,16 @@ describe('GdtfImportPanel', () => {
     });
   });
 
+  it('ignores drops without files and keeps earlier results', async () => {
+    renderPanel([]);
+    chooseFiles([gdtfFile('Kept')]);
+    expect(await screen.findByTestId('gdtf-found')).toHaveTextContent('Found 1 fixture type to import.');
+    fireEvent.drop(screen.getByTestId('gdtf-drop-zone'), {
+      dataTransfer: { files: [], items: [{ kind: 'string', webkitGetAsEntry: () => null }] },
+    });
+    expect(screen.getByTestId('gdtf-found')).toHaveTextContent('Found 1 fixture type to import.');
+  });
+
   it('says when nothing importable was found', async () => {
     renderPanel([]);
     chooseFiles([new File(['x'], 'readme.txt')]);

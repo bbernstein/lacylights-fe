@@ -294,7 +294,7 @@ function readDescription(data: Uint8Array, info: UnzipFileInfo, index: number): 
   );
   // GDTF descriptions are UTF-8. Drop a byte order mark so the server's XML
   // parser sees the declaration first.
-  return strFromU8(bytes).replace(/^﻿/, '');
+  return strFromU8(bytes).replace(/^\uFEFF/, '');
 }
 
 /** Directories and macOS metadata inside an archive. */
@@ -305,12 +305,16 @@ function skipEntry(name: string): boolean {
 // Yield to the browser now and then so progress can render while large
 // archives are read (but not per entry: nested timers are clamped to 4 ms).
 const YIELD_INTERVAL_MS = 50;
-let lastYield = 0;
-async function maybeYield(): Promise<void> {
-  const now = Date.now();
-  if (now - lastYield < YIELD_INTERVAL_MS) return;
-  lastYield = now;
-  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+type Yielder = () => Promise<void>;
+/** A yield function with its own clock, one per collection. */
+function makeYielder(): Yielder {
+  let lastYield = Date.now();
+  return async () => {
+    const now = Date.now();
+    if (now - lastYield < YIELD_INTERVAL_MS) return;
+    lastYield = now;
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  };
 }
 
 /**
@@ -318,7 +322,13 @@ async function maybeYield(): Promise<void> {
  * GdtfArchiveError when the archive as a whole is unusable; problems with
  * single entries of a container are added to `out.errors` instead.
  */
-async function extract(data: Uint8Array, name: string, depth: number, out: GdtfCollectResult): Promise<void> {
+async function extract(
+  data: Uint8Array,
+  name: string,
+  depth: number,
+  out: GdtfCollectResult,
+  maybeYield: Yielder,
+): Promise<void> {
   if (depth > GDTF_MAX_NESTING_DEPTH) throw new GdtfArchiveError(GDTF_ERROR_MESSAGES.nestingTooDeep);
   const entries = listEntries(data);
 
@@ -339,7 +349,7 @@ async function extract(data: Uint8Array, name: string, depth: number, out: GdtfC
         throw new GdtfArchiveError(GDTF_ERROR_MESSAGES.nestingTooDeep);
       }
       const inner = inflateEntry(data, entry, i, GDTF_MAX_NESTED_ARCHIVE_BYTES, GDTF_ERROR_MESSAGES.nestedTooLarge);
-      await extract(inner, entryName, depth + 1, out);
+      await extract(inner, entryName, depth + 1, out, maybeYield);
     } catch (error) {
       out.errors.push({ fileName: entryName, message: errorMessage(error) });
     }
@@ -367,6 +377,7 @@ export async function collectGdtfDescriptions(
   options: CollectGdtfOptions = {},
 ): Promise<GdtfCollectResult> {
   const out: GdtfCollectResult = { descriptions: [], errors: [], ignored: [] };
+  const maybeYield = makeYielder();
   const total = files.length;
   let processed = 0;
   for (const f of files) {
@@ -378,7 +389,7 @@ export async function collectGdtfDescriptions(
     } else {
       try {
         const data = await readBytes(isPathFile(f) ? f.file : f);
-        await extract(data, name, 0, out);
+        await extract(data, name, 0, out, maybeYield);
       } catch (error) {
         out.errors.push({ fileName: name, message: errorMessage(error) });
       }
