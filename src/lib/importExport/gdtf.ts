@@ -44,10 +44,11 @@ export const GDTF_MAX_NESTED_ARCHIVE_BYTES = 512 * 1024 * 1024;
 export const GDTF_BATCH_SIZE = 25;
 
 /**
- * Upper bound on the description.xml text sent in one request (64 MB, the
- * same cap the MCP tool uses). A single larger file is sent on its own.
+ * Upper bound on the description.xml bytes (UTF-8) sent in one request
+ * (64 MB, the same cap the MCP tool uses). A single larger file is sent on
+ * its own.
  */
-export const GDTF_BATCH_MAX_CHARS = 64 * 1024 * 1024;
+export const GDTF_BATCH_MAX_BYTES = 64 * 1024 * 1024;
 /** `accept` attribute for GDTF file pickers. */
 export const GDTF_ACCEPT = '.gdtf,.zip';
 
@@ -157,31 +158,57 @@ export function batches<T>(list: ReadonlyArray<T>, size: number = GDTF_BATCH_SIZ
 }
 
 /**
+ * The UTF-8 encoded length of `s` in bytes, without allocating. Lone
+ * surrogates count as 3 bytes (U+FFFD), as TextEncoder encodes them.
+ */
+export function utf8ByteLength(s: string): number {
+  let bytes = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x80) {
+      bytes += 1;
+    } else if (c < 0x800) {
+      bytes += 2;
+    } else if (c >= 0xd800 && c <= 0xdbff && i + 1 < s.length) {
+      const next = s.charCodeAt(i + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        bytes += 4;
+        i++;
+      } else {
+        bytes += 3;
+      }
+    } else {
+      bytes += 3;
+    }
+  }
+  return bytes;
+}
+
+/**
  * Group descriptions into import requests of at most `maxFiles` files and
- * about `maxChars` characters of XML (string length; an approximation of the
- * request size). A description larger than `maxChars` gets a batch of its
- * own. Order is preserved.
+ * `maxBytes` bytes of UTF-8 encoded XML. A description larger than
+ * `maxBytes` gets a batch of its own. Order is preserved.
  */
 export function gdtfBatches<T extends { descriptionXml: string }>(
   list: ReadonlyArray<T>,
   maxFiles: number = GDTF_BATCH_SIZE,
-  maxChars: number = GDTF_BATCH_MAX_CHARS,
+  maxBytes: number = GDTF_BATCH_MAX_BYTES,
 ): T[][] {
   if (!Number.isInteger(maxFiles) || maxFiles < 1) {
     throw new RangeError(`Batch size must be a positive integer, got ${maxFiles}`);
   }
   const out: T[][] = [];
   let current: T[] = [];
-  let chars = 0;
+  let bytes = 0;
   for (const item of list) {
-    const size = item.descriptionXml.length;
-    if (current.length > 0 && (current.length >= maxFiles || chars + size > maxChars)) {
+    const size = utf8ByteLength(item.descriptionXml);
+    if (current.length > 0 && (current.length >= maxFiles || bytes + size > maxBytes)) {
       out.push(current);
       current = [];
-      chars = 0;
+      bytes = 0;
     }
     current.push(item);
-    chars += size;
+    bytes += size;
   }
   if (current.length > 0) out.push(current);
   return out;
@@ -374,10 +401,26 @@ function readDirectoryBatch(reader: FileSystemDirectoryReader): Promise<FileSyst
   return new Promise((resolve, reject) => reader.readEntries(resolve, reject));
 }
 
-async function walkEntry(entry: FileSystemEntry, out: GdtfInputFile[]): Promise<void> {
+/** Files found in a drop, and the entries that could not be read. */
+export interface GdtfDroppedFiles {
+  files: GdtfInputFile[];
+  errors: GdtfCollectError[];
+}
+
+function entryPath(entry: FileSystemEntry): string {
+  return entry.fullPath.replace(/^\/+/, '') || entry.name;
+}
+
+// An unreadable entry (deleted, no permission) is recorded in out.errors and
+// its siblings are still visited.
+async function walkEntry(entry: FileSystemEntry, out: GdtfDroppedFiles): Promise<void> {
   if (entry.isFile) {
-    const file = await readEntryFile(entry as FileSystemFileEntry);
-    out.push({ file, path: entry.fullPath.replace(/^\/+/, '') || file.name });
+    try {
+      const file = await readEntryFile(entry as FileSystemFileEntry);
+      out.files.push({ file, path: entryPath(entry) || file.name });
+    } catch (error) {
+      out.errors.push({ fileName: entryPath(entry), message: errorMessage(error) });
+    }
     return;
   }
   if (entry.isDirectory) {
@@ -385,7 +428,13 @@ async function walkEntry(entry: FileSystemEntry, out: GdtfInputFile[]): Promise<
     const reader = (entry as FileSystemDirectoryEntry).createReader();
     // readEntries returns results in chunks; call until it returns none.
     for (;;) {
-      const chunk = await readDirectoryBatch(reader);
+      let chunk: FileSystemEntry[];
+      try {
+        chunk = await readDirectoryBatch(reader);
+      } catch (error) {
+        out.errors.push({ fileName: entryPath(entry), message: errorMessage(error) });
+        return;
+      }
       if (chunk.length === 0) break;
       for (const child of chunk) {
         await walkEntry(child, out);
@@ -399,19 +448,20 @@ async function walkEntry(entry: FileSystemEntry, out: GdtfInputFile[]): Promise<
  * "Fixtures/Foo.gdtf", as for a folder pick). Must be called from the drop
  * event handler: the entries are taken synchronously before the first await,
  * as browsers clear the DataTransfer once the event returns. Browsers
- * without `webkitGetAsEntry` get the plain file list.
+ * without `webkitGetAsEntry` get the plain file list. Entries that cannot be
+ * read are returned in `errors`; the rest of the drop is still collected.
  */
-export async function filesFromDataTransfer(dataTransfer: DataTransfer | null): Promise<GdtfInputFile[]> {
-  if (!dataTransfer) return [];
+export async function filesFromDataTransfer(dataTransfer: DataTransfer | null): Promise<GdtfDroppedFiles> {
+  if (!dataTransfer) return { files: [], errors: [] };
   const items = dataTransfer.items ? Array.from(dataTransfer.items).filter((i) => i.kind === 'file') : [];
   const entries = items.map((item) =>
     typeof item.webkitGetAsEntry === 'function' ? item.webkitGetAsEntry() : null,
   );
   const plainFiles = Array.from(dataTransfer.files ?? []);
   if (entries.length === 0 || entries.some((e) => !e)) {
-    return plainFiles;
+    return { files: plainFiles, errors: [] };
   }
-  const out: GdtfInputFile[] = [];
+  const out: GdtfDroppedFiles = { files: [], errors: [] };
   for (const entry of entries as FileSystemEntry[]) {
     await walkEntry(entry, out);
   }

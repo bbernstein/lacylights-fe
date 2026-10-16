@@ -26,6 +26,7 @@ import {
   rowsFromCollectErrors,
   runGdtfImport,
   summarizeGdtfRows,
+  type GdtfCollectError,
   type GdtfCollectResult,
   type GdtfImportRow,
   type GdtfInputFile,
@@ -150,6 +151,19 @@ export default function GdtfImportPanel() {
 
   const busy = phase === 'reading' || phase === 'importing';
 
+  // One operation at a time: dropping a folder, reading files and importing
+  // each hold this lock from the moment they start (before any await), so a
+  // second pick, drop or import cannot interleave and overwrite the panel.
+  const operationRef = useRef(false);
+  const tryLock = () => {
+    if (operationRef.current) return false;
+    operationRef.current = true;
+    return true;
+  };
+  const unlock = () => {
+    operationRef.current = false;
+  };
+
   // React does not know `webkitdirectory`; set it on the element directly.
   const setFolderInput = useCallback((el: HTMLInputElement | null) => {
     folderInputRef.current = el;
@@ -164,30 +178,45 @@ export default function GdtfImportPanel() {
     if (folderInputRef.current) folderInputRef.current.value = '';
   };
 
-  const readFiles = async (files: GdtfInputFile[]) => {
-    if (files.length === 0 || busy) return;
+  const startReading = (total: number) => {
     setPhase('reading');
     setError(null);
     setRows(null);
     setCollected(null);
-    setReadProgress({ done: 0, total: files.length });
+    setReadProgress({ done: 0, total });
+  };
+
+  // Reads files while holding the operation lock, and releases it.
+  // `unreadable` lists dropped entries that could not be opened; they are
+  // reported with the collection errors.
+  const readFilesLocked = async (files: GdtfInputFile[], unreadable: GdtfCollectError[] = []) => {
     try {
+      if (files.length === 0 && unreadable.length === 0) {
+        setPhase('idle');
+        return;
+      }
+      startReading(files.length);
       const result = await collectGdtfDescriptions(files, {
         onProgress: (done, total) => setReadProgress({ done, total }),
       });
-      setCollected(result);
+      setCollected({ ...result, errors: [...unreadable, ...result.errors] });
       setPhase('ready');
     } catch (err) {
       setError(formatErrorMessage(err, 'Could not read the selected files. Error:'));
       setPhase('idle');
     } finally {
       resetInputs();
+      unlock();
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
-    void readFiles(files);
+    if (files.length === 0 || !tryLock()) {
+      resetInputs();
+      return;
+    }
+    void readFilesLocked(files);
   };
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -205,16 +234,22 @@ export default function GdtfImportPanel() {
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragActive(false);
-    if (busy) return;
+    if (!tryLock()) return;
+    // Show the panel as busy while dropped folders are enumerated.
+    startReading(0);
     // Entries must be taken during the event; filesFromDataTransfer does.
     const pending = filesFromDataTransfer(e.dataTransfer);
     void pending
-      .then(readFiles)
-      .catch((err) => setError(formatErrorMessage(err, 'Could not read the dropped files. Error:')));
+      .then(({ files, errors }) => readFilesLocked(files, errors))
+      .catch((err) => {
+        setError(formatErrorMessage(err, 'Could not read the dropped files. Error:'));
+        setPhase('idle');
+        unlock();
+      });
   };
 
   const handleImport = async () => {
-    if (!collected || collected.descriptions.length === 0) return;
+    if (!collected || collected.descriptions.length === 0 || !tryLock()) return;
     setPhase('importing');
     setError(null);
     setImportProgress({ done: 0, total: collected.descriptions.length });
@@ -235,6 +270,8 @@ export default function GdtfImportPanel() {
       }
       setError(formatErrorMessage(err, 'Failed to import fixture definitions. Error:'));
       setPhase('ready');
+    } finally {
+      unlock();
     }
   };
 
@@ -360,7 +397,12 @@ export default function GdtfImportPanel() {
       </fieldset>
 
       <div aria-live="polite" className="space-y-2">
-        {phase === 'reading' && (
+        {phase === 'reading' && readProgress.total === 0 && (
+          <p className="text-sm text-gray-700 dark:text-gray-300" data-testid="gdtf-read-progress">
+            Looking for files…
+          </p>
+        )}
+        {phase === 'reading' && readProgress.total > 0 && (
           <>
             <p className="text-sm text-gray-700 dark:text-gray-300" data-testid="gdtf-read-progress">
               Reading files… {readProgress.done} of {readProgress.total}

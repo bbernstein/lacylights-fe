@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import { GraphQLError } from 'graphql';
 import { strToU8, zipSync } from 'fflate';
@@ -220,6 +220,88 @@ describe('GdtfImportPanel', () => {
     expect(await screen.findByTestId('gdtf-found')).toHaveTextContent('Found 1 fixture type to import.');
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
     expect(screen.queryByTestId('gdtf-found')).not.toBeInTheDocument();
+  });
+
+  describe('dropped folders', () => {
+    const fileEntry = (path: string, file: File) => ({
+      isFile: true,
+      isDirectory: false,
+      name: path.split('/').pop(),
+      fullPath: `/${path}`,
+      file: (resolve: (f: File) => void) => resolve(file),
+    });
+    const dropItems = (entry: unknown) => ({
+      items: [{ kind: 'file', webkitGetAsEntry: () => entry }],
+      files: [],
+    });
+
+    it('stays busy while a dropped folder is enumerated and ignores other input', async () => {
+      let release: (entries: unknown[]) => void = () => {};
+      const chunks: unknown[][] = [[fileEntry('Drop/Dropped.gdtf', gdtfFile('Dropped'))], []];
+      const folder = {
+        isFile: false,
+        isDirectory: true,
+        name: 'Drop',
+        fullPath: '/Drop',
+        createReader: () => ({
+          // The first chunk is held back until the test releases it.
+          readEntries: (resolve: (e: unknown[]) => void) => {
+            const next = chunks.shift() ?? [];
+            if (next.length > 0) release = () => resolve(next);
+            else resolve(next);
+          },
+        }),
+      };
+      renderPanel([]);
+      fireEvent.drop(screen.getByTestId('gdtf-drop-zone'), { dataTransfer: dropItems(folder) });
+
+      expect(await screen.findByText('Looking for files…')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Choose files' })).toBeDisabled();
+      // Another selection while enumerating is ignored.
+      chooseFiles([gdtfFile('Other')]);
+      fireEvent.drop(screen.getByTestId('gdtf-drop-zone'), { dataTransfer: { files: [gdtfFile('Third')] } });
+
+      await act(async () => release([]));
+      expect(await screen.findByTestId('gdtf-found')).toHaveTextContent('Found 1 fixture type to import.');
+      expect(screen.queryByText(/Other/)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Choose files' })).toBeEnabled();
+    });
+
+    it('reports unreadable dropped entries and imports the rest', async () => {
+      const files = [{ fileName: 'Drop/Good.gdtf', descriptionXml: xml('Good') }];
+      renderPanel([importMock(files, [fileResult('Drop/Good.gdtf')])]);
+      const folder = {
+        isFile: false,
+        isDirectory: true,
+        name: 'Drop',
+        fullPath: '/Drop',
+        createReader: () => {
+          const chunks: unknown[][] = [
+            [
+              {
+                isFile: true,
+                isDirectory: false,
+                name: 'Gone.gdtf',
+                fullPath: '/Drop/Gone.gdtf',
+                file: (_ok: unknown, fail: (e: Error) => void) => fail(new Error('NotFoundError')),
+              },
+              fileEntry('Drop/Good.gdtf', gdtfFile('Good')),
+            ],
+            [],
+          ];
+          return { readEntries: (resolve: (e: unknown[]) => void) => resolve(chunks.shift() ?? []) };
+        },
+      };
+      fireEvent.drop(screen.getByTestId('gdtf-drop-zone'), { dataTransfer: dropItems(folder) });
+
+      expect(await screen.findByTestId('gdtf-found')).toHaveTextContent(
+        'Found 1 fixture type to import. 1 file could not be read.',
+      );
+      expect(screen.getByTestId('gdtf-read-errors')).toHaveTextContent('Drop/Gone.gdtf');
+      fireEvent.click(screen.getByRole('button', { name: 'Import 1 fixture type' }));
+      const results = await screen.findByTestId('gdtf-results');
+      expect(within(results).getByTestId('gdtf-summary')).toHaveTextContent('Created: 1Updated: 0Unchanged: 0Skipped: 0Failed: 1');
+    });
   });
 
   it('says when nothing importable was found', async () => {

@@ -226,14 +226,16 @@ render(
   `dataExportTables`, look / cue list / look board picker, workbook export).
 - `GdtfImportPanel` ("Fixture definitions (GDTF)"): Choose files
   (`.gdtf,.zip`), Choose folder (`webkitdirectory`, set via ref) and drag and
-  drop (dropped folders expanded with `webkitGetAsEntry`). Files are unzipped
+  drop (dropped folders expanded with `webkitGetAsEntry`; unreadable entries
+  become read errors). One operation at a time (lock taken before the first
+  await). Files are unzipped
   in the browser with `fflate` (`src/lib/importExport/gdtf.ts`,
   `collectGdtfDescriptions`; limits mirror lacylights-go
   `internal/services/gdtf/archive.go`: 2000 entries per archive,
   description.xml <= 32 MB, nested depth <= 2, `__MACOSX/` and `._*`
   skipped, names like `outer.zip/dir/Foo.gdtf`) and only description.xml is
-  sent to `IMPORT_GDTF_FIXTURES` in sequential batches of 25
-  (`runGdtfImport` in `gdtfImport.ts`, which evicts
+  sent to `IMPORT_GDTF_FIXTURES` in sequential batches of at most 25 files
+  and 64 MB of UTF-8 XML (`GDTF_BATCH_MAX_BYTES`) (`runGdtfImport` in `gdtfImport.ts`, which evicts
   `ROOT_QUERY.fixtureDefinitions` afterwards so pickers reload). Results
   table + CSV (`csv.ts`). Backends without the mutation show "update
   LacyLights" (`GDTF_IMPORT_FEATURE`, `useGdtfImportUnsupported`).

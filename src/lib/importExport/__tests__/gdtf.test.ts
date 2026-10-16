@@ -6,6 +6,7 @@ import {
   GDTF_MAX_DESCRIPTION_BYTES,
   batches,
   gdtfBatches,
+  utf8ByteLength,
   collectGdtfDescriptions,
   filesFromDataTransfer,
   gdtfInputFileName,
@@ -277,23 +278,63 @@ describe('filesFromDataTransfer', () => {
       webkitGetAsEntry: () => entry,
     }));
     const result = await filesFromDataTransfer({ items, files: [] } as unknown as DataTransfer);
-    expect(result).toEqual([
+    expect(result).toEqual({
+      files: [
+        { file: a, path: 'Fixtures/A.gdtf' },
+        { file: b, path: 'Fixtures/sub/B.zip' },
+        { file: loose, path: 'C.gdtf' },
+      ],
+      errors: [],
+    });
+  });
+
+  it('records unreadable entries and keeps reading their siblings', async () => {
+    const a = new File(['a'], 'A.gdtf');
+    const c = new File(['c'], 'C.gdtf');
+    const unreadable = {
+      isFile: true,
+      isDirectory: false,
+      name: 'README',
+      fullPath: '/Fixtures/README',
+      file: (_resolve: unknown, reject: (e: Error) => void) => reject(new Error('NotFoundError')),
+    };
+    const brokenDir = {
+      isFile: false,
+      isDirectory: true,
+      name: 'locked',
+      fullPath: '/Fixtures/locked',
+      createReader: () => ({
+        readEntries: (_resolve: unknown, reject: (e: Error) => void) => reject(new Error('SecurityError')),
+      }),
+    };
+    const folder = dirEntry('/Fixtures', [
+      fileEntry('/Fixtures/A.gdtf', a),
+      unreadable,
+      brokenDir,
+      fileEntry('/Fixtures/C.gdtf', c),
+    ]);
+    const items = [{ kind: 'file', webkitGetAsEntry: () => folder }];
+    const result = await filesFromDataTransfer({ items, files: [] } as unknown as DataTransfer);
+    expect(result.files).toEqual([
       { file: a, path: 'Fixtures/A.gdtf' },
-      { file: b, path: 'Fixtures/sub/B.zip' },
-      { file: loose, path: 'C.gdtf' },
+      { file: c, path: 'Fixtures/C.gdtf' },
+    ]);
+    expect(result.errors).toEqual([
+      { fileName: 'Fixtures/README', message: expect.stringContaining('NotFoundError') },
+      { fileName: 'Fixtures/locked', message: expect.stringContaining('SecurityError') },
     ]);
   });
 
   it('falls back to the plain file list', async () => {
     const f = new File(['a'], 'A.gdtf');
-    expect(await filesFromDataTransfer({ files: [f] } as unknown as DataTransfer)).toEqual([f]);
+    expect(await filesFromDataTransfer({ files: [f] } as unknown as DataTransfer)).toEqual({ files: [f], errors: [] });
     expect(
       await filesFromDataTransfer({
         items: [{ kind: 'file', webkitGetAsEntry: () => null }],
         files: [f],
       } as unknown as DataTransfer),
-    ).toEqual([f]);
-    expect(await filesFromDataTransfer(null)).toEqual([]);
+    ).toEqual({ files: [f], errors: [] });
+    expect(await filesFromDataTransfer(null)).toEqual({ files: [], errors: [] });
   });
 });
 
@@ -312,6 +353,13 @@ describe('gdtfBatches', () => {
     expect(gdtfBatches(list, 25, 100).map(b => b.map(x => x.fileName))).toEqual([['a', 'b'], ['c']]);
   });
 
+  it('counts UTF-8 bytes, not string length', () => {
+    // 40 three-byte characters are 120 bytes: each needs its own batch of 100.
+    const wide = (name: string) => ({ fileName: name, descriptionXml: '€'.repeat(40) });
+    expect(gdtfBatches([wide('a'), wide('b')], 25, 100).map(b => b.map(x => x.fileName))).toEqual([['a'], ['b']]);
+    expect(gdtfBatches([wide('a'), wide('b')], 25, 240).map(b => b.map(x => x.fileName))).toEqual([['a', 'b']]);
+  });
+
   it('sends an oversized description on its own', () => {
     const list = [d('small', 10), d('huge', 500), d('tail', 10)];
     expect(gdtfBatches(list, 25, 100).map(b => b.map(x => x.fileName))).toEqual([
@@ -322,5 +370,15 @@ describe('gdtfBatches', () => {
   it('handles empty input and rejects bad sizes', () => {
     expect(gdtfBatches([])).toEqual([]);
     expect(() => gdtfBatches([d('a', 1)], 0)).toThrow(RangeError);
+  });
+});
+
+describe('utf8ByteLength', () => {
+  it('matches the UTF-8 encoding length', () => {
+    const samples = ['', 'abc', 'é', '€', '😀', 'a€😀é', '\ud800', 'x\udc00y', '\ud800\ud800'];
+    for (const sample of samples) {
+      // Buffer encodes lone surrogates as U+FFFD, as TextEncoder does.
+      expect(utf8ByteLength(sample)).toBe(Buffer.byteLength(sample, 'utf8'));
+    }
   });
 });
