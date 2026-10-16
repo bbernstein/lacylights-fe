@@ -235,5 +235,40 @@ describe('channelMerging', () => {
       expect(priorities).toContain(ChannelType.TILT);
       expect(priorities).toContain(ChannelType.OTHER);
     });
+
+    it('should include COLOR_TEMPERATURE, HUE, SATURATION after UV and SPEED after EFFECT', () => {
+      const priorities = getPriorityChannelTypes();
+      const uvIndex = priorities.indexOf(ChannelType.UV);
+      const panIndex = priorities.indexOf(ChannelType.PAN);
+      const effectIndex = priorities.indexOf(ChannelType.EFFECT);
+
+      expect(priorities.indexOf(ChannelType.COLOR_TEMPERATURE)).toBe(uvIndex + 1);
+      expect(priorities.indexOf(ChannelType.HUE)).toBe(uvIndex + 2);
+      expect(priorities.indexOf(ChannelType.SATURATION)).toBe(uvIndex + 3);
+      expect(panIndex).toBe(uvIndex + 4);
+      expect(priorities.indexOf(ChannelType.SPEED)).toBe(effectIndex + 1);
+    });
+
+    it('should sort new channel types between color and position channels', () => {
+      const channels: MergedChannel[] = [
+        { name: 'Speed', type: ChannelType.SPEED } as MergedChannel,
+        { name: 'Pan', type: ChannelType.PAN } as MergedChannel,
+        { name: 'Saturation', type: ChannelType.SATURATION } as MergedChannel,
+        { name: 'Hue', type: ChannelType.HUE } as MergedChannel,
+        { name: 'CCT', type: ChannelType.COLOR_TEMPERATURE } as MergedChannel,
+        { name: 'Red', type: ChannelType.RED } as MergedChannel,
+      ];
+
+      const sorted = sortMergedChannels(channels).map((c) => c.type);
+
+      expect(sorted).toEqual([
+        ChannelType.RED,
+        ChannelType.COLOR_TEMPERATURE,
+        ChannelType.HUE,
+        ChannelType.SATURATION,
+        ChannelType.PAN,
+        ChannelType.SPEED,
+      ]);
+    });
   });
 });

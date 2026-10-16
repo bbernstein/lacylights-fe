@@ -89,6 +89,13 @@ describe('dmxPercentage', () => {
   });
 
   describe('isPercentageChannel', () => {
+    it('returns true for continuous COLOR_TEMPERATURE, HUE, SATURATION and SPEED channels', () => {
+      expect(isPercentageChannel(ChannelType.COLOR_TEMPERATURE)).toBe(true);
+      expect(isPercentageChannel(ChannelType.HUE)).toBe(true);
+      expect(isPercentageChannel(ChannelType.SATURATION)).toBe(true);
+      expect(isPercentageChannel(ChannelType.SPEED)).toBe(true);
+    });
+
     it('returns true for intensity channels', () => {
       expect(isPercentageChannel(ChannelType.INTENSITY)).toBe(true);
     });

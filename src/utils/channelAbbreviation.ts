@@ -82,6 +82,9 @@ function getChannelTypeAbbreviation(type: ChannelType): string {
     [ChannelType.INDIGO]: 'In',
     [ChannelType.COLD_WHITE]: 'ClW',
     [ChannelType.WARM_WHITE]: 'WW',
+    [ChannelType.COLOR_TEMPERATURE]: 'CT',
+    [ChannelType.HUE]: 'Hu',
+    [ChannelType.SATURATION]: 'Sa',
     [ChannelType.INTENSITY]: 'Di',
     [ChannelType.PAN]: 'P',
     [ChannelType.TILT]: 'T',
@@ -91,6 +94,7 @@ function getChannelTypeAbbreviation(type: ChannelType): string {
     [ChannelType.GOBO]: 'Go',
     [ChannelType.COLOR_WHEEL]: 'Whl',
     [ChannelType.EFFECT]: 'Fx',
+    [ChannelType.SPEED]: 'Sp',
     [ChannelType.STROBE]: 'St',
     [ChannelType.MACRO]: 'Ma',
     [ChannelType.OTHER]: '' // Handle separately
