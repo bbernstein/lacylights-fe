@@ -52,8 +52,13 @@ export function useFixtureModels({ onCompleted }: UseFixtureModelsOptions = {}) 
     onCompletedRef.current?.(definitions);
   }, []);
 
+  // On a failed request, clear the list rather than keep showing the
+  // previous manufacturer's models.
+  const handleFailed = useCallback(() => setModels([]), []);
+
   const [runLegacy, { loading: loadingLegacy }] = useLazyQuery(GET_MODELS_LEGACY, {
     onCompleted: handleLoaded,
+    onError: handleFailed,
   });
 
   const [runCurrent, { loading: loadingCurrent }] = useLazyQuery(GET_MODELS, {
@@ -62,7 +67,10 @@ export function useFixtureModels({ onCompleted }: UseFixtureModelsOptions = {}) 
       const unsupported =
         isUnknownFieldError(error, 'source', 'FixtureDefinition') ||
         isUnknownFieldError(error, 'sourceVersion', 'FixtureDefinition');
-      if (!unsupported) return;
+      if (!unsupported) {
+        handleFailed();
+        return;
+      }
       markFeatureUnsupported(client, FIXTURE_SOURCE_FEATURE);
       if (lastVariables.current) {
         void runLegacy({ variables: lastVariables.current });

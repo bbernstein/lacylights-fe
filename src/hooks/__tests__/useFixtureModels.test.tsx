@@ -88,6 +88,47 @@ describe('useFixtureModels', () => {
   });
 });
 
+describe('useFixtureModels failed requests', () => {
+  it('clears the previous models when a later request fails', async () => {
+    const defs = [{ id: 'a', model: 'Aura', source: 'OFL', sourceVersion: null, modes: [] }];
+    const { result } = renderHook(() => useFixtureModels(), {
+      wrapper: wrapperFor([
+        { request: { query: GET_MODELS, variables: { manufacturer: 'Martin' } }, result: { data: { fixtureDefinitions: defs } } },
+        { request: { query: GET_MODELS, variables: { manufacturer: 'Chauvet' } }, error: new Error('offline') },
+      ]),
+    });
+
+    act(() => {
+      void result.current.loadModels({ variables: { manufacturer: 'Martin' } });
+    });
+    await waitFor(() => expect(result.current.models).toEqual(defs));
+
+    act(() => {
+      void result.current.loadModels({ variables: { manufacturer: 'Chauvet' } });
+    });
+    await waitFor(() => expect(result.current.models).toEqual([]));
+  });
+
+  it('clears the models when the legacy request fails', async () => {
+    const { result } = renderHook(() => useFixtureModels(), {
+      wrapper: wrapperFor([
+        unknownSourceError('Martin'),
+        legacyMock('Martin', 'Aura'),
+        { request: { query: GET_MODELS_LEGACY, variables: { manufacturer: 'Chauvet' } }, error: new Error('offline') },
+      ]),
+    });
+
+    act(() => {
+      void result.current.loadModels({ variables: { manufacturer: 'Martin' } });
+    });
+    await waitFor(() => expect(result.current.models).toEqual(legacyDefs('Aura')));
+    act(() => {
+      void result.current.loadModels({ variables: { manufacturer: 'Chauvet' } });
+    });
+    await waitFor(() => expect(result.current.models).toEqual([]));
+  });
+});
+
 describe('useFixtureSourcePrecedence', () => {
   it('returns the default order when skipped', () => {
     const { result } = renderHook(() => useFixtureSourcePrecedence({ skip: true }), { wrapper: wrapperFor([]) });
