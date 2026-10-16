@@ -205,3 +205,40 @@ export async function queryWithLegacyMutationFallback<
   });
   return pickField<TResult>(data, legacy.field);
 }
+
+// ---------------------------------------------------------------------------
+// GDTF fixture import
+// ---------------------------------------------------------------------------
+
+/** Feature key for `Mutation.importGdtfFixtures`. */
+export const GDTF_IMPORT_FEATURE = 'gdtfImport';
+
+/** Shown instead of the GDTF import controls when the backend is too old. */
+export const GDTF_IMPORT_UNSUPPORTED_MESSAGE =
+  "This server version doesn't support GDTF fixture import; update LacyLights.";
+
+/** Input types the GDTF import Mutation declares as variables. */
+const GDTF_INPUT_TYPES = ['GdtfFileInput', 'GdtfImportOptions'] as const;
+
+/**
+ * True when `error` shows the backend has no GDTF import: it does not know
+ * `Mutation.importGdtfFixtures`, or rejects the operation's variable types
+ * (`Unknown type "GdtfFileInput"`), which validation may report first.
+ */
+export function isGdtfImportUnsupportedError(error: unknown): boolean {
+  if (isUnknownFieldError(error, 'importGdtfFixtures', 'Mutation')) return true;
+  const messages = errorMessages(error);
+  return GDTF_INPUT_TYPES.some((type) => messages.some((m) => m.includes(`Unknown type "${type}"`)));
+}
+
+/**
+ * If `error` shows the backend has no GDTF import, remember that for the
+ * client and return true. Otherwise return false.
+ */
+export function noteGdtfImportError(client: AnyApolloClient | null | undefined, error: unknown): boolean {
+  if (!isGdtfImportUnsupportedError(error)) {
+    return false;
+  }
+  markFeatureUnsupported(client, GDTF_IMPORT_FEATURE);
+  return true;
+}
