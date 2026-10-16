@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import { GraphQLError } from 'graphql';
@@ -206,5 +206,75 @@ describe('AddFixtureModal fixture sources', () => {
     expect(await screen.findByRole('option', { name: 'Std (14 channels)' })).toBeInTheDocument();
     expect(screen.queryByTestId('selected-model-source')).not.toBeInTheDocument();
     expect(screen.queryByTestId('fixture-source-badge')).not.toBeInTheDocument();
+  });
+
+  describe('when the stored precedence arrives late', () => {
+    const delayedPrecedenceMock = (order: FixtureSource[]): MockedResponse => ({
+      ...precedenceMock(order),
+      delay: 300,
+    });
+
+    it('applies duplicate defaults only once the order is final, never keeping another definition\'s mode', async () => {
+      // "My Mode" exists only on the USER definition, which is preferred by
+      // the default order. The stored order prefers OFL.
+      renderModal(
+        [
+          projectFixturesMock,
+          modelsMock(auraModels),
+          delayedPrecedenceMock([FixtureSource.OFL, FixtureSource.USER, FixtureSource.BUILTIN]),
+        ],
+        { initialModel: 'Aura', initialMode: 'My Mode' },
+      );
+
+      // Nothing is pre-selected while the precedence is loading.
+      await screen.findByLabelText('Model');
+      expect(screen.queryByTestId('selected-model-source')).not.toBeInTheDocument();
+
+      await waitFor(() => {
+        const source = screen.getByTestId('selected-model-source');
+        expect(within(source).getByTestId('fixture-source-badge')).toHaveAttribute('data-source', 'OFL');
+      });
+      // The OFL definition has no "My Mode", so no mode is selected: the
+      // selection state, not just the rendered <select>, must be cleared.
+      expect(screen.getByLabelText('Mode')).toHaveValue('');
+      expect(screen.getByTitle('Select a mode first')).toBeDisabled();
+      expect(screen.queryByRole('option', { name: /My Mode/ })).not.toBeInTheDocument();
+    });
+
+    it('selects the initial mode on the finally preferred definition', async () => {
+      renderModal(
+        [
+          projectFixturesMock,
+          modelsMock(auraModels),
+          delayedPrecedenceMock([FixtureSource.OFL, FixtureSource.USER, FixtureSource.BUILTIN]),
+        ],
+        { initialModel: 'Aura', initialMode: 'OFL Standard' },
+      );
+
+      await waitFor(() => expect(screen.getByLabelText('Mode')).toHaveValue('ofl-mode'));
+    });
+
+    it('does not overwrite a model the user picked while the precedence was loading', async () => {
+      renderModal(
+        [
+          projectFixturesMock,
+          modelsMock(auraModels),
+          delayedPrecedenceMock([FixtureSource.OFL, FixtureSource.USER, FixtureSource.BUILTIN]),
+        ],
+        { initialModel: 'Aura' },
+      );
+
+      await userEvent.click(screen.getByLabelText('Model'));
+      await waitFor(() => expect(optionButtons().length).toBeGreaterThan(0));
+      await userEvent.click(screen.getByRole('button', { name: 'Aura Source: Built-in' }));
+
+      // Let the precedence response arrive, then confirm it was applied.
+      await act(() => new Promise((resolve) => setTimeout(resolve, 400)));
+      await userEvent.click(screen.getByLabelText('Model'));
+      await waitFor(() => expect(optionButtons()[0]).toHaveTextContent('OFL'));
+      const source = screen.getByTestId('selected-model-source');
+      expect(within(source).getByTestId('fixture-source-badge')).toHaveAttribute('data-source', 'BUILTIN');
+      expect(screen.getByRole('option', { name: 'Built-in Basic (8 channels)' })).toBeInTheDocument();
+    });
   });
 });

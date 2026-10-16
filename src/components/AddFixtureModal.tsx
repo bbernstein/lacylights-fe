@@ -98,7 +98,9 @@ export default function AddFixtureModal({
   // source precedence order so the preferred one comes first and is the one
   // picked when selecting by model name. Precedence is only fetched when needed.
   const needsPrecedence = useMemo(() => hasDuplicateModels(loadedModels), [loadedModels]);
-  const { precedence } = useFixtureSourcePrecedence({ skip: !needsPrecedence });
+  const { precedence, loading: loadingPrecedence } = useFixtureSourcePrecedence({ skip: !needsPrecedence });
+  // The order is final once precedence is known (or not needed).
+  const modelOrderReady = !needsPrecedence || !loadingPrecedence;
   const models = useMemo(
     () => sortDefinitionsByPrecedence(loadedModels, precedence),
     [loadedModels, precedence],
@@ -166,25 +168,38 @@ export default function AddFixtureModal({
     }
   }, [isOpen, initialManufacturer, initialName, initialUniverse, getModels]);
 
+  // Duplicate defaults are applied once per opening, after the model order is
+  // final, and never over a model or mode the user already picked.
+  const initialSelectionAppliedRef = useRef(false);
+  const userSelectedRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen) {
+      initialSelectionAppliedRef.current = false;
+      userSelectedRef.current = false;
+    }
+  }, [isOpen]);
+
   // When models are loaded and we have an initial model, select it
   useEffect(() => {
+    if (initialSelectionAppliedRef.current || !modelOrderReady) return;
     if (models.length > 0 && initialModel) {
       const matchingModel = models.find(m => m.model === initialModel);
       if (matchingModel) {
+        initialSelectionAppliedRef.current = true;
+        if (userSelectedRef.current) return;
         setModel(initialModel);
         setSelectedDefinitionId(matchingModel.id);
         setSelectedModelData(matchingModel);
 
-        // If we have an initial mode, select it
-        if (initialMode) {
-          const matchingMode = matchingModel.modes.find(mode => mode.name === initialMode);
-          if (matchingMode) {
-            setSelectedModeId(matchingMode.id);
-          }
-        }
+        // Select the initial mode on this definition, or clear the mode so
+        // it can never point at another definition's mode.
+        const matchingMode = initialMode
+          ? matchingModel.modes.find(mode => mode.name === initialMode)
+          : undefined;
+        setSelectedModeId(matchingMode?.id ?? "");
       }
     }
-  }, [models, initialModel, initialMode]);
+  }, [models, initialModel, initialMode, modelOrderReady]);
 
   // Auto-focus and select the numFixtures field when duplicating
   useEffect(() => {
@@ -226,6 +241,7 @@ export default function AddFixtureModal({
   };
 
   const selectDefinition = (modelName: string, selectedModel: FixtureModelOption | undefined) => {
+    userSelectedRef.current = true;
     setModel(modelName);
     if (selectedModel) {
       setSelectedDefinitionId(selectedModel.id);
@@ -244,6 +260,7 @@ export default function AddFixtureModal({
   };
 
   const handleModeSelect = (modeId: string) => {
+    userSelectedRef.current = true;
     setSelectedModeId(modeId);
   };
 
