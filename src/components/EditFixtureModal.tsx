@@ -1,12 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLazyQuery, useMutation, useQuery } from '@apollo/client';
-import { GET_MANUFACTURERS, GET_MODELS, UPDATE_FIXTURE_INSTANCE, DELETE_FIXTURE_INSTANCE, GET_PROJECT_FIXTURES } from '@/graphql/fixtures';
+import { GET_MANUFACTURERS, UPDATE_FIXTURE_INSTANCE, DELETE_FIXTURE_INSTANCE, GET_PROJECT_FIXTURES } from '@/graphql/fixtures';
 import { FixtureInstance } from '@/types';
 import Autocomplete from './Autocomplete';
 import BottomSheet from './BottomSheet';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import { useFixtureModels, FixtureModelOption } from '@/hooks/useFixtureModels';
+import { useFixtureSourcePrecedence } from '@/hooks/useFixtureSourcePrecedence';
+import { hasDuplicateModels, sortDefinitionsByPrecedence } from '@/lib/fixtureSources';
+import ModelOptionLabel, { SelectedModelSource } from './ModelOptionLabel';
 
 interface EditFixtureModalProps {
   isOpen: boolean;
@@ -30,8 +34,7 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
   const [autoSelectChannel, setAutoSelectChannel] = useState(false);
 
   const [manufacturers, setManufacturers] = useState<string[]>([]);
-  const [models, setModels] = useState<Array<{ id: string; model: string; modes: Array<{ id: string; name: string; channelCount: number }> }>>([]);
-  const [selectedModelData, setSelectedModelData] = useState<{ id: string; model: string; modes: Array<{ id: string; name: string; channelCount: number }> } | null>(null);
+  const [selectedModelData, setSelectedModelData] = useState<FixtureModelOption | null>(null);
 
   // Get existing fixtures for overlap validation
   const { data: fixturesData } = useQuery(GET_PROJECT_FIXTURES, {
@@ -50,19 +53,27 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
     },
   });
 
-  const [getModels, { loading: loadingModels }] = useLazyQuery(GET_MODELS, {
-    onCompleted: (data) => {
-      setModels(data.fixtureDefinitions);
-      
+  const { loadModels: getModels, models: loadedModels, loading: loadingModels } = useFixtureModels({
+    onCompleted: (definitions) => {
       // If we're editing a fixture and this is for the current manufacturer, set the model data
       if (fixture && manufacturer === fixture.manufacturer) {
-        const currentModel = data.fixtureDefinitions.find((def: { id: string; model: string; modes: Array<{ id: string; name: string; channelCount: number }> }) => def.id === fixture.definitionId);
+        const currentModel = definitions.find((def) => def.id === fixture.definitionId);
         if (currentModel) {
           setSelectedModelData(currentModel);
         }
       }
     },
   });
+
+  // Same-model definitions (one per source) are listed in source precedence
+  // order; selecting by model name picks the preferred one. The fixture's own
+  // definition stays selected when the modal opens.
+  const needsPrecedence = useMemo(() => hasDuplicateModels(loadedModels), [loadedModels]);
+  const { precedence } = useFixtureSourcePrecedence({ skip: !needsPrecedence });
+  const models = useMemo(
+    () => sortDefinitionsByPrecedence(loadedModels, precedence),
+    [loadedModels, precedence],
+  );
 
   const [updateFixture, { loading: updating }] = useMutation(UPDATE_FIXTURE_INSTANCE, {
     onCompleted: () => {
@@ -117,13 +128,13 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
 
   // Set selectedModelData when models are loaded and we have a fixture
   useEffect(() => {
-    if (fixture && models.length > 0) {
-      const currentModel = models.find(m => m.id === fixture.definitionId);
+    if (fixture && loadedModels.length > 0) {
+      const currentModel = loadedModels.find(m => m.id === fixture.definitionId);
       if (currentModel) {
         setSelectedModelData(currentModel);
       }
     }
-  }, [models, fixture]);
+  }, [loadedModels, fixture]);
 
   const handleManufacturerSearch = (search: string) => {
     if (search) {
@@ -131,9 +142,18 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
     }
   };
 
+  // Select a model by name: the first match is the preferred source.
   const handleModelSelect = (modelName: string) => {
+    selectDefinition(modelName, models.find(m => m.model === modelName));
+  };
+
+  // Select a specific entry (definition) from the model list.
+  const handleModelOptionSelect = (modelName: string, index: number) => {
+    selectDefinition(modelName, models[index]);
+  };
+
+  const selectDefinition = (modelName: string, selectedModel: FixtureModelOption | undefined) => {
     setModel(modelName);
-    const selectedModel = models.find(m => m.model === modelName);
     if (selectedModel) {
       setSelectedDefinitionId(selectedModel.id);
       setSelectedModelData(selectedModel);
@@ -374,12 +394,17 @@ export default function EditFixtureModal({ isOpen, onClose, fixture, onFixtureUp
         label="Model"
         value={model}
         onChange={handleModelSelect}
+        onOptionSelect={handleModelOptionSelect}
         onInputChange={() => {}}
         options={models.map(m => m.model)}
+        renderOption={(option, index) => (
+          <ModelOptionLabel models={models} index={index} label={option} />
+        )}
         placeholder={manufacturer ? "Select model..." : "Select manufacturer first"}
         loading={loadingModels}
         required
       />
+      <SelectedModelSource models={models} selected={selectedModelData} />
 
       {selectedModelData && selectedModelData.modes.length > 0 && (
         <div>

@@ -7,6 +7,8 @@ export const GET_FIXTURE_DEFINITIONS = gql`
       manufacturer
       model
       type
+      source
+      sourceVersion
       modes {
         id
         name
@@ -24,8 +26,36 @@ export const GET_MANUFACTURERS = gql`
   }
 `;
 
+/**
+ * Models (one entry per fixture definition) for a manufacturer. Several
+ * definitions can share a model name, one per source (OFL, GDTF, a user's
+ * own definition, ...); `source` tells them apart. See
+ * `src/lib/fixtureSources.ts` for ordering them by the source precedence.
+ */
 export const GET_MODELS = gql`
   query GetModels($manufacturer: String!, $search: String) {
+    fixtureDefinitions(filter: { manufacturer: $manufacturer, model: $search }) {
+      id
+      model
+      source
+      sourceVersion
+      modes {
+        id
+        name
+        channelCount
+      }
+    }
+  }
+`;
+
+/**
+ * GET_MODELS without the source fields, for backends that predate fixture
+ * definition sources (they reject `FixtureDefinition.source`). Used by
+ * `useFixtureModels` as a fallback; such backends have at most one
+ * definition per manufacturer + model.
+ */
+export const GET_MODELS_LEGACY = gql`
+  query GetModelsLegacy($manufacturer: String!, $search: String) {
     fixtureDefinitions(filter: { manufacturer: $manufacturer, model: $search }) {
       id
       model
@@ -35,6 +65,24 @@ export const GET_MODELS = gql`
         channelCount
       }
     }
+  }
+`;
+
+/** Fixture sources in preference order, highest first. */
+export const GET_FIXTURE_SOURCE_PRECEDENCE = gql`
+  query GetFixtureSourcePrecedence {
+    fixtureSourcePrecedence
+  }
+`;
+
+/**
+ * Store the fixture source preference order (highest first). The backend
+ * appends sources left out (in default order), rejects duplicates and
+ * returns the stored order.
+ */
+export const SET_FIXTURE_SOURCE_PRECEDENCE = gql`
+  mutation SetFixtureSourcePrecedence($order: [FixtureSource!]!) {
+    setFixtureSourcePrecedence(order: $order)
   }
 `;
 

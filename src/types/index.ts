@@ -29,7 +29,30 @@ export interface FixtureDefinition {
   channels: ChannelDefinition[];
   modes: FixtureMode[];
   isBuiltIn: boolean;
+  /**
+   * Where this definition came from. Optional because backends that predate
+   * fixture sources (lacylights-go before fixture-source support) omit it.
+   */
+  source?: FixtureSource;
+  /** Identifier within the source (OFL key, GDTF FixtureTypeID, ...) */
+  sourceId?: string | null;
+  /** Version of the source library or file when imported */
+  sourceVersion?: string | null;
   createdAt: string;
+}
+
+/**
+ * Where a fixture definition came from. When several definitions share a
+ * manufacturer and model, the configured source precedence
+ * (`fixtureSourcePrecedence`) decides which one is preferred.
+ */
+export enum FixtureSource {
+  BUILTIN = "BUILTIN",
+  OFL = "OFL",
+  GDTF = "GDTF",
+  EOS = "EOS",
+  USER = "USER",
+  SYNTHESIZED = "SYNTHESIZED",
 }
 
 export interface FixtureMode {
@@ -571,6 +594,7 @@ export interface FixtureDefinitionFilter {
   type?: FixtureType;
   isBuiltIn?: boolean;
   channelTypes?: ChannelType[];
+  source?: FixtureSource;
 }
 
 export interface UpdateSettingInput {

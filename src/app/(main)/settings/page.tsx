@@ -7,6 +7,7 @@ import { Setting, UpdateSettingInput, NetworkInterfaceOption, SystemInfo } from 
 import WiFiSettings from './WiFiSettings';
 import VersionManagement from './VersionManagement';
 import OFLManagement from './OFLManagement';
+import FixtureSourcePrecedenceSettings from './FixtureSourcePrecedenceSettings';
 import ArtNetControl from './ArtNetControl';
 import UsersAccessSection from './UsersAccessSection';
 import { useDisplayMode } from '@/hooks/useDisplayMode';
@@ -355,6 +356,9 @@ export default function SettingsPage() {
       <div>
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Fixture Library</h2>
         <OFLManagement />
+        <div className="mt-6">
+          <FixtureSourcePrecedenceSettings />
+        </div>
       </div>
 
       {/* Version Management Section */}
