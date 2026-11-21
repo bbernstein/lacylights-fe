@@ -1,9 +1,14 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
+import { ApolloClient, InMemoryCache } from '@apollo/client';
+import { MockLink } from '@apollo/client/testing';
 import ProjectExportPanel from '../ProjectExportPanel';
+import { exportAndDownloadProject } from '@/lib/importExport';
 import {
   PROJECT_EXPORT,
   PROJECT_EXPORT_EOS,
+  PROJECT_EXPORT_QLC,
+  GET_QLC_FIXTURE_MAPPING_SUGGESTIONS,
 } from '@/graphql/projects';
 
 const projects = [
@@ -180,6 +185,57 @@ describe('ProjectExportPanel', () => {
     fireEvent.change(screen.getByLabelText('Project'), { target: { value: 'p2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Export as LacyLights (.json)' }));
     await waitFor(() => expect(download).toHaveBeenCalledWith('{"v":1}', 'Show Two.json'));
+  });
+
+  // QLC+ is hidden in the UI until the backend supports it (go#97), but the
+  // export logic is kept so it can be re-enabled; test it without the button.
+  it('exports QLC+ using the fixture mapping suggestions (hidden path, no UI button)', async () => {
+    const download = installBridge();
+    const mocks: MockedResponse[] = [
+      {
+        request: { query: GET_QLC_FIXTURE_MAPPING_SUGGESTIONS, variables: { projectId: 'p1' } },
+        result: {
+          data: {
+            getQLCFixtureMappingSuggestions: {
+              projectId: 'p1',
+              lacyLightsFixtures: [],
+              suggestions: [],
+              defaultMappings: [
+                { lacyLightsKey: 'A/B', qlcManufacturer: 'A', qlcModel: 'B', qlcMode: '8ch' },
+              ],
+            },
+          },
+        },
+      },
+      {
+        request: {
+          query: PROJECT_EXPORT_QLC,
+          variables: {
+            projectId: 'p1',
+            fixtureMappings: [
+              { lacyLightsKey: 'A/B', qlcManufacturer: 'A', qlcModel: 'B', qlcMode: '8ch' },
+            ],
+          },
+        },
+        result: {
+          data: {
+            projectExportQLC: {
+              projectName: 'Show One',
+              xmlContent: '<Workspace/>',
+              fixtureCount: 1,
+              lookCount: 0,
+              cueListCount: 0,
+            },
+          },
+        },
+      },
+    ];
+    const client = new ApolloClient({
+      link: new MockLink(mocks, false),
+      cache: new InMemoryCache({ addTypename: false }),
+    });
+    await exportAndDownloadProject(client, 'p1', 'qlcplus');
+    await waitFor(() => expect(download).toHaveBeenCalledWith('<Workspace/>', 'Show One.qxw'));
   });
 
   it('shows an error when the export fails', async () => {
