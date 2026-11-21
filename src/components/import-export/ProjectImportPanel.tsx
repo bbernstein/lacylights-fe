@@ -194,7 +194,10 @@ export default function ProjectImportPanel({
                 format === 'auto' ? ' (auto-detected)' : ''
               }.`
             : `Could not detect the format of ${file.name}. Choose a format above.`}
-          {format !== 'auto' && detectedFormat && detectedFormat !== format && (
+          {format !== 'auto' &&
+            detectedFormat &&
+            detectedFormat !== format &&
+            PROJECT_FORMATS[detectedFormat].available && (
             <span className="block text-amber-600 dark:text-amber-400">
               The file extension suggests {formatDisplayName(detectedFormat)}.
             </span>

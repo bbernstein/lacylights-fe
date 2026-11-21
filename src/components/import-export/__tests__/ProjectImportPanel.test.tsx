@@ -152,6 +152,13 @@ describe('ProjectImportPanel', () => {
     expect(screen.queryByRole('button', { name: 'Switch to imported project' })).not.toBeInTheDocument();
   });
 
+  it('does not show the extension hint for an unavailable detected format', () => {
+    renderPanel([]);
+    fireEvent.change(screen.getByLabelText('Format'), { target: { value: 'eos' } });
+    selectFile(makeFile('x', 'show.qxw'));
+    expect(screen.queryByText(/The file extension suggests/)).not.toBeInTheDocument();
+  });
+
   it('does not offer QLC+ in the Format dropdown', () => {
     renderPanel([]);
     const values = screen.getAllByRole('option').map((o) => (o as HTMLOptionElement).value);

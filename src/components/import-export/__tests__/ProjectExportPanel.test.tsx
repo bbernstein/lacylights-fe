@@ -1,7 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
+import { MockedProvider, MockLink, type MockedResponse } from '@apollo/client/testing';
 import { ApolloClient, InMemoryCache } from '@apollo/client';
-import { MockLink } from '@apollo/client/testing';
 import ProjectExportPanel from '../ProjectExportPanel';
 import { exportAndDownloadProject } from '@/lib/importExport';
 import {
