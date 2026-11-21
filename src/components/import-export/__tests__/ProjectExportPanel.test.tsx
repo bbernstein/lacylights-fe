@@ -4,8 +4,6 @@ import ProjectExportPanel from '../ProjectExportPanel';
 import {
   PROJECT_EXPORT,
   PROJECT_EXPORT_EOS,
-  PROJECT_EXPORT_QLC,
-  GET_QLC_FIXTURE_MAPPING_SUGGESTIONS,
 } from '@/graphql/projects';
 
 const projects = [
@@ -89,10 +87,10 @@ describe('ProjectExportPanel', () => {
     expect(screen.getByLabelText('Project')).toHaveValue('p2');
   });
 
-  it('offers the three formats with descriptions and Export buttons', () => {
+  it('offers the available formats with descriptions and Export buttons', () => {
     renderPanel([]);
     expect(screen.getByRole('button', { name: 'Export as LacyLights (.json)' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Export as QLC+ (.qxw)' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Export as QLC+ (.qxw)' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Export as ETC Eos ASCII (.asc)' })).toBeInTheDocument();
     expect(screen.getByText(/Native LacyLights project file/)).toBeInTheDocument();
   });
@@ -182,51 +180,6 @@ describe('ProjectExportPanel', () => {
     fireEvent.change(screen.getByLabelText('Project'), { target: { value: 'p2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Export as LacyLights (.json)' }));
     await waitFor(() => expect(download).toHaveBeenCalledWith('{"v":1}', 'Show Two.json'));
-  });
-
-  it('exports QLC+ using the fixture mapping suggestions', async () => {
-    const download = installBridge();
-    renderPanel([
-      {
-        request: { query: GET_QLC_FIXTURE_MAPPING_SUGGESTIONS, variables: { projectId: 'p1' } },
-        result: {
-          data: {
-            getQLCFixtureMappingSuggestions: {
-              projectId: 'p1',
-              lacyLightsFixtures: [],
-              suggestions: [],
-              defaultMappings: [
-                { lacyLightsKey: 'A/B', qlcManufacturer: 'A', qlcModel: 'B', qlcMode: '8ch' },
-              ],
-            },
-          },
-        },
-      },
-      {
-        request: {
-          query: PROJECT_EXPORT_QLC,
-          variables: {
-            projectId: 'p1',
-            fixtureMappings: [
-              { lacyLightsKey: 'A/B', qlcManufacturer: 'A', qlcModel: 'B', qlcMode: '8ch' },
-            ],
-          },
-        },
-        result: {
-          data: {
-            projectExportQLC: {
-              projectName: 'Show One',
-              xmlContent: '<Workspace/>',
-              fixtureCount: 1,
-              lookCount: 0,
-              cueListCount: 0,
-            },
-          },
-        },
-      },
-    ]);
-    fireEvent.click(screen.getByRole('button', { name: 'Export as QLC+ (.qxw)' }));
-    await waitFor(() => expect(download).toHaveBeenCalledWith('<Workspace/>', 'Show One.qxw'));
   });
 
   it('shows an error when the export fails', async () => {

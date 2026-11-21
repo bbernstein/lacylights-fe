@@ -3,7 +3,6 @@ import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import ProjectImportPanel from '../ProjectImportPanel';
 import {
   IMPORT_PROJECT,
-  IMPORT_PROJECT_FROM_QLC,
   IMPORT_PROJECT_FROM_EOS,
 } from '@/graphql/projects';
 
@@ -56,19 +55,18 @@ describe('ProjectImportPanel', () => {
     const items = screen.getAllByRole('listitem').map((li) => li.textContent);
     expect(items).toEqual([
       expect.stringMatching(/^LacyLights \(\.json\) – Native LacyLights project file/),
-      expect.stringMatching(/^QLC\+ \(\.qxw\) – QLC\+ workspace file/),
       expect.stringMatching(/^ETC Eos ASCII \(\.asc\) – ETC Eos show file/),
     ]);
     const options = screen.getAllByRole('option').map((o) => o.textContent);
-    expect(options).toEqual(['Auto-detect', 'LacyLights (.json)', 'QLC+ (.qxw)', 'ETC Eos ASCII (.asc)']);
+    expect(options).toEqual(['Auto-detect', 'LacyLights (.json)', 'ETC Eos ASCII (.asc)']);
   });
 
   it('accepts all formats in auto mode and narrows accept on override', () => {
     renderPanel([]);
     const input = screen.getByLabelText('Project file');
-    expect(input).toHaveAttribute('accept', '.json,.qxw,.asc');
-    fireEvent.change(screen.getByLabelText('Format'), { target: { value: 'qlcplus' } });
-    expect(input).toHaveAttribute('accept', '.qxw');
+    expect(input).toHaveAttribute('accept', '.json,.asc');
+    fireEvent.change(screen.getByLabelText('Format'), { target: { value: 'eos' } });
+    expect(input).toHaveAttribute('accept', '.asc');
   });
 
   it('disables Import until a file is chosen', () => {
@@ -154,38 +152,23 @@ describe('ProjectImportPanel', () => {
     expect(screen.queryByRole('button', { name: 'Switch to imported project' })).not.toBeInTheDocument();
   });
 
-  it('imports a QLC+ file and lists plain-text warnings', async () => {
-    renderPanel([
-      {
-        request: {
-          query: IMPORT_PROJECT_FROM_QLC,
-          variables: { xmlContent: '<Workspace/>', originalFileName: 'show.qxw' },
-        },
-        result: {
-          data: {
-            importProjectFromQLC: {
-              project: {
-                id: 'q1',
-                name: 'QLC Show',
-                description: null,
-                createdAt: '2026-01-01',
-                updatedAt: '2026-01-01',
-              },
-              originalFileName: 'show.qxw',
-              fixtureCount: 2,
-              lookCount: 1,
-              cueListCount: 0,
-              warnings: ['Unknown fixture skipped'],
-            },
-          },
-        },
-      },
-    ]);
-    selectFile(makeFile('<Workspace/>', 'show.qxw'));
+  it('does not offer QLC+ in the Format dropdown', () => {
+    renderPanel([]);
+    const values = screen.getAllByRole('option').map((o) => (o as HTMLOptionElement).value);
+    expect(values).not.toContain('qlcplus');
+  });
+
+  it('reports QLC+ as unavailable for a .qxw file in auto mode and never imports', async () => {
+    // No mocks: any import mutation would fail the MockedProvider lookup.
+    const file = makeFile('<Workspace/>', 'show.qxw');
+    renderPanel([]);
+    selectFile(file);
     fireEvent.click(screen.getByRole('button', { name: /^import$/i }));
-    expect(await screen.findByText('Unknown fixture skipped')).toBeInTheDocument();
-    expect(screen.getByText('Warnings (1)')).toBeInTheDocument();
-    expect(screen.getByTestId('import-result')).toHaveTextContent('Imported "QLC Show" from QLC+ (.qxw)');
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent("QLC+ (.qxw) import isn't available yet.");
+    expect(alert).not.toHaveTextContent(/Unable to determine file format/);
+    expect(file.text).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('import-result')).not.toBeInTheDocument();
   });
 
   it('imports a LacyLights JSON file', async () => {

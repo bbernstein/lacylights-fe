@@ -5,11 +5,13 @@ import { useApolloClient } from '@apollo/client';
 import { ArrowUpTrayIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import EosWarningsList from '@/components/EosWarningsList';
 import {
+  PROJECT_FORMATS,
   PROJECT_FORMAT_LIST,
   UNKNOWN_FORMAT_MESSAGE,
   acceptForImportFormat,
   detectFormatFromFilename,
   formatDisplayName,
+  unavailableFormatMessage,
   formatErrorMessage,
   importProjectContent,
   readFileAsText,
@@ -28,7 +30,7 @@ export interface ProjectImportPanelProps {
 }
 
 /**
- * Import a project file (LacyLights JSON, QLC+ .qxw or ETC Eos .asc).
+ * Import a project file (LacyLights JSON or ETC Eos .asc; QLC+ is hidden until the backend supports it).
  * The format is auto-detected from the file extension, with an explicit
  * override for when detection is wrong.
  */
@@ -66,6 +68,10 @@ export default function ProjectImportPanel({
     const target = resolveImportFormat(file.name, format);
     if (!target) {
       setError(UNKNOWN_FORMAT_MESSAGE);
+      return;
+    }
+    if (!PROJECT_FORMATS[target].available) {
+      setError(unavailableFormatMessage(target));
       return;
     }
 
