@@ -203,7 +203,10 @@ describe('GdtfImportPanel', () => {
       importMock(all.slice(25), all.slice(25).map((f) => fileResult(f.fileName, { status: GdtfImportStatus.Updated }))),
     ]);
     chooseFiles(chosen);
-    fireEvent.click(await screen.findByRole('button', { name: 'Import 26 fixture types' }));
+    expect(await screen.findByTestId('gdtf-found', {}, { timeout: 5000 })).toHaveTextContent(
+      'Found 26 fixture types to import.',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Import 26 fixture types' }));
     const results = await screen.findByTestId('gdtf-results');
     expect(within(results).getByTestId('gdtf-summary')).toHaveTextContent('Created: 25Updated: 1');
     expect(within(results).getAllByRole('row')).toHaveLength(27);

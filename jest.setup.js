@@ -12,8 +12,9 @@ global.IntersectionObserver = jest.fn().mockImplementation(() => ({
   disconnect: jest.fn(),
 }));
 
-// Mock matchMedia for tests that use useMediaQuery
-Object.defineProperty(window, 'matchMedia', {
+// Mock matchMedia for tests that use useMediaQuery (skipped in node-environment
+// tests, e.g. SSR tests, where window is undefined)
+if (typeof window !== 'undefined') Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: jest.fn().mockImplementation(query => ({
     matches: false,

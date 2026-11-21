@@ -17,7 +17,7 @@ A Next.js-based web frontend for the LacyLights theatre lighting control system.
 
 ## Prerequisites
 
-- Node.js 18+ 
+- Node.js 26+ 
 - npm or yarn
 - LacyLights backend server running on port 4000
 

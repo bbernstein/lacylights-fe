@@ -12,7 +12,7 @@ jobs:
     
     strategy:
       matrix:
-        node-version: [22.x, 24.x]
+        node-version: [26.x]
     
     steps:
     - name: Checkout repository
@@ -43,7 +43,7 @@ jobs:
     
     strategy:
       matrix:
-        node-version: [22.x, 24.x]
+        node-version: [26.x]
     
     steps:
     - name: Checkout repository
@@ -58,26 +58,11 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
-    - name: Build application (informational)
-      run: |
-        echo "Building Next.js application..."
-        if npm run build; then
-          echo "✅ Build successful"
-        else
-          echo "⚠️  Build failed - this indicates TypeScript/code quality issues"
-          echo "The CI demonstrates its ability to catch build problems"
-          echo "In production, these issues should be fixed before merging"
-          exit 0  # Don't fail CI for demo purposes, but show the issues
-        fi
-    
-    - name: Check build output
-      run: |
-        if [ -d ".next" ]; then
-          echo "✅ Next.js build output found"
-          ls -la .next/ | head -10
-        else
-          echo "ℹ️  Build output directory not found (expected if build failed)"
-        fi
+    - name: Build application
+      run: npm run build
+
+    - name: Build static export (RPi)
+      run: npm run build:static
 
   test:
     runs-on: ubuntu-latest
@@ -85,7 +70,7 @@ jobs:
     
     strategy:
       matrix:
-        node-version: [22.x, 24.x]
+        node-version: [26.x]
     
     steps:
     - name: Checkout repository
@@ -105,7 +90,7 @@ jobs:
 
     - name: Upload coverage reports
       uses: codecov/codecov-action@v5
-      if: matrix.node-version == '24.x'
+      if: matrix.node-version == '26.x'
       continue-on-error: true
       with:
         file: ./coverage/lcov.info
@@ -121,20 +106,19 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '24.x'
+        node-version: '26.x'
         cache: 'npm'
     
     - name: Install dependencies
       run: npm ci
     
-    - name: Run security audit
-      run: |
-        echo "Running npm audit..."
-        npm audit --audit-level moderate || {
-          echo "⚠️  Security vulnerabilities found. Please review and update dependencies."
-          echo "Run 'npm audit fix' to automatically fix issues."
-        }
-    
+    - name: Audit production dependencies (blocking)
+      run: npm audit --omit=dev --audit-level=high
+
+    - name: Audit all dependencies (report only)
+      run: npm audit --audit-level=moderate
+      continue-on-error: true
+
     - name: Check for outdated dependencies
       run: |
         echo "Checking for outdated dependencies..."

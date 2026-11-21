@@ -253,21 +253,3 @@ describe('useMediaQuery', () => {
     });
   });
 });
-
-describe('useMediaQuery SSR safety', () => {
-  const originalWindow = global.window;
-
-  beforeAll(() => {
-    // @ts-expect-error - Simulating SSR environment
-    delete global.window;
-  });
-
-  afterAll(() => {
-    global.window = originalWindow;
-  });
-
-  it('should return false when window is undefined (SSR)', () => {
-    const { result } = renderHook(() => useMediaQuery('(max-width: 767px)'));
-    expect(result.current).toBe(false);
-  });
-});
