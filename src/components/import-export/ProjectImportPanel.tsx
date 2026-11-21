@@ -56,6 +56,19 @@ export default function ProjectImportPanel({
   const detectedFormat = file ? detectFormatFromFilename(file.name) : null;
   const formatUnavailable = resolvedFormat !== null && !PROJECT_FORMATS[resolvedFormat].available;
 
+  let previewText = '';
+  if (file) {
+    if (resolvedFormat && formatUnavailable) {
+      previewText = unavailableFormatMessage(resolvedFormat);
+    } else if (resolvedFormat) {
+      previewText = `Will import ${file.name} as ${formatDisplayName(resolvedFormat)}${
+        format === 'auto' ? ' (auto-detected)' : ''
+      }.`;
+    } else {
+      previewText = `Could not detect the format of ${file.name}. Choose a format above.`;
+    }
+  }
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] ?? null;
     setFile(selected);
@@ -190,13 +203,7 @@ export default function ProjectImportPanel({
 
       {file && (
         <p className="text-sm text-gray-600 dark:text-gray-400" data-testid="import-detected-format">
-          {resolvedFormat && formatUnavailable
-            ? unavailableFormatMessage(resolvedFormat)
-            : resolvedFormat
-            ? `Will import ${file.name} as ${formatDisplayName(resolvedFormat)}${
-                format === 'auto' ? ' (auto-detected)' : ''
-              }.`
-            : `Could not detect the format of ${file.name}. Choose a format above.`}
+          {previewText}
           {format !== 'auto' &&
             detectedFormat &&
             detectedFormat !== format &&
