@@ -18,6 +18,8 @@ export interface ProjectFormatInfo {
   id: ProjectFileFormat;
   /** Human-readable name, e.g. "QLC+" */
   label: string;
+  /** Short name used in compact messages, e.g. "ETC Eos" */
+  shortLabel: string;
   /** File extension including the leading dot, e.g. ".qxw" */
   extension: string;
   /** MIME type used for downloads */
@@ -32,6 +34,7 @@ export const PROJECT_FORMATS: Record<ProjectFileFormat, ProjectFormatInfo> = {
   lacylights: {
     id: 'lacylights',
     label: 'LacyLights',
+    shortLabel: 'LacyLights',
     extension: '.json',
     mimeType: 'application/json',
     description:
@@ -41,6 +44,7 @@ export const PROJECT_FORMATS: Record<ProjectFileFormat, ProjectFormatInfo> = {
   qlcplus: {
     id: 'qlcplus',
     label: 'QLC+',
+    shortLabel: 'QLC+',
     extension: '.qxw',
     mimeType: 'application/xml',
     description:
@@ -50,6 +54,7 @@ export const PROJECT_FORMATS: Record<ProjectFileFormat, ProjectFormatInfo> = {
   eos: {
     id: 'eos',
     label: 'ETC Eos ASCII',
+    shortLabel: 'ETC Eos',
     extension: '.asc',
     mimeType: 'text/plain',
     description:
@@ -66,8 +71,12 @@ export const PROJECT_FORMAT_LIST: ProjectFormatInfo[] = [
 ].filter((f) => f.available);
 
 /** Error message shown when a file's format cannot be determined. */
-export const UNKNOWN_FORMAT_MESSAGE =
-  'Unable to determine file format. Supported formats: .asc (ETC Eos), .json (LacyLights).';
+export const UNKNOWN_FORMAT_MESSAGE = `Unable to determine file format. Supported formats: ${[
+  ...PROJECT_FORMAT_LIST,
+]
+  .sort((a, b) => a.extension.localeCompare(b.extension))
+  .map((f) => `${f.extension} (${f.shortLabel})`)
+  .join(', ')}.`;
 
 /**
  * Format a project format for display, e.g. "QLC+ (.qxw)".
@@ -118,6 +127,7 @@ export function resolveImportFormat(
 
 /**
  * Value for an `<input type="file" accept>` attribute for an import format.
+ * Per-format data is kept even for unavailable formats (e.g. `qlcplus` still returns `.qxw`); it is simply unreachable from the UI.
  */
 export function acceptForImportFormat(format: ImportFormat): string {
   if (format === 'auto') {

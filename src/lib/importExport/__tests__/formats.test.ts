@@ -91,6 +91,13 @@ describe('importExport/formats', () => {
       );
     });
 
+    it('mentions every available extension and not hidden ones in the unknown-format message', () => {
+      for (const f of PROJECT_FORMAT_LIST) {
+        expect(UNKNOWN_FORMAT_MESSAGE).toContain(f.extension);
+      }
+      expect(UNKNOWN_FORMAT_MESSAGE).not.toContain('.qxw');
+    });
+
     it('uses the expected MIME types', () => {
       expect(PROJECT_FORMATS.lacylights.mimeType).toBe('application/json');
       expect(PROJECT_FORMATS.qlcplus.mimeType).toBe('application/xml');
