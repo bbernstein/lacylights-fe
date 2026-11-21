@@ -5,6 +5,7 @@ import { useApolloClient } from '@apollo/client';
 import { ArrowUpTrayIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import EosWarningsList from '@/components/EosWarningsList';
 import {
+  PROJECT_FORMATS,
   PROJECT_FORMAT_LIST,
   UNKNOWN_FORMAT_MESSAGE,
   acceptForImportFormat,
@@ -14,6 +15,7 @@ import {
   importProjectContent,
   readFileAsText,
   resolveImportFormat,
+  unavailableFormatMessage,
   type ImportFormat,
   type ProjectImportResult,
 } from '@/lib/importExport';
@@ -28,7 +30,7 @@ export interface ProjectImportPanelProps {
 }
 
 /**
- * Import a project file (LacyLights JSON, QLC+ .qxw or ETC Eos .asc).
+ * Import a project file (LacyLights JSON or ETC Eos .asc; QLC+ is hidden until the backend supports it).
  * The format is auto-detected from the file extension, with an explicit
  * override for when detection is wrong.
  */
@@ -52,6 +54,20 @@ export default function ProjectImportPanel({
 
   const resolvedFormat = file ? resolveImportFormat(file.name, format) : null;
   const detectedFormat = file ? detectFormatFromFilename(file.name) : null;
+  const formatUnavailable = resolvedFormat !== null && !PROJECT_FORMATS[resolvedFormat].available;
+
+  let previewText = '';
+  if (file) {
+    if (resolvedFormat && formatUnavailable) {
+      previewText = unavailableFormatMessage(resolvedFormat);
+    } else if (resolvedFormat) {
+      previewText = `Will import ${file.name} as ${formatDisplayName(resolvedFormat)}${
+        format === 'auto' ? ' (auto-detected)' : ''
+      }.`;
+    } else {
+      previewText = `Could not detect the format of ${file.name}. Choose a format above.`;
+    }
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] ?? null;
@@ -66,6 +82,10 @@ export default function ProjectImportPanel({
     const target = resolveImportFormat(file.name, format);
     if (!target) {
       setError(UNKNOWN_FORMAT_MESSAGE);
+      return;
+    }
+    if (!PROJECT_FORMATS[target].available) {
+      setError(unavailableFormatMessage(target));
       return;
     }
 
@@ -183,12 +203,11 @@ export default function ProjectImportPanel({
 
       {file && (
         <p className="text-sm text-gray-600 dark:text-gray-400" data-testid="import-detected-format">
-          {resolvedFormat
-            ? `Will import ${file.name} as ${formatDisplayName(resolvedFormat)}${
-                format === 'auto' ? ' (auto-detected)' : ''
-              }.`
-            : `Could not detect the format of ${file.name}. Choose a format above.`}
-          {format !== 'auto' && detectedFormat && detectedFormat !== format && (
+          {previewText}
+          {format !== 'auto' &&
+            detectedFormat &&
+            detectedFormat !== format &&
+            PROJECT_FORMATS[detectedFormat].available && (
             <span className="block text-amber-600 dark:text-amber-400">
               The file extension suggests {formatDisplayName(detectedFormat)}.
             </span>
@@ -199,7 +218,7 @@ export default function ProjectImportPanel({
       <button
         type="button"
         onClick={handleImport}
-        disabled={!file || isImporting}
+        disabled={!file || isImporting || formatUnavailable}
         className="w-full sm:w-auto px-4 py-2 min-h-[44px] bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 touch-manipulation"
       >
         <ArrowUpTrayIcon className="h-4 w-4" aria-hidden="true" />

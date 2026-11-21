@@ -1,6 +1,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
+import { MockedProvider, MockLink, type MockedResponse } from '@apollo/client/testing';
+import { ApolloClient, InMemoryCache } from '@apollo/client';
 import ProjectExportPanel from '../ProjectExportPanel';
+import { exportAndDownloadProject } from '@/lib/importExport';
 import {
   PROJECT_EXPORT,
   PROJECT_EXPORT_EOS,
@@ -89,10 +91,10 @@ describe('ProjectExportPanel', () => {
     expect(screen.getByLabelText('Project')).toHaveValue('p2');
   });
 
-  it('offers the three formats with descriptions and Export buttons', () => {
+  it('offers the available formats with descriptions and Export buttons', () => {
     renderPanel([]);
     expect(screen.getByRole('button', { name: 'Export as LacyLights (.json)' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Export as QLC+ (.qxw)' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Export as QLC+ (.qxw)' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Export as ETC Eos ASCII (.asc)' })).toBeInTheDocument();
     expect(screen.getByText(/Native LacyLights project file/)).toBeInTheDocument();
   });
@@ -184,9 +186,11 @@ describe('ProjectExportPanel', () => {
     await waitFor(() => expect(download).toHaveBeenCalledWith('{"v":1}', 'Show Two.json'));
   });
 
-  it('exports QLC+ using the fixture mapping suggestions', async () => {
+  // QLC+ is hidden in the UI until the backend supports it (go#97), but the
+  // export logic is kept so it can be re-enabled; test it without the button.
+  it('exports QLC+ using the fixture mapping suggestions (hidden path, no UI button)', async () => {
     const download = installBridge();
-    renderPanel([
+    const mocks: MockedResponse[] = [
       {
         request: { query: GET_QLC_FIXTURE_MAPPING_SUGGESTIONS, variables: { projectId: 'p1' } },
         result: {
@@ -224,8 +228,12 @@ describe('ProjectExportPanel', () => {
           },
         },
       },
-    ]);
-    fireEvent.click(screen.getByRole('button', { name: 'Export as QLC+ (.qxw)' }));
+    ];
+    const client = new ApolloClient({
+      link: new MockLink(mocks, false),
+      cache: new InMemoryCache({ addTypename: false }),
+    });
+    await exportAndDownloadProject(client, 'p1', 'qlcplus');
     await waitFor(() => expect(download).toHaveBeenCalledWith('<Workspace/>', 'Show One.qxw'));
   });
 

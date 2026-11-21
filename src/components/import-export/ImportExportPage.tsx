@@ -99,7 +99,7 @@ export default function ImportExportPage() {
     {
       id: 'import',
       title: 'Import project',
-      description: 'Create a new project from a LacyLights, QLC+ or ETC Eos file.',
+      description: 'Create a new project from a LacyLights or ETC Eos file.',
       content: (
         <ProjectImportPanel
           currentProjectId={currentProject?.id ?? null}

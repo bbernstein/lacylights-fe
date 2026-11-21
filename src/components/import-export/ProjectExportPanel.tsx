@@ -26,7 +26,7 @@ export interface ProjectExportPanelProps {
 }
 
 /**
- * Export a project as LacyLights JSON, QLC+ or ETC Eos ASCII.
+ * Export a project as LacyLights JSON or ETC Eos ASCII (QLC+ is hidden until the backend supports it).
  * Each format is a card with a description and its own Export button so
  * more formats can be added later without changing the layout.
  */

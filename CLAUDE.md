@@ -221,7 +221,8 @@ render(
   `export` | `data`), `project`, and `table` / `scopeId` (data export preselection).
 - Panels: `ProjectImportPanel` (auto-detect + explicit format override,
   results, "Switch to imported project"), `ProjectExportPanel`
-  (project picker, LacyLights JSON / QLC+ / ETC Eos ASCII) and
+  (project picker, LacyLights JSON / ETC Eos ASCII; QLC+ is hidden until
+  go#91/go#97 via `available: false` in `src/lib/importExport/formats.ts`) and
   `DataExportPanel` (CSV / Excel export of a data list, table picker from
   `dataExportTables`, look / cue list / look board picker, workbook export).
 - `GdtfImportPanel` ("Fixture definitions (GDTF)"): Choose files

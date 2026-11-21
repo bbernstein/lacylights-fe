@@ -5,6 +5,8 @@ import {
   detectFormatFromFilename,
   formatDisplayName,
   resolveImportFormat,
+  unavailableFormatMessage,
+  UNKNOWN_FORMAT_MESSAGE,
 } from '../formats';
 
 describe('importExport/formats', () => {
@@ -44,12 +46,12 @@ describe('importExport/formats', () => {
 
   describe('acceptForImportFormat', () => {
     it('accepts all extensions for auto', () => {
-      expect(acceptForImportFormat('auto')).toBe('.json,.qxw,.asc');
+      expect(acceptForImportFormat('auto')).toBe('.json,.asc');
     });
 
     it('accepts a single extension for an explicit format', () => {
       expect(acceptForImportFormat('lacylights')).toBe('.json');
-      expect(acceptForImportFormat('qlcplus')).toBe('.qxw');
+      expect(acceptForImportFormat('qlcplus')).toBe('.qxw'); // explicit override still maps (UI-only hiding)
       expect(acceptForImportFormat('eos')).toBe('.asc');
     });
   });
@@ -62,11 +64,38 @@ describe('importExport/formats', () => {
     });
 
     it('lists every format once, LacyLights first', () => {
-      expect(PROJECT_FORMAT_LIST.map((f) => f.id)).toEqual(['lacylights', 'qlcplus', 'eos']);
+      expect(PROJECT_FORMAT_LIST.map((f) => f.id)).toEqual(['lacylights', 'eos']);
       for (const f of PROJECT_FORMAT_LIST) {
         expect(PROJECT_FORMATS[f.id]).toBe(f);
         expect(f.description.length).toBeGreaterThan(0);
       }
+    });
+
+    it('marks QLC+ as unavailable and the others available', () => {
+      expect(PROJECT_FORMATS.lacylights.available).toBe(true);
+      expect(PROJECT_FORMATS.eos.available).toBe(true);
+      expect(PROJECT_FORMATS.qlcplus.available).toBe(false);
+    });
+
+    it('builds the unavailable-format message', () => {
+      expect(unavailableFormatMessage('qlcplus')).toBe("QLC+ (.qxw) import isn't available yet.");
+    });
+
+    it('still detects .qxw even though QLC+ is hidden', () => {
+      expect(detectFormatFromFilename('show.qxw')).toBe('qlcplus');
+    });
+
+    it('lists only available formats in the unknown-format message', () => {
+      expect(UNKNOWN_FORMAT_MESSAGE).toBe(
+        'Unable to determine file format. Supported formats: .asc (ETC Eos), .json (LacyLights).',
+      );
+    });
+
+    it('mentions every available extension and not hidden ones in the unknown-format message', () => {
+      for (const f of PROJECT_FORMAT_LIST) {
+        expect(UNKNOWN_FORMAT_MESSAGE).toContain(f.extension);
+      }
+      expect(UNKNOWN_FORMAT_MESSAGE).not.toContain('.qxw');
     });
 
     it('uses the expected MIME types', () => {
