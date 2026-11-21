@@ -54,6 +54,7 @@ export default function ProjectImportPanel({
 
   const resolvedFormat = file ? resolveImportFormat(file.name, format) : null;
   const detectedFormat = file ? detectFormatFromFilename(file.name) : null;
+  const formatUnavailable = resolvedFormat !== null && !PROJECT_FORMATS[resolvedFormat].available;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] ?? null;
@@ -189,7 +190,9 @@ export default function ProjectImportPanel({
 
       {file && (
         <p className="text-sm text-gray-600 dark:text-gray-400" data-testid="import-detected-format">
-          {resolvedFormat
+          {resolvedFormat && formatUnavailable
+            ? unavailableFormatMessage(resolvedFormat)
+            : resolvedFormat
             ? `Will import ${file.name} as ${formatDisplayName(resolvedFormat)}${
                 format === 'auto' ? ' (auto-detected)' : ''
               }.`
@@ -208,7 +211,7 @@ export default function ProjectImportPanel({
       <button
         type="button"
         onClick={handleImport}
-        disabled={!file || isImporting}
+        disabled={!file || isImporting || formatUnavailable}
         className="w-full sm:w-auto px-4 py-2 min-h-[44px] bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 touch-manipulation"
       >
         <ArrowUpTrayIcon className="h-4 w-4" aria-hidden="true" />

@@ -76,9 +76,9 @@ describe('ProjectImportPanel', () => {
 
   it('shows the auto-detected format for the selected file', () => {
     renderPanel([]);
-    selectFile(makeFile('x', 'show.qxw'));
+    selectFile(makeFile('x', 'show.asc'));
     expect(screen.getByTestId('import-detected-format')).toHaveTextContent(
-      'Will import show.qxw as QLC+ (.qxw) (auto-detected).',
+      'Will import show.asc as ETC Eos ASCII (.asc) (auto-detected).',
     );
   });
 
@@ -165,16 +165,19 @@ describe('ProjectImportPanel', () => {
     expect(values).not.toContain('qlcplus');
   });
 
-  it('reports QLC+ as unavailable for a .qxw file in auto mode and never imports', async () => {
+  it('shows the unavailable message in the preview and disables Import for a .qxw file in auto mode', () => {
     // No mocks: any import mutation would fail the MockedProvider lookup.
     const file = makeFile('<Workspace/>', 'show.qxw');
     renderPanel([]);
     selectFile(file);
-    fireEvent.click(screen.getByRole('button', { name: /^import$/i }));
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent("QLC+ (.qxw) import isn't available yet.");
-    expect(alert).not.toHaveTextContent(/Unable to determine file format/);
+    const preview = screen.getByTestId('import-detected-format');
+    expect(preview).toHaveTextContent("QLC+ (.qxw) import isn't available yet.");
+    expect(preview).not.toHaveTextContent(/Will import/);
+    const button = screen.getByRole('button', { name: /^import$/i });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
     expect(file.text).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByTestId('import-result')).not.toBeInTheDocument();
   });
 
