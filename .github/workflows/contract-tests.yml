@@ -65,7 +65,7 @@ jobs:
           path: backend
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           # Follow the backend's own Go version (lacylights-go needs 1.25+).
           go-version-file: backend/go.mod
