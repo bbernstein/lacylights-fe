@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout frontend repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Determine backend branch
         id: backend-branch
@@ -58,7 +58,7 @@ jobs:
           fi
 
       - name: Checkout backend repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: bbernstein/lacylights-go
           ref: ${{ steps.backend-branch.outputs.branch }}
